@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
+
+# Env
+.env
+.env.local
+
+# Data — gitignored because cached pulls may exceed repo size and may
+# carry provider ToS constraints. Keep .gitkeep so dirs exist.
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Reports output artifacts (images/csv) — keep the markdown writeups in-repo
+reports/figures/
+reports/tables/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
