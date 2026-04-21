@@ -27,7 +27,7 @@ CORE_XSTOCKS: tuple[XStock, ...] = (
     XStock("SPYx",  "SPY"),
     XStock("QQQx",  "QQQ"),
     XStock("GOOGLx", "GOOGL"),
-    XStock("APPLx", "AAPL"),
+    XStock("AAPLx", "AAPL"),
     XStock("NVDAx", "NVDA"),
     XStock("TSLAx", "TSLA"),
     XStock("MSTRx", "MSTR"),
