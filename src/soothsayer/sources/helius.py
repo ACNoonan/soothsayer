@@ -23,12 +23,38 @@ endpoint for remaining credits.
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Callable, Iterator
+from typing import Any, TypeVar
 
 import requests
 
 from ..config import HELIUS_API_KEY, helius_rpc_url
+
+T = TypeVar("T")
+
+
+def _with_retry(fn: Callable[[], T], *, attempts: int = 6, base_delay: float = 1.0) -> T:
+    """Retry fn() on transient errors: timeouts, connection resets, 429s, and 5xx responses."""
+    last_exc: Exception | None = None
+    for i in range(attempts):
+        try:
+            return fn()
+        except (requests.Timeout, requests.ConnectionError) as e:
+            last_exc = e
+        except requests.HTTPError as e:
+            if e.response is not None and (
+                e.response.status_code == 429
+                or 500 <= e.response.status_code < 600
+            ):
+                last_exc = e
+            else:
+                raise
+        if i == attempts - 1:
+            assert last_exc is not None
+            raise last_exc
+        time.sleep(base_delay * (2**i))
+    assert last_exc is not None
+    raise last_exc
 
 RPC_URL = helius_rpc_url()
 ENHANCED_BASE = "https://api.helius.xyz/v0"
@@ -56,18 +82,22 @@ def _throttle_das() -> None:
 
 
 def rpc(method: str, params: list[Any] | None = None) -> Any:
-    """Single JSON-RPC call. Raises on any `error` field."""
-    _throttle_rpc()
-    r = requests.post(
-        RPC_URL,
-        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or []},
-        timeout=30,
-    )
-    r.raise_for_status()
-    body = r.json()
-    if "error" in body:
-        raise RuntimeError(f"RPC error {method}: {body['error']}")
-    return body.get("result")
+    """Single JSON-RPC call. Raises on any `error` field. Retries on transient network errors."""
+
+    def _call() -> Any:
+        _throttle_rpc()
+        r = requests.post(
+            RPC_URL,
+            json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or []},
+            timeout=30,
+        )
+        r.raise_for_status()
+        body = r.json()
+        if "error" in body:
+            raise RuntimeError(f"RPC error {method}: {body['error']}")
+        return body.get("result")
+
+    return _with_retry(_call)
 
 
 def get_signatures_for_address(
@@ -154,7 +184,6 @@ def enhanced_address_transactions(
     `tx_type` e.g. 'SWAP', 'TRANSFER'
     Helius caps `limit` at 100 per call.
     """
-    _throttle_das()
     params: dict[str, Any] = {"api-key": HELIUS_API_KEY, "limit": limit}
     if before:
         params["before"] = before
@@ -164,13 +193,18 @@ def enhanced_address_transactions(
         params["source"] = source
     if tx_type:
         params["type"] = tx_type
-    r = requests.get(
-        f"{ENHANCED_BASE}/addresses/{address}/transactions",
-        params=params,
-        timeout=30,
-    )
-    r.raise_for_status()
-    return r.json()
+
+    def _call() -> list[dict]:
+        _throttle_das()
+        r = requests.get(
+            f"{ENHANCED_BASE}/addresses/{address}/transactions",
+            params=params,
+            timeout=30,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    return _with_retry(_call)
 
 
 def paginate_enhanced_transactions(

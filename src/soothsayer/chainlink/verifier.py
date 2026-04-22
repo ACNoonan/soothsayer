@@ -59,22 +59,28 @@ class ParsedVerify:
 
 
 def parse_verify_return_data(return_data: list | dict | str | None) -> ParsedVerify | None:
-    """Extract the decoded report from `meta.returnData` of a Verifier tx.
+    """Extract the decoded report from `meta.returnData` of a Verifier-touching tx.
 
     Solana JSON-RPC's `returnData` shape: `{'programId': str, 'data': [base64_str, 'base64']}`.
     Helius sometimes returns `[program_id, [base64_str, 'base64']]` list form. Handle both.
-    Returns None if no return data or if it's from a non-Verifier program.
+
+    Note on programId: when the Verifier is CPI'd by an outer program (e.g. Kamino's
+    Scope oracle `HFn8GnPADiny6XqUoWE8uRPPxb29ikn4yTuPa9MF2fWJ`) and that outer program
+    also calls `set_return_data` to forward the Verifier's bytes upward, the
+    transaction-level `meta.returnData.programId` ends up as the **outer program**, not
+    the Verifier. The payload is byte-identical in either case, so we don't filter on
+    programId here; the caller is expected to validate the decoded report (schema,
+    feed_id) before trusting it.
     """
     if return_data is None:
         return None
     if isinstance(return_data, dict):
-        program_id = return_data.get("programId")
         data_field = return_data.get("data")
     elif isinstance(return_data, list) and len(return_data) == 2:
-        program_id, data_field = return_data
+        _, data_field = return_data
     else:
         return None
-    if program_id != VERIFIER_PROGRAM_ID or not data_field:
+    if not data_field:
         return None
     if isinstance(data_field, list) and len(data_field) >= 1:
         raw_b64 = data_field[0]

@@ -1728,6 +1728,7 @@ dependencies = [
     { name = "seaborn" },
     { name = "solders" },
     { name = "statsmodels" },
+    { name = "tabulate" },
     { name = "tqdm" },
     { name = "yfinance" },
     { name = "zstandard" },
@@ -1755,6 +1756,7 @@ requires-dist = [
     { name = "seaborn", specifier = ">=0.13" },
     { name = "solders", specifier = ">=0.23" },
     { name = "statsmodels", specifier = ">=0.14" },
+    { name = "tabulate", specifier = ">=0.10.0" },
     { name = "tqdm", specifier = ">=4.66" },
     { name = "yfinance", specifier = ">=0.2.50" },
     { name = "zstandard", specifier = ">=0.25.0" },
@@ -1817,6 +1819,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3a/aa/1aa52ae948166291cf615687a733151d4567645beac7e51b7bae3fd88ad4/sumtypes-0.1a6.tar.gz", hash = "sha256:1a6ff095e06a1885f340ddab803e0f38e3f9bed81f9090164ca9682e04e96b43", size = 5272, upload-time = "2021-11-30T14:18:43.172Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5a/29/4ef1ff91dad16f8396bab999a09011d4939951f47b9729b3f73cc1f74756/sumtypes-0.1a6-py2.py3-none-any.whl", hash = "sha256:3e9d71322dd927d25d935072f8be7daec655ea292fd392359a5bb2c1e53dfdc3", size = 5817, upload-time = "2021-11-30T14:18:41.447Z" },
+]
+
+[[package]]
+name = "tabulate"
+version = "0.10.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/58/8c37dea7bbf769b20d58e7ace7e5edfe65b849442b00ffcdd56be88697c6/tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d", size = 91754, upload-time = "2026-03-04T18:55:34.402Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3", size = 39814, upload-time = "2026-03-04T18:55:31.284Z" },
 ]
 
 [[package]]
