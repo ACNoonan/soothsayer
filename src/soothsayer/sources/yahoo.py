@@ -103,9 +103,19 @@ def fetch_minutes(tickers: Sequence[str], *, days: int = 60) -> pd.DataFrame:
         step = timedelta(days=7)
         while cursor < end:
             stop = min(cursor + step, end)
-            raw = _download(tickers, start=cursor, end=stop, interval="1m")
-            chunks.append(_reshape(raw, tickers))
+            try:
+                raw = _download(tickers, start=cursor, end=stop, interval="1m")
+                chunks.append(_reshape(raw, tickers))
+            except RuntimeError:
+                # yfinance 1m is served for ~rolling 30 days only; early chunks may be
+                # out of range. Skip those and continue with more recent windows.
+                pass
             cursor = stop
+        if not chunks:
+            raise RuntimeError(
+                f"fetch_minutes got zero chunks for tickers={list(tickers)} days={days} — "
+                "yfinance 1m coverage has likely moved outside the requested window"
+            )
         df = pd.concat(chunks, ignore_index=True).drop_duplicates(["symbol", "ts"])
         df["ts"] = pd.to_datetime(df["ts"], utc=True)
         return df.sort_values(["symbol", "ts"]).reset_index(drop=True)

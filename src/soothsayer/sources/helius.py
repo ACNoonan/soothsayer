@@ -100,6 +100,46 @@ def rpc(method: str, params: list[Any] | None = None) -> Any:
     return _with_retry(_call)
 
 
+def rpc_batch(calls: list[tuple[str, list[Any]]]) -> list[Any]:
+    """JSON-RPC batch: multiple (method, params) calls in ONE HTTP POST.
+
+    Solana JSON-RPC accepts an array of request objects and returns an array of
+    responses (one HTTP request = one rate-limit-accounting unit at the edge,
+    regardless of how many logical calls are bundled inside). This lets us fetch
+    up to ~100 transactions per RPS worth of rate-limit budget instead of 1.
+
+    Returns a list of `result` values, aligned positionally with `calls`.
+    Individual errors inside a batch are raised as a RuntimeError naming the
+    first failing call; all-or-nothing semantics mirror the single-call path.
+    """
+    if not calls:
+        return []
+    batch_body = [
+        {"jsonrpc": "2.0", "id": i, "method": method, "params": params}
+        for i, (method, params) in enumerate(calls)
+    ]
+
+    def _call() -> list[Any]:
+        _throttle_rpc()
+        r = requests.post(RPC_URL, json=batch_body, timeout=60)
+        r.raise_for_status()
+        body = r.json()
+        if not isinstance(body, list):
+            raise RuntimeError(f"expected list batch response, got {type(body).__name__}")
+        by_id = {item.get("id"): item for item in body}
+        results: list[Any] = []
+        for i, (method, _) in enumerate(calls):
+            item = by_id.get(i)
+            if item is None:
+                raise RuntimeError(f"batch response missing id={i} (method={method})")
+            if "error" in item:
+                raise RuntimeError(f"batch RPC error id={i} method={method}: {item['error']}")
+            results.append(item.get("result"))
+        return results
+
+    return _with_retry(_call)
+
+
 def get_signatures_for_address(
     address: str,
     *,

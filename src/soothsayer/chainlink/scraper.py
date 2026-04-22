@@ -30,6 +30,7 @@ from ..sources.helius import (
     get_signatures_for_address,
     get_transaction,
     rpc,
+    rpc_batch,
 )
 from .feeds import feed_id_to_xstock
 from .v10 import decode as v10_decode
@@ -229,34 +230,47 @@ def iter_xstock_reports_rpc(
                 f"{len(in_window)} in window, n_xstock_so_far={n_xstock}",
                 flush=True,
             )
-        for s in in_window:
-            bt = s["blockTime"]
-            n_txs += 1
+        # Fetch transactions in batches — one HTTP POST per BATCH sigs. BATCH=25 keeps
+        # each response under Helius's ~10MB body cap (full txs with logs/returnData
+        # run ~100KB each; 100 tx = occasional 413, 25 tx is safely under).
+        BATCH = 25
+        tx_opts = {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}
+        for chunk_start in range(0, len(in_window), BATCH):
+            chunk = in_window[chunk_start:chunk_start + BATCH]
+            calls = [("getTransaction", [s["signature"], tx_opts]) for s in chunk]
             try:
-                tx = get_transaction(s["signature"])
+                txs = rpc_batch(calls)
             except Exception:
-                continue
-            if not tx:
-                continue
-            rd = parse_verify_return_data(tx.get("meta", {}).get("returnData"))
-            if rd is None or rd.schema != 0x000a:
-                continue
-            sym = feed_id_to_xstock(rd.raw_report[:32])
-            if sym is None:
-                continue
-            n_xstock += 1
-            r = v10_decode(rd.raw_report)
-            yield {
-                "symbol": sym,
-                "feed_id": r.feed_id_hex,
-                "obs_ts": r.observations_timestamp,
-                "mid": float(r.mid),
-                "bid": float(r.bid),
-                "ask": float(r.ask),
-                "last_traded": float(r.last_traded_price),
-                "tx_block_time": bt,
-                "signature": s["signature"],
-            }
+                # Fall back to per-tx fetch so one bad sig doesn't waste the whole batch
+                txs = []
+                for s in chunk:
+                    try:
+                        txs.append(get_transaction(s["signature"]))
+                    except Exception:
+                        txs.append(None)
+            for s, tx in zip(chunk, txs):
+                n_txs += 1
+                if not tx:
+                    continue
+                rd = parse_verify_return_data((tx.get("meta") or {}).get("returnData"))
+                if rd is None or rd.schema != 0x000a:
+                    continue
+                sym = feed_id_to_xstock(rd.raw_report[:32])
+                if sym is None:
+                    continue
+                n_xstock += 1
+                r = v10_decode(rd.raw_report)
+                yield {
+                    "symbol": sym,
+                    "feed_id": r.feed_id_hex,
+                    "obs_ts": r.observations_timestamp,
+                    "mid": float(r.mid),
+                    "bid": float(r.bid),
+                    "ask": float(r.ask),
+                    "last_traded": float(r.last_traded_price),
+                    "tx_block_time": s["blockTime"],
+                    "signature": s["signature"],
+                }
         if batch_min_ts <= start_ts or len(sigs) < 1000:
             break
         cursor = sigs[-1]["signature"]
