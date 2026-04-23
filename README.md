@@ -6,7 +6,7 @@ Soothsayer publishes a continuous fair-value estimate and a time-varying confide
 
 It is designed to be read **alongside** a primary price oracle (Chainlink, Pyth), not to replace one. Consumers — lending protocols, perp DEXs, RWA money markets — compose the two: primary oracle gives you the number, soothsayer gives you the band around it.
 
-> This repo is currently in **Phase 0 — validation**. Four empirical tests on public data gate the build phase. The Rust/Anchor implementation begins only after the gating test (V1) produces a green-light result. See the roadmap below.
+> **Status (Apr 2026):** V1 gate passed — Chainlink's pre-market handoff is biased by −48 bp (p=0.023). V2 soft-passed — SSM backbone validated with φ≈0.73 and half-life ≈2.2 min across all 8 underlyings. V3 failed the gate (funding not additive at current sample size, per H9's own prediction). V4 pending dedicated RPC. Phase 1 Rust scaffold is live under `crates/`.
 
 ## Why this exists
 
@@ -67,14 +67,25 @@ Phase 0 runs on free data only (`yfinance`, Kraken public REST, Helius free tier
 ## Repo layout
 
 ```
-src/soothsayer/
-  config.py       — env + constants
-  universe.py     — tradeable universe
-  cache.py        — parquet/json cache keyed by API call
-  sources/        — one module per data feed
-notebooks/        — V1-V4 validation notebooks
-data/             — raw + processed (gitignored; recreated by running notebooks)
-reports/          — charts, tables, per-test writeups
+src/soothsayer/           Python — Phase 0 validation workspace
+  config.py               env + constants
+  universe.py             tradeable universe
+  cache.py                parquet/json cache keyed by API call
+  sources/                one module per data feed
+  chainlink/              v10 decoder + Verifier envelope parser + feed map
+  analysis/               stats / regressions
+scripts/                  entry-points for V1-V3 scrape + analysis
+notebooks/                V1-V4 validation notebooks (thin wrappers)
+reports/                  charts, tables, per-test writeups
+
+crates/                   Rust — Phase 1 build workspace
+  soothsayer-core         shared domain types (Observation, AssetSymbol, Source)
+  soothsayer-ingest       async source modules (Chainlink v10 decoder today;
+                          Helius RPC, Kraken perps, Yahoo arriving)
+Cargo.toml                workspace root
+rust-toolchain.toml       pinned stable
+
+data/                     raw + processed (gitignored)
 ```
 
 ## Roadmap

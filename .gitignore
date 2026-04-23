@@ -5,6 +5,9 @@ __pycache__/
 .venv/
 .ipynb_checkpoints/
 
+# Rust
+target/
+
 # Env
 .env
 .env.local

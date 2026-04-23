@@ -11,16 +11,27 @@ Soothsayer is an open-source research project. Contributions are welcome — par
 
 ## What we're not looking for (yet)
 
-- Rust/Anchor scaffolding. Per the project plan, that begins after Phase 0 validation gates pass (specifically V1 — Chainlink weekend bias). Contributions that introduce on-chain code will be paused until then.
-- New abstractions without concrete users. One notebook that motivates the abstraction, please.
+- New abstractions without concrete users. One notebook or one crate user, please.
+- Anchor / on-chain program code — deferred to Week 4 of Phase 1 (see the
+  roadmap). The scaffold is Python (Phase 0 validation) and async Rust (Phase 1
+  ingest + filter).
 
 ## Dev setup
+
+Python (Phase 0 validation):
 
 ```bash
 uv sync
 cp .env.example .env   # fill in HELIUS_API_KEY from dashboard.helius.dev
 uv run python -m ipykernel install --user --name soothsayer --display-name "soothsayer"
 uv run jupyter lab
+```
+
+Rust (Phase 1 build):
+
+```bash
+cargo test           # 6 tests today: core types + Chainlink v10 decoder
+cargo clippy --all-targets -- -D warnings
 ```
 
 ## Before opening a PR
