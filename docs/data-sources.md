@@ -1,5 +1,7 @@
 # Data Sources — Analysis & Aggregated List
 
+> **Methodology pivot note (2026-04-24):** Soothsayer's methodology pivoted away from the Madhavan-Sobczyk / VECM / HAR-RV / Hawkes stack to a simpler factor-switchboard + empirical-quantile + log-log regime model (see [`reports/v1b_decision.md`](../reports/v1b_decision.md) and [`reports/option_c_spec.md`](../reports/option_c_spec.md)). The data sources below are still broadly correct — **venue choices, pricing, and licensing status all stand** — but method-specific caveats like "feeds the Kalman measurement-variance priors" or "input to the MS half-life fit" are now stale. The data the oracle actually uses in v1b: yfinance (daily equities, ES/NQ/GC/ZN futures, ^VIX/^GVZ/^MOVE, BTC-USD, earnings_dates) + Kraken REST (still available but V3 funding signal FAILED) + Helius (reserved for Phase 1 on-chain publish path). Budget remains $0 for Phase 0; $310–800/mo run rate for Phase 1 MVP.
+
 Comprehensive catalog of every data source under consideration for Soothsayer, grouped by category, with cost, access type (open public / company-licensed / restricted / on-chain), and current verdict.
 
 Supersedes ad-hoc discussion; mirrors the per-category notes in the Obsidian vault under `Projects/Solana Fair Value Oracle/Data Sources/DS 00–07`.

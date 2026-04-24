@@ -1,103 +1,127 @@
 # soothsayer
 
-**A statistically principled secondary price oracle for tokenized equities on Solana.**
+**A calibration-transparent fair-value oracle for tokenized RWAs on Solana.**
 
-Soothsayer publishes a continuous fair-value estimate and a time-varying confidence interval for xStocks (and similar tokenized real-world equity assets) during the closed-market windows — weekends, overnights, halts — where existing oracle feeds either publish nothing, or publish an opaque 24/7 median without a statement of uncertainty.
+Soothsayer publishes a fair-value estimate plus an **auditable empirical confidence band** for tokenized equities (xStocks) and other closed-market RWAs during weekend, overnight, and halt windows — the hours when Chainlink Data Streams carries stale values, Pyth's Blue Ocean coverage drops off, and RedStone Live relies on undisclosed methodology.
 
-It is designed to be read **alongside** a primary price oracle (Chainlink, Pyth), not to replace one. Consumers — lending protocols, perp DEXs, RWA money markets — compose the two: primary oracle gives you the number, soothsayer gives you the band around it.
+The product shape is different from every other oracle on Solana: **consumers specify the realized coverage level they need, and Soothsayer returns the band that empirically delivers it — with per-(symbol, regime) receipts backed by 12 years of public data.**
 
-> **Status (Apr 2026):** V1 gate passed — Chainlink's pre-market handoff is biased by −48 bp (p=0.023). V2 soft-passed — SSM backbone validated with φ≈0.73 and half-life ≈2.2 min across all 8 underlyings. V3 failed the gate (funding not additive at current sample size, per H9's own prediction). V4 pending dedicated RPC. Phase 1 Rust scaffold is live under `crates/`.
+It is designed to be read **alongside** a primary price oracle, not to replace one. The moat is *calibration transparency*, not "our math is better."
+
+> **Status (2026-04-24):** Phase 0 validation complete. PASS-LITE verdict: factor-adjusted fair value with empirical-quantile CI is calibrated at 95.0% realized coverage on normal weekends with 28% tighter bands than stale-hold, across 5,986 weekends × 10 tickers × 12 years. Phase 1 MVP underway. See [`reports/v1b_decision.md`](reports/v1b_decision.md), [`reports/v1b_calibration.md`](reports/v1b_calibration.md), and [`reports/option_c_spec.md`](reports/option_c_spec.md).
 
 ## Why this exists
 
-Tokenized equities (xStocks from Backed Finance, Ondo Global Markets, SPVs generally) trade 24/7 on-chain while their underlyings are open only ~32% of wall-clock hours. During the other 68% — overnight gaps, weekends, halts — the on-chain token price drifts from a stale last-trade based on:
+Tokenized equities trade 24/7 on-chain while their underlyings are open only ~32% of wall-clock hours. The other 68% — weekends, overnights, halts — is when on-chain liquidity diverges from fundamental price, when bad liquidations happen, and when every existing oracle falls back to one of:
 
-- Weekend index-future moves (ES, NQ)
-- Cross-asset signals (BTC, sector ETF Friday close)
-- On-chain swap flow on Meteora / Raydium / Orca
-- CEX perp funding rates (Kraken xStock Perp launched Feb 2026)
-- Residual issuer-credit and liquidity premia
+- **Stale last-trade held forward** (Chainlink `marketStatus=5`, no uncertainty signal)
+- **An aggregate median of currently-submitting publishers** (Pyth, CI derived from quote dispersion, not drift/vol)
+- **Undisclosed methodology** (RedStone Live, marketed as 24/7 equity coverage)
 
-Incumbents publish a single price through these windows. None publish a statistically-derived confidence interval conditioned on the drift regime. Consumers who want risk-aware behaviour — wider liquidation bands on weekends, size-down during toxic flow, pause on anomalies — currently build bespoke mechanisms over the top (Kamino's price-band shim is the canonical example).
+None publish a calibration claim that a protocol integrator can verify against public data. Soothsayer does.
 
-Soothsayer is what you'd build if you wanted that second signal to come from one dedicated, transparent, model-based source.
+## What we publish
 
-## How it works (planned architecture)
+For any `(symbol, as_of, target_coverage)` request, the oracle returns:
 
-Heavy lifting happens off-chain in Rust. A small on-chain program stores signed publisher updates for consumers to read.
+```python
+fv = oracle.fair_value("SPY", "2026-04-17", target_coverage=0.95)
 
-| Layer | Role | Method |
-|---|---|---|
-| Ingest | Normalise ticks, swaps, funding, macro | Tokio async per-source |
-| State | Per-asset fair-value + vol | Madhavan-Sobczyk 3-state SSM (Kalman filter online) |
-| Cross-asset anchor | Tighten CI using related assets | Hasbrouck-style VECM against ES/NQ + sector ETFs |
-| Conditional vol | HAR-RV + Yang-Zhang OHLC | Shapes the CI as a function of recent realized vol |
-| Toxicity gate | Down-weight DEX flow during reflexive cascades | Exponential-kernel Hawkes branching ratio |
-| Regime | Clock-based + residual anomaly | Rules first; HMM only if rules miss earnings/halts |
-| Publisher | Sign + publish at a cadence that reflects uncertainty | Ed25519, update-on-threshold policy |
+fv.point                      # 699.95 — factor-adjusted fair value
+fv.lower                      # 688.35
+fv.upper                      # 711.54
+fv.claimed_coverage_served    # 0.975 — which claimed quantile we used
+fv.regime                     # "normal"
+fv.sharpness_bps              # 163 bps half-width
+fv.diagnostics                # auditable receipt
+```
 
-Full method stack with citations: see the project plan in the research vault (private, being migrated into `docs/` here as chapters stabilise).
+The `claimed_coverage_served` field is the trust primitive. It says: *"to deliver your requested 95% realized coverage on a (SPY, normal) bucket, we looked up our empirical calibration table and served you the 97.5% claimed quantile, because that's what historically covers 95% of Mondays."* Any consumer can verify that mapping on `reports/v1b_calibration.md`.
 
-## Current phase — validation
+## The methodology (one screen)
 
-Four empirical tests, each with a pre-registered gate criterion:
+**Point estimate.** Friday close × per-symbol factor return over the weekend:
+- Equities (SPY, QQQ, AAPL, GOOGL, NVDA, TSLA, HOOD) → ES=F (E-mini S&P futures)
+- MSTR → BTC-USD from 2020-08-01 onward; ES=F prior (MSTR pivoted to BTC-proxy)
+- GLD → GC=F (gold futures)
+- TLT → ZN=F (10-year treasury note futures)
 
-| # | Test | Gate |
-|---|---|---|
-| V1 | Chainlink v11 weekend price bias vs NYSE Monday open | Pooled $E[e_T]$ significant with > 10 bps effect size |
-| V2 | Madhavan-Sobczyk half-life replicates on xStock underlyings | Fit converges, φ > 0, half-life minutes–hours |
-| V3 | Kraken perp funding adds incremental signal for Monday gap | δ significant at 5%, ΔR² > 2% |
-| V4 | Hawkes toxicity gate beats fixed-weight DEX aggregation | Regime-dependent ordering across branching-ratio buckets |
+**Confidence band.** Walk-forward data-driven regime model:
 
-V1 is the go/no-go for the full thesis. V2–V4 shape the MVP feature set.
+```
+log|resid| = α + β·log(vol_idx) + γ_earn·earnings_next_week + γ_long·is_long_weekend
+```
 
-Outputs land in `notebooks/V[1-4]_*.ipynb` and get consolidated into `reports/` as one-page writeups per test.
+with per-symbol `vol_idx`: VIX for equities, GVZ for gold, MOVE for treasuries. Residuals are standardised by the predicted σ, empirical quantiles are taken on the standardised residual, then re-scaled by the current predicted σ. No Gaussian assumption, no parametric vol model, no econometric black box.
+
+That's the entire method stack. The Madhavan-Sobczyk / VECM / HAR-RV / Hawkes stack originally researched was tested and found unnecessary — simpler methodology was sufficient to calibrate.
+
+## Evidence
+
+| Regime | N weekends | Realized at 95% claim | CI half-width |
+|---|---|---|---|
+| normal (65%) | 3,924 | **95.0%** | 252 bps |
+| long_weekend (10%) | 630 | 93.8% | 275 bps |
+| high_vol (24%) | 1,432 | 91% | 401 bps |
+| F0 stale-hold (for comparison) | 5,986 | 97.6% | 402 bps (blunt blanket) |
+
+Full tables, per-symbol breakdown, calibration curves: [`reports/v1b_calibration.md`](reports/v1b_calibration.md). Reproducible end-to-end via `uv run python scripts/run_calibration.py` and `uv run python scripts/smoke_oracle.py`.
 
 ## Setup
 
 ```bash
 uv sync
-cp .env.example .env           # Helius key from dashboard.helius.dev — free tier is sufficient
-uv run python -m ipykernel install --user --name soothsayer --display-name "soothsayer"
-uv run jupyter lab
+cp .env.example .env           # optional — only needed if you're running live Helius workloads
+uv run python scripts/run_calibration.py     # builds the calibration surface from 12 yrs of data
+uv run python scripts/smoke_oracle.py        # demo the Oracle serving API
 ```
 
-Phase 0 runs on free data only (`yfinance`, Kraken public REST, Helius free tier). Paid providers (Polygon, Databento) are on the TODO list for Phase 1 calibration.
+Phase 0 runs on free data only: yfinance (equities + futures + vol indices + BTC + earnings_dates) + Helius free tier (reserved for Phase 1 on-chain work). See [`docs/data-sources.md`](docs/data-sources.md) for the full provider catalog.
 
 ## Repo layout
 
 ```
-src/soothsayer/           Python — Phase 0 validation workspace
-  config.py               env + constants
-  universe.py             tradeable universe
-  cache.py                parquet/json cache keyed by API call
-  sources/                one module per data feed
-  chainlink/              v10 decoder + Verifier envelope parser + feed map
-  analysis/               stats / regressions
-scripts/                  entry-points for V1-V3 scrape + analysis
-notebooks/                V1-V4 validation notebooks (thin wrappers)
-reports/                  charts, tables, per-test writeups
+src/soothsayer/
+  backtest/                 v1b calibration backtest — produces the empirical surface
+    panel.py                weekend panel assembly (10 tickers × 12 years)
+    forecasters.py          F0 through F1_emp_regime + F2_har_rv (broken, kept for diagnostic)
+    metrics.py              coverage, sharpness, calibration-curve helpers
+    regimes.py              pre-publish regime tagging (high_vol, long_weekend, normal)
+    calibration.py          builds the per-(symbol, regime, claimed) empirical surface
+  oracle.py                 serving-time Oracle.fair_value() API
+  sources/                  data source modules (yfinance, kraken_perp, jupiter, helius)
+  chainlink/                v10/v11 decoder + Verifier parser (Phase 1 consumer lookup)
+  universe.py, config.py, cache.py
 
-crates/                   Rust — Phase 1 build workspace
-  soothsayer-core         shared domain types (Observation, AssetSymbol, Source)
-  soothsayer-ingest       async source modules (Chainlink v10 decoder today;
-                          Helius RPC, Kraken perps, Yahoo arriving)
-Cargo.toml                workspace root
-rust-toolchain.toml       pinned stable
+scripts/
+  run_calibration.py        full backtest + produces product artifacts
+  smoke_oracle.py           end-to-end Oracle demo
+  ...                       (legacy V1-V3 scrape scripts)
 
-data/                     raw + processed (gitignored)
+reports/
+  v1b_decision.md           go/no-go writeup
+  v1b_calibration.md        full results + per-symbol + per-regime tables
+  option_c_spec.md          product spec (customer-selects-coverage)
+  figures/, tables/         plots and persisted CSVs
+
+notebooks/                  V1-V4 historical notebooks (superseded by v1b — see reports/)
+data/
+  raw/                      cached source pulls (gitignored)
+  processed/                v1b_bounds.parquet (product artifact)
+
+crates/                     Rust — Phase 1 on-chain publish path (scaffold)
 ```
 
 ## Roadmap
 
-- **Phase 0 (now).** V1–V4. Single-page Phase 0 writeup → go/no-go decision.
-- **Phase 1.** Rust ingest + SSM + VECM + publisher. On-chain program choice (standalone Anchor vs Switchboard OracleJob) decided on day 1 of the implementation.
-- **Phase 2.** Dashboard replaying known dislocations (Sep 2025 $TSLAr gap, Oct 10 2025 Solana cascade). Integration docs for Kamino-style consumers.
-- **Beyond.** Token-2022 `ScaledUiAmount` rebasing correctness; MS-GARCH regime detector if rules miss earnings/halts; factor-model shrinkage for the long-tail xStocks.
+- **Phase 0 — done.** V1b decade-scale backtest → PASS-LITE → Option C product shape locked.
+- **Phase 1 (now, 4 weeks).** Live-mode Oracle serving + on-chain publish path (Switchboard or Anchor per 1-day prototype) + xStock-specific calibration overlay once V5 tape has ≥ 1 month of data + Kamino-fork consumer demo + x402-gated premium endpoint.
+- **Phase 2 (weeks 5–6).** Public comparator dashboard (Soothsayer vs Chainlink vs Pyth across every weekend of 2025–2026) + methodology writeup + hackathon submission.
+- **Phase 3 (post-hackathon).** Adviser-driven VC intros, Kamino BD deepening, first B2B data-license conversation, third-party publisher replication path.
 
 ## Contributing
 
-Methodology critiques and new data sources are especially welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Methodology critiques, new RWA-class factor proposals, and integration-partner conversations are especially welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
