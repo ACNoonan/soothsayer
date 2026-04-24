@@ -1,35 +1,44 @@
 """
-Chainlink Data Streams v10 report decoder.
+Chainlink Data Streams v10 (Tokenized Asset) report decoder.
 
-v10 is the schema currently in use on Solana mainnet for the 24/5 US-equity
-streams that back xStocks (as of April 2026). Despite Chainlink's public docs
-referring to "v11" as the equity schema, the actual on-chain Verifier traffic
-for xStock feeds uses schema ID 0x000a (v10). v10 is structurally v11 minus
-the `market_status` field.
+Schema used on Solana mainnet for xStock feeds (schema ID 0x000a). Corresponds
+to the "Tokenized Asset" schema in Chainlink's public docs — *not* the v11
+"RWA Advanced" schema. v10 is specialised for tokenised equities: it carries
+an underlying-venue `price` plus a 24/7 CEX-aggregated `tokenizedPrice` plus
+corporate-action multipliers. It does NOT carry bid/ask or order book depth.
 
-Field order determined by empirically inspecting live Verifier instruction data
-and cross-checking decoded prices against yfinance live quotes for 8 xStocks
-(SPY, QQQ, GOOGL, AAPL, NVDA, TSLA, MSTR, HOOD). Layout:
+ABI layout (13 words × 32 = 416 bytes total; each field padded to a 32-byte
+slot regardless of its Solidity width):
 
-  w0   feed_id                bytes32   (first 2 bytes = 0x000a)
-  w1   valid_from_timestamp   u32
-  w2   observations_timestamp u32
-  w3   native_fee             u192
-  w4   link_fee               u192
-  w5   expires_at             u32
-  w6   last_seen_timestamp_ns u64       (stored as nanoseconds)
-  w7   mid                    i192      (DON-consensus benchmark, 1e18-scaled)
-  w8   bid                    i192
-  w9   bid_volume             i192
-  w10  ask                    i192
-  w11  ask_volume             i192
-  w12  last_traded_price      i192
+  w0   feedId                    bytes32    (first 2 bytes = 0x000a)
+  w1   validFromTimestamp        uint32     (seconds)
+  w2   observationsTimestamp     uint32     (seconds)
+  w3   nativeFee                 uint192
+  w4   linkFee                   uint192
+  w5   expiresAt                 uint32     (seconds)
+  w6   lastUpdateTimestamp       uint64     (nanoseconds)
+  w7   price                     int192     (last traded on underlying; STALE on
+                                             weekends/holidays when the venue is closed;
+                                             1e18-scaled)
+  w8   marketStatus              uint32     (0 = Unknown, 1 = Closed, 2 = Open)
+  w9   currentMultiplier         int192     (corporate-action multiplier applied to
+                                             tokenizedPrice right now; typically 1e18)
+  w10  newMultiplier             int192     (future multiplier, 0 if none scheduled)
+  w11  activationDateTime        uint32     (seconds; 0 if no corp action scheduled)
+  w12  tokenizedPrice            int192     (24/7 CEX-aggregated mark, updates weekends;
+                                             1e18-scaled — this is what V5 compares to DEX)
 
-Total: 13 words × 32 = 416 bytes.
+Field semantics confirmed against live on-chain data for SPYx (2026-04-24):
+during US trading hours with SPY at ~711, w7=708.585 and w12=711.460, with
+marketStatus=1. Only `tokenizedPrice` (w12) tracks the real 24/7 mark; `price`
+(w7) is for consumers who want the traditional venue last-trade.
 
-`market_status` (available in v11) is NOT present in v10. To determine whether
-an observation is "weekend / closed" we compare `observations_timestamp` to the
-NYSE trading calendar instead.
+Historical note: an earlier decoder in this repo mislabeled w7 as "mid" and
+w8-w11 as bid/ask/volumes. That layout doesn't exist in v10. It caused V1's
+weekend-bias analysis to silently compare Friday close to Monday open (because
+w7 is a frozen venue-last-trade outside market hours), producing a meaningless
+residual. Any V1 run prior to this fix needs to be re-executed against
+`tokenized_price` to be valid.
 """
 
 from __future__ import annotations
@@ -42,6 +51,11 @@ from typing import Final
 WORD: Final[int] = 32
 REPORT_LEN: Final[int] = 13 * WORD  # 416 bytes
 PRICE_SCALE: Final[int] = 10**18
+NS_PER_S: Final[int] = 10**9
+
+MARKET_STATUS_UNKNOWN: Final[int] = 0
+MARKET_STATUS_CLOSED: Final[int] = 1
+MARKET_STATUS_OPEN: Final[int] = 2
 
 
 @dataclass(frozen=True)
@@ -52,37 +66,47 @@ class V10Report:
     native_fee: int
     link_fee: int
     expires_at: int
-    last_seen_timestamp_ns: int
-    mid_raw: int
-    bid_raw: int
-    bid_volume_raw: int
-    ask_raw: int
-    ask_volume_raw: int
-    last_traded_price_raw: int
+    last_update_timestamp_ns: int
+    price_raw: int
+    market_status: int
+    current_multiplier_raw: int
+    new_multiplier_raw: int
+    activation_datetime: int
+    tokenized_price_raw: int
 
     @property
     def feed_id_hex(self) -> str:
         return "0x" + self.feed_id.hex()
 
     @property
-    def mid(self) -> Decimal:
-        return Decimal(self.mid_raw) / Decimal(PRICE_SCALE)
+    def price(self) -> Decimal:
+        """Last-traded on underlying venue. Stale when market is Closed."""
+        return Decimal(self.price_raw) / Decimal(PRICE_SCALE)
 
     @property
-    def bid(self) -> Decimal:
-        return Decimal(self.bid_raw) / Decimal(PRICE_SCALE)
+    def tokenized_price(self) -> Decimal:
+        """24/7 CEX-aggregated mark. This is what V5 treats as 'the Chainlink mark'."""
+        return Decimal(self.tokenized_price_raw) / Decimal(PRICE_SCALE)
 
     @property
-    def ask(self) -> Decimal:
-        return Decimal(self.ask_raw) / Decimal(PRICE_SCALE)
+    def current_multiplier(self) -> Decimal:
+        return Decimal(self.current_multiplier_raw) / Decimal(PRICE_SCALE)
 
     @property
-    def last_traded_price(self) -> Decimal:
-        return Decimal(self.last_traded_price_raw) / Decimal(PRICE_SCALE)
+    def new_multiplier(self) -> Decimal:
+        return Decimal(self.new_multiplier_raw) / Decimal(PRICE_SCALE)
 
     @property
     def observations_at(self) -> datetime:
         return datetime.fromtimestamp(self.observations_timestamp, tz=UTC)
+
+    @property
+    def last_update_at(self) -> datetime:
+        return datetime.fromtimestamp(self.last_update_timestamp_ns / NS_PER_S, tz=UTC)
+
+    @property
+    def is_market_open(self) -> bool:
+        return self.market_status == MARKET_STATUS_OPEN
 
 
 def _word(data: bytes, idx: int) -> bytes:
@@ -94,7 +118,6 @@ def _uint(data: bytes, idx: int) -> int:
 
 
 def _int(data: bytes, idx: int) -> int:
-    # i192 is sign-extended across the full 32-byte slot; signed 256-bit decode works.
     return int.from_bytes(_word(data, idx), "big", signed=True)
 
 
@@ -108,11 +131,11 @@ def decode(report: bytes) -> V10Report:
         native_fee=_uint(report, 3),
         link_fee=_uint(report, 4),
         expires_at=_uint(report, 5),
-        last_seen_timestamp_ns=_uint(report, 6),
-        mid_raw=_int(report, 7),
-        bid_raw=_int(report, 8),
-        bid_volume_raw=_int(report, 9),
-        ask_raw=_int(report, 10),
-        ask_volume_raw=_int(report, 11),
-        last_traded_price_raw=_int(report, 12),
+        last_update_timestamp_ns=_uint(report, 6),
+        price_raw=_int(report, 7),
+        market_status=_uint(report, 8),
+        current_multiplier_raw=_int(report, 9),
+        new_multiplier_raw=_int(report, 10),
+        activation_datetime=_uint(report, 11),
+        tokenized_price_raw=_int(report, 12),
     )

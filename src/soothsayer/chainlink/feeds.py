@@ -2,12 +2,18 @@
 Chainlink xStock feed IDs (Solana mainnet, schema v10 = 0x000a).
 
 Identified empirically by scanning ~300 Verifier instruction calls and matching
-the decoded median price against a live yfinance quote for each underlying.
-Match tolerance was <0.5% in all cases, which is well below the dispersion
-expected between same-second feeds.
+each feed's decoded `tokenizedPrice` (the 24/7 CEX-aggregated mark — *not*
+v10's `price` field, which is the NYSE last-trade and stays frozen outside
+market hours) against a live yfinance quote. Match tolerance <0.5%.
 
-If Chainlink rotates a feed ID or transitions a stream to schema v11, these
-entries need to be updated — there is no on-chain directory we can query.
+Schema note: v10 on Solana is Chainlink's "Tokenized Asset" schema (13 words,
+416 bytes) — it carries `price`, `tokenizedPrice`, `marketStatus`, and
+corporate-action multipliers, but no bid/ask or order book depth. It is NOT
+"v11 minus market_status"; v11 is an entirely different schema ("RWA Advanced")
+that does carry order book fields. See `v10.py` for the exact layout.
+
+If Chainlink migrates a feed ID or transitions a stream to a different schema,
+these entries need to be updated — there is no on-chain directory we can query.
 """
 
 from __future__ import annotations
