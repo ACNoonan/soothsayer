@@ -38,10 +38,15 @@ from .verifier import VERIFIER_PROGRAM_ID, parse_verify, parse_verify_return_dat
 
 
 def _slots_per_second() -> float:
-    """Measure live slot rate from two points 1M slots apart."""
+    """Measure live slot rate from two points 100k slots apart (~11h).
+
+    Shorter lookback than feels natural because RPC Fast Start-tier nodes prune
+    ~850k slots back; Helius retains deeper. 100k is within any provider's
+    retention window and still gives a stable slot-rate estimate.
+    """
     cur_slot = rpc("getSlot")
     cur_ts = rpc("getBlockTime", [cur_slot])
-    ref_slot = max(0, cur_slot - 1_000_000)
+    ref_slot = max(0, cur_slot - 100_000)
     ref_ts = rpc("getBlockTime", [ref_slot])
     if ref_ts is None or cur_ts is None or cur_ts == ref_ts:
         return 2.5
@@ -230,9 +235,9 @@ def iter_xstock_reports_rpc(
                 f"{len(in_window)} in window, n_xstock_so_far={n_xstock}",
                 flush=True,
             )
-        # Fetch transactions in batches — one HTTP POST per BATCH sigs. BATCH=25 keeps
-        # each response under Helius's ~10MB body cap (full txs with logs/returnData
-        # run ~100KB each; 100 tx = occasional 413, 25 tx is safely under).
+        # Fetch transactions via rpc_batch — concurrent serial POSTs, bounded by
+        # the provider's rate limiter. BATCH sizes the wave; 25 is a round figure
+        # that saturates Helius's 9 req/s cap in ~3s and RPC Fast's 14 req/s in ~2s.
         BATCH = 25
         tx_opts = {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}
         for chunk_start in range(0, len(in_window), BATCH):

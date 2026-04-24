@@ -18,6 +18,14 @@ load_dotenv(REPO_ROOT / ".env", override=False)
 HELIUS_API_KEY = os.environ.get("HELIUS_API_KEY", "")
 SOLANA_RPC_URL = os.environ.get("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
 
+RPCFAST_API_KEY = os.environ.get("RPCFAST_API_KEY", "")
+RPCFAST_RPC_URL_BASE = os.environ.get("RPCFAST_RPC_URL", "https://solana-rpc.rpcfast.com")
+
+# Default provider for standard Solana JSON-RPC — "helius" (faster single-call latency)
+# or "rpcfast" (larger rate budget: 15 req/s + 1.5M CU/mo). Enhanced Transactions API
+# (V4 DEX swap extraction) always hits Helius regardless.
+PRIMARY_RPC = os.environ.get("PRIMARY_RPC", "helius").lower()
+
 
 def helius_rpc_url() -> str:
     if not HELIUS_API_KEY:
@@ -29,3 +37,9 @@ def helius_enhanced_tx_base() -> str:
     if not HELIUS_API_KEY:
         raise RuntimeError("HELIUS_API_KEY not set in .env")
     return f"https://api.helius.xyz/v0"
+
+
+def rpcfast_rpc_url() -> str:
+    if not RPCFAST_API_KEY:
+        raise RuntimeError("RPCFAST_API_KEY not set in .env")
+    return f"{RPCFAST_RPC_URL_BASE}/?api_key={RPCFAST_API_KEY}"

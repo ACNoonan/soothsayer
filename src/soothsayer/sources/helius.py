@@ -1,36 +1,106 @@
 """
-Helius client — Solana JSON-RPC + Enhanced Transactions (parsed) API.
+Solana JSON-RPC client + Helius Enhanced Transactions API.
 
 Two orthogonal surfaces:
 
-  1. Standard Solana JSON-RPC (`rpc`, `get_signatures_for_address`, `get_transaction`):
-       Raw chain access. Used for V1 — decoding Chainlink Verifier calls embedded
-       in Kamino lending txs.
+  1. Standard Solana JSON-RPC (`rpc`, `get_signatures_for_address`, `get_transaction`,
+     `rpc_batch`): routes to either Helius or RPC Fast per the `provider=` kwarg
+     (or config.PRIMARY_RPC as default). Used by V1 — decoding Chainlink Verifier
+     calls embedded in Kamino lending txs.
+
   2. Enhanced Transactions v0 (`enhanced_address_transactions`, ...):
-       Parsed tx envelopes with `type` (SWAP, TRANSFER, ...) and `tokenTransfers`.
-       Used for V4 — DEX swap extraction from Meteora/Raydium/Orca pools.
+     Parsed tx envelopes with `type` (SWAP, TRANSFER, ...) and `tokenTransfers`.
+     Helius-proprietary — no RPC Fast equivalent. Used by V4 — DEX swap
+     extraction from Meteora/Raydium/Orca pools.
 
-Rate limits — Helius free tier (April 2026):
-  RPC    10 req/s,  1,000,000 credits / month
-  DAS     2 req/s,    100,000 calls   / month
-  getProgramAccounts 5 req/s
+Rate limits we target (one below each documented cap):
+  Helius free    : RPC  9 req/s, DAS 1.8 req/s
+                   (docs: 10 req/s RPC + 1M credits/mo; 2 req/s DAS + 100k/mo;
+                    getProgramAccounts capped at 5 req/s)
+  RPC Fast Start : RPC 14 req/s (docs: 15 req/s, 1.5M CU/mo)
 
-The module throttles client-side to stay safely under both per-second limits. The
-monthly quotas are the caller's responsibility — there is no introspection
-endpoint for remaining credits.
+The per-provider throttle is thread-safe so `rpc_batch` can fan out concurrent
+serial calls without breaching the per-second cap. The monthly quotas are the
+caller's responsibility — there's no introspection endpoint for remaining budget.
+
+Why concurrent-serial instead of JSON-RPC array batching: both Helius free
+(403 "Batch requests are only available for paid plans") and RPC Fast Start
+(500 Internal Server Error on any batch payload) reject array batching. Firing
+N individual POSTs through a bounded thread pool is the only path that works
+on the free tier of either provider.
 """
 
 from __future__ import annotations
 
+import threading
 import time
 from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
 
 import requests
 
-from ..config import HELIUS_API_KEY, helius_rpc_url
+from ..config import (
+    HELIUS_API_KEY,
+    PRIMARY_RPC,
+    helius_rpc_url,
+    rpcfast_rpc_url,
+)
 
 T = TypeVar("T")
+
+ENHANCED_BASE = "https://api.helius.xyz/v0"
+
+
+class _RateLimiter:
+    """Lock-based token-bucket-ish throttle. Thread-safe.
+
+    Each caller reserves an exclusive send slot `min_interval` after the previous
+    reservation. Sleeping happens outside the lock so concurrent callers queue
+    their slots without serialising on the sleep itself.
+    """
+
+    def __init__(self, min_interval: float) -> None:
+        self.min_interval = min_interval
+        self._next_slot = 0.0
+        self._lock = threading.Lock()
+
+    def reserve(self) -> None:
+        with self._lock:
+            now = time.monotonic()
+            slot = max(self._next_slot, now)
+            self._next_slot = slot + self.min_interval
+        wait = slot - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+
+
+class _Provider:
+    def __init__(self, url: str, min_interval: float) -> None:
+        self.url = url
+        self.limiter = _RateLimiter(min_interval)
+
+
+_PROVIDERS: dict[str, _Provider] = {}
+_PROVIDERS_LOCK = threading.Lock()
+
+
+def _get_provider(name: str) -> _Provider:
+    with _PROVIDERS_LOCK:
+        if name not in _PROVIDERS:
+            if name == "helius":
+                _PROVIDERS[name] = _Provider(helius_rpc_url(), 1.0 / 9.0)
+            elif name == "rpcfast":
+                _PROVIDERS[name] = _Provider(rpcfast_rpc_url(), 1.0 / 14.0)
+            else:
+                raise ValueError(
+                    f"unknown RPC provider {name!r} — expected 'helius' or 'rpcfast'"
+                )
+        return _PROVIDERS[name]
+
+
+# Enhanced API uses Helius's DAS quota, not the RPC quota — separate bucket.
+_das_limiter = _RateLimiter(1.0 / 1.8)
 
 
 def _with_retry(fn: Callable[[], T], *, attempts: int = 6, base_delay: float = 1.0) -> T:
@@ -56,38 +126,23 @@ def _with_retry(fn: Callable[[], T], *, attempts: int = 6, base_delay: float = 1
     assert last_exc is not None
     raise last_exc
 
-RPC_URL = helius_rpc_url()
-ENHANCED_BASE = "https://api.helius.xyz/v0"
 
-_RPC_MIN_INTERVAL = 1.0 / 9.0    # target 9 req/s, under the 10 req/s cap
-_DAS_MIN_INTERVAL = 1.0 / 1.8    # target 1.8 req/s, under the 2 req/s cap
-_last_rpc_t = 0.0
-_last_das_t = 0.0
+def rpc(
+    method: str,
+    params: list[Any] | None = None,
+    *,
+    provider: str | None = None,
+) -> Any:
+    """Single JSON-RPC call. Raises on `error`. Retries on transient network errors.
 
-
-def _throttle_rpc() -> None:
-    global _last_rpc_t
-    wait = (_last_rpc_t + _RPC_MIN_INTERVAL) - time.monotonic()
-    if wait > 0:
-        time.sleep(wait)
-    _last_rpc_t = time.monotonic()
-
-
-def _throttle_das() -> None:
-    global _last_das_t
-    wait = (_last_das_t + _DAS_MIN_INTERVAL) - time.monotonic()
-    if wait > 0:
-        time.sleep(wait)
-    _last_das_t = time.monotonic()
-
-
-def rpc(method: str, params: list[Any] | None = None) -> Any:
-    """Single JSON-RPC call. Raises on any `error` field. Retries on transient network errors."""
+    `provider` routes to "helius" or "rpcfast"; default is config.PRIMARY_RPC.
+    """
+    prov = _get_provider(provider or PRIMARY_RPC)
 
     def _call() -> Any:
-        _throttle_rpc()
+        prov.limiter.reserve()
         r = requests.post(
-            RPC_URL,
+            prov.url,
             json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or []},
             timeout=30,
         )
@@ -100,44 +155,46 @@ def rpc(method: str, params: list[Any] | None = None) -> Any:
     return _with_retry(_call)
 
 
-def rpc_batch(calls: list[tuple[str, list[Any]]]) -> list[Any]:
-    """JSON-RPC batch: multiple (method, params) calls in ONE HTTP POST.
+def rpc_batch(
+    calls: list[tuple[str, list[Any]]],
+    *,
+    provider: str | None = None,
+    max_concurrent: int = 8,
+) -> list[Any]:
+    """Fan out N JSON-RPC calls concurrently, results positionally aligned with `calls`.
 
-    Solana JSON-RPC accepts an array of request objects and returns an array of
-    responses (one HTTP request = one rate-limit-accounting unit at the edge,
-    regardless of how many logical calls are bundled inside). This lets us fetch
-    up to ~100 transactions per RPS worth of rate-limit budget instead of 1.
+    Each call consumes one request of the provider's rate budget (this is NOT a
+    JSON-RPC array batch — both free tiers reject those). The per-provider
+    `_RateLimiter` enforces the per-second cap across all threads.
 
-    Returns a list of `result` values, aligned positionally with `calls`.
-    Individual errors inside a batch are raised as a RuntimeError naming the
-    first failing call; all-or-nothing semantics mirror the single-call path.
+    `max_concurrent` bounds the thread pool. On Helius (9 req/s target) values
+    above ~8 give diminishing returns because the limiter becomes the bottleneck;
+    on RPC Fast (14 req/s) ~12 is the comparable saturation point.
+
+    If any call fails, the first failure is re-raised after all in-flight
+    futures complete — same all-or-nothing semantics as the old array-batch path.
     """
     if not calls:
         return []
-    batch_body = [
-        {"jsonrpc": "2.0", "id": i, "method": method, "params": params}
-        for i, (method, params) in enumerate(calls)
-    ]
-
-    def _call() -> list[Any]:
-        _throttle_rpc()
-        r = requests.post(RPC_URL, json=batch_body, timeout=60)
-        r.raise_for_status()
-        body = r.json()
-        if not isinstance(body, list):
-            raise RuntimeError(f"expected list batch response, got {type(body).__name__}")
-        by_id = {item.get("id"): item for item in body}
-        results: list[Any] = []
-        for i, (method, _) in enumerate(calls):
-            item = by_id.get(i)
-            if item is None:
-                raise RuntimeError(f"batch response missing id={i} (method={method})")
-            if "error" in item:
-                raise RuntimeError(f"batch RPC error id={i} method={method}: {item['error']}")
-            results.append(item.get("result"))
-        return results
-
-    return _with_retry(_call)
+    workers = min(max_concurrent, len(calls))
+    results: list[Any] = [None] * len(calls)
+    first_err: tuple[int, Exception] | None = None
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = [
+            ex.submit(rpc, method, params, provider=provider)
+            for method, params in calls
+        ]
+        for i, fut in enumerate(futures):
+            try:
+                results[i] = fut.result()
+            except Exception as e:
+                if first_err is None:
+                    first_err = (i, e)
+    if first_err is not None:
+        i, e = first_err
+        method, _ = calls[i]
+        raise RuntimeError(f"concurrent RPC error id={i} method={method}: {e}") from e
+    return results
 
 
 def get_signatures_for_address(
@@ -146,6 +203,7 @@ def get_signatures_for_address(
     before: str | None = None,
     until: str | None = None,
     limit: int = 1000,
+    provider: str | None = None,
 ) -> list[dict]:
     """One page of confirmed signatures for an address, newest-first.
 
@@ -157,7 +215,7 @@ def get_signatures_for_address(
         opts["before"] = before
     if until:
         opts["until"] = until
-    return rpc("getSignaturesForAddress", [address, opts]) or []
+    return rpc("getSignaturesForAddress", [address, opts], provider=provider) or []
 
 
 def paginate_signatures(
@@ -166,6 +224,7 @@ def paginate_signatures(
     until: str | None = None,
     min_block_time: int | None = None,
     page_size: int = 1000,
+    provider: str | None = None,
 ) -> Iterator[dict]:
     """Walk back through `getSignaturesForAddress`, yielding sig records newest→oldest.
 
@@ -177,7 +236,11 @@ def paginate_signatures(
     before: str | None = None
     while True:
         batch = get_signatures_for_address(
-            address, before=before, until=until, limit=page_size
+            address,
+            before=before,
+            until=until,
+            limit=page_size,
+            provider=provider,
         )
         if not batch:
             return
@@ -196,6 +259,7 @@ def get_transaction(
     *,
     encoding: str = "jsonParsed",
     max_supported_tx_version: int = 0,
+    provider: str | None = None,
 ) -> dict | None:
     return rpc(
         "getTransaction",
@@ -206,6 +270,7 @@ def get_transaction(
                 "maxSupportedTransactionVersion": max_supported_tx_version,
             },
         ],
+        provider=provider,
     )
 
 
@@ -235,7 +300,7 @@ def enhanced_address_transactions(
         params["type"] = tx_type
 
     def _call() -> list[dict]:
-        _throttle_das()
+        _das_limiter.reserve()
         r = requests.get(
             f"{ENHANCED_BASE}/addresses/{address}/transactions",
             params=params,
