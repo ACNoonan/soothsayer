@@ -1,0 +1,26 @@
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+soothsayer_oracle_program = "11111111111111111111111111111111"
+
+[programs.devnet]
+soothsayer_oracle_program = "11111111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+# The `anchor` CLI reads these. Override locally by setting:
+#   ANCHOR_WALLET=/path/to/wallet.json  ANCHOR_PROVIDER_URL=https://...
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+# `anchor test` runs these after bringing up a local validator and deploying.
+# Deferred until Phase 1 Week 2.5 when we have TS integration tests wired up.
+test = "echo 'tests not yet wired — see scripts/test_oracle_program.sh when implemented'"
+
+[workspace]
+members = ["programs/soothsayer-oracle-program"]

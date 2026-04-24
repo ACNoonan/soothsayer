@@ -1,0 +1,22 @@
+[package]
+name = "soothsayer-oracle-program"
+description = "Soothsayer on-chain oracle program. Publishes calibrated PriceUpdate accounts per symbol, with a per-read receipt (target, claimed_served, regime, forecaster_used, buffer_applied). Phase 1 Week 2."
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/ACNoonan/soothsayer"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "soothsayer_oracle_program"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.30", features = ["init-if-needed"] }
