@@ -1,5 +1,16 @@
 [workspace]
-members = ["crates/soothsayer-core", "crates/soothsayer-ingest"]
+members = [
+    "crates/soothsayer-core",
+    "crates/soothsayer-ingest",
+    "crates/soothsayer-oracle",
+    "crates/soothsayer-consumer",
+    "crates/soothsayer-publisher",
+    "crates/soothsayer-demo-kamino",
+]
+# Exclude the Anchor program — it's built via `anchor build` with its own
+# BPF/SBF toolchain, lives in `programs/`, and has its own Cargo context.
+# Including it here fights with host-side crates over `getrandom` features, etc.
+exclude = ["programs/soothsayer-oracle-program"]
 resolver = "2"
 
 [workspace.package]
@@ -20,6 +31,8 @@ base64 = "0.22"
 hex = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+polars = { version = "0.46", default-features = false, features = ["parquet", "csv", "dtype-date", "temporal", "timezones"] }
+clap = { version = "4", features = ["derive"] }
 
 [profile.release]
 opt-level = 3

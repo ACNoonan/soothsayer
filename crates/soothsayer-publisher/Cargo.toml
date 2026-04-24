@@ -1,0 +1,23 @@
+[package]
+name = "soothsayer-publisher"
+description = "Soothsayer publisher CLI — Week 1 live-serve + Week 2 on-chain publish prep. Takes Oracle PricePoints and converts them into on-chain PublishPayload wire format matching `programs/soothsayer-oracle-program`."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "soothsayer"
+path = "src/main.rs"
+
+[dependencies]
+soothsayer-oracle = { path = "../soothsayer-oracle" }
+soothsayer-consumer = { path = "../soothsayer-consumer" }
+chrono.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true

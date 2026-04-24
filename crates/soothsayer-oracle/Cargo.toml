@@ -1,0 +1,19 @@
+[package]
+name = "soothsayer-oracle"
+description = "Oracle serving layer — loads the Python-produced calibration artifacts and serves calibrated price bands via the hybrid per-regime forecaster + empirical-buffer inversion. Reference implementation: `src/soothsayer/oracle.py`."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+soothsayer-core = { path = "../soothsayer-core" }
+thiserror.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+polars.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

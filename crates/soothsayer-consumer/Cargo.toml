@@ -1,0 +1,11 @@
+[package]
+name = "soothsayer-consumer"
+description = "Consumer SDK for reading Soothsayer oracle price updates. Minimal, no-std-friendly. Mirrors the on-chain `PriceUpdate` layout so downstream protocols (Kamino-fork demo in Phase 1 Week 3; production lending / perp integrations) can decode accounts without the full Anchor program dependency."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror.workspace = true
