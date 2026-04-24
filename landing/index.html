@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Soothsayer — real-world assets don't sleep on the weekend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0A0B0D;
+    --bg-elev: #111216;
+    --ink: #F4F3EE;
+    --ink-dim: #A6A8AD;
+    --ink-faint: #6B6E75;
+    --rule: rgba(244, 243, 238, 0.09);
+    --rule-strong: rgba(244, 243, 238, 0.18);
+    --purple: #9945FF;
+    --green: #14F195;
+    --warn: #F4B45A;
+    --red: #F26A5A;
+    --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    --maxw: 1320px;
+    --pad-x: clamp(24px, 5vw, 80px);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); margin: 0; padding: 0; color: var(--ink); }
+  body { font-family: var(--sans); font-weight: 400; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--green); color: var(--bg); }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad-x); }
+
+  /* Mono utilities */
+  .mono { font-family: var(--mono); }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .eyebrow .bar { width: 24px; height: 1px; background: var(--rule-strong); }
+  .eyebrow.g { color: var(--green); }
+  .eyebrow.g .bar { background: var(--green); opacity: 0.5; }
+  .eyebrow.p { color: var(--purple); }
+
+  /* NAV */
+  nav.top {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(10, 11, 13, 0.82);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  nav.top .inner {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 68px;
+  }
+  nav.top .brand {
+    font-size: 22px; font-weight: 500; letter-spacing: -0.02em;
+  }
+  nav.top .brand .dot { color: var(--green); }
+  nav.top .links { display: flex; gap: 36px; align-items: center; }
+  nav.top .links a { font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--ink-dim); }
+  nav.top .links a:hover { color: var(--ink); }
+  nav.top .cta {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em;
+    padding: 10px 16px; border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  nav.top .cta:hover { background: var(--green); color: var(--bg); border-color: var(--green); }
+  @media (max-width: 780px) { nav.top .links a:not(.cta) { display: none; } }
+
+  /* HERO */
+  .hero { padding: 90px 0 110px; position: relative; overflow: hidden; }
+  .hero .grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(244,243,238,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(244,243,238,0.025) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 75%);
+    pointer-events: none;
+  }
+  .hero .status-pill {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-dim);
+    padding: 8px 14px; border: 1px solid var(--rule-strong); border-radius: 999px;
+    background: rgba(244,243,238,0.02);
+  }
+  .hero .status-pill .led {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 0 4px rgba(20, 241, 149, 0.14);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(20, 241, 149, 0); } }
+
+  .hero h1 {
+    font-size: clamp(44px, 7.2vw, 108px);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+    margin: 28px 0 0;
+    max-width: 1100px;
+    text-wrap: balance;
+  }
+  .hero h1 .em { color: var(--green); }
+  .hero h1 .quiet { color: var(--ink-dim); font-weight: 300; }
+
+  .hero .lede {
+    margin-top: 32px;
+    max-width: 720px;
+    font-size: clamp(17px, 1.4vw, 22px);
+    line-height: 1.45;
+    color: var(--ink-dim);
+    font-weight: 300;
+  }
+  .hero .actions {
+    margin-top: 44px;
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .btn {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 16px 22px;
+    display: inline-flex; align-items: center; gap: 10px;
+    transition: transform 120ms ease, background 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--green); color: var(--bg); border: 1px solid var(--green); font-weight: 500; }
+  .btn.primary:hover { background: #2BFBA4; border-color: #2BFBA4; }
+  .btn.ghost { color: var(--ink); border: 1px solid var(--rule-strong); background: transparent; }
+  .btn.ghost:hover { border-color: var(--ink); }
+  .btn .arrow { display: inline-block; transition: transform 140ms ease; }
+  .btn:hover .arrow { transform: translateX(3px); }
+
+  /* Stat bar */
+  .statbar {
+    margin-top: 90px;
+    border-top: 1px solid var(--rule-strong);
+    border-bottom: 1px solid var(--rule-strong);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+  .statbar .cell {
+    padding: 28px 32px;
+    border-right: 1px solid var(--rule);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .statbar .cell:last-child { border-right: none; }
+  .statbar .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+  .statbar .v { font-size: 34px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
+  .statbar .v .unit { color: var(--ink-faint); font-weight: 400; font-size: 22px; }
+  .statbar .n { font-size: 13px; color: var(--ink-dim); font-weight: 300; line-height: 1.35; }
+  @media (max-width: 900px) {
+    .statbar { grid-template-columns: repeat(2, 1fr); }
+    .statbar .cell { border-bottom: 1px solid var(--rule); }
+    .statbar .cell:nth-child(2n) { border-right: none; }
+    .statbar .cell:nth-last-child(-n+2) { border-bottom: none; }
+  }
+
+  /* SECTION base */
+  section.band { padding: 120px 0; border-top: 1px solid var(--rule); }
+  section.band .head-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px;
+    margin-bottom: 72px; align-items: end;
+  }
+  section.band h2 {
+    font-size: clamp(36px, 4.8vw, 68px);
+    font-weight: 500;
+    letter-spacing: -0.028em;
+    line-height: 1.02;
+    margin: 18px 0 0;
+    text-wrap: balance;
+    max-width: 780px;
+  }
+  section.band h2 .em { color: var(--green); }
+  section.band h2 .emp { color: var(--purple); }
+  section.band .head-row p {
+    font-size: 18px; color: var(--ink-dim); font-weight: 300; line-height: 1.5;
+    max-width: 480px; margin: 0;
+  }
+  @media (max-width: 900px) {
+    section.band .head-row { grid-template-columns: 1fr; }
+  }
+
+  /* GAP TIMELINE */
+  .gap-card {
+    border: 1px solid var(--rule-strong);
+    background: linear-gradient(180deg, rgba(244,243,238,0.02), rgba(244,243,238,0));
+    padding: 40px;
+  }
+  .gap-card .week-head {
+    display: grid; grid-template-columns: 160px 1fr; gap: 16px;
+    padding-bottom: 14px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .gap-card .days { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .gap-card .days span { padding: 4px 0; border-left: 1px solid var(--rule); padding-left: 10px; }
+  .gap-card .days span:first-child { border-left: 1px solid var(--rule-strong); }
+  .gap-card .row {
+    display: grid; grid-template-columns: 160px 1fr; gap: 16px;
+    align-items: center;
+    padding: 14px 0;
+  }
+  .gap-card .name { font-size: 15px; font-weight: 500; letter-spacing: -0.005em; }
+  .gap-card .name .sub { display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); font-weight: 400; margin-top: 3px; letter-spacing: 0.04em; }
+  .gap-card .name.g { color: var(--green); }
+  .gap-card .name.g .sub { color: var(--green); opacity: 0.7; }
+
+  .track { position: relative; height: 28px; background: rgba(244,243,238,0.03); border-radius: 2px; overflow: hidden; }
+  .track .fill { position: absolute; top: 0; bottom: 0; opacity: 0.85; }
+  .track .fill.white { background: #F4F3EE; }
+  .track .fill.grey { background: #BFC2C9; }
+  .track .fill.green { background: var(--green); }
+  .track .fill.stale { background: repeating-linear-gradient(45deg, rgba(244,243,238,0.14), rgba(244,243,238,0.14) 5px, transparent 5px, transparent 10px); }
+  .track.g-track { background: rgba(20,241,149,0.06); border: 1px solid rgba(20,241,149,0.25); }
+
+  .gap-card .gap-note {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; color: var(--ink-faint);
+  }
+  .gap-card .gap-note .hi { color: var(--green); }
+
+  /* PRODUCT / WHAT WE BUILD */
+  .prod-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .prod { padding: 36px 32px 40px; border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 14px; }
+  .prod:last-child { border-right: none; }
+  .prod .num { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: 0.12em; }
+  .prod h3 { font-size: 22px; font-weight: 500; letter-spacing: -0.015em; margin: 0; line-height: 1.2; }
+  .prod p { font-size: 15px; color: var(--ink-dim); line-height: 1.5; font-weight: 300; margin: 0; }
+  .prod .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .prod .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--ink-dim); padding: 4px 8px; border: 1px solid var(--rule-strong); text-transform: uppercase; }
+  @media (max-width: 900px) {
+    .prod-grid { grid-template-columns: 1fr; }
+    .prod { border-right: none; border-bottom: 1px solid var(--rule); }
+    .prod:last-child { border-bottom: none; }
+  }
+
+  /* METHODOLOGY (code-ish inspection panel) */
+  .method-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: stretch; }
+  @media (max-width: 980px) { .method-wrap { grid-template-columns: 1fr; } }
+
+  .method-list { display: flex; flex-direction: column; }
+  .method-list .m-item {
+    display: grid; grid-template-columns: 44px 1fr auto; gap: 20px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .method-list .m-item:first-child { border-top: 1px solid var(--rule-strong); }
+  .method-list .m-item .n { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.12em; }
+  .method-list .m-item .body .h { font-size: 17px; font-weight: 500; letter-spacing: -0.005em; }
+  .method-list .m-item .body .p { font-size: 14px; color: var(--ink-dim); margin-top: 4px; line-height: 1.5; font-weight: 300; }
+  .method-list .m-item .ref { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em; text-align: right; }
+
+  .signal-card {
+    border: 1px solid var(--rule-strong);
+    background: rgba(244,243,238,0.015);
+    padding: 26px;
+    display: flex; flex-direction: column; gap: 18px;
+    position: relative;
+  }
+  .signal-card .sc-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 14px; border-bottom: 1px solid var(--rule);
+  }
+  .signal-card .sc-head .ticker { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
+  .signal-card .sc-head .ticker .sub { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-left: 10px; letter-spacing: 0.08em; }
+  .signal-card .sc-head .regime {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    color: var(--purple); padding: 4px 10px; border: 1px solid rgba(153,69,255,0.5);
+    text-transform: uppercase;
+  }
+  .signal-card .big {
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  .signal-card .big .fv { font-size: 56px; font-weight: 500; letter-spacing: -0.025em; line-height: 1; }
+  .signal-card .big .delta { font-family: var(--mono); font-size: 13px; color: var(--green); letter-spacing: 0.04em; }
+  .signal-card .ci-row {
+    font-family: var(--mono); font-size: 12px; color: var(--ink-dim); letter-spacing: 0.04em;
+    display: flex; gap: 16px;
+  }
+  .signal-card .ci-row .k { color: var(--ink-faint); }
+  .signal-card .chart {
+    height: 120px; position: relative;
+    background:
+      linear-gradient(to bottom, rgba(153,69,255,0.16), rgba(153,69,255,0.16)) 0 36%/100% 28% no-repeat;
+    border-top: 1px dashed rgba(153,69,255,0.4);
+    border-bottom: 1px dashed rgba(153,69,255,0.4);
+  }
+  .signal-card .chart .line {
+    position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--purple);
+  }
+  .signal-card .chart .dot {
+    position: absolute; right: 0; top: 50%; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--purple); transform: translate(50%, -50%);
+    box-shadow: 0 0 0 5px rgba(153,69,255,0.22);
+  }
+  .signal-card .chart .ci-label {
+    position: absolute; left: 0; top: 36%; transform: translateY(-100%);
+    font-family: var(--mono); font-size: 10px; color: rgba(153,69,255,0.9);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .signal-card .chart .axis {
+    position: absolute; left: 0; right: 0; bottom: -18px;
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.08em;
+  }
+  .signal-card .inputs {
+    margin-top: 12px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .signal-card .inputs .i {
+    font-family: var(--mono); font-size: 10.5px; padding: 4px 8px;
+    border: 1px solid rgba(153,69,255,0.35);
+    background: rgba(153,69,255,0.06);
+    color: var(--ink-dim); letter-spacing: 0.06em;
+  }
+
+  /* MATRIX */
+  .mx { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .mx th, .mx td {
+    padding: 18px 16px; text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+  .mx thead th {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .mx td.prov { font-weight: 500; font-size: 15.5px; letter-spacing: -0.005em; }
+  .mx tr.sooth td { background: rgba(20, 241, 149, 0.05); }
+  .mx tr.sooth td.prov { color: var(--green); }
+  .mx .yes { color: var(--green); font-family: var(--mono); font-size: 12.5px; font-weight: 500; }
+  .mx .no  { color: var(--red);   font-family: var(--mono); font-size: 12.5px; font-weight: 500; }
+  .mx .mid { color: var(--warn);  font-family: var(--mono); font-size: 12.5px; font-weight: 500; }
+  .mx .note { color: var(--ink-dim); font-weight: 300; font-size: 13px; }
+  @media (max-width: 780px) {
+    .mx th:nth-child(3), .mx td:nth-child(3) { display: none; }
+  }
+
+  /* USE CASES */
+  .uc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media (max-width: 980px) { .uc-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 680px) { .uc-grid { grid-template-columns: 1fr; } }
+  .uc {
+    border: 1px solid var(--rule);
+    padding: 28px 26px 30px;
+    background: rgba(244,243,238,0.015);
+    display: flex; flex-direction: column; gap: 16px;
+    transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+  }
+  .uc:hover { border-color: var(--rule-strong); background: rgba(244,243,238,0.03); }
+  .uc .uc-num { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.12em; }
+  .uc h3 { font-size: 18px; margin: 0; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; }
+  .uc .ob { padding-top: 14px; border-top: 1px solid var(--rule); font-size: 13px; line-height: 1.5; color: var(--ink-dim); font-weight: 300; }
+  .uc .ob b { color: var(--ink); font-weight: 500; }
+  .uc .ob.without { color: var(--ink-dim); }
+  .uc .ob.with  { color: var(--ink); }
+  .uc .tag-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .uc .ob.without .tag-k { color: var(--red); }
+  .uc .ob.with .tag-k { color: var(--green); }
+
+  /* QUOTE */
+  .quote-band {
+    padding: 120px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .quote-band .inner {
+    display: grid; grid-template-columns: 200px 1fr; gap: 60px; align-items: start;
+  }
+  @media (max-width: 780px) { .quote-band .inner { grid-template-columns: 1fr; } }
+  .quote-band blockquote {
+    font-size: clamp(24px, 3vw, 40px);
+    line-height: 1.25; font-weight: 300; letter-spacing: -0.015em;
+    margin: 0; color: var(--ink);
+    max-width: 1000px;
+    text-wrap: pretty;
+  }
+  .quote-band blockquote .mark { color: var(--ink-faint); }
+  .quote-band .attrib {
+    margin-top: 24px;
+    font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+
+  /* CTA / CLOSER */
+  .cta-band {
+    padding: 120px 0 140px;
+    border-top: 1px solid var(--rule);
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-band .glow {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 900px; height: 900px; border-radius: 50%;
+    background: radial-gradient(circle at center, rgba(20,241,149,0.12), transparent 60%);
+    pointer-events: none;
+  }
+  .cta-band .inner { position: relative; text-align: center; }
+  .cta-band h2 {
+    font-size: clamp(40px, 6vw, 88px);
+    font-weight: 500; letter-spacing: -0.035em; line-height: 1;
+    margin: 20px 0 0;
+    max-width: 1000px; margin-left: auto; margin-right: auto;
+  }
+  .cta-band h2 .em { color: var(--green); }
+  .cta-band p {
+    margin: 28px auto 0;
+    max-width: 640px; font-size: 18px; color: var(--ink-dim); line-height: 1.5; font-weight: 300;
+  }
+  .cta-band .actions { margin-top: 44px; display: inline-flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: 48px 0 60px;
+  }
+  footer .inner {
+    display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--ink-faint);
+  }
+  footer .brand { font-family: var(--sans); font-size: 18px; font-weight: 500; letter-spacing: -0.015em; color: var(--ink); }
+  footer .brand .dot { color: var(--green); }
+  footer .legal { text-transform: uppercase; }
+  footer .links-foot { display: flex; gap: 24px; }
+  footer .links-foot a:hover { color: var(--ink); }
+
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="wrap inner">
+    <a class="brand" href="#top">Soothsayer<span class="dot">.</span></a>
+    <div class="links">
+      <a href="#gap">The gap</a>
+      <a href="#product">Product</a>
+      <a href="#method">Methodology</a>
+      <a href="#compare">Compare</a>
+      <a class="cta" href="#contact">Request access →</a>
+    </div>
+  </div>
+</nav>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="grid-bg"></div>
+    <div class="wrap">
+      <span class="status-pill"><span class="led"></span>Devnet · Q2 2026 · Colosseum submission</span>
+
+      <h1>
+        Real-world assets<br /><span class="em">don't sleep on the weekend.</span>
+      </h1>
+
+      <p class="lede">
+        Open-source fair value and time-varying confidence intervals for tokenized equities on Solana — priced for the hours the market is closed.
+      </p>
+
+      <div class="actions">
+        <a class="btn primary" href="#contact">Request access <span class="arrow">→</span></a>
+        <a class="btn ghost" href="pitch.html">Read the pitch <span class="arrow">→</span></a>
+      </div>
+
+      <div class="statbar">
+        <div class="cell">
+          <div class="k">Weekend void</div>
+          <div class="v">$3.5<span class="unit">B</span></div>
+          <div class="n">of tokenized equities on Solana with no principled price, every weekend.</div>
+        </div>
+        <div class="cell">
+          <div class="k">xStocks volume</div>
+          <div class="v">$25<span class="unit">B+</span></div>
+          <div class="n">Cumulative — ~95–99% of tokenized-equity trading lives on Solana.</div>
+        </div>
+        <div class="cell">
+          <div class="k">Stale-hold window</div>
+          <div class="v">48<span class="unit">hrs</span></div>
+          <div class="n">Fri 8pm → Sun 8pm ET, across every incumbent equity oracle.</div>
+        </div>
+        <div class="cell">
+          <div class="k">Operating cost</div>
+          <div class="v">$310<span class="unit">–800/mo</span></div>
+          <div class="n">The moat is methodology, not infrastructure.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE GAP -->
+  <section class="band" id="gap">
+    <div class="wrap">
+      <div class="head-row">
+        <div>
+          <span class="eyebrow"><span class="bar"></span>The gap</span>
+          <h2>Every weekend, the incumbents <span class="em">stop thinking.</span></h2>
+        </div>
+        <p>Chainlink holds Friday’s last print until Sunday 8pm. Pyth + Blue Ocean cover overnight but not the weekend. For 48 hours, no one publishes a defensible fair value — and the RWA supply keeps growing.</p>
+      </div>
+
+      <div class="gap-card">
+        <div class="week-head">
+          <span>Provider</span>
+          <div class="days">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="name">Chainlink<span class="sub">Data Streams · official</span></div>
+          <div class="track">
+            <div class="fill grey" style="left: 0%; width: 68.5%;"></div>
+            <div class="fill stale" style="left: 68.5%; width: 28.5%;"></div>
+            <div class="fill grey" style="left: 97%; width: 3%;"></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="name">Pyth + Blue Ocean<span class="sub">24/5 overnight ATS</span></div>
+          <div class="track">
+            <div class="fill white" style="left: 0%; width: 68.5%;"></div>
+            <div class="fill stale" style="left: 68.5%; width: 28.5%;"></div>
+            <div class="fill white" style="left: 97%; width: 3%;"></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="name g">Soothsayer<span class="sub">fair value + CI</span></div>
+          <div class="track g-track">
+            <div class="fill green" style="left: 0; width: 100%;"></div>
+          </div>
+        </div>
+
+        <div class="gap-note">
+          <span><span class="hi">● THE 48-HOUR GAP</span> &nbsp;— Fri 8pm → Sun 8pm ET</span>
+          <span>— Chainlink schema v11 · marketStatus = 5 → stale hold</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT WE BUILD -->
+  <section class="band" id="product">
+    <div class="wrap">
+      <div class="head-row">
+        <div>
+          <span class="eyebrow g"><span class="bar"></span>What we build</span>
+          <h2>A transparent, <span class="em">model-based</span> fair-value feed.</h2>
+        </div>
+        <p>A second opinion any protocol can read alongside their primary oracle — with honest uncertainty, published math, and agent-native access.</p>
+      </div>
+
+      <div class="prod-grid">
+        <div class="prod">
+          <span class="num">01 · FREE FEED</span>
+          <h3>On-chain fair value + CI for tokenized equities on Solana.</h3>
+          <p>A free, public Solana feed that publishes a fair-value point and a time-varying confidence band — priced exactly for the hours Chainlink tells protocols to pause.</p>
+          <div class="tag-row">
+            <span class="tag">Devnet · Q2 26</span>
+            <span class="tag">8 tickers</span>
+          </div>
+        </div>
+
+        <div class="prod">
+          <span class="num">02 · PREMIUM · x402</span>
+          <h3>Agent-native premium data, gated by stablecoin micropayments.</h3>
+          <p>Higher-frequency snapshots, model decomposition, regime state, historical queries. Per-call USDC — no KYC, no subscription, no account.</p>
+          <div class="tag-row">
+            <span class="tag">x402</span>
+            <span class="tag">USDC per call</span>
+            <span class="tag">Agent-native</span>
+          </div>
+        </div>
+
+        <div class="prod">
+          <span class="num">03 · OPEN METHODOLOGY</span>
+          <h3>Published econometrics, not a black box.</h3>
+          <p>Every transform, every weight, every regime switch — in the repo. Methodology is the trust primitive. The math is the moat.</p>
+          <div class="tag-row">
+            <span class="tag">Apache / MIT</span>
+            <span class="tag">Rust</span>
+            <span class="tag">Reproducible</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- METHODOLOGY -->
+  <section class="band" id="method">
+    <div class="wrap">
+      <div class="head-row">
+        <div>
+          <span class="eyebrow p"><span class="bar"></span>Methodology</span>
+          <h2>Real econometrics, <span class="emp">in the open.</span></h2>
+        </div>
+        <p>Five published primitives stacked behind every fair-value point. Peer-reviewed. Versioned. Auditable. Reproducible from the repo against public data.</p>
+      </div>
+
+      <div class="method-wrap">
+        <div class="method-list">
+          <div class="m-item">
+            <span class="n">01</span>
+            <div class="body">
+              <div class="h">Madhavan–Sobczyk state-space</div>
+              <div class="p">Latent fair-value decomposition — separates transient microstructure noise from the price signal protocols should actually act on.</div>
+            </div>
+            <span class="ref">SSRN 5937314</span>
+          </div>
+          <div class="m-item">
+            <span class="n">02</span>
+            <div class="body">
+              <div class="h">Hasbrouck VECM price-discovery weights</div>
+              <div class="p">Information shares across ES futures, Kraken perps, NBBO, and DEX venues. Weights are published and auditable per tick.</div>
+            </div>
+            <span class="ref">J. Finance · 2003</span>
+          </div>
+          <div class="m-item">
+            <span class="n">03</span>
+            <div class="body">
+              <div class="h">HAR-RV · realized volatility</div>
+              <div class="p">Heterogeneous-autoregressive vol drives the confidence interval width as microstructure conditions change.</div>
+            </div>
+            <span class="ref">Corsi · 2009</span>
+          </div>
+          <div class="m-item">
+            <span class="n">04</span>
+            <div class="body">
+              <div class="h">Yang–Zhang range estimator</div>
+              <div class="p">Drift-robust, opening-jump-aware volatility. Handles overnight-to-weekend regime transitions without underestimating risk.</div>
+            </div>
+            <span class="ref">J. Business · 2000</span>
+          </div>
+          <div class="m-item">
+            <span class="n">05</span>
+            <div class="body">
+              <div class="h">Hawkes reflexivity / toxicity gate</div>
+              <div class="p">Branching-ratio detection on the DEX tape. Reflexive thin-book flow down-weights venues and widens the CI — not a liquidation trigger.</div>
+            </div>
+            <span class="ref">Boyarchenko · JFE 23</span>
+          </div>
+        </div>
+
+        <div class="signal-card" aria-label="Live fair-value signal preview">
+          <div class="sc-head">
+            <div class="ticker">TSLAX<span class="sub">xStock · Sat 14:32 UTC</span></div>
+            <div class="regime">Regime · Closed-market</div>
+          </div>
+
+          <div>
+            <div class="big">
+              <span class="fv">$241.07</span>
+              <span class="delta">FV · CI half-width ±0.84%</span>
+            </div>
+            <div class="ci-row" style="margin-top: 10px;">
+              <span><span class="k">95% CI</span> &nbsp;$239.04 — $243.09</span>
+              <span><span class="k">σ̂</span> &nbsp;1.21%</span>
+              <span><span class="k">β̂ crypto</span> &nbsp;0.18</span>
+            </div>
+          </div>
+
+          <div class="chart" aria-hidden="true">
+            <span class="ci-label">95% CI</span>
+            <div class="line"></div>
+            <div class="dot"></div>
+            <div class="axis"><span>Fri 20:00 ET</span><span>Sat</span><span>Sun 20:00 ET</span></div>
+          </div>
+
+          <div class="inputs" style="margin-top: 26px;">
+            <span class="i">ES futures</span>
+            <span class="i">Kraken perp</span>
+            <span class="i">Crypto β</span>
+            <span class="i">DEX (↓ wt)</span>
+            <span class="i">Prior close</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPETITIVE MATRIX -->
+  <section class="band" id="compare">
+    <div class="wrap">
+      <div class="head-row">
+        <div>
+          <span class="eyebrow"><span class="bar"></span>Compare</span>
+          <h2>Coverage is the race everyone’s running. <span class="em">Methodology is the one nobody’s entered.</span></h2>
+        </div>
+        <p>The incumbents are racing for weekend coverage. None of them publish a confidence interval, and none of them publish the math. That’s the opening.</p>
+      </div>
+
+      <table class="mx">
+        <thead>
+          <tr>
+            <th style="width: 24%;">Provider</th>
+            <th style="width: 18%;">Weekend coverage</th>
+            <th style="width: 22%;">Methodology</th>
+            <th style="width: 20%;">Confidence interval</th>
+            <th style="width: 16%;">Open source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="prov">Chainlink Data Streams</td>
+            <td><span class="no">— stale hold</span></td>
+            <td><span class="note">Median · opaque</span></td>
+            <td><span class="no">— none</span></td>
+            <td><span class="no">— closed</span></td>
+          </tr>
+          <tr>
+            <td class="prov">Pyth + Blue Ocean</td>
+            <td><span class="no">— overnight only</span></td>
+            <td><span class="note">Weighted median</span></td>
+            <td><span class="mid">~ quote dispersion</span></td>
+            <td><span class="mid">~ partial</span></td>
+          </tr>
+          <tr>
+            <td class="prov">RedStone Live</td>
+            <td><span class="mid">~ 24/7 marketed</span></td>
+            <td><span class="no">— undisclosed</span></td>
+            <td><span class="no">— none</span></td>
+            <td><span class="no">— closed</span></td>
+          </tr>
+          <tr class="sooth">
+            <td class="prov">Soothsayer</td>
+            <td><span class="yes">✓ weekend + CI</span></td>
+            <td><span class="yes">✓ published math</span></td>
+            <td><span class="yes">✓ time-varying</span></td>
+            <td><span class="yes">✓ Apache / MIT</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- USE CASES -->
+  <section class="band" id="use-cases">
+    <div class="wrap">
+      <div class="head-row">
+        <div>
+          <span class="eyebrow"><span class="bar"></span>What it protects against</span>
+          <h2>Every scenario: the protocol has to <span class="em">pick a number to act on.</span></h2>
+        </div>
+        <p>Soothsayer is that number — with published uncertainty — so protocols don’t liquidate, freeze, or cascade on a print from an empty lot.</p>
+      </div>
+
+      <div class="uc-grid">
+
+        <div class="uc">
+          <span class="uc-num">01 · LIQUIDATION</span>
+          <h3>Weekend flash crash on a thin book.</h3>
+          <div class="ob without"><span class="tag-k">Without</span>Borrower liquidated on a thin-book print that reverts Monday.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Toxicity gate flags reflexive flow. CI widens. Protocol pauses.</div>
+        </div>
+
+        <div class="uc">
+          <span class="uc-num">02 · GAP RISK</span>
+          <h3>Adverse Monday open.</h3>
+          <div class="ob without"><span class="tag-k">Without</span>Stale hold says Friday close is fine. Monday opens –8%. Bad debt.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Live futures + Kraken perp update FV. LTVs tightened pre-emptively.</div>
+        </div>
+
+        <div class="uc">
+          <span class="uc-num">03 · MANIPULATION</span>
+          <h3>Toxic flow into a thin book.</h3>
+          <div class="ob without"><span class="tag-k">Without</span>A bad actor dumps into emptiness, triggers liquidation cascade.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Branching-ratio detects reflexivity. DEX down-weighted. CI reflects risk.</div>
+        </div>
+
+        <div class="uc">
+          <span class="uc-num">04 · HALTS</span>
+          <h3>Corporate actions and multiplier lag.</h3>
+          <div class="ob without"><span class="tag-k">Without</span>Token-2022 multiplier updates late. Liquidations fire in the gap.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Regime = Halt. CI widens to ∞. “Do not act on this price.”</div>
+        </div>
+
+        <div class="uc">
+          <span class="uc-num">05 · ORACLE OUTAGE</span>
+          <h3>Primary oracle goes stale.</h3>
+          <div class="ob without"><span class="tag-k">Without</span>Freeze the protocol and lose revenue, or trust stale and take bad debt.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>An independent secondary — live cross-check plus a fallback number.</div>
+        </div>
+
+        <div class="uc">
+          <span class="uc-num">06 · AGENT FLOW</span>
+          <h3>Autonomous agents trading closed markets.</h3>
+          <div class="ob without"><span class="tag-k">Without</span>Agents pay for data they can’t verify, or trade on no price at all.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Pay-per-call USDC via x402. Signed snapshots. Model state on request.</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE / PROOF -->
+  <section class="quote-band">
+    <div class="wrap inner">
+      <span class="eyebrow"><span class="bar"></span>Incumbent admission</span>
+      <div>
+        <blockquote>
+          <span class="mark">“</span>Without these capabilities, tokenized products are exposed to potential mispricings, unfair liquidations, regulatory gaps, and other critical risks.<span class="mark">”</span>
+        </blockquote>
+        <div class="attrib">Chainlink · v10/v11 launch · blog.chain.link</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA / CLOSE -->
+  <section class="cta-band" id="contact">
+    <div class="glow"></div>
+    <div class="wrap inner">
+      <span class="eyebrow g"><span class="bar"></span>Design partners · Colosseum 2026</span>
+      <h2>Build with the <span class="em">weekend-proof</span> oracle.</h2>
+      <p>Looking for a small number of design partners across lending, perps, and RWA issuance. Devnet feed live in Q2 · mainnet H2 · B2B dataset shipping first.</p>
+
+      <div class="actions">
+        <a class="btn primary" href="mailto:adam@soothsayer.xyz?subject=Soothsayer%20design%20partner">Request access <span class="arrow">→</span></a>
+        <a class="btn ghost" href="pitch.html">Read the pitch</a>
+        <a class="btn ghost" href="#method">See the methodology</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap inner">
+    <div class="brand">Soothsayer<span class="dot">.</span></div>
+    <div class="links-foot">
+      <a href="pitch.html">Pitch deck</a>
+      <a href="#method">Methodology</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="legal">© 2026 · Colosseum · Solana frontier</div>
+  </div>
+</footer>
+
+</body>
+</html>

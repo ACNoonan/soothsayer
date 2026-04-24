@@ -29,3 +29,9 @@ reports/tables/
 
 # OS
 .DS_Store
+
+# Excel lock/temp files
+~$*
+
+# Claude Code — keep shared settings.json, ignore per-user local overrides
+.claude/settings.local.json
