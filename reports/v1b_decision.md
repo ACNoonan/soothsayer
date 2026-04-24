@@ -14,7 +14,7 @@ What was originally PASS-LITE is now a full PASS because we've validated the pro
 
 1. **Raw forecaster stack** — F1_emp_regime (factor + empirical quantile + log-log regime regression) and F0_stale (Friday close + 20d-vol Gaussian band), each at a 12-level claimed grid.
 2. **Calibration surface** — empirical (symbol, regime, forecaster, claimed → realized) map, persisted at `data/processed/v1b_bounds.parquet` and `reports/tables/v1b_calibration_surface*.csv`.
-3. **Hybrid per-regime forecaster selection** — `REGIME_FORECASTER = {normal: F1_emp_regime, long_weekend: F1_emp_regime, high_vol: F0_stale}`. Evidence-driven: at matched realized coverage, F1 is 27–43% tighter on normal/long_weekend; F0 is 10–35% tighter on high_vol because F1 stretches to cover while F0's already-wide Gaussian is efficient.
+3. **Hybrid per-regime forecaster selection** — `REGIME_FORECASTER = {normal: F1_emp_regime, long_weekend: F1_emp_regime, high_vol: F0_stale}`. Evidence-driven: at matched realized coverage, F1 is 27–43% tighter on normal/long_weekend in-sample. In high_vol, F0 is ~10–35% tighter in-sample and ~19% tighter OOS, but the hybrid's primary OOS contribution is **Christoffersen independence**, not mean sharpness: F1 + buffer has clustered violations (p_ind = 0.033, rejected), hybrid + buffer does not (p_ind = 0.086). See `v1b_ablation.md` for pair-wise bootstrap intervals.
 4. **Empirical calibration buffer** — target shifted by `CALIBRATION_BUFFER_PCT` (default 0.025) before surface inversion. Closes the 3pp OOS undercoverage gap that surface inversion alone leaves open. Exposed as `calibration_buffer_applied` in every PricePoint receipt.
 
 All four pieces are auditable from the repo + public data.
@@ -69,7 +69,7 @@ The shipped hybrid+buffer product delivers:
 - **95.8% realized at 95% target on normal (65% of OOS sample) ✓**
 - **95.3% on long_weekend (11%) ✓**
 - **96.6% on high_vol (22%) ✓** (slightly over — safe direction)
-- CI half-widths at matched realized coverage: 27–43% tighter than F0 on normal/long_weekend; F0 used in high_vol
+- CI half-widths at matched realized coverage: 27–43% tighter than F0 on normal/long_weekend; F0 used in high_vol. OOS ablation (`v1b_ablation.md`) refines the hybrid's high_vol defense to Christoffersen independence (non-clustered violations) rather than mean sharpness.
 
 All three regimes inside the 93–97% PASS band. We hit PASS without ever building the F3 SSM/VECM/HAR-RV/Hawkes stack.
 

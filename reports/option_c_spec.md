@@ -22,13 +22,13 @@ The Oracle consults a `REGIME_FORECASTER` map and serves whichever forecaster is
 
 ```python
 REGIME_FORECASTER = {
-    "normal":       "F1_emp_regime",  # 27% tighter than F0 at matched realized
-    "long_weekend": "F1_emp_regime",  # 43% tighter
-    "high_vol":     "F0_stale",       # ~10–35% tighter than F1 at matched realized
+    "normal":       "F1_emp_regime",  # in-sample 27% tighter than F0 at matched coverage
+    "long_weekend": "F1_emp_regime",  # in-sample 43% tighter
+    "high_vol":     "F0_stale",       # OOS ~19% tighter + Christoffersen pass
 }
 ```
 
-This is not cosmetic. At matched realized coverage in high_vol, the hybrid **materially closes the sharpness-vs-F0 disadvantage** that emerged from the naive-claim comparison. See the smoke test for a live A/B on an actual high-vol Friday.
+The hybrid's defense is twofold and evidence-tiered. **In-sample (2014–2022 backtest):** at matched realized coverage, F0 is ~10–35% tighter than F1 on high_vol because F1 stretches to cover while F0's already-wide Gaussian is efficient. **Out-of-sample (2023+):** the sharpness advantage narrows to ~19% (F0: 293 bps vs F1: 360 bps at roughly matched 92% realized), but the hybrid's primary serving-time contribution shifts to **Christoffersen independence**: F1 + buffer has clustered violations (p_ind = 0.033, rejected), while hybrid + buffer does not (p_ind = 0.086, not rejected). See `reports/v1b_ablation.md` for the full bootstrap.
 
 ## Why this framing
 

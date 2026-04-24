@@ -371,6 +371,14 @@ def _build_product_artifacts(panel: pd.DataFrame) -> dict:
     surface.to_csv(_tables_dir() / "v1b_calibration_surface.csv", index=False)
     surface_pooled.to_csv(_tables_dir() / "v1b_calibration_surface_pooled.csv", index=False)
 
+    # Persist the regime-tagged panel too — LiveOracle reloads this rather than
+    # rebuilding from scratch on each serve.
+    panel_path = DATA_PROCESSED / "v1b_panel.parquet"
+    panel_out = panel_reg.copy()
+    panel_out.attrs.clear()
+    panel_out.to_parquet(panel_path)
+    print(f"Panel: {len(panel_out):,} rows → {panel_path}")
+
     # Conditional-coverage tests (Kupiec unconditional + Christoffersen independence)
     # Reported at a pitch-relevant subset of the grid: 0.68, 0.95, 0.99.
     pitch_grid = {q: fine_bounds[q] for q in (0.68, 0.95, 0.99) if q in fine_bounds}

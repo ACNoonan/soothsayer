@@ -49,9 +49,11 @@ SURFACE_POOLED_PATH = REPORTS / "tables" / "v1b_calibration_surface_pooled.csv"
 
 
 # Per-regime forecaster selection. Evidence-driven per v1b: F1_emp_regime
-# is calibration-surface-tighter than F0 on normal and long_weekend, but F0
-# is tighter in high_vol (F1 stretches to cover, F0's already-wide Gaussian
-# is efficient there). See reports/v1b_decision.md.
+# is calibration-surface-tighter than F0 on normal and long_weekend. In
+# high_vol, F0 is tighter in-sample and OOS; the hybrid's OOS defense
+# primarily rests on Christoffersen independence (hybrid + buffer passes,
+# F1 + buffer does not). See reports/v1b_decision.md and
+# reports/v1b_ablation.md for the bootstrap intervals.
 REGIME_FORECASTER: dict[str, str] = {
     "normal": "F1_emp_regime",
     "long_weekend": "F1_emp_regime",
