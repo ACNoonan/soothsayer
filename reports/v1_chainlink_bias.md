@@ -2,7 +2,7 @@
 
 **Hypothesis** ([H8](../docs/hypotheses.md)): the Chainlink Data Streams weekend price (last observation before NYSE open) systematically deviates from the realized Monday-open price.
 
-**Sample:** 6 weekend/long-weekend windows from 2026-02-09 through 2026-04-20, 8 xStocks (SPYx, QQQx, GOOGLx, AAPLx, NVDAx, TSLAx, MSTRx, HOODx) = **48 (weekend, ticker) pairs**.
+**Sample:** 11 weekend/long-weekend windows from 2026-02-09 through 2026-04-20, 8 xStocks (SPYx, QQQx, GOOGLx, AAPLx, NVDAx, TSLAx, MSTRx, HOODx) = **87 (weekend, ticker) pairs**.
 
 **Method:** for each (weekend, ticker):
 - `g_T = ln(P^NYSE_Mon_open / P^NYSE_Fri_close)` — realized Monday gap
@@ -15,23 +15,23 @@
 
 | n | mean (bp) | sd (bp) | t | p |
 |---|---|---|---|---|
-| 48 | -48.30 | 142.66 | -2.35 | 0.02326 |
+| 87 | -8.77 | 157.35 | -0.52 | 0.6045 |
 
 ## Per-ticker
 
 | symbol   |   n |   mean_bp |   sd_bp |      t |     p |   ci_half_bp |
 |:---------|----:|----------:|--------:|-------:|------:|-------------:|
-| MSTRx    |   6 |  -202.197 | 315.916 | -1.568 | 0.178 |      252.785 |
-| HOODx    |   6 |   -64.563 | 176.904 | -0.894 | 0.412 |      141.552 |
-| NVDAx    |   6 |   -43.859 |  73.387 | -1.464 | 0.203 |       58.722 |
-| GOOGLx   |   6 |   -23.909 |  97.604 | -0.6   | 0.575 |       78.099 |
-| QQQx     |   6 |   -23.468 |  26.807 | -2.144 | 0.085 |       21.45  |
-| TSLAx    |   6 |   -19.35  |  79.273 | -0.598 | 0.576 |       63.431 |
-| SPYx     |   6 |   -17.863 |   9.713 | -4.505 | 0.006 |        7.772 |
-| AAPLx    |   6 |     8.809 |  44.104 |  0.489 | 0.645 |       35.291 |
+| HOODx    |  11 |   -33.762 | 194.141 | -0.577 | 0.577 |      114.73  |
+| GOOGLx   |  10 |   -24.149 | 120.628 | -0.633 | 0.542 |       74.766 |
+| TSLAx    |  11 |   -19.592 | 138.368 | -0.47  | 0.649 |       81.77  |
+| MSTRx    |  11 |   -18.374 | 323.049 | -0.189 | 0.854 |      190.91  |
+| QQQx     |  11 |    -4.345 |  86.568 | -0.166 | 0.871 |       51.159 |
+| SPYx     |  11 |     1.435 |  78.009 |  0.061 | 0.953 |       46.1   |
+| NVDAx    |  11 |     2.106 | 120.234 |  0.058 | 0.955 |       71.054 |
+| AAPLx    |  11 |    25.133 |  88.966 |  0.937 | 0.371 |       52.576 |
 
 ## Decision
 
-**GREEN-LIGHT** — Chainlink's weekend aggregation exhibits detectable bias. Proceed to Phase 1 build.
+**RETHINK** — Chainlink's weekend bias is not detectable above the 10 bp / 5% gate at this sample size. Reconsider positioning — possibly pivot to a different axis of improvement (e.g. CI calibration, anomaly/fallback alarms).
 
 ![per-ticker residuals](figures/v1_chainlink_bias.png)

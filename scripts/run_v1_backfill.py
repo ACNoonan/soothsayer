@@ -67,8 +67,12 @@ def main() -> None:
         print(f"\n[{i+1}/{len(todo)}] fri={fri_date} mon={mon_date} gap={row['gap_days']}d", flush=True)
         try:
             latest = fetch_latest_per_xstock(
-                end_ts, lookback_hours=36, use_rpc=True, verbose=True
+                end_ts, lookback_hours=4, use_rpc=True, verbose=True,
+                max_in_window_yields=500,
             )
+            target = {x.symbol for x in CORE_XSTOCKS}
+            found = set(latest.keys())
+            print(f"  found {len(found)}/8 symbols, missing: {sorted(target - found)}", flush=True)
         except Exception as e:
             print(f"  FAILED: {type(e).__name__}: {e}", flush=True)
             latest = {}
@@ -83,10 +87,10 @@ def main() -> None:
                     "underlying": underlying,
                     "fri_close": fri_close.get((underlying, fri_date)),
                     "mon_open": mon_open.get((underlying, mon_date)),
-                    "cl_mid": obs["mid"],
-                    "cl_last_traded": obs["last_traded"],
-                    "cl_bid": obs["bid"],
-                    "cl_ask": obs["ask"],
+                    "cl_mid": obs["price"],
+                    "cl_last_traded": obs["tokenized_price"],
+                    "cl_bid": 0.0,
+                    "cl_ask": 0.0,
                     "cl_obs_ts": obs["obs_ts"],
                     "cl_minutes_before_open": (end_ts - obs["obs_ts"]) / 60,
                     "cl_signature": obs["signature"],
