@@ -7,7 +7,7 @@
 
 ## 1) One-sentence thesis
 
-**Given an oracle that serves auditable, empirically calibrated price bands, a lending protocol can choose liquidation-policy defaults that minimize expected protocol loss out of sample—provided the protocol specifies (i) book weights, (ii) a cost model, and (iii) action semantics.**
+**Given an oracle that serves auditable, empirically calibrated price bands, a lending protocol can choose liquidation-policy defaults that minimize expected protocol loss out of sample—especially in closed-market regimes where incumbent point-price fallbacks are weakest—provided the protocol specifies (i) book weights, (ii) a cost model, and (iii) action semantics.**
 
 This paper is about that mapping: **band → action**.
 
@@ -34,6 +34,18 @@ A lending protocol’s contract is about actions:
 
 Paper 2 supplies the missing layer: a defensible way to select defaults for that action policy, with uncertainty explicitly accounted for.
 
+### What recent external research now makes much sharper
+
+The production landscape is now clearer than when this plan was first drafted:
+
+- **Kamino xStocks is the direct implementation target.** It already runs soft liquidations, dynamic penalties, TWAP/EWMA defenses, and per-asset risk multipliers. Paper 2 does not need to invent a new protocol; it needs to show how a calibrated band plugs into an existing liquidation ladder.
+- **Chainlink's published 24/5 equities guidance leaves the weekend unresolved.** Their explicit recommendation for weekend coverage is to use prices of tokenized stocks on secondary CEX/DEX venues. For a lending protocol collateralized by those same tokens, that can become a circular reference: the collateral is priced by the venue where the collateral itself can be pushed around.
+- **Kraken/backed-style market makers already behave like "factor switchboards."** Their published off-hours methodology cites ATS venues, index futures, and internal models, with wider off-hours spreads. That is pragmatic validation that Paper 2 is directionally aligned with how desks already approximate fair value off-hours.
+- **Gauntlet and Chaos Labs already frame liquidation policy as an optimization problem.** This is strategically excellent for positioning. Paper 2 is not introducing the optimization framing; it is supplying a calibrated uncertainty input that existing consultancy-style optimization stacks currently do not publish.
+- **Institutional RWA venues already admit that time-of-day and market-closure constraints matter.** Aave Horizon and similar setups acknowledge custom liquidation logic, custodial delay, and market-closure handling. Paper 2 can therefore frame regime-aware liquidation policy as a standardization of something sophisticated venues already do by hand.
+
+That gives the paper a sharper opening claim: the gap is not "protocols ignore liquidation risk." The gap is that **production systems already optimize liquidation policy, but do so with point-price or aggregation-diagnostic inputs that do not publish an auditable coverage SLA for closed-market uncertainty.**
+
 ---
 
 ## 4) Draft claims (what Paper 2 would aim to prove)
@@ -50,6 +62,9 @@ There exists a policy family using Soothsayer’s band (e.g., Case A) that lower
 ### C3 — Robust regions beat fragile point-optima
 The correct publishable output is a **stable region** (e.g. `τ ∈ [0.80, 0.85]` for a class of protocols/books), not a single fragile optimum.
 
+### C4 — The production gap is specifically a closed-market uncertainty problem
+The strongest deployment case is not "bands are always better than points everywhere." It is narrower and more defensible: when the reference market is closed, calibrated-band policies outperform flat point-price defaults and flat governance bands because they expose uncertainty precisely where incumbent infrastructure is least trustworthy.
+
 ---
 
 ## 5) Explicit non-claims (guardrails)
@@ -58,7 +73,7 @@ Paper 2 should *not* claim:
 - universal optimality for all lending protocols
 - optimality without stating cost ratios and portfolio weights
 - MEV-aware “execution optimality” unless we measure execution outcomes (bundle reconstruction / slippage model)
-- path-aware liquidation truth unless we build a path-based ground truth (not just Monday open)
+- full execution-robust optimality unless we build path-aware ground truth rather than relying only on Monday open
 
 ---
 
@@ -109,7 +124,7 @@ This is where the literature often cheats by leaving it implicit. Paper 2 should
 
 - **Economic truth (flat):** realized Monday price + flat threshold (simple insolvency proxy).
 - **Policy-consistent truth:** realized price + the policy’s own threshold semantics.
-- **(Later / optional) Path-aware truth:** worst executable weekend path rather than a single endpoint.
+- **Path-aware truth:** worst executable weekend path rather than a single endpoint.
 
 The goal is not to hide this choice but to show whether conclusions are robust to it.
 
@@ -164,6 +179,16 @@ Use weekend-block bootstrap on deltas and ranking stability:
 
 Paper 2 should treat these as the prototype implementation, then strengthen the evaluation design (walk-forward, richer baselines, path-aware truth, protocol-specific costs).
 
+### External anchors now secured and worth citing directly
+- **Kamino xStocks docs / launch materials** for the direct policy target: soft liquidations, dynamic penalty ladder, TWAP/EWMA protections, LTV + borrow factor semantics.
+- **Chainlink 24/5 US equities docs** for the critical weekend point: explicit recommendation to extend weekend pricing with tokenized-stock secondary-market venues.
+- **Kraken xStocks FAQ / methodology statements** for a citable off-hours desk benchmark: ATS inputs, futures inputs, internal fair-value models, wider weekend spreads.
+- **Gauntlet methodology notes** for the explicit loss-optimization framing.
+- **Chaos Labs methodology notes** for the key admission that black-swan tails are not statistically testable in their main simulation stack and are handled separately.
+- **Aave Horizon / RWA risk materials** for explicit closed-market and operational-friction constraints.
+
+These are not decorative citations. Together they let the introduction say: the paper is aimed squarely at the stack practitioners already use, and the missing piece is the calibrated uncertainty contract.
+
 ---
 
 ## 11) Practical market structure: **how** on-chain venues work (and why it matters for Paper 2)
@@ -205,6 +230,15 @@ These designs separate **where fair value is computed** from **where the trade s
 | CLMM | **Tick-by-tick** walk through **range-bound** liquidity | Out-of-range depth collapse, stale LP ranges |
 | Solver / RFQ / prop MM | **Off-chain** FV + **signed** quote or param update, **on-chain** settle | Quote staleness, adverse selection, bundle/MEV gap |
 
+### 11.5 Production comparables to keep front-and-center in the paper
+
+- **Kamino xStocks** should be the main narrative anchor, not a side example. Its liquidation ladder is already close to the policy interface we need.
+- **Chainlink weekend fallback** should appear in the introduction, not buried in related work. It is the cleanest empirical demonstration that the industry still lacks a non-circular closed-market policy primitive.
+- **RedStone's public weekend-gap framing** is useful adversarial corroboration: even a competing oracle provider is openly stating that weekend dislocation remains unresolved.
+- **Perp/synthetic equity venues** should be used as a "continuous quoting" comparator, not as proof that the problem disappears. Their mark/index separation and off-hours quoting logic show that sophisticated venues explicitly manage uncertainty rather than pretending the spot is exact.
+
+The practical implication is that Paper 2 should read less like abstract mechanism design and more like a policy standard for venues already operating under uncertain off-hours fair value.
+
 ---
 
 ## 12) What new evidence Paper 2 must add (beyond current repo)
@@ -230,8 +264,27 @@ At least one baseline beyond “flat ±300bps” to show we are not only beating
 - stale-hold + Gaussian
 - a simple futures-gap heuristic
 
-### 12.5 (Optional but strong) Path-aware truth + execution realism
-If the goal is truly “optimal defaults,” the most persuasive upgrade is path-aware liquidation truth (worst weekend path) and an execution model (slippage/MEV). Otherwise the claim remains “optimal under endpoint-truth proxy.”
+### 12.5 Path-aware truth is no longer optional
+Recent external research makes this upgrade mandatory before publication-quality claims. Monday open is still useful, but it is rhetorically too clean. A protocol cares about the worst executable off-hours price, not only the endpoint once the primary venue reopens.
+
+Minimum credible upgrade:
+- build a **weekend path truth** using tokenized-stock DEX OHLC / executable prints
+- optionally layer in ATS / extended-hours proxies where available
+- report both **endpoint truth** and **path-aware truth**
+
+This does two things:
+- makes the paper robust against the obvious reviewer objection ("you only validated the Monday print")
+- creates the right benchmark against claims like "mismatch is usually <1% by Monday open," which can be true at the endpoint while still hiding liquidating intrawindow excursions
+
+### 12.6 Related-work spine to make explicit in the draft
+The paper should cite a tight, pragmatic shelf rather than a broad literature dump:
+
+- **Coverage / calibration:** Kupiec, Christoffersen, adaptive conformal / temporal conformal work for the upgrade path from empirical inversion to stronger online guarantees
+- **DeFi liquidation theory:** formal lending-protocol models and empirical liquidation studies showing that threshold choice depends on information the chain does not directly observe
+- **Weekend / overnight risk in TradFi:** weekend-gap and overnight-return literature establishing that off-hours price risk is real, priced, and structurally different from intraday risk
+- **Adaptive-LTV / time-friction analogues:** the closest prior work arguing that leverage constraints should vary with time-of-market and market-closure frictions
+
+The goal of this section is not to claim novelty over every adjacent paper. It is to show that Paper 2 sits at the intersection of three mature ideas that have not yet been joined cleanly in production: calibration, liquidation optimization, and off-hours market microstructure.
 
 ---
 
@@ -241,6 +294,7 @@ I would consider Paper 2 ready to draft when we can show:
 - A Soothsayer-based policy family beats baselines in expected loss on walk-forward OOS.
 - The win is robust across a reasonable grid of cost and weight assumptions.
 - We can explain the mechanism (narrow when calm, widen when risky, fewer expensive misses without too many unnecessary liquidations).
+- The result still holds when tested against **path-aware weekend truth**, not only Monday-open truth.
 - We can disclose where it does *not* win (assumption-sensitive regions) without undermining the core claim.
 
 ---
@@ -249,9 +303,217 @@ I would consider Paper 2 ready to draft when we can show:
 
 1. Extend `run_protocol_compare` into walk-forward evaluation.
 2. Expand cost scenarios (parameter sweep) and record ranking stability.
-3. Add at least one additional baseline family beyond flat ±300bps.
-4. Only then consider path-aware truth and MEV/execution realism.
+3. Add at least one additional baseline family beyond flat ±300bps, ideally including a futures/ATS-informed heuristic.
+4. Build path-aware weekend truth before treating the paper as draft-ready.
+5. Only after that decide how much explicit MEV / execution realism is needed for the claim we want to make.
 
-This order keeps the project honest: prove the decision-layer story under clearly stated assumptions first, then spend time on realism upgrades.
+This order keeps the project honest: prove the decision-layer story under clearly stated assumptions, but do not stop at endpoint truth. The paper's biggest strategic advantage is precisely that closed-market uncertainty is observable, material, and mishandled by today's production stack.
+
+---
+
+## 15) Draft abstract + introduction skeleton
+
+The goal here is not polished prose. It is a draftable structure that preserves the sharper positioning from Sections 3, 10, 11, and 12.
+
+### 15.1 Working abstract skeleton
+
+Existing DeFi lending risk systems already frame liquidation-parameter selection as a constrained optimization problem, but the price inputs they consume during closed-market hours are weakly specified. In tokenized-equity markets, incumbent oracle and pricing stacks typically publish point prices, quote-dispersion diagnostics, or venue-specific fallback prices, without an auditable aggregate-level coverage statement for off-hours uncertainty. This matters because the largest reference-price gaps and the most policy-sensitive liquidation decisions occur precisely when the underlying venue is closed.
+
+We study the mapping from **calibrated price band to liquidation action**. Taking as given an oracle that serves empirically calibrated, regime-aware price bands with auditable receipts, we formulate liquidation-policy selection as an out-of-sample expected-loss minimization problem over explicit action semantics, cost models, and portfolio-weight assumptions. We compare policy families that consume calibrated bands against flat governance-band and flat-threshold baselines modeled on current tokenized-equity lending practice.
+
+Our central claim is not that one liquidation threshold is universally optimal. It is that, in closed-market regimes, calibrated-band policies can dominate flat point-price defaults in expected-loss terms over a robust region of cost and book assumptions, and that the publishable object is a **stable operating region** rather than a fragile single optimum. We evaluate these policies on weekend windows for tokenized US equities, report sensitivity to truth semantics and book composition, and require path-aware off-hours validation in addition to endpoint reopening prices.
+
+The paper's contribution is therefore a policy layer, not a new oracle primitive: a decision-theoretic, audit-friendly framework for choosing liquidation defaults when the protocol's price input is explicitly uncertain and that uncertainty is empirically calibrated.
+
+### 15.2 Alternate abstract opening sentence options
+
+- **Production-first:** Existing DeFi risk engines already optimize liquidation parameters, but they do so with off-hours price inputs that rarely publish an auditable coverage SLA.
+- **Problem-first:** Tokenized equities trade continuously on-chain while their primary price-discovery venues close overnight and on weekends, forcing lending protocols to liquidate against uncertain off-hours reference prices.
+- **Comparative-first:** Flat liquidation thresholds and point-price oracle fallbacks are a poor fit for closed-market tokenized-equity lending, where uncertainty, not just level, is the object the protocol should consume.
+
+### 15.3 Introduction skeleton
+
+#### Intro ¶1 — Structural problem
+Start with the architecture mismatch: tokenized RWAs trade continuously, underlying venues do not. Emphasize that the economically relevant problem is not merely "what is the price?" but "what action should a lending protocol take when the reference level is uncertain and the venue that anchors fair value is closed?"
+
+#### Intro ¶2 — Why this matters for liquidation policy
+Move immediately from oracle language to policy language. Liquidation is where uncertainty becomes costly: missed liquidations create bad debt; unnecessary liquidations destroy borrower value and trust; unnecessary caution reduces utilization and revenue. This paragraph should make clear that Paper 2 is about protocol loss, not forecast elegance.
+
+#### Intro ¶3 — What production systems do today
+Name the real stack directly. Kamino xStocks is the main comparable. Gauntlet and Chaos Labs already formulate parameter selection as optimization. Aave Horizon already admits closed-market and operational-friction constraints. This paragraph should say: the industry is not missing optimization; it is missing a calibrated uncertainty input for optimization.
+
+#### Intro ¶4 — The critical closed-market gap
+This is where Chainlink belongs. State clearly that published 24/5 equities guidance recommends extending weekend coverage with tokenized-stock prices on secondary venues. For a protocol using those same tokens as collateral, this can become circular. Then add the corroborating desk-style contrast: Kraken/backed-style market makers cite ATS, futures, and internal models, which shows sophisticated operators already treat off-hours fair value as a modeling problem rather than a single authoritative print.
+
+#### Intro ¶5 — What Paper 1 gives us, and why that still does not answer the policy question
+Briefly summarize Paper 1 as the primitive: a calibrated, auditable band with receipts and empirical coverage evidence. Then pivot: calibration alone does not tell a protocol when to warn, liquidate, or demote thresholds. That requires action semantics, costs, and book assumptions.
+
+#### Intro ¶6 — Paper 2's formal question
+State the paper's question in one sentence: given a calibrated band, which liquidation-policy default minimizes expected protocol loss out of sample? Introduce the three explicit modeling axes: cost model, weight scheme, and truth semantics. This is where the reader should understand why "optimal" must be conditional, not universal.
+
+#### Intro ¶7 — Main claims
+Use three claims:
+- decision-theoretic framing changes the answer
+- calibrated-band policies can beat flat defaults in closed-market regimes
+- the right output is a stable operating region, not a single magic number
+
+Keep the claims narrow and production-facing.
+
+#### Intro ¶8 — Evaluation design and publication bar
+Preview walk-forward evaluation, sensitivity grids, and bootstrap stability. Explicitly mention that endpoint Monday-open truth is insufficient on its own and that the paper uses or requires path-aware weekend truth as the harsher validation target.
+
+#### Intro ¶9 — Contributions
+List contributions in Paper 2 language, not Paper 1 language:
+- a formal band-to-action decision problem
+- a protocol-comparable evaluation stack using current lending semantics
+- evidence on robust operating regions under explicit costs and book assumptions
+- a deployable policy template / governance-facing output format
+
+#### Intro ¶10 — Scope and non-claims
+Close the introduction by narrowing scope: no universal optimality, no claim of full execution optimality without MEV/slippage measurement, and no replacement of existing risk consultancies. The paper is a calibrated decision layer designed to plug into those systems.
+
+### 15.4 Sentence-level material worth reusing
+
+These are candidate lines or near-lines, not final prose:
+
+- "The production gap is not that protocols fail to optimize liquidation policy; it is that they optimize against off-hours price inputs that do not publish an auditable uncertainty contract."
+- "Paper 1 asks whether a served band is calibrated. Paper 2 asks what a protocol should do with that band."
+- "In closed-market tokenized-equity lending, uncertainty is not an implementation detail of the price feed; it is part of the state variable that should govern liquidation."
+- "The relevant benchmark is not a single Monday reopening print but the worst executable off-hours path the protocol would have had to survive."
+
+---
+
+## 16) Citation-to-section map for the draft
+
+This is a pragmatic map for where each citation family should do real argumentative work. The rule is: every citation should either establish a live production fact, support a modeling choice, or anchor a methodological claim.
+
+### 16.1 Abstract
+
+- **No dense citation load if avoidable.** At most one or two anchor citations if the venue expects them.
+- If one citation is used, prefer a **production-anchor citation** showing that current risk systems already optimize liquidation parameters, so the paper is clearly additive rather than naive.
+
+### 16.2 Introduction
+
+#### Structural market-closure problem
+- **Weekend / overnight gap literature**
+  - Use to support the claim that off-hours price risk is real, persistent, and distinct from intraday variation.
+  - Good home for empirical stylized-fact citations on weekend gaps and overnight-return information content.
+
+#### Current production practice
+- **Kamino xStocks docs / launch materials**
+  - Cite when introducing the direct protocol comparable and its liquidation semantics.
+- **Chainlink 24/5 equities docs**
+  - Cite in the paragraph that establishes the weekend fallback gap.
+- **Kraken xStocks / backed methodology**
+  - Cite as a production benchmark for how market makers approximate fair value off-hours.
+- **RedStone public statements**
+  - Use sparingly as corroboration that weekend dislocation is acknowledged by practitioners, not as the primary evidentiary source.
+- **Aave Horizon / RWA risk materials**
+  - Cite where the introduction says institutional venues already encode time-of-market and operational constraints.
+- **Gauntlet methodology**
+  - Cite when claiming existing stacks frame parameter choice as optimization.
+- **Chaos Labs methodology**
+  - Cite when claiming simulation-heavy stacks still leave tail validation / black-swan treatment as a separate problem.
+
+#### Positioning versus Paper 1 / prior oracle work
+- **Paper 1 / internal prior paper**
+  - Cite for the calibrated-band primitive and the coverage-inversion contract.
+- **Oracle docs (Chainlink, Pyth, RedStone)**
+  - Use to contrast point prices, quote-dispersion intervals, or undisclosed methods with an auditable coverage SLA.
+
+### 16.3 Related work
+
+Organize the related-work section into four shelves, each with a distinct job:
+
+#### Shelf A — Calibration and statistical coverage
+- **Kupiec**
+  - For unconditional coverage testing.
+- **Christoffersen**
+  - For conditional coverage / independence.
+- **Adaptive conformal / temporal conformal papers**
+  - For the upgrade path beyond empirical inversion and buffer heuristics.
+
+Job: establish that the paper's uncertainty contract is about auditable coverage, not generic forecast quality.
+
+#### Shelf B — DeFi lending and liquidation theory
+- **Formal lending-protocol theory papers**
+  - For state-based modeling of collateral, debt, and liquidation thresholds.
+- **Empirical liquidation studies**
+  - For evidence of excessive liquidation, borrower behavior, and liquidation externalities.
+- **DeFi leverage / fragility papers**
+  - For the argument that optimal thresholds depend on information not directly observable on-chain.
+
+Job: justify why liquidation policy is an economic decision problem rather than a pure oracle-design problem.
+
+#### Shelf C — Production risk methodology
+- **Gauntlet**
+  - Optimization objective and agent-based simulation framing.
+- **Chaos Labs**
+  - Same framing plus explicit black-swan caveat.
+- **Aave governance literature on optimal liquidation / protocol equity**
+  - For the fact that the ecosystem already has a mathematical language for liquidation-policy choice.
+
+Job: show that Paper 2 plugs into an existing production/governance workflow.
+
+#### Shelf D — Off-hours price discovery and adaptive leverage
+- **Weekend / overnight TradFi literature**
+  - For stylized facts and why off-hours risk deserves its own treatment.
+- **Adaptive-LTV / liquidity-of-time / time-friction papers**
+  - For the closest in-spirit precedent that leverage constraints should move with market-closure or off-hours conditions.
+- **Perp / synthetic venue docs**
+  - For practical comparators on mark/index handling under continuous trading of discontinuously anchored underlyings.
+
+Job: establish that Paper 2's regime-aware liquidation idea has both empirical and practical precedent.
+
+### 16.4 Problem statement / model section
+
+- **Formal DeFi lending papers**
+  - Cite for notation, state/action framing, or health-factor semantics if useful.
+- **Aave / Kamino / protocol docs**
+  - Cite for actual action semantics when defining `Safe / Caution / Liquidate`, liquidation bonuses, and threshold rules.
+
+This section should be lightly cited. Its main job is to define your model cleanly.
+
+### 16.5 Data / market structure / truth semantics
+
+- **Kamino docs**
+  - When mapping policy semantics to a real protocol.
+- **Chainlink / Pyth / RedStone docs**
+  - When explaining incumbent oracle behavior.
+- **Kraken / backed / market-maker methodology**
+  - When motivating ATS/futures/internal-model comparators.
+- **Perp / synthetic venue docs**
+  - When motivating mark/index comparisons or path-aware off-hours benchmarks.
+
+This is where citations should explain market plumbing, not just decorate the narrative.
+
+### 16.6 Evaluation section
+
+- **Minimal external citations.**
+  - Most of the evaluation section should stand on your own methods and results.
+- Cite **Kupiec / Christoffersen / bootstrap** references only where a test or interval construction needs a formal anchor.
+
+### 16.7 Discussion / recommendations
+
+- **Gauntlet / Chaos / governance-post comparators**
+  - Use when arguing that the paper's output should be a governance-facing operating region rather than a single threshold.
+- **Aave Horizon / institutional RWA materials**
+  - Use when discussing operational constraints and qualified-liquidator realities.
+- **Kraken / market-maker methodology**
+  - Use when making the case that band-aware policies resemble how off-hours desks already think.
+
+### 16.8 Appendix / implementation notes
+
+- **Protocol docs and oracle docs**
+  - Good place for implementation details, feed behavior, parameter ladders, and fallback logic.
+- **Paper 1**
+  - Good place to offload primitive-specific details so Paper 2 stays a policy paper.
+
+### 16.9 Anti-bloat rules for citation use
+
+- Do not spend scarce introduction real estate on broad "blockchain adoption" citations.
+- Do not bury the strongest production evidence in related work; `Chainlink`, `Kamino`, `Gauntlet`, `Chaos`, and `Aave Horizon` belong in the main narrative.
+- Prefer one citation that directly establishes a live production fact over three adjacent academic citations that only gesture at it.
+- Use academic citations to justify methodology and stylized facts; use production citations to justify relevance and deployment realism.
 
 
