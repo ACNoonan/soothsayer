@@ -20,6 +20,12 @@
 - Per-target buffer schedule: `{0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}`, linearly interpolated off-grid (τ=0.99 bumped from 0.005 → 0.010 after 2026-04-25 grid extension).
 - Claimed-coverage grid: `{..., 0.95, 0.975, 0.99, 0.995, 0.997, 0.999}` (extended 2026-04-25 from prior top of 0.995); `MAX_SERVED_TARGET = 0.999`.
 
+**Incumbent-oracle comparison (2026-04-25 evening).**
+- Pyth + naive $\pm 1.96\cdot\text{conf}$ on 2024+ subset (265 obs): realised **10.2%** at "claimed" 95%. Pyth's CI is documented as aggregation diagnostic, not probability statement; the under-coverage is a feature of the published claim, not a defect.
+- Pyth + consumer-fit $\pm 50\cdot\text{conf}$: realised 95.1% at half-width 280 bps on subset (SPY/QQQ/TLT/TSLA-heavy). Subset bias makes the "Pyth+50× narrower than Soothsayer" finding interesting but small-sample.
+- Chainlink Data Streams during weekend `marketStatus = 5` (87 obs): 100% of observations have $\text{bid} \approx 0$ and $\text{ask} = 0$ — no published band. Chainlink + naive $\pm 3.2\%$ wrap delivers 95% realised at 320 bps on this calm-period sample.
+- Both findings support §1.1 thesis: no incumbent publishes a verifiable calibration claim at the aggregate feed level. Consumer-supplied wraps can match coverage but require the consumer to do the calibration work themselves.
+
 **Validated empirical claims (OOS 2023+, 1,720 rows, 172 weekends):**
 - τ = 0.95: realised 0.950, Kupiec $p_{uc}$ = 1.000, Christoffersen $p_{ind}$ = 0.485 (PASS).
 - τ = 0.85: realised 0.855, Kupiec $p_{uc}$ = 0.541, Christoffersen $p_{ind}$ = 0.185 (PASS).
@@ -48,6 +54,32 @@
 ---
 
 ## 1. Decision log
+
+### 2026-04-25 (evening) — Incumbent oracle comparators: Pyth Hermes + Chainlink Data Streams
+
+**Trigger.** The two largest remaining Tier-1 items: convert §1.1 of the paper from a *qualitative* "no incumbent oracle publishes a verifiable calibration claim" to a *quantitative* matched-window comparison.
+
+**Hypotheses tested.**
+
+1. **H1: Pyth's published `price ± 1.96·conf` band, read as a 95% confidence interval, achieves close to 95% realised coverage on the OOS slice.** *Rejected.* Realised coverage at $k = 1.96$ is **10.2%** on a 265-observation 2024+ subset. Pyth's `conf` field is documented as a publisher-dispersion diagnostic, and the empirical mis-calibration when it's read as a probability statement is on the order of 9–10× under-cover. *Artefact:* `reports/v1b_pyth_comparison.md`.
+2. **H2: A consumer can scale Pyth's `conf` by some constant $k$ to match a 95% realised-coverage target, and at the matching $k$ Pyth's implicit band is wider than Soothsayer's served band.** *Partially accepted with caveat.* The smallest $k$ achieving pooled realised ≥ 0.95 on the available subset is $k \approx 50$ (mean half-width 280 bps). At matched coverage on the 265-obs *subset*, Pyth+50× is roughly 37% narrower than Soothsayer's *full-panel* deployed band (443 bps). However, the Pyth-eligible subset is dominated by SPY/QQQ/TLT/TSLA — large-cap, low-volatility tickers — and Soothsayer's `normal`-regime-only OOS half-width on the same regime mix is 401 bps, narrowing the gap. The "$k = 50$" finding is a *consumer-supplied calibration*, not a Pyth-published one; the consumer leaves Pyth's claim behind to construct it. The §1.1 thesis (Pyth doesn't publish a verifiable calibration claim) is unchanged.
+3. **H3: Chainlink Data Streams publishes a non-degenerate band during weekend `marketStatus = 5`.** *Rejected.* On the existing 87-obs Feb–Apr 2026 dataset, **100%** of weekend observations have `cl_bid ≈ 0` and `cl_ask = 0`. Chainlink's published "uncertainty signal" during the closed-market window is binary stale-or-live, not a band. *Artefact:* `reports/v1b_chainlink_comparison.md`.
+4. **H4: A consumer can wrap Chainlink's stale-hold mid with a symmetric ±k% band to match a 95% realised-coverage target, and at the matching $k$ Chainlink+wrap is wider than Soothsayer's served band.** *Partially accepted with caveat.* On the 87-obs sample, $k \approx 3.2\%$ is the interpolated wrap delivering 95% realised coverage (320 bps half-width). Same caveats as H2: small sample size (binomial CI on $\hat p = 0.95$ at $n = 87$ is roughly [0.89, 0.99]); calm-period sample bias (mostly `normal` regime); consumer-supplied calibration not Chainlink-published.
+
+**Net finding.** Both incumbents fail the verifiable-calibration-claim test as documented. Both can be made into approximate 95%-coverage bands by a consumer who back-fits a multiplier on a private historical sample, but the resulting band is the consumer's calibration claim, not the oracle's. The §1.1 paper thesis is supported quantitatively, with the appropriate caveat that consumer-fit wraps on small low-volatility subsets can produce competitive bandwidth — a finding worth disclosing in §6 rather than burying in a footnote.
+
+**Cascading paper edits.**
+- §1.1 of paper: cite Pyth realised coverage at $k = 1.96$ = 10.2% as quantitative support for the qualitative claim.
+- §6 (new subsection): add an incumbent-comparator table comparing Soothsayer's deployed band against (a) Pyth + naive $k = 1.96$, (b) Pyth + consumer-fit $k = 50$, (c) Chainlink stale-hold + $\pm 3.2\%$ wrap. Include the small-sample CI caveats and matched-regime-mix caveat.
+- §9 (new subsection): "Limits of the incumbent comparison" — both comparators are sample-size-restricted by data availability rather than by methodology; v2 deliverable is a longer Chainlink scrape via `iter_xstock_reports_rpc` and Pyth Pythnet historical via Triton/Pythnet RPC.
+
+**Artefacts.**
+- `scripts/pyth_benchmark_comparison.py` + `data/processed/pyth_benchmark_oos.parquet` + `reports/tables/pyth_coverage_by_k.csv` + `reports/v1b_pyth_comparison.md`
+- `scripts/chainlink_implicit_band_analysis.py` + `reports/tables/chainlink_implicit_band.csv` + `reports/tables/chainlink_implicit_band_by_symbol.csv` + `reports/v1b_chainlink_comparison.md`
+
+**Tier-1 status: COMPLETE.** All nine engineering-only deliverables landed (walk-forward, bounds extension, bias absorption, stationarity, PIT diagnostic, Christoffersen pooling sensitivity, FRED macro ablation, Pyth comparison, Chainlink comparison). Paper-strengthening evidence in place; ready for funding ask on Tier 2 + 3.
+
+---
 
 ### 2026-04-25 (afternoon) — Tier-1 engineering pass: walk-forward + diagnostics + grid extension + macro-event ablation
 

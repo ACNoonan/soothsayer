@@ -60,9 +60,15 @@ PYTH_FEEDS = {
 }
 
 SPLIT_DATE = date(2023, 1, 1)
+PYTH_START_DATE = date(2024, 1, 1)  # RH equity feeds didn't exist before this
 EASTERN = ZoneInfo("America/New_York")
 HERMES_BENCHMARKS = "https://benchmarks.pyth.network/v1/updates/price/{ts}"
-RETRY_OFFSETS = [0, -1, 1, -5, 5, -15, 15, -30, 30, -60, 60, -120, 120, -300, 300]
+# Pyth RH equity feeds publish during the trading day; they stop at 16:00 ET
+# (the close). We aim 5 minutes before close, then scan backwards looking
+# for the most recent RH publish. Don't scan forward past the close — the
+# feed is dark there. 2025+ data is sparser than 2024 so we extend up to
+# 2 hours back. If still no hit, mark unavailable.
+RETRY_OFFSETS = [0, -1, -5, -30, -60, -300, -600, -1800, -3600, -7200]
 K_GRID = (1.0, 1.96, 3.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
 
 
@@ -70,9 +76,11 @@ def _tables_dir() -> Path:
     p = REPORTS / "tables"; p.mkdir(parents=True, exist_ok=True); return p
 
 
-def _friday_close_ts(fri_ts: date) -> int:
-    """Friday 16:00 ET → unix UTC epoch, DST-aware."""
-    et_dt = datetime.combine(fri_ts, datetime.min.time(), tzinfo=EASTERN).replace(hour=16)
+def _friday_pre_close_ts(fri_ts: date) -> int:
+    """Friday 15:55 ET → unix UTC epoch, DST-aware. Five minutes before close
+    so the RH feed is still actively publishing; retry scans backward from
+    here to find the last RH publish before the feed went dark at 16:00."""
+    et_dt = datetime.combine(fri_ts, datetime.min.time(), tzinfo=EASTERN).replace(hour=15, minute=55)
     return int(et_dt.timestamp())
 
 
@@ -113,8 +121,10 @@ def main() -> None:
     panel_full = bounds[
         ["symbol", "fri_ts", "mon_ts", "regime_pub", "mon_open", "fri_close"]
     ].drop_duplicates(["symbol", "fri_ts"]).reset_index(drop=True)
-    panel_oos = panel_full[panel_full["fri_ts"] >= SPLIT_DATE].reset_index(drop=True)
-    print(f"OOS panel: {len(panel_oos):,} (symbol × fri_ts) rows; "
+    # Pyth equity-feed depth begins 2024+. Restrict the comparison panel
+    # accordingly; weekends pre-2024 are simply omitted from the comparison.
+    panel_oos = panel_full[panel_full["fri_ts"] >= PYTH_START_DATE].reset_index(drop=True)
+    print(f"Pyth-eligible OOS panel (2024+): {len(panel_oos):,} (symbol × fri_ts) rows; "
           f"querying Pyth for {len(panel_oos)} timestamps", flush=True)
 
     cache_path = DATA_PROCESSED / "pyth_benchmark_oos.parquet"
@@ -139,7 +149,7 @@ def main() -> None:
         feed_id = PYTH_FEEDS.get(w["symbol"])
         if feed_id is None:
             continue
-        target_ts = _friday_close_ts(w["fri_ts"])
+        target_ts = _friday_pre_close_ts(w["fri_ts"])
         result, used_ts = _pull_pyth(session, feed_id, target_ts)
         n_new += 1
         if result is None:
