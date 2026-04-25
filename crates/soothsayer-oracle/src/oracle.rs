@@ -6,7 +6,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::config::{
-    default_regime_forecaster, CALIBRATION_BUFFER_PCT, DEFAULT_FORECASTER, MAX_SERVED_TARGET,
+    buffer_for_target, default_buffer_by_target, default_regime_forecaster, DEFAULT_FORECASTER,
+    MAX_SERVED_TARGET,
 };
 use crate::error::{OracleError, OracleResult};
 use crate::surface::{invert_with_fallback, CalibrationSurface, PooledSurface};
@@ -33,7 +34,14 @@ pub struct Oracle {
     surface: CalibrationSurface,
     surface_pooled: PooledSurface,
     regime_forecaster: HashMap<String, String>,
-    buffer_pct: f64,
+    /// If `Some(x)`, scalar buffer broadcasts to every target (legacy /
+    /// ablation A/B path). If `None`, the per-target schedule is the
+    /// primary mechanism.
+    buffer_scalar: Option<f64>,
+    /// Per-target buffer schedule, sorted by target ascending. See
+    /// `config::default_buffer_by_target` for the deployed values and
+    /// `reports/v1b_buffer_tune.md` for tuning evidence.
+    buffer_schedule: Vec<(f64, f64)>,
 }
 
 impl Oracle {
@@ -55,7 +63,8 @@ impl Oracle {
             surface,
             surface_pooled,
             regime_forecaster,
-            buffer_pct: CALIBRATION_BUFFER_PCT,
+            buffer_scalar: None,
+            buffer_schedule: default_buffer_by_target(),
         })
     }
 
@@ -65,9 +74,18 @@ impl Oracle {
         self
     }
 
-    /// Override the empirical calibration buffer (0.0 disables entirely).
+    /// Override with a single scalar buffer applied to every target. Sets the
+    /// legacy single-buffer path; `0.0` disables the buffer entirely.
     pub fn with_buffer_pct(mut self, buffer: f64) -> Self {
-        self.buffer_pct = buffer;
+        self.buffer_scalar = Some(buffer);
+        self
+    }
+
+    /// Replace the per-target buffer schedule. Pairs must be `(target, buffer)`
+    /// sorted by target ascending; off-grid targets are linearly interpolated.
+    pub fn with_buffer_schedule(mut self, schedule: Vec<(f64, f64)>) -> Self {
+        self.buffer_schedule = schedule;
+        self.buffer_scalar = None;
         self
     }
 
@@ -126,8 +144,17 @@ impl Oracle {
             forecaster_used
         };
 
-        // 3. Apply buffer to target
-        let buffer_pct = buffer_override.unwrap_or(self.buffer_pct);
+        // 3. Apply buffer to target. Resolution order:
+        //    1. caller-supplied `buffer_override` (scalar) — A/B / diagnostic.
+        //    2. Oracle-level scalar (legacy `with_buffer_pct`).
+        //    3. Per-target schedule via `buffer_for_target` interpolation.
+        let buffer_pct = match buffer_override {
+            Some(b) => b,
+            None => match self.buffer_scalar {
+                Some(b) => b,
+                None => buffer_for_target(target_coverage, &self.buffer_schedule),
+            },
+        };
         let effective_target = (target_coverage + buffer_pct).min(MAX_SERVED_TARGET);
 
         // 4. Invert calibration surface

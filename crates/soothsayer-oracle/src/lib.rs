@@ -29,7 +29,10 @@ pub mod oracle;
 pub mod surface;
 pub mod types;
 
-pub use config::{default_regime_forecaster, CALIBRATION_BUFFER_PCT, DEFAULT_FORECASTER, MAX_SERVED_TARGET};
+pub use config::{
+    buffer_for_target, default_buffer_by_target, default_regime_forecaster,
+    CALIBRATION_BUFFER_PCT, DEFAULT_FORECASTER, MAX_SERVED_TARGET,
+};
 pub use error::{OracleError, OracleResult};
 pub use oracle::Oracle;
 pub use surface::{CalibrationSurface, PooledSurface};

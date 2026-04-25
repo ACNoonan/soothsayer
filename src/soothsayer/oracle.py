@@ -9,15 +9,26 @@ persisted to `data/processed/v1b_bounds.parquet`.
 
 **Default target_coverage = 0.85 (2026-04-25).** The shipping default moved
 from 0.95 to 0.85 after the OOS protocol-comparison bootstrap
-(`reports/tables/protocol_compare_*.csv`) showed t=0.85 is the EL-optimal
-operating point vs a Kamino-style flat ±300bps band on the held-out 2023+
-slice with weekend-block bootstrap CIs (Δ EL ≈ −0.020 vs Kamino, CI not
-crossing zero; ~30% expected-loss reduction at the default 4:1 miss:FP cost
-ratio). t=0.95 remained available as an explicit override but at the default
-cost matrix it under-performs Kamino on protocol expected loss because the
-buffered band over-fires false-positive liquidations. Customer-selects-coverage
-(Option C) means consumers with extreme bad-debt aversion can still ask for
-0.95 or 0.99; we just don't default there.
+(`reports/tables/protocol_compare_*.csv`) showed t=0.85 yields a statistically
+significant expected-loss improvement vs a Kamino-style flat ±300bps band on
+the held-out 2023+ slice. Under the per-target buffer schedule and the default
+4:1 miss:FP cost matrix: t=0.85 ΔEL = −0.0107 with bootstrap CI [−0.014,
+−0.008] (~15% EL reduction; t=0.80 reaches ~27% but at higher miss rate);
+t=0.95 ΔEL = +0.0245 (~35% worse than Kamino) because the buffered band
+over-fires false-positive liquidations. The choice between t=0.80 and t=0.85
+as the welfare-optimal default is paper-2 territory; t=0.85 ships as a
+moderately conservative Schelling point. Customer-selects-coverage (Option C)
+means consumers with extreme bad-debt aversion can still ask for 0.95 or 0.99;
+we just don't default there.
+
+**Per-target buffer schedule (2026-04-25).** A scalar 2.5pp buffer was
+sufficient at the original τ=0.95 default. After the default moved to
+τ=0.85, the same scalar under-corrected (Kupiec p_uc=0.014 reject) and a
+proper conformal alternative under-corrected further (see
+`reports/v1b_conformal_comparison.md`). The fix is per-target tuning of the
+heuristic itself; `BUFFER_BY_TARGET` now persists buffers calibrated against
+each anchor point on the OOS 2023+ slice, with linear interpolation for
+off-grid targets. See `reports/v1b_buffer_tune.md` for the sweep evidence.
 
 **Hybrid regime forecaster (2026-04-24).** The Oracle consults
 `REGIME_FORECASTER` to decide which forecaster's calibration surface to
@@ -74,20 +85,65 @@ REGIME_FORECASTER: dict[str, str] = {
 DEFAULT_FORECASTER = "F1_emp_regime"
 
 
-# Empirical calibration buffer. The v1b hybrid OOS validation (see
-# reports/v1b_hybrid_validation.md) found a ~3pp undercoverage gap: a consumer
-# asking for target=0.95 received realized=0.92 on held-out post-2023 data.
-# The gap is a calibration-surface aging effect: the surface fits the period
-# it was trained on tighter than future periods. Until split-conformal
-# prediction lands in Phase 2 (see 08 - Project Plan.md), we close the gap
-# with a simple empirical buffer: add `CALIBRATION_BUFFER_PCT` to the target
-# before inversion. Disclosed in every PricePoint via `calibration_buffer_applied`.
+# Empirical calibration buffer — per-target tuning (2026-04-25).
 #
-# The default 0.025 is the median of measured OOS gaps across target levels
-# (0.035 at 0.68, 0.030 at 0.95, 0.019 at 0.99). A production deployment would
-# rebuild this buffer from a rolling OOS backtest on each surface rebuild.
+# The v1b hybrid OOS validation found a calibration-surface aging effect: at
+# τ=0.95, the surface inversion delivers realized ~0.92 on held-out 2023+ data.
+# We close the gap with an empirical buffer added to the consumer's target
+# before surface inversion. Disclosed in every PricePoint via
+# `calibration_buffer_applied`.
+#
+# An earlier scalar default (0.025) was tuned for τ=0.95 only. After the
+# default operating point moved to τ=0.85 (per the protocol-compare EL
+# analysis), the τ=0.95-tuned scalar under-corrected at τ=0.85 and Kupiec
+# rejected at p_uc=0.014. The split-conformal comparison
+# (`reports/v1b_conformal_comparison.md`) confirmed no off-the-shelf conformal
+# alternative outperformed the heuristic, so the fix is per-target tuning of
+# the heuristic itself.
+#
+# Buffers below are the smallest values satisfying realized ≥ τ − 0.005,
+# Kupiec p_uc > 0.10, Christoffersen p_ind > 0.05 on the OOS 2023+ slice
+# (`reports/v1b_buffer_tune.md`, `reports/tables/v1b_buffer_recommended.csv`).
+# Off-grid targets are linearly interpolated between adjacent anchors;
+# targets at or above 0.99 hit the structural finite-sample tail ceiling
+# (§9.1) regardless of buffer because the bounds grid stops at 0.995.
+#
+# A production deployment would rebuild this dict on each surface rebuild
+# from a rolling OOS backtest. Treat the values as a fixed snapshot of the
+# 2026-04-25 calibration; the methodology is the load-bearing artifact, not
+# the specific numbers.
+BUFFER_BY_TARGET: dict[float, float] = {
+    0.68: 0.045,
+    0.85: 0.045,
+    0.95: 0.020,
+    0.99: 0.005,
+}
+
+# Scalar fallback retained for callers that pass a single number (e.g., the
+# ablation tooling that A/Bs against a fixed buffer). In serving-time use,
+# the per-target dict is the primary mechanism.
 CALIBRATION_BUFFER_PCT: float = 0.025
 MAX_SERVED_TARGET: float = 0.995  # top of the fine grid; can't buffer past this
+
+
+def buffer_for_target(target: float, schedule: dict[float, float] = None) -> float:
+    """Linear-interpolate the per-target buffer schedule for a consumer's
+    requested target. Targets below the smallest anchor use the smallest
+    anchor's buffer; targets above the largest use the largest anchor's
+    buffer. Schedule defaults to the module-level BUFFER_BY_TARGET."""
+    if schedule is None:
+        schedule = BUFFER_BY_TARGET
+    anchors = sorted(schedule.keys())
+    if target <= anchors[0]:
+        return float(schedule[anchors[0]])
+    if target >= anchors[-1]:
+        return float(schedule[anchors[-1]])
+    for i in range(len(anchors) - 1):
+        lo, hi = anchors[i], anchors[i + 1]
+        if lo <= target <= hi:
+            frac = (target - lo) / (hi - lo)
+            return float(schedule[lo] + frac * (schedule[hi] - schedule[lo]))
+    return float(schedule[anchors[-1]])  # unreachable; satisfies type checker
 
 
 @dataclass(frozen=True)
@@ -140,13 +196,17 @@ class Oracle:
         surface: pd.DataFrame,
         surface_pooled: pd.DataFrame,
         regime_forecaster: dict[str, str] | None = None,
-        calibration_buffer_pct: float = CALIBRATION_BUFFER_PCT,
+        calibration_buffer_pct: float | None = None,
+        buffer_by_target: dict[float, float] | None = None,
     ):
         self._bounds = bounds
         self._surface = surface
         self._surface_pooled = surface_pooled
         self._regime_forecaster = regime_forecaster or REGIME_FORECASTER
-        self._buffer_pct = float(calibration_buffer_pct)
+        # If a scalar buffer is supplied, it broadcasts to every target (legacy
+        # behaviour and ablation A/B). Otherwise use the per-target schedule.
+        self._buffer_scalar = float(calibration_buffer_pct) if calibration_buffer_pct is not None else None
+        self._buffer_schedule = dict(buffer_by_target) if buffer_by_target is not None else dict(BUFFER_BY_TARGET)
 
     @classmethod
     def load(
@@ -155,7 +215,8 @@ class Oracle:
         surface_path: Path | str = SURFACE_PATH,
         surface_pooled_path: Path | str = SURFACE_POOLED_PATH,
         regime_forecaster: dict[str, str] | None = None,
-        calibration_buffer_pct: float = CALIBRATION_BUFFER_PCT,
+        calibration_buffer_pct: float | None = None,
+        buffer_by_target: dict[float, float] | None = None,
     ) -> "Oracle":
         bounds = pd.read_parquet(bounds_path)
         surface = pd.read_csv(surface_path)
@@ -166,6 +227,7 @@ class Oracle:
             surface_pooled=surface_pooled,
             regime_forecaster=regime_forecaster,
             calibration_buffer_pct=calibration_buffer_pct,
+            buffer_by_target=buffer_by_target,
         )
 
     def list_available(self, symbol: Optional[str] = None) -> pd.DataFrame:
@@ -236,10 +298,17 @@ class Oracle:
             forecaster_rows = rows[rows["forecaster"] == forecaster_used] if "forecaster" in rows.columns else rows
 
         # Apply empirical calibration buffer to target before inversion.
-        # Rationale: OOS realized coverage runs ~3pp below naive target; bumping
-        # the target up by the measured buffer recovers calibration on the
-        # held-out slice. See reports/v1b_hybrid_validation.md.
-        buffer_pct = float(buffer_override) if buffer_override is not None else self._buffer_pct
+        # Resolution order:
+        #   1. `buffer_override` (caller-supplied scalar) — A/B and diagnostic.
+        #   2. Oracle-level scalar (legacy single-buffer construction) if set.
+        #   3. Per-target schedule via `buffer_for_target` interpolation.
+        # See reports/v1b_buffer_tune.md for the per-target tuning evidence.
+        if buffer_override is not None:
+            buffer_pct = float(buffer_override)
+        elif self._buffer_scalar is not None:
+            buffer_pct = self._buffer_scalar
+        else:
+            buffer_pct = buffer_for_target(target_coverage, self._buffer_schedule)
         effective_target = min(target_coverage + buffer_pct, MAX_SERVED_TARGET)
 
         # Invert calibration using the chosen forecaster's surface, at the

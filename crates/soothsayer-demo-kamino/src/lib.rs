@@ -26,9 +26,10 @@
 //! all regime-awareness flows through the band's lower bound. The OOS
 //! protocol-comparison bootstrap (`reports/tables/protocol_compare_*.csv`)
 //! confirmed that demoting the threshold *on top of* a regime-aware band
-//! over-penalizes high_vol weekends without measurable miss-rate benefit.
-//! The `RegimeMultipliers` field is retained so a consumer can opt back
-//! into threshold demotion explicitly, but defaults are 1.0 across regimes.
+//! more than doubles pooled expected loss without measurable miss-rate
+//! benefit. The `RegimeMultipliers` field is retained so a consumer can opt
+//! back into threshold demotion explicitly, but defaults are 1.0 across
+//! regimes.
 //!
 //! Decision categories:
 //!
@@ -95,9 +96,10 @@ pub struct LendingParams {
 ///
 /// Defaults are 1.0 across all regimes — threshold demotion is OFF by default.
 /// The OOS protocol-comparison bootstrap (`reports/tables/protocol_compare_*`)
-/// showed that demoting the threshold on top of a regime-aware band raises
-/// pooled expected loss by ~75% with no miss-rate offset (high_vol fp_liq_rate
-/// jumped from 14% to 38% under demotion, miss rate unchanged at ~0.0%).
+/// showed that demoting the threshold on top of a regime-aware band more than
+/// doubles pooled expected loss with no miss-rate offset (Case B at t=0.85
+/// runs EL ≈ 0.135 vs Case A at the same target ≈ 0.060; the false-positive
+/// liquidation rate jumps ~15pp while miss rate is unchanged within noise).
 /// All regime-awareness now flows through the band's lower bound. A consumer
 /// who wants explicit threshold demotion can override these multipliers.
 #[derive(Clone, Copy, Debug)]

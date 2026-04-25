@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -50,6 +51,14 @@ DEFAULT_COST_MATRIX: dict[tuple[str, str], float] = {
     (LIQUIDATE, LIQUIDATE): 0.00,
 }
 
+DEFAULT_WEIGHT_SCHEMES = (
+    "uniform_ltv",
+    "borrower_heavy",
+    "threshold_heavy",
+    "debt_weighted",
+)
+DEFAULT_TRUTH_MODES = ("economic_flat85", "policy_consistent")
+
 
 @dataclass(frozen=True)
 class ComparisonConfig:
@@ -61,6 +70,23 @@ class ComparisonConfig:
     half_width_bps: float
     claim_served: float | None = None
     clipped_forces_caution: bool = False
+
+
+def realized_truth_config(
+    truth_mode: str,
+    *,
+    demote_threshold: bool,
+    clipped_forces_caution: bool,
+) -> dict[str, bool]:
+    """Return the realized-policy semantics for a variant under a truth mode."""
+    if truth_mode == "economic_flat85":
+        return {"demote_threshold": False, "clipped_forces_caution": False}
+    if truth_mode == "policy_consistent":
+        return {
+            "demote_threshold": demote_threshold,
+            "clipped_forces_caution": clipped_forces_caution,
+        }
+    raise ValueError(f"unknown truth_mode: {truth_mode}")
 
 
 def make_ltv_grid(
@@ -77,6 +103,70 @@ def make_ltv_grid(
     if grid[-1] < end - 1e-12:
         grid = np.append(grid, end)
     return np.round(grid, 6)
+
+
+def build_weight_lookup(
+    ltv_grid: Iterable[float],
+    *,
+    weight_scheme: str,
+    custom_weights_path: Path | None = None,
+) -> dict[float, float]:
+    """Normalized per-LTV weights for sensitivity analysis."""
+    ltv = np.asarray(list(ltv_grid), dtype=float)
+    if len(ltv) == 0:
+        raise ValueError("ltv_grid cannot be empty")
+
+    if weight_scheme == "uniform_ltv":
+        raw = np.ones(len(ltv), dtype=float)
+    elif weight_scheme == "borrower_heavy":
+        raw = np.exp(-0.5 * ((ltv - 0.75) / 0.03) ** 2)
+    elif weight_scheme == "threshold_heavy":
+        raw = np.exp(-0.5 * ((ltv - 0.85) / 0.02) ** 2)
+    elif weight_scheme == "debt_weighted":
+        raw = ltv.copy()
+    elif weight_scheme == "custom_csv":
+        if custom_weights_path is None:
+            raise ValueError("custom_weights_path is required for custom_csv weighting")
+        custom = pd.read_csv(custom_weights_path)
+        required = {"ltv_target", "weight"}
+        if not required.issubset(custom.columns):
+            raise ValueError("custom weight csv must contain ltv_target and weight columns")
+        custom = custom.copy()
+        custom["ltv_target"] = custom["ltv_target"].round(6)
+        custom = custom.drop_duplicates(subset=["ltv_target"], keep="last")
+        merged = pd.DataFrame({"ltv_target": np.round(ltv, 6)}).merge(
+            custom[["ltv_target", "weight"]],
+            on="ltv_target",
+            how="left",
+        )
+        if merged["weight"].isna().any():
+            missing = merged.loc[merged["weight"].isna(), "ltv_target"].tolist()
+            raise ValueError(f"custom weight csv missing LTV rows: {missing[:5]}")
+        raw = merged["weight"].to_numpy(dtype=float)
+    else:
+        raise ValueError(f"unknown weight_scheme: {weight_scheme}")
+
+    if np.any(raw < 0):
+        raise ValueError("weights must be non-negative")
+    total = float(raw.sum())
+    if total <= 0:
+        raise ValueError("weights must sum to a positive value")
+    normalized = raw / total
+    return dict(zip(np.round(ltv, 6).tolist(), normalized.tolist(), strict=True))
+
+
+def apply_weight_scheme(
+    rows: pd.DataFrame,
+    *,
+    weight_scheme: str,
+    weight_lookup: Mapping[float, float],
+) -> pd.DataFrame:
+    out = rows.copy()
+    out["weight_scheme"] = weight_scheme
+    out["row_weight"] = out["ltv_target"].round(6).map(dict(weight_lookup)).astype(float)
+    if out["row_weight"].isna().any():
+        raise ValueError("weight lookup missing one or more ltv_target values")
+    return out
 
 
 def kamino_lower_price(fri_close: float, deviation_bps: float = KAMINO_BPS) -> float:
@@ -166,6 +256,17 @@ def apply_decision_cost(
     return pd.Series([float(cost[(p, r)]) for p, r in pairs], index=predicted.index, dtype=float)
 
 
+def _weighted_mean(series: pd.Series, weights: pd.Series | np.ndarray | None = None) -> float:
+    values = series.to_numpy(dtype=float)
+    if weights is None:
+        return float(values.mean()) if len(values) else float("nan")
+    w = np.asarray(weights, dtype=float)
+    total = float(w.sum())
+    if total <= 0:
+        return float("nan")
+    return float(np.average(values, weights=w))
+
+
 def enrich_observation_rows(
     rows: pd.DataFrame,
     *,
@@ -193,40 +294,59 @@ def enrich_observation_rows(
 def summarize_variant_rows(rows: pd.DataFrame, group_cols: Iterable[str]) -> pd.DataFrame:
     """Aggregate decision metrics at the requested grouping level."""
     group_cols_list = list(group_cols)
-    grp = rows.groupby(group_cols_list, observed=True, dropna=False)
-    summary = grp.agg(
-        n=("decision_pred", "count"),
-        mean_half_width_bps=("half_width_bps", "mean"),
-        liquidation_rate=("is_liquidate", "mean"),
-        caution_rate=("is_caution", "mean"),
-        safe_rate=("is_safe", "mean"),
-        realized_liquidation_rate=("realized_is_liquidate", "mean"),
-        fp_liq_rate=("fp_liq", "mean"),
-        miss_liq_rate=("miss_liq", "mean"),
-        false_caution_rate=("false_caution", "mean"),
-        missed_caution_rate=("missed_caution", "mean"),
-        expected_loss=("decision_cost", "mean"),
-    ).reset_index()
+    out_rows: list[dict] = []
+    for keys, grp in rows.groupby(group_cols_list, observed=True, dropna=False):
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        rec = dict(zip(group_cols_list, keys, strict=True))
+        weights = grp["row_weight"] if "row_weight" in grp.columns else None
+        rec.update(
+            {
+                "n": int(len(grp)),
+                "weight_sum": float(weights.sum()) if weights is not None else float(len(grp)),
+                "mean_half_width_bps": _weighted_mean(grp["half_width_bps"], weights),
+                "liquidation_rate": _weighted_mean(grp["is_liquidate"], weights),
+                "caution_rate": _weighted_mean(grp["is_caution"], weights),
+                "safe_rate": _weighted_mean(grp["is_safe"], weights),
+                "realized_liquidation_rate": _weighted_mean(grp["realized_is_liquidate"], weights),
+                "fp_liq_rate": _weighted_mean(grp["fp_liq"], weights),
+                "miss_liq_rate": _weighted_mean(grp["miss_liq"], weights),
+                "false_caution_rate": _weighted_mean(grp["false_caution"], weights),
+                "missed_caution_rate": _weighted_mean(grp["missed_caution"], weights),
+                "expected_loss": _weighted_mean(grp["decision_cost"], weights),
+            }
+        )
+        out_rows.append(rec)
+    summary = pd.DataFrame(out_rows)
     return summary.sort_values(group_cols_list).reset_index(drop=True)
 
 
 def decision_confusion(rows: pd.DataFrame, group_cols: Iterable[str]) -> pd.DataFrame:
     group_cols_list = list(group_cols)
-    conf = (
-        rows.groupby(
-            group_cols_list + ["decision_realized", "decision_pred"],
-            observed=True,
-            dropna=False,
-        )
-        .size()
-        .rename("n")
-        .reset_index()
-    )
+    weight_col = "row_weight" if "row_weight" in rows.columns else None
+    agg_rows: list[dict] = []
+    for keys, grp in rows.groupby(
+        group_cols_list + ["decision_realized", "decision_pred"],
+        observed=True,
+        dropna=False,
+    ):
+        if not isinstance(keys, tuple):
+            keys = (keys,)
+        rec = dict(zip(group_cols_list + ["decision_realized", "decision_pred"], keys, strict=True))
+        rec["n"] = int(len(grp))
+        rec["weighted_n"] = float(grp[weight_col].sum()) if weight_col else float(len(grp))
+        agg_rows.append(rec)
+    conf = pd.DataFrame(agg_rows)
     conf["rate_within_group"] = conf["n"] / conf.groupby(
         group_cols_list,
         observed=True,
         dropna=False,
     )["n"].transform("sum")
+    conf["weighted_rate_within_group"] = conf["weighted_n"] / conf.groupby(
+        group_cols_list,
+        observed=True,
+        dropna=False,
+    )["weighted_n"].transform("sum")
     return conf.sort_values(group_cols_list + ["decision_realized", "decision_pred"]).reset_index(drop=True)
 
 
@@ -238,6 +358,7 @@ def bootstrap_variant_deltas(
     n_boot: int,
     seed: int,
     group_col: str = "regime_pub",
+    weight_col: str | None = "row_weight",
 ) -> pd.DataFrame:
     """Weekend-block bootstrap of Soothsayer minus baseline deltas."""
     metrics = [
@@ -275,7 +396,10 @@ def bootstrap_variant_deltas(
             n_weekends = len(weekends)
             scoped_by_week = {w: grp for w, grp in scoped.groupby("fri_ts")}
             point = {
-                metric_name: float(scoped[f"{source_col}_cmp"].mean() - scoped[f"{source_col}_base"].mean())
+                metric_name: float(
+                    _weighted_mean(scoped[f"{source_col}_cmp"], scoped[f"{weight_col}_cmp"] if weight_col else None)
+                    - _weighted_mean(scoped[f"{source_col}_base"], scoped[f"{weight_col}_base"] if weight_col else None)
+                )
                 for metric_name, source_col in metrics
             }
             boot = {metric_name: np.empty(n_boot, dtype=float) for metric_name, _ in metrics}
@@ -284,7 +408,8 @@ def bootstrap_variant_deltas(
                 sample = pd.concat([scoped_by_week[w] for w in draw], ignore_index=True)
                 for metric_name, source_col in metrics:
                     boot[metric_name][i] = float(
-                        sample[f"{source_col}_cmp"].mean() - sample[f"{source_col}_base"].mean()
+                        _weighted_mean(sample[f"{source_col}_cmp"], sample[f"{weight_col}_cmp"] if weight_col else None)
+                        - _weighted_mean(sample[f"{source_col}_base"], sample[f"{weight_col}_base"] if weight_col else None)
                     )
 
             rec: dict[str, float | int | str] = {
