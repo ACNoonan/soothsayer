@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <rect width="1280" height="640" fill="#0a0d0c"/>
+
+  <!-- Subtle grid hint, top-left -->
+  <g opacity="0.06" stroke="#f4f3ee" stroke-width="1">
+    <line x1="0" y1="120" x2="1280" y2="120"/>
+    <line x1="0" y1="520" x2="1280" y2="520"/>
+  </g>
+
+  <!-- Logomark: point-in-band, 280px tall, left side, vertically centered -->
+  <g transform="translate(120 180)" stroke-linecap="round">
+    <path d="M0 35 L280 35 M0 245 L280 245" stroke="#14F195" stroke-width="14" fill="none"/>
+    <circle cx="140" cy="140" r="35" fill="#14F195"/>
+  </g>
+
+  <!-- Wordmark, right side -->
+  <text x="500" y="270" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="120" font-weight="500" letter-spacing="-3" fill="#f4f3ee">Soothsayer<tspan fill="#14F195">.</tspan></text>
+
+  <!-- Tagline -->
+  <text x="500" y="340" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="32" font-weight="300" fill="#f4f3ee" opacity="0.78">A calibration-transparent fair-value oracle</text>
+  <text x="500" y="385" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="32" font-weight="300" fill="#f4f3ee" opacity="0.78">for tokenized RWAs on Solana.</text>
+
+  <!-- Footer URL -->
+  <text x="500" y="465" font-family="'JetBrains Mono', ui-monospace, monospace" font-size="22" font-weight="400" fill="#14F195" letter-spacing="2">soothsayer-landing.vercel.app</text>
+</svg>
