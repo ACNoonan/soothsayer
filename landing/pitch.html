@@ -546,6 +546,12 @@
 </section>
 
 
+<!--
+  TODO: Two pending slides drafted in `docs/pitch_deck_content.md`:
+    - Slide A "Why this gap is still open" — additive to or follow-on from slide 03 below
+    - Slide B "Why an ML engineer found this, not a quant" — founder/insight slide, target near slide 10
+  Source draft: docs/pitch_deck_content.md (2026-04-25)
+-->
 <!-- 03 — Why now -->
 <section data-label="03 — Why now">
   <div class="slide">
@@ -563,7 +569,7 @@
       <div class="metric">
         <div class="n">2×<span class="unit">/mo</span></div>
         <div class="sub">Kamino xStock supply</div>
-        <div class="lbl">$25M supply, caps doubled across 6 tickers in March 2026.</div>
+        <div class="lbl">$25M total supply (Q1 2026 snapshot); supply caps doubled across 6 tickers in March 2026.</div>
       </div>
       <div class="metric">
         <div class="n">$26.4<span class="unit">B</span></div>
@@ -661,10 +667,10 @@
           </div>
         </div>
         <div class="sooth-inputs">
-          <span class="sooth-input">ES futures</span>
-          <span class="sooth-input">Kraken perp</span>
-          <span class="sooth-input">Crypto β</span>
-          <span class="sooth-input">DEX ↓</span>
+          <span class="sooth-input">Friday close</span>
+          <span class="sooth-input">ES=F return</span>
+          <span class="sooth-input">VIX</span>
+          <span class="sooth-input">regime label</span>
         </div>
         <div class="panel-caption" style="margin-top: 14px;">Soothsayer publishes fair value + honest uncertainty. Protocols don’t liquidate on a print from an empty lot.</div>
       </div>
@@ -711,7 +717,7 @@
           <td class="provider">Pyth + Blue Ocean</td>
           <td><span class="no">— overnight only</span></td>
           <td><span class="cell-note">Weighted median</span></td>
-          <td><span class="partial">~ quote dispersion</span></td>
+          <td><span class="partial">~ quote dispersion *</span></td>
           <td><span class="partial">~ partial</span></td>
         </tr>
         <tr>
@@ -725,15 +731,19 @@
           <td class="provider">Soothsayer</td>
           <td><span class="yes">✓ weekend + CI</span></td>
           <td><span class="yes">✓ published math</span></td>
-          <td><span class="yes">✓ time-varying</span></td>
-          <td><span class="yes">✓ Apache / MIT</span></td>
+          <td><span class="yes">✓ aggregate-feed receipts</span></td>
+          <td><span class="yes">✓ Apache-2.0</span></td>
         </tr>
       </tbody>
     </table>
 
-    <div style="margin-top: 64px; display: flex; gap: 20px; align-items: center;">
+    <div style="margin-top: 40px; font-size: 18px; line-height: 1.55; color: var(--ink-faint); max-width: 1280px;">
+      * Pyth's documentation recommends per-publisher self-attestation to ~95% coverage, but the aggregate served feed downstream protocols actually read does not publish a verifiable calibration receipt. Soothsayer publishes receipts at the aggregate-feed level — replayable against the persisted surface and 12 years of public data.
+    </div>
+
+    <div style="margin-top: 36px; display: flex; gap: 20px; align-items: center;">
       <span class="tag" style="border-color: var(--green); color: var(--green);">Wins 4 of 4 axes</span>
-      <span class="small" style="color: var(--ink-dim);">Coverage is the race everyone’s running. Methodology is the one nobody’s entered.</span>
+      <span class="small" style="color: var(--ink-dim);">Coverage is the race everyone’s running. Calibration transparency is the one nobody’s entered.</span>
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
@@ -763,9 +773,9 @@
       </div>
       <div class="bullet">
         <div class="num">03</div>
-        <div class="h">Open-source math, grounded in published econometrics.</div>
-        <div class="p">Madhavan–Sobczyk state-space · Hasbrouck VECM · HAR-RV · Yang–Zhang · Hawkes toxicity. Methodology as the trust primitive, not the black box.</div>
-        <div class="citation">Cong et al. (SSRN 5937314) · Hasbrouck, J.&nbsp;Finance 2003 · Boyarchenko et&nbsp;al. JFE 2023</div>
+        <div class="h">Three-layer stack — calibration as the trust primitive.</div>
+        <div class="p">Raw forecasters (factor-adjusted point + log-log vol regression on VIX/GVZ/MOVE) → empirical calibration surface (per-(symbol, regime) rolling coverage) → hybrid + per-target buffer at the serving layer. Every read carries an audit receipt: which forecaster served, which claimed quantile was inverted, what buffer was applied.</div>
+        <div class="citation">v1b: full PASS at τ ∈ {0.68, 0.85, 0.95} OOS (Kupiec + Christoffersen). Rust port at byte-for-byte parity with Python (75/75 tests). Reproducible from <code>scripts/run_calibration.py</code> on yfinance data.</div>
       </div>
     </div>
 
@@ -800,7 +810,7 @@
         </div>
         <div class="row with">
           <div class="k">With</div>
-          <div class="v">Hawkes toxicity gate flags reflexive flow. CI widens. Protocol pauses.</div>
+          <div class="v">Served band at the consumer's τ shows the print outside the empirically-calibrated range. Protocol pauses, with an audit receipt.</div>
         </div>
       </div>
 
@@ -824,7 +834,7 @@
         </div>
         <div class="row with">
           <div class="k">With</div>
-          <div class="v">Live futures + Kraken perp funding update FV. Protocol tightens LTVs pre-emptively.</div>
+          <div class="v">Factor-adjusted point tracks ES futures over the weekend; band widens with the per-symbol vol index. Protocol tightens LTVs pre-emptively.</div>
         </div>
       </div>
 
@@ -838,14 +848,14 @@
             <rect x="44" y="14" width="8" height="36" stroke="#F26A5A" stroke-width="2" fill="none" transform="rotate(36 48 32)"/>
           </svg>
         </div>
-        <div class="scen-title">Manipulation / toxic flow</div>
+        <div class="scen-title">Volatility regime change</div>
         <div class="row without">
           <div class="k">Without</div>
-          <div class="v">Bad actor dumps into a thin book, triggers liquidation cascade.</div>
+          <div class="v">One-size-fits-all band stays the same width whether vol is 12 or 35.</div>
         </div>
         <div class="row with">
           <div class="k">With</div>
-          <div class="v">Branching-ratio detects reflexivity. DEX down-weighted. CI reflects the risk.</div>
+          <div class="v">Pre-publish regime label switches the served forecaster (F1 → F0 in high_vol). Width adapts; receipt declares which forecaster served.</div>
         </div>
       </div>
 
@@ -919,7 +929,7 @@
         <div class="tag" style="align-self: flex-start; border-color: var(--green); color: var(--green); margin-bottom: 20px;">Current wedge</div>
         <div style="font-size: 72px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; color: var(--ink);">$150–600<span style="color: var(--ink-faint); font-weight: 400;">k</span></div>
         <div style="font-family: var(--mono); font-size: 24px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 10px;">annual · Kamino alone</div>
-        <div style="font-size: 24px; color: var(--ink-dim); font-weight: 300; line-height: 1.4; margin-top: 28px;">On $25M xStock supply today. Kamino’s current liquidation-pause cost. Doubling month over month.</div>
+        <div style="font-size: 24px; color: var(--ink-dim); font-weight: 300; line-height: 1.4; margin-top: 28px;">On $25M xStock supply (Q1 2026 snapshot). Kamino’s current liquidation-pause cost; supply caps doubled in March 2026 with further increases expected.</div>
 
         <div class="tag" style="align-self: flex-start; border-color: var(--purple); color: var(--purple); margin: 56px 0 20px;">2030 outcome</div>
         <div style="font-size: 72px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; color: var(--ink);">$150M<span style="color: var(--ink-faint); font-weight: 400;">–</span>$1.5B</div>
@@ -1031,7 +1041,7 @@
       </div>
       <div class="risk">
         <div class="num">03</div>
-        <div class="txt"><b>RedStone is iterating on the same space.</b> $840M FDV, Securitize + BUIDL + ACRED, and Live 24/7 shipped March 2026. They could publish methodology first.</div>
+        <div class="txt"><b>RedStone is iterating on the same space.</b> $840M FDV (Q1 2026), Securitize + BUIDL + ACRED, Live 24/7 shipped March 2026 with methodology still undisclosed. They could publish methodology first; we monitor.</div>
       </div>
       <div class="risk">
         <div class="num">04</div>
@@ -1043,7 +1053,7 @@
       </div>
       <div class="risk">
         <div class="num">06</div>
-        <div class="txt"><b>Kamino TVL is still small.</b> $25M xStock supply today. The growth story is unlocking capital efficiency, not capturing fees on existing flow.</div>
+        <div class="txt"><b>Kamino TVL is still small.</b> $25M xStock supply (Q1 2026 snapshot). The growth story is unlocking capital efficiency, not capturing fees on existing flow.</div>
       </div>
     </div>
 
@@ -1063,22 +1073,28 @@
 
     <div class="roadmap">
       <div class="phase">
-        <div class="ph-lbl">Phase 0</div>
-        <div class="ph-when">1 week</div>
+        <div class="ph-lbl">Phase 0 ✅</div>
+        <div class="ph-when">complete · 2026-04-25</div>
         <div class="ph-h">Validation</div>
-        <div class="ph-p">H8 backtest on historical Kamino xStock tx data. Thesis stands or it doesn’t — we find out before building.</div>
+        <div class="ph-p">12-year decade-scale backtest, 5,986 weekends × 10 tickers. Full PASS — Kupiec + Christoffersen, OOS 2023+, at τ ∈ {0.68, 0.85, 0.95}. Rust port at byte-for-byte parity with Python (75/75 tests).</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 1</div>
-        <div class="ph-when">6 weeks</div>
-        <div class="ph-h">MVP</div>
-        <div class="ph-p">Free on-chain feed on devnet across 8 Kamino-onboarded xStocks. x402 premium endpoint prototype. Colosseum submission.</div>
+        <div class="ph-when">now · ~4 weeks</div>
+        <div class="ph-h">Devnet + Paper 1 + Paper 2 (parallel)</div>
+        <div class="ph-p">Devnet deploy across 8 Kamino-onboarded xStocks · x402 premium endpoint · Paper 1 §4/§5/§7/§8 → arXiv (q-fin.RM, ACM AFT) · Paper 2 (OEV mechanism design under calibration-transparent oracles) outline + first draft.</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 2</div>
-        <div class="ph-when">2026 H2 → 2027</div>
-        <div class="ph-h">Production</div>
-        <div class="ph-p">Mainnet, first design-partner integrations (Kamino, Backed, Ondo), first B2B data-licensing contract, SDK for RWA issuers.</div>
+        <div class="ph-when">~2 weeks after Phase 1</div>
+        <div class="ph-h">Dashboard + papers live + design partners</div>
+        <div class="ph-p">Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) · Paper 1 + Paper 2 on arXiv + SSRN · first design-partner conversations (Backed, Ondo, Kamino BD).</div>
+      </div>
+      <div class="phase">
+        <div class="ph-lbl">Phase 3</div>
+        <div class="ph-when">gated</div>
+        <div class="ph-h">Mainnet + B2B + formal publication</div>
+        <div class="ph-p">Gated on Paper 2 evidence + ≥1 design-partner LOI. Mainnet deployment, first paid pilot, AFT / FC / SBC submissions.</div>
       </div>
     </div>
 

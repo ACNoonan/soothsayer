@@ -466,14 +466,14 @@
   <section class="hero">
     <div class="grid-bg"></div>
     <div class="wrap">
-      <span class="status-pill"><span class="led"></span>Devnet · Q2 2026 · Colosseum submission</span>
+      <span class="status-pill"><span class="led"></span>Phase 1 · Devnet + Paper 1 · Colosseum 2026</span>
 
       <h1>
         Real-world assets<br /><span class="em">don't sleep on the weekend.</span>
       </h1>
 
       <p class="lede">
-        Open-source fair value and time-varying confidence intervals for tokenized equities on Solana — priced for the hours the market is closed.
+        An empirically calibrated confidence band for tokenized equities on Solana — with audit receipts any consumer can verify against 12 years of public data. Read <em>alongside</em> a primary oracle. The moat is calibration transparency, not better math.
       </p>
 
       <div class="actions">
@@ -485,12 +485,12 @@
         <div class="cell">
           <div class="k">Weekend void</div>
           <div class="v">$3.5<span class="unit">B</span></div>
-          <div class="n">of tokenized equities on Solana with no principled price, every weekend.</div>
+          <div class="n">of tokenized equities on Solana with no principled price, every weekend (Q1 2026 snapshot).</div>
         </div>
         <div class="cell">
           <div class="k">xStocks volume</div>
           <div class="v">$25<span class="unit">B+</span></div>
-          <div class="n">Cumulative — ~95–99% of tokenized-equity trading lives on Solana.</div>
+          <div class="n">Cumulative through Q1 2026 — ~95–99% of tokenized-equity trading lives on Solana.</div>
         </div>
         <div class="cell">
           <div class="k">Stale-hold window</div>
@@ -498,14 +498,20 @@
           <div class="n">Fri 8pm → Sun 8pm ET, across every incumbent equity oracle.</div>
         </div>
         <div class="cell">
-          <div class="k">Operating cost</div>
-          <div class="v">$310<span class="unit">–800/mo</span></div>
-          <div class="n">The moat is methodology, not infrastructure.</div>
+          <div class="k">OOS coverage @ τ=0.95</div>
+          <div class="v">95.0<span class="unit">%</span></div>
+          <div class="n">Realised on a 2023+ held-out slice; Kupiec p<sub>uc</sub>=1.000, Christoffersen p<sub>ind</sub>=0.485.</div>
         </div>
       </div>
     </div>
   </section>
 
+  <!--
+    TODO: Two pending content blocks drafted in docs/pitch_deck_content.md:
+      - "Why this gap is still open" — new band candidate between #gap and #product
+      - "Why an ML engineer found this, not a quant" — sidebar candidate within #method, or future founder/about section
+    Source draft: docs/pitch_deck_content.md (2026-04-25)
+  -->
   <!-- THE GAP -->
   <section class="band" id="gap">
     <div class="wrap">
@@ -611,9 +617,9 @@
       <div class="head-row">
         <div>
           <span class="eyebrow p"><span class="bar"></span>Methodology</span>
-          <h2>Real econometrics, <span class="emp">in the open.</span></h2>
+          <h2>Three layers, <span class="emp">all auditable.</span></h2>
         </div>
-        <p>Five published primitives stacked behind every fair-value point. Peer-reviewed. Versioned. Auditable. Reproducible from the repo against public data.</p>
+        <p>The product is the served band, not the raw forecaster. Three layers compose it. Each is reproducible from the repo against public data: 12 years of yfinance + per-symbol vol indices, no proprietary feeds. Full evolution log in <code>reports/methodology_history.md</code>.</p>
       </div>
 
       <div class="method-wrap">
@@ -621,76 +627,76 @@
           <div class="m-item">
             <span class="n">01</span>
             <div class="body">
-              <div class="h">Madhavan–Sobczyk state-space</div>
-              <div class="p">Latent fair-value decomposition — separates transient microstructure noise from the price signal protocols should actually act on.</div>
+              <div class="h">Raw forecaster stack</div>
+              <div class="p">F1_emp_regime: Friday close × per-symbol factor return (ES / GC / ZN / BTC), conditional sigma from a log-log regression on the per-symbol vol index (VIX / GVZ / MOVE), empirical quantiles on standardised residuals — no Gaussian assumption, no parametric vol model. F0_stale: Friday close held forward + 20-day Gaussian, the high-volatility hybrid fallback.</div>
             </div>
-            <span class="ref">SSRN 5937314</span>
+            <span class="ref">F1 · F0</span>
           </div>
           <div class="m-item">
             <span class="n">02</span>
             <div class="body">
-              <div class="h">Hasbrouck VECM price-discovery weights</div>
-              <div class="p">Information shares across ES futures, Kraken perps, NBBO, and DEX venues. Weights are published and auditable per tick.</div>
+              <div class="h">Empirical calibration surface</div>
+              <div class="p">For every (symbol, regime, forecaster, claimed-quantile) cell we measure realised coverage on rolling history and persist the table. At serve time, a request (s, r, τ) returns the band at q_served = S⁻¹(s, r, τ_buffered) — the claimed quantile that has historically delivered τ on this bucket.</div>
             </div>
-            <span class="ref">J. Finance · 2003</span>
+            <span class="ref">v1b_bounds.parquet</span>
           </div>
           <div class="m-item">
             <span class="n">03</span>
             <div class="body">
-              <div class="h">HAR-RV · realized volatility</div>
-              <div class="p">Heterogeneous-autoregressive vol drives the confidence interval width as microstructure conditions change.</div>
+              <div class="h">Hybrid + per-target buffer</div>
+              <div class="p">REGIME_FORECASTER picks F1 in normal / long-weekend (where it's 27–43% tighter at matched coverage) and F0 in high_vol (where it prevents the OOS Christoffersen-independence rejection that pure-F1 produces). BUFFER_BY_TARGET = {0.68→0.045, 0.85→0.045, 0.95→0.020, 0.99→0.005}, linearly interpolated.</div>
             </div>
-            <span class="ref">Corsi · 2009</span>
+            <span class="ref">REGIME_FORECASTER</span>
           </div>
           <div class="m-item">
             <span class="n">04</span>
             <div class="body">
-              <div class="h">Yang–Zhang range estimator</div>
-              <div class="p">Drift-robust, opening-jump-aware volatility. Handles overnight-to-weekend regime transitions without underestimating risk.</div>
+              <div class="h">Audit receipt on every read</div>
+              <div class="p">target_coverage, calibration_buffer_applied, claimed_coverage_served, forecaster_used, regime — exposed on every PricePoint. The trust primitive, in the data structure itself: any consumer can replay the inversion against the persisted surface.</div>
             </div>
-            <span class="ref">J. Business · 2000</span>
+            <span class="ref">PricePoint</span>
           </div>
           <div class="m-item">
             <span class="n">05</span>
             <div class="body">
-              <div class="h">Hawkes reflexivity / toxicity gate</div>
-              <div class="p">Branching-ratio detection on the DEX tape. Reflexive thin-book flow down-weights venues and widens the CI — not a liquidation trigger.</div>
+              <div class="h">OOS Kupiec + Christoffersen — full PASS</div>
+              <div class="p">Held-out 2023+ slice (1,720 rows × 172 weekends). τ=0.95 → realised 0.950, p_uc=1.000, p_ind=0.485. τ=0.85 → realised 0.855, p_uc=0.541, p_ind=0.185. τ=0.68 → realised 0.678, p_uc=0.893, p_ind=0.647. Full surface in <code>reports/v1b_calibration.md</code>; ablation with bootstrap CIs in <code>reports/v1b_ablation.md</code>.</div>
             </div>
-            <span class="ref">Boyarchenko · JFE 23</span>
+            <span class="ref">paper §6.4</span>
           </div>
         </div>
 
-        <div class="signal-card" aria-label="Live fair-value signal preview">
+        <div class="signal-card" aria-label="Sample served-band PricePoint">
           <div class="sc-head">
-            <div class="ticker">TSLAX<span class="sub">xStock · Sat 14:32 UTC</span></div>
-            <div class="regime">Regime · Closed-market</div>
+            <div class="ticker">TSLAx<span class="sub">xStock · Sat 14:32 UTC · τ = 0.85</span></div>
+            <div class="regime">Regime · normal</div>
           </div>
 
           <div>
             <div class="big">
               <span class="fv">$241.07</span>
-              <span class="delta">FV · CI half-width ±0.84%</span>
+              <span class="delta">point · half-width ±2.30% (≈ 230 bps)</span>
             </div>
             <div class="ci-row" style="margin-top: 10px;">
-              <span><span class="k">95% CI</span> &nbsp;$239.04 — $243.09</span>
-              <span><span class="k">σ̂</span> &nbsp;1.21%</span>
-              <span><span class="k">β̂ crypto</span> &nbsp;0.18</span>
+              <span><span class="k">band</span> &nbsp;$235.52 — $246.62</span>
+              <span><span class="k">claimed_served</span> &nbsp;0.895</span>
+              <span><span class="k">buffer</span> &nbsp;0.045</span>
             </div>
           </div>
 
           <div class="chart" aria-hidden="true">
-            <span class="ci-label">95% CI</span>
+            <span class="ci-label">τ = 0.85 band</span>
             <div class="line"></div>
             <div class="dot"></div>
-            <div class="axis"><span>Fri 20:00 ET</span><span>Sat</span><span>Sun 20:00 ET</span></div>
+            <div class="axis"><span>Fri 16:00 ET</span><span>Sat</span><span>Mon 09:30 ET</span></div>
           </div>
 
           <div class="inputs" style="margin-top: 26px;">
-            <span class="i">ES futures</span>
-            <span class="i">Kraken perp</span>
-            <span class="i">Crypto β</span>
-            <span class="i">DEX (↓ wt)</span>
-            <span class="i">Prior close</span>
+            <span class="i">Friday close</span>
+            <span class="i">ES=F return</span>
+            <span class="i">VIX</span>
+            <span class="i">earnings flag</span>
+            <span class="i">long-weekend flag</span>
           </div>
         </div>
       </div>
@@ -730,7 +736,7 @@
             <td class="prov">Pyth + Blue Ocean</td>
             <td><span class="no">— overnight only</span></td>
             <td><span class="note">Weighted median</span></td>
-            <td><span class="mid">~ quote dispersion</span></td>
+            <td><span class="mid">~ quote dispersion *</span></td>
             <td><span class="mid">~ partial</span></td>
           </tr>
           <tr>
@@ -744,11 +750,15 @@
             <td class="prov">Soothsayer</td>
             <td><span class="yes">✓ weekend + CI</span></td>
             <td><span class="yes">✓ published math</span></td>
-            <td><span class="yes">✓ time-varying</span></td>
-            <td><span class="yes">✓ Apache / MIT</span></td>
+            <td><span class="yes">✓ aggregate-feed receipts</span></td>
+            <td><span class="yes">✓ Apache-2.0</span></td>
           </tr>
         </tbody>
       </table>
+
+      <p style="margin-top: 24px; font-size: 14px; line-height: 1.55; color: var(--ink-faint); max-width: 980px;">
+        * Pyth's documentation recommends per-publisher self-attestation to ~95% coverage, but that is a publisher-level statement, not a property of the aggregate served feed that downstream protocols actually read. Soothsayer publishes the calibration receipt at the aggregate-feed level — replayable against the persisted surface and 12 years of public data.
+      </p>
     </div>
   </section>
 
@@ -769,21 +779,21 @@
           <span class="uc-num">01 · LIQUIDATION</span>
           <h3>Weekend flash crash on a thin book.</h3>
           <div class="ob without"><span class="tag-k">Without</span>Borrower liquidated on a thin-book print that reverts Monday.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Toxicity gate flags reflexive flow. CI widens. Protocol pauses.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Served band at the consumer's τ shows the print outside the empirically-calibrated range. Protocol pauses, with an audit receipt.</div>
         </div>
 
         <div class="uc">
           <span class="uc-num">02 · GAP RISK</span>
           <h3>Adverse Monday open.</h3>
           <div class="ob without"><span class="tag-k">Without</span>Stale hold says Friday close is fine. Monday opens –8%. Bad debt.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Live futures + Kraken perp update FV. LTVs tightened pre-emptively.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Factor-adjusted point tracks ES futures over the weekend; band widens with the per-symbol vol index. LTVs tightened pre-emptively.</div>
         </div>
 
         <div class="uc">
-          <span class="uc-num">03 · MANIPULATION</span>
-          <h3>Toxic flow into a thin book.</h3>
-          <div class="ob without"><span class="tag-k">Without</span>A bad actor dumps into emptiness, triggers liquidation cascade.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Branching-ratio detects reflexivity. DEX down-weighted. CI reflects risk.</div>
+          <span class="uc-num">03 · REGIME SHIFT</span>
+          <h3>Volatility regime change into the weekend.</h3>
+          <div class="ob without"><span class="tag-k">Without</span>One-size-fits-all band stays the same width whether vol is 12 or 35.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Pre-publish regime label switches the served forecaster (F1 → F0 in high_vol). Width adapts; receipt declares which forecaster served.</div>
         </div>
 
         <div class="uc">
@@ -830,10 +840,10 @@
     <div class="wrap inner">
       <span class="eyebrow g"><span class="bar"></span>Design partners · Colosseum 2026</span>
       <h2>Build with the <span class="em">weekend-proof</span> oracle.</h2>
-      <p>Looking for a small number of design partners across lending, perps, and RWA issuance. Devnet feed live in Q2 · mainnet H2 · B2B dataset shipping first.</p>
+      <p>Phase 0 validation closed full PASS — Kupiec + Christoffersen, OOS, three τ levels. Phase 1 now: devnet deploy + Paper 1 to arXiv + Paper 2 first draft, in parallel. Looking for a small number of design partners across lending, perps, and RWA issuance.</p>
 
       <div class="actions">
-        <a class="btn primary" href="mailto:adam@soothsayer.xyz?subject=Soothsayer%20design%20partner">Request access <span class="arrow">→</span></a>
+        <a class="btn primary" href="mailto:adamcnoonan@gmail.com?subject=Soothsayer%20design%20partner">Request access <span class="arrow">→</span></a>
         <a class="btn ghost" href="pitch.html">Read the pitch</a>
         <a class="btn ghost" href="#method">See the methodology</a>
       </div>
