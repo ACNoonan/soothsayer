@@ -7,6 +7,18 @@ empirical coverage matches the target. The calibration surface driving the
 inversion is produced by the backtest (see `backtest/calibration.py`) and
 persisted to `data/processed/v1b_bounds.parquet`.
 
+**Default target_coverage = 0.85 (2026-04-25).** The shipping default moved
+from 0.95 to 0.85 after the OOS protocol-comparison bootstrap
+(`reports/tables/protocol_compare_*.csv`) showed t=0.85 is the EL-optimal
+operating point vs a Kamino-style flat ±300bps band on the held-out 2023+
+slice with weekend-block bootstrap CIs (Δ EL ≈ −0.020 vs Kamino, CI not
+crossing zero; ~30% expected-loss reduction at the default 4:1 miss:FP cost
+ratio). t=0.95 remained available as an explicit override but at the default
+cost matrix it under-performs Kamino on protocol expected loss because the
+buffered band over-fires false-positive liquidations. Customer-selects-coverage
+(Option C) means consumers with extreme bad-debt aversion can still ask for
+0.95 or 0.99; we just don't default there.
+
 **Hybrid regime forecaster (2026-04-24).** The Oracle consults
 `REGIME_FORECASTER` to decide which forecaster's calibration surface to
 invert against for a given regime. v1b evidence at matched realized coverage:
@@ -186,7 +198,7 @@ class Oracle:
         self,
         symbol: str,
         as_of: date | str,
-        target_coverage: float = 0.95,
+        target_coverage: float = 0.85,
         forecaster_override: str | None = None,
         buffer_override: float | None = None,
     ) -> PricePoint:

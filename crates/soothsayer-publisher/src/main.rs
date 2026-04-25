@@ -2,7 +2,7 @@
 //!
 //! Usage:
 //!
-//!     soothsayer fair-value --symbol SPY --as-of 2026-04-17 --target 0.95
+//!     soothsayer fair-value --symbol SPY --as-of 2026-04-17 --target 0.85
 //!     soothsayer list-available --symbol SPY
 //!
 //! Artifacts default to the repo-root paths:
@@ -51,7 +51,7 @@ enum Command {
         symbol: String,
         #[arg(long)]
         as_of: NaiveDate,
-        #[arg(long, default_value_t = 0.95)]
+        #[arg(long, default_value_t = 0.85)]
         target: f64,
         /// Override the hybrid regime-selected forecaster (A/B diagnostic).
         #[arg(long)]
@@ -82,7 +82,7 @@ enum Command {
         symbol: String,
         #[arg(long)]
         as_of: NaiveDate,
-        #[arg(long, default_value_t = 0.95)]
+        #[arg(long, default_value_t = 0.85)]
         target: f64,
         #[arg(long)]
         forecaster: Option<String>,

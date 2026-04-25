@@ -22,10 +22,13 @@
 //!
 //! The protocol values collateral at the **lower bound** (not the point) —
 //! the conservative reading that survives a benign band-to-spot reversion.
-//! The liquidation threshold is demoted in stressed regimes per the evidence
-//! from Phase 0: high_vol regime has 10-15% higher realized-shock
-//! probability than normal, so giving borrowers a ~15% smaller safety zone
-//! during those windows is the textbook risk-aware response.
+//! The liquidation threshold is held flat across regimes (no double-demote);
+//! all regime-awareness flows through the band's lower bound. The OOS
+//! protocol-comparison bootstrap (`reports/tables/protocol_compare_*.csv`)
+//! confirmed that demoting the threshold *on top of* a regime-aware band
+//! over-penalizes high_vol weekends without measurable miss-rate benefit.
+//! The `RegimeMultipliers` field is retained so a consumer can opt back
+//! into threshold demotion explicitly, but defaults are 1.0 across regimes.
 //!
 //! Decision categories:
 //!
@@ -90,10 +93,13 @@ pub struct LendingParams {
 /// Per-regime multiplier on the liquidation threshold. Values < 1.0 tighten
 /// the safety zone; = 1.0 passes the base threshold through.
 ///
-/// Defaults per `reports/v1b_decision.md`:
-/// - `normal`   → 1.00  (no demote)
-/// - `long_weekend` → 0.95 (slight demote — 3 consecutive closed days)
-/// - `high_vol` → 0.85 (meaningful demote — Christoffersen-failing regime)
+/// Defaults are 1.0 across all regimes — threshold demotion is OFF by default.
+/// The OOS protocol-comparison bootstrap (`reports/tables/protocol_compare_*`)
+/// showed that demoting the threshold on top of a regime-aware band raises
+/// pooled expected loss by ~75% with no miss-rate offset (high_vol fp_liq_rate
+/// jumped from 14% to 38% under demotion, miss rate unchanged at ~0.0%).
+/// All regime-awareness now flows through the band's lower bound. A consumer
+/// who wants explicit threshold demotion can override these multipliers.
 #[derive(Clone, Copy, Debug)]
 pub struct RegimeMultipliers {
     pub normal: f64,
@@ -117,8 +123,8 @@ impl Default for RegimeMultipliers {
     fn default() -> Self {
         Self {
             normal: 1.00,
-            long_weekend: 0.95,
-            high_vol: 0.85,
+            long_weekend: 1.00,
+            high_vol: 1.00,
         }
     }
 }
@@ -368,20 +374,39 @@ mod tests {
     }
 
     #[test]
-    fn high_vol_regime_demotes_threshold_and_flips_decision() {
-        // Same position that's Safe in normal regime can flip to Caution / Liquidate
-        // in high_vol because the liquidation threshold gets demoted to 0.85 × 0.85 = 0.7225.
+    fn default_threshold_is_flat_across_regimes() {
+        // Regression: with shipping defaults (RegimeMultipliers all 1.0), the
+        // effective liquidation threshold is identical across regimes. This is
+        // the post-2026-04-25 behavior — Case A on the Kamino-fork demo. The
+        // earlier double-demote (Case B) was retired after the OOS bootstrap
+        // showed it inflated expected loss by ~75% pooled.
         let band_normal = make_band(700.0, 693.0, 707.0, REGIME_NORMAL, 9750);
         let band_highvol = make_band(700.0, 693.0, 707.0, REGIME_HIGH_VOL, 9900);
         let pos = Position { debt_usdc: 5200.0, collateral_qty: 10.0 };
         let eval_n = evaluate(&band_normal, &pos, &LendingParams::default()).unwrap();
         let eval_h = evaluate(&band_highvol, &pos, &LendingParams::default()).unwrap();
-        // LTV ≈ 5200/6930 = 0.750 — Caution under both thresholds but note
-        // the eff_threshold is different.
-        assert_eq!(eval_n.decision, LendingDecision::Caution);
-        // In high-vol, effective threshold = 0.85 × 0.85 = 0.7225. LTV 0.750 > 0.7225 → liquidate.
-        assert_eq!(eval_h.decision, LendingDecision::Liquidate);
-        assert!(eval_h.effective_liquidation_threshold < eval_n.effective_liquidation_threshold);
+        assert_eq!(eval_n.effective_liquidation_threshold, 0.85);
+        assert_eq!(eval_h.effective_liquidation_threshold, 0.85);
+        // Same LTV → same decision in both regimes under flat threshold.
+        assert_eq!(eval_n.decision, eval_h.decision);
+    }
+
+    #[test]
+    fn opt_in_threshold_demote_still_works() {
+        // The mechanism remains available for consumers who explicitly request
+        // it. Pass a non-1.0 multiplier and confirm the threshold drops.
+        let band_highvol = make_band(700.0, 693.0, 707.0, REGIME_HIGH_VOL, 9900);
+        let pos = Position { debt_usdc: 5200.0, collateral_qty: 10.0 };
+        let mut params = LendingParams::default();
+        params.regime_multipliers = RegimeMultipliers {
+            normal: 1.00,
+            long_weekend: 0.95,
+            high_vol: 0.85,
+        };
+        let eval = evaluate(&band_highvol, &pos, &params).unwrap();
+        // 0.85 × 0.85 = 0.7225. LTV 5200/6930 ≈ 0.750 > 0.7225 → liquidate.
+        assert_eq!(eval.decision, LendingDecision::Liquidate);
+        assert!((eval.effective_liquidation_threshold - 0.7225).abs() < 1e-9);
     }
 
     #[test]
@@ -395,14 +420,13 @@ mod tests {
 
     #[test]
     fn flat_gov_band_vs_empirical_side_by_side() {
-        // A realized-shock historical-style weekend where Kamino's flat band
-        // passes a position, but Soothsayer's wider-in-high-vol band catches it.
-        //
-        // Setup: point price $700 at Friday close. Underlying opens Monday at $650.
+        // A high-vol weekend comparison where both bands fire Liquidate but for
+        // different reasons. Setup: point price $700 at Friday close.
         // - Kamino flat band: ±300 bps = lower $679. Collateral $6790 → LTV 88%. LIQUIDATES.
         // - Soothsayer high-vol band: point $700, lower $665 (wider than flat), claim 0.99.
-        //     Collateral $6650 → LTV 90%. Also LIQUIDATES, but with a REGIME-DEMOTED
-        //     threshold of 0.85 × 0.85 = 0.7225, it liquidates sooner in the cascade.
+        //     Collateral $6650 → LTV 90%. LIQUIDATES at the flat 0.85 threshold.
+        // The Soothsayer reading is more conservative because the wider lower
+        // bound reflects the genuine regime risk, even with the same threshold.
         let pos = Position { debt_usdc: 6000.0, collateral_qty: 10.0 };
         let params = LendingParams::default();
 
