@@ -114,10 +114,12 @@ crates/                     Rust — Phase 1 on-chain publish path (scaffold)
 
 ## Roadmap
 
-- **Phase 0 — done.** V1b decade-scale backtest → PASS-LITE → Option C product shape locked.
-- **Phase 1 (now, 4 weeks).** Live-mode Oracle serving + on-chain publish path (Switchboard or Anchor per 1-day prototype) + xStock-specific calibration overlay once V5 tape has ≥ 1 month of data + Kamino-fork consumer demo + x402-gated premium endpoint.
-- **Phase 2 (weeks 5–6).** Public comparator dashboard (Soothsayer vs Chainlink vs Pyth across every weekend of 2025–2026) + methodology writeup + hackathon submission.
-- **Phase 3 (post-hackathon).** Adviser-driven VC intros, Kamino BD deepening, first B2B data-license conversation, third-party publisher replication path.
+Full roadmap with three parallel tracks (product/deploy, research, methodology) lives in [`docs/ROADMAP.md`](docs/ROADMAP.md). Quick view:
+
+- **Phase 0 ✅** — V1b decade-scale backtest → PASS-LITE → Option C product shape locked.
+- **Phase 1 (now)** — Devnet deploy + Paper 1 to arXiv + Paper 2 outline & first draft (parallel).
+- **Phase 2** — Public comparator dashboard + both papers live (arXiv + SSRN) + first design-partner conversations.
+- **Phase 3** (gated on Paper 2 evidence + design-partner LOI) — Mainnet + B2B + AFT/FC submission.
 
 ## Contributing
 
