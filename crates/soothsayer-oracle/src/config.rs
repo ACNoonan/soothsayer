@@ -41,7 +41,7 @@ pub fn default_buffer_by_target() -> Vec<(f64, f64)> {
         (0.68, 0.045),
         (0.85, 0.045),
         (0.95, 0.020),
-        (0.99, 0.005),
+        (0.99, 0.010),
     ]
 }
 
@@ -75,9 +75,12 @@ pub fn buffer_for_target(target: f64, schedule: &[(f64, f64)]) -> f64 {
 /// above is the primary mechanism.
 pub const CALIBRATION_BUFFER_PCT: f64 = 0.025;
 
-/// The maximum claimed coverage at which the bounds table has data. We cannot
-/// buffer past this because the fine grid stops at 0.995.
-pub const MAX_SERVED_TARGET: f64 = 0.995;
+/// The maximum claimed coverage at which the bounds table has data. Extended
+/// from 0.995 → 0.999 on 2026-04-25; the wider grid lifted OOS realised
+/// coverage at τ=0.99 from 0.972 → 0.977 but did not fully resolve the
+/// finite-sample tail ceiling (calibration window size, not grid spacing,
+/// is the deeper limitation). See `reports/v1b_extended_grid.md`.
+pub const MAX_SERVED_TARGET: f64 = 0.999;
 
 /// Minimum observations required in a per-symbol surface bucket before we use
 /// it; below this we fall back to the pooled surface.

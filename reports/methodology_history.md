@@ -17,14 +17,18 @@
 **Deployment defaults.**
 - Default τ = **0.85** — picked on protocol-EL grounds vs Kamino flat-300bps benchmark.
 - Hybrid forecaster: F1_emp_regime in `normal` and `long_weekend`; F0_stale in `high_vol`.
-- Per-target buffer schedule: `{0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.005}`, linearly interpolated off-grid.
+- Per-target buffer schedule: `{0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}`, linearly interpolated off-grid (τ=0.99 bumped from 0.005 → 0.010 after 2026-04-25 grid extension).
+- Claimed-coverage grid: `{..., 0.95, 0.975, 0.99, 0.995, 0.997, 0.999}` (extended 2026-04-25 from prior top of 0.995); `MAX_SERVED_TARGET = 0.999`.
 
 **Validated empirical claims (OOS 2023+, 1,720 rows, 172 weekends):**
 - τ = 0.95: realised 0.950, Kupiec $p_{uc}$ = 1.000, Christoffersen $p_{ind}$ = 0.485 (PASS).
 - τ = 0.85: realised 0.855, Kupiec $p_{uc}$ = 0.541, Christoffersen $p_{ind}$ = 0.185 (PASS).
 - τ = 0.68: realised 0.678, Kupiec $p_{uc}$ = 0.893, Christoffersen $p_{ind}$ = 0.647 (PASS).
-- τ = 0.99: realised 0.972 — Kupiec rejects (p_uc < 0.001) due to a structural finite-sample tail ceiling; documented as out-of-scope for v1.
+- τ = 0.99: realised 0.977 (post-grid-extension; was 0.972 on the 0.995-capped grid) — Kupiec still rejects. Structural ceiling re-attributed: with the grid extended to 0.999, the deeper finite-sample limitation is now identified as the 156-weekend per-(symbol, regime) calibration window size, not grid spacing.
 - Protocol EL vs Kamino flat ±300bps at τ = 0.85: ΔEL ≈ −0.011 with bootstrap 95% CI [−0.014, −0.007] (favours Soothsayer).
+- **Walk-forward stability (6 expanding-window splits 2019–2025):** at τ=0.95, mean buffer = 0.019 (σ = 0.017); deployed value 0.020 lands at the cross-split mean. At τ=0.85, mean buffer = 0.025 (σ = 0.022); deployed 0.045 is conservative (≥1σ above mean).
+- **Stationarity (D2):** 8 of 10 symbols stationary by joint ADF + KPSS; HOOD (n=245) and TLT trend-stationary.
+- **Christoffersen pooling sensitivity (D4):** sum-of-LRs / Bonferroni / Holm-Šidák agree on accept/reject at α=0.05 across all four targets — robust to pooling choice.
 
 **Code source-of-truth.**
 - Python: `src/soothsayer/oracle.py` (`BUFFER_BY_TARGET`, `REGIME_FORECASTER`, `Oracle.fair_value`).
@@ -32,12 +36,12 @@
 - Calibration surface artefact: `data/processed/v1b_bounds.parquet` (the table consumers verify against).
 
 **Paper draft snapshot (descriptive sections, frozen pending live deployment):**
-- §1 Introduction — `reports/paper/01_introduction.md`
-- §2 Related Work — `reports/paper/02_related_work.md` (28 verified references)
-- §3 Problem Statement — `reports/paper/problem_statement.md`
-- §6 Results — `reports/paper/06_results.md`
-- §9 Limitations — `reports/paper/09_limitations.md`
-- §2-citation bibliography — `reports/paper/references.md`
+- §1 Introduction — `reports/paper1_coverage_inversion/01_introduction.md`
+- §2 Related Work — `reports/paper1_coverage_inversion/02_related_work.md` (28 verified references)
+- §3 Problem Statement — `reports/paper1_coverage_inversion/problem_statement.md`
+- §6 Results — `reports/paper1_coverage_inversion/06_results.md`
+- §9 Limitations — `reports/paper1_coverage_inversion/09_limitations.md`
+- §2-citation bibliography — `reports/paper1_coverage_inversion/references.md`
 
 **Phase-2 deliverables conditional on data history.** F_tok forecaster (uses on-chain xStock TWAP; gated on V5 tape ≥ 150 weekend obs per regime), MEV-aware consumer-experienced coverage, full PIT-uniformity diagnostic, conformal-prediction re-evaluation under finer claimed grid. See `docs/v2.md`.
 
@@ -45,7 +49,33 @@
 
 ## 1. Decision log
 
-### 2026-04-25 — Per-target buffer schedule replaces scalar; conformal alternatives tested and rejected for v1
+### 2026-04-25 (afternoon) — Tier-1 engineering pass: walk-forward + diagnostics + grid extension + macro-event ablation
+
+**Trigger.** Tier-1 of the grant-application impact framework — the engineering-only items we committed to doing before requesting funding. Goal: produce paper-strength sensitivity / robustness evidence and resolve disclosed limitations where reachable on existing data.
+
+**Hypotheses tested.**
+
+1. **H1: BUFFER_BY_TARGET values are stable across train/test splits.** *Accepted.* Walk-forward six-split rolling-origin evaluation (cutoffs 2019-01-01 → 2024-01-01, 12-month horizons): at τ=0.95, mean buffer = 0.019 (σ = 0.017) — deployed value 0.020 lands at the cross-split mean. At τ=0.85, mean = 0.025 (σ = 0.022); deployed 0.045 is ≥1σ conservative (over-covers). Closes the §9.4 sample-size-1 disclosure for τ=0.95; tightens but does not fully close it for τ=0.85, where the conservative deployed value reflects the post-2023 split having a wider gap than the 2019–2022 splits. *Artefact:* `reports/v1b_walkforward.md`, `reports/tables/v1b_walkforward_buffer.csv`.
+2. **H2: τ=0.99 ceiling is grid-spacing-driven.** *Partially rejected; structural attribution refined.* Extended the claimed grid from `(..., 0.995)` to `(..., 0.995, 0.997, 0.999)` and bumped `MAX_SERVED_TARGET` to 0.999 in both Python and Rust. OOS realised coverage at τ=0.99 lifted from 0.972 → 0.977 — a real but small improvement. Kupiec still rejects. The deeper finite-sample limitation is the 156-weekend per-(symbol, regime) calibration window, not the grid resolution. §9.1 should be re-attributed: not "the grid stops at 0.995" but "the calibration-window sample size cannot resolve the 1% tail in any per-bucket fit; reaching τ=0.99 reliably would require pooled-window calibration or longer history." `BUFFER_BY_TARGET[0.99]` updated 0.005 → 0.010. Parity verified post-change (75/75). *Artefact:* `reports/v1b_extended_grid.md`, `reports/tables/v1b_extended_grid_tau99_sweep.csv`.
+3. **H3: Empirical-quantile architecture absorbs the −5.2 bps point bias by construction (the §6.6 derivation).** *Accepted with numerical proof.* `served_point_offset_from_midpoint_bps_max_abs = 0.000` across 1,720 OOS rows × 4 targets — the served point is exactly the band midpoint. *Artefact:* `reports/tables/v1b_diag_bias_absorption.csv`.
+4. **H4: Per-symbol weekend log-return series are stationary (the §9.3 assumption).** *Mostly accepted.* Joint ADF + KPSS: 8 of 10 symbols pass; HOOD (n=245, newer ticker) and TLT (multi-year drawdown) classify as trend-stationary rather than fully stationary. Partial finding: §9.3 stationarity assumption holds in aggregate but two symbols are flagged. *Artefact:* `reports/tables/v1b_diag_stationarity.csv`.
+5. **H5: Christoffersen pooling rule choice is load-bearing for the calibration claim.** *Rejected.* Compared sum-of-LRs (deployed) vs Bonferroni vs Holm-Šidák at τ ∈ {0.68, 0.85, 0.95, 0.99}. All three rules agree on accept/reject at α=0.05 across all targets. Calibration claim is robust to pooling-correction choice. *Artefact:* `reports/tables/v1b_diag_christoffersen_pooling.csv`.
+6. **H6: A FRED-derived macro-event regressor (FOMC + CPI + NFP) closes the §9.2 shock-tertile coverage gap.** *Rejected.* 324 macro events tagged across 12 years (48% of weekends have one within the following week). Re-fit F1_emp_regime with three variants — M0 deployed, M1 + macro flag, M2 swap-earnings-for-macro. Pooled τ=0.95 effect: 0.923 → 0.921 (within noise). Shock-tertile τ=0.95: 0.803 → 0.796 (slightly *worse*). The implied-volatility indices (VIX/GVZ/MOVE) already absorb whatever macro information is in the data; the extra flag adds noise without adding signal. §9.2 disclosure stands: shock-tertile ceiling is structural, not macro-driven. This is a positive negative-finding: it forecloses one obvious "did you try …" reviewer question. *Artefact:* `reports/v1b_macro_regressor.md`, `reports/tables/v1b_macro_ablation.csv`, `data/processed/v1b_macro_calendar.parquet`.
+7. **H7: Raw F1_emp_regime PIT distribution is uniform on (0,1).** *Rejected.* KS test against U(0,1) on 1,720 OOS PITs: KS stat = 0.500, p < 0.001. The raw-forecaster PIT is *expected* to be non-uniform — that's why the calibration surface exists. The right framing for §6 is therefore: raw-forecaster PIT non-uniformity motivates the surface; the served-band coverage at discrete τ levels is the actual product validation, and that *does* pass at three of four targets. The KS finding is a useful clarification, not a defect. *Artefact:* `reports/figures/v1b_diag_pit.png`, `reports/tables/v1b_diag_pit.csv`.
+
+**Net deployment change.** `BUFFER_BY_TARGET[0.99]: 0.005 → 0.010`; `MAX_SERVED_TARGET: 0.995 → 0.999`; claimed grid extended to include {0.997, 0.999}. Python + Rust mirrored. Parity 75/75.
+
+**Cascading paper edits required.**
+- §6.4 OOS table: τ=0.99 row updated to realised 0.977 (was 0.972).
+- §9.1: re-attribute ceiling to calibration-window size, not grid spacing.
+- §9.2: shock-tertile structural ceiling now has a tested negative for macro events.
+- §9.3: stationarity disclosure tightened — 8/10 symbols stationary; HOOD and TLT flagged.
+- §9.4: walk-forward distribution-valued buffer claim replaces sample-size-1 disclosure.
+- §6 calibration claim: optionally add Christoffersen pooling-sensitivity table as a robustness check.
+
+---
+
+### 2026-04-25 (morning) — Per-target buffer schedule replaces scalar; conformal alternatives tested and rejected for v1
 
 **Trigger.** Shipping default τ moved from 0.95 to 0.85 on EL-vs-Kamino evidence (separate decision; see protocol-compare commits). The pre-existing scalar `CALIBRATION_BUFFER_PCT = 0.025` was tuned for τ=0.95 and under-corrected at τ=0.85: realised 0.828 vs target 0.85, Kupiec $p_{uc}$ = 0.014 (rejected).
 
@@ -86,7 +116,7 @@
 3. **H3: The factor-adjusted point's −5.2 bps median residual bias propagates to the served band.** *Rejected after analysis.* The empirical-quantile architecture takes quantiles of `log(P_t / point)` directly; lower/upper bands are constructed as `point · exp(z_lo)` and `point · exp(z_hi)` with `z` from the empirical CDF of the residual, *including* its non-zero median. The served band is bias-aware by construction; the served point (midpoint of the band) is also bias-corrected. §6.6 was updated to derive this explicitly.
 4. **H4: Daian et al. Flash Boys 2.0 implies our reported coverage and consumer-experienced coverage diverge near band edges.** *Accepted as disclosure.* §9.11 added; full measurement deferred to v2 §V2.3 pending V5 tape data.
 
-**Artefacts.** `reports/paper/references.md`, `reports/paper/02_related_work.md`. Disclosures live in `09_limitations.md` §§9.10, 9.11; clarification in §6.6; framing tighten in §1.
+**Artefacts.** `reports/paper1_coverage_inversion/references.md`, `reports/paper1_coverage_inversion/02_related_work.md`. Disclosures live in `09_limitations.md` §§9.10, 9.11; clarification in §6.6; framing tighten in §1.
 
 ---
 
@@ -148,15 +178,15 @@ Items the team explicitly knows about and has chosen to defer rather than ignore
 | Does conformal prediction outperform per-target heuristic with finer grid? | Bounds grid extended above 0.995 *and* multi-split walk-forward eval available | reports/v1b_conformal_comparison.md; this log 2026-04-25 |
 | Does adversarial transaction ordering create a measurable consumer-experienced coverage gap? | V5 tape + Jito bundle data ≥ 3 months | docs/v2.md §V2.3; methodology log entry 2026-04-25 |
 | Is the calibration surface empirically uniform across the full PIT distribution, or only at our three / four sampled τ? | One-shot diagnostic; ~10 LoC in metrics.py | docs/v2.md §V2.4 |
-| Does the methodology generalise to non-US equities (tokenised JP / EU shares)? | Multi-region replication run with the same panel-build pipeline | reports/paper/09_limitations.md §9.9 |
-| Does a finer earnings-calendar dataset (date + estimated move size) make the earnings regressor detectable? | Acquisition of a vendor-grade earnings calendar | reports/paper/09_limitations.md §9.5 |
+| Does the methodology generalise to non-US equities (tokenised JP / EU shares)? | Multi-region replication run with the same panel-build pipeline | reports/paper1_coverage_inversion/09_limitations.md §9.9 |
+| Does a finer earnings-calendar dataset (date + estimated move size) make the earnings regressor detectable? | Acquisition of a vendor-grade earnings calendar | reports/paper1_coverage_inversion/09_limitations.md §9.5 |
 
 ---
 
 ## 3. How this doc relates to other artefacts
 
 - **`reports/v1b_decision.md`** — frozen 2026-04-24 snapshot of the v1b ship decision. Annotated with later-update callouts but not rewritten.
-- **`reports/paper/*.md`** — the paper draft. Sections that depend on methodology should refer to §0 of this doc as the source-of-truth for current state.
+- **`reports/paper1_coverage_inversion/*.md`** — the paper draft. Sections that depend on methodology should refer to §0 of this doc as the source-of-truth for current state.
 - **`docs/v2.md`** — forward-looking; describes Phase-2 deliverables that are gated on data or on resolution of an open methodology question.
 - **`src/soothsayer/oracle.py` and `crates/soothsayer-oracle/`** — current deployed methodology; this log explains *why* the constants in those files have their current values.
 - **Memory (`MEMORY.md`)** — stable index pointer to this log.

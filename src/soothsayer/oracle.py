@@ -116,14 +116,21 @@ BUFFER_BY_TARGET: dict[float, float] = {
     0.68: 0.045,
     0.85: 0.045,
     0.95: 0.020,
-    0.99: 0.005,
+    0.99: 0.010,
 }
 
 # Scalar fallback retained for callers that pass a single number (e.g., the
 # ablation tooling that A/Bs against a fixed buffer). In serving-time use,
 # the per-target dict is the primary mechanism.
 CALIBRATION_BUFFER_PCT: float = 0.025
-MAX_SERVED_TARGET: float = 0.995  # top of the fine grid; can't buffer past this
+# Top of the fine claimed-coverage grid. Extended from 0.995 → 0.999 on
+# 2026-04-25 to test whether the τ=0.99 ceiling was grid-spacing-driven; the
+# extension lifted OOS realised coverage at τ=0.99 from 0.972 → 0.977 but did
+# not fully pass Kupiec — the deeper finite-sample limitation is the 156-
+# weekend per-(symbol, regime) calibration window, not the grid. Reported in
+# `reports/v1b_extended_grid.md`. The wider grid is retained as a strict
+# improvement.
+MAX_SERVED_TARGET: float = 0.999
 
 
 def buffer_for_target(target: float, schedule: dict[float, float] = None) -> float:

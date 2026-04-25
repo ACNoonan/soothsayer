@@ -252,6 +252,13 @@ Buckets:
 - **Why we cite it:** A second time-series-conformal reference demonstrating that the conformal upgrade is practically available; supports the feasibility of the conformal future-work claim.
 - **Bucket:** calibration-conformal
 
+### [allen-tail-2025] Allen, S., Koh, J., Segers, J., Ziegel, J. 2025. Tail calibration of probabilistic forecasts.
+- **Venue:** Journal of the American Statistical Association 120(552), 2796–2808 (published online December 22, 2025)
+- **URL / DOI:** https://doi.org/10.1080/01621459.2025.2506194; arXiv:2407.03167
+- **Contribution:** Introduces a general notion of *tail calibration* for probabilistic forecasts, distinct from standard (full-distribution) calibration: a forecaster is tail-calibrated at threshold $u$ when the conditional distribution of forecast PITs above $u$ matches the empirical exceedance distribution of realisations. Establishes connections to peaks-over-threshold extreme value theory and provides diagnostic tools applied to European precipitation forecasts.
+- **Why we cite it:** This is the modern parent literature for what our coverage-inversion primitive does at high $\tau$: a forecaster can be calibrated on average and still miscalibrated in the tail, which is precisely the failure mode our $\tau = 0.99$ ceiling (§9.1) describes. Allen et al. supply the formal framework that says this distinction matters and is measurable. Our weekend prediction-window setting is the financial-microstructure instantiation of their framework.
+- **Bucket:** calibration-conformal
+
 ---
 
 ## Bucket: model-risk-management
@@ -306,6 +313,6 @@ Buckets:
 
 ## Verification summary
 
-- **Verified:** 28 references (all above entries).
+- **Verified:** 40 references (all above entries).
 - **VERIFICATION FAILED:** 0.
 - **Intentionally omitted candidates:** (a) Shapiro & Wolfers 2005 "What explains Monday returns" — could not resolve a specific paper under this exact title; weekend-effect claims are covered by French (1980) and Barclay–Hendershott (2003, 2004) without it. (b) Jovanovic–Wattenhofer oracle-latency 2022 — no reliably attributable paper under that author pair and year; functional replacement covered by the Chainlink 2.0 whitepaper and the Eskandari et al. SoK.

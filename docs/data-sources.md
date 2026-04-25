@@ -1,6 +1,8 @@
 # Data Sources — Analysis & Aggregated List
 
-> **Methodology pivot note (2026-04-24):** Soothsayer's methodology pivoted away from the Madhavan-Sobczyk / VECM / HAR-RV / Hawkes stack to a simpler factor-switchboard + empirical-quantile + log-log regime model (see [`reports/v1b_decision.md`](../reports/v1b_decision.md) and [`reports/option_c_spec.md`](../reports/option_c_spec.md)). The data sources below are still broadly correct — **venue choices, pricing, and licensing status all stand** — but method-specific caveats like "feeds the Kalman measurement-variance priors" or "input to the MS half-life fit" are now stale. The data the oracle actually uses in v1b: yfinance (daily equities, ES/NQ/GC/ZN futures, ^VIX/^GVZ/^MOVE, BTC-USD, earnings_dates) + Kraken REST (still available but V3 funding signal FAILED) + Helius (reserved for Phase 1 on-chain publish path). Budget remains $0 for Phase 0; $310–800/mo run rate for Phase 1 MVP.
+> **Methodology snapshot (2026-04-25).** Soothsayer's deployed methodology is a factor-switchboard point estimate + log-log regression on a per-symbol vol index + empirical-quantile residual band + per-target empirical buffer + hybrid-by-regime forecaster. See [`reports/methodology_history.md`](../reports/methodology_history.md) for the full evolution and [`reports/v1b_decision.md`](../reports/v1b_decision.md) for the original v1b ship decision. The complex Madhavan-Sobczyk / VECM / HAR-RV / Hawkes / Kalman stack initially scoped for Phase 0 was tested and rejected as unnecessary for the calibration objective; references to those methods earlier in the doc have been updated inline to the current model.
+>
+> **Phase-0 data the oracle actually uses:** yfinance (daily equities for 10 tickers + ES/NQ/GC/ZN futures + VIX/GVZ/MOVE vol indices + BTC-USD + earnings_dates calendar) + Helius free tier (reserved for Phase 1 on-chain publish). Kraken Perp funding still ingestible but V3 evaluation found no detectable signal at our sample size. Phase-0 budget remains $0; Phase-1 MVP run rate $310–800/mo. **For impact-per-dollar mapping suitable for grant applications, see the Grant-impact addendum at the bottom of this doc.**
 
 Comprehensive catalog of every data source under consideration for Soothsayer, grouped by category, with cost, access type (open public / company-licensed / restricted / on-chain), and current verdict.
 
@@ -20,7 +22,7 @@ The one real cost center. ~80% of the data budget lives here.
 |---|---|---|---|---|
 | **Polygon.io Stocks Advanced** | $199/mo real-time NBBO ($29/mo delayed) | Tick history included in paid tiers, back to 2003 | Company, licensed (CTA/UTP redistribution restricted) | **Default for real-time** |
 | **Databento** | Pay-per-use, ~$100–400/mo live | ~$150–400 one-time for 6–12 mo tick on xStocks + futures + sector ETFs | Company, licensed | **Default for one-time historical** |
-| Alpaca | Free tier = IEX only (unusable, ~2–3% vol); SIP tier $99/mo | Tick on paid | Company | **Never use free tier** — miscalibrates Kalman |
+| Alpaca | Free tier = IEX only (unusable, ~2–3% vol); SIP tier $99/mo | Tick on paid | Company | **Never use free tier** — IEX-only flow miscalibrates the empirical-quantile residual distribution and breaks the calibration surface |
 | Finnhub | $50–100/mo | 1 yr depth paid | Company | OK for calendars, weak tick |
 | Twelve Data / EODHD / FMP | $20–80/mo | Daily + 1-min bars | Company | Retail-grade, insufficient for tick |
 | IBKR TWS API | ~$10/mo if already customer | 1 yr intraday | Company | Cheapest if already IBKR, ugly integration |
@@ -47,7 +49,7 @@ Every dollar on clean ES/NQ returns more than a dollar on cash-equity tick durin
 
 ## 3. Crypto (BTC / ETH / SOL) — free across the board
 
-Crypto is the only live large-volume risk-asset signal on weekends. Feeds the regime HMM and Kalman measurement-variance priors.
+Crypto is the only live large-volume risk-asset signal on weekends. Powers the BTC-USD factor for MSTR (post 2020-08), provides a cross-check for the `high_vol` regime label, and is the natural fallback signal when overnight US futures (ES/NQ) are not yet open early Sunday.
 
 | Provider | Real-time | Historical | Cost | Access |
 |---|---|---|---|---|
@@ -109,7 +111,7 @@ SPYx, QQQx, GLDx, TSLAx, AAPLx, NVDAx, GOOGLx, HOODx, MSTRx, CRCLx. Up to 20× l
 | **Kraken Perp funding** | `/derivatives/api/v3/historical-funding-rates` | 8 h | **Low noise, high information** |
 | Bybit spot mid | `/v5/market/tickers` | seconds | Redundancy |
 
-Funding rate is a market-implied forecast of the weekend Monday-gap — direct input to the Madhavan-Sobczyk filter.
+Funding rate is a market-implied forecast of the weekend Monday-gap. V3 testing on Phase-0 data ([`reports/v3_funding_signal.md`](../reports/v3_funding_signal.md)) found no detectable signal at our sample size; the regressor is retained as a candidate for v2 re-evaluation once the V5 on-chain tape supplies sufficient history alongside Kraken's perp funding archive.
 
 ---
 
@@ -233,7 +235,7 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 ## Three decisions that matter most
 
 1. **Databento one-time for history, Polygon real-time for live.** Don't double-pay.
-2. **Never use Alpaca's free IEX tier.** IEX = 2–3% of US volume; miscalibrated priors kill the Kalman.
+2. **Never use Alpaca's free IEX tier.** IEX = 2–3% of US volume; the resulting tape biases the residual quantiles in the calibration surface, producing systematic under-coverage at high τ.
 3. **Globex futures are the off-hours hero.** Friendlier licensing than cash-equity SIP, 23/5 availability, ~90% of S&P price discovery when SPY is closed. **Kraken xStock Perp funding is the second hero** — 24/7, free, market-implied Monday-gap forecast.
 
 ## Cost-minimization playbook
@@ -244,3 +246,62 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 - Pyth Hermes is free — treat Pyth as a comparator observation from day one.
 - Apply for Chainlink access day one even if not immediately used.
 - Kraken/Bybit public APIs are free for spot and (Kraken) perp funding — take everything.
+
+---
+
+## Grant-impact addendum
+
+This section maps each data-source line item to a specific, measurable methodology gain — the format we use for funding-grant applications and Superteam credit requests. Costs are dollar-per-month or one-time as marked. Each row answers four questions: *what does this dollar buy, what model claim does it unlock, how do we know we got it, and what open methodology question does it close?*
+
+### Grant-impact summary table
+
+| Source | Cost | Buys (validation milestone) | Validation metric | Closes open question |
+|---|---|---|---|---|
+| **Pyth Hermes reconstruction** | $0 (engineering only) | First quantitative incumbent-oracle benchmark on a 12-year matched window | Bootstrap-CI table comparing Pyth aggregate-CI realised coverage to Soothsayer per-target served band, on the same 5,986 weekend panel | Paper §1 framing currently rests on a *qualitative* "no incumbent publishes a verifiable calibration claim" — Hermes work converts this to a quantitative comparator |
+| **Chainlink Data Streams reconstruction** | $0 (engineering only; via Helius) | Second incumbent comparator (stale-hold + `marketStatus=5` archetype) | Same matched-window coverage comparison; reports/v1_chainlink_bias.md is partial infra | Same — adds a second comparator alongside Pyth |
+| **FRED API (Fed macro calendar)** | $0 | FOMC / CPI / NFP regressor for the regime model | Re-run ablation with macro-event flag; bootstrap CI on coverage delta in shock-tertile bucket | Currently shock-tertile structural ceiling (~80% at τ=0.95) is unexplained — FRED tests whether macro-event clustering accounts for it |
+| **Nasdaq Trader Halts XML** | $0 | Halt-aware regime tag distinct from `high_vol` | Per-regime ablation including new `halt` regime | Currently halts are pooled into `normal` regime; introduces unidentified noise |
+| **Backed Finance Discord/blog scrape** | $0 (one-time) | Authoritative xStock corp-actions backfill | Diff against yfinance corp-actions; re-run backtest; report Δcoverage | Possible silent bias from missed dividends/splits in the 2014–2026 panel |
+| **Crypto exchange WebSocket (Binance / Coinbase / Kraken direct)** | $0 | Tick-level BTC/ETH/SOL for MSTR factor + cross-asset weekend signals | MSTR factor-switchboard MAE comparison vs daily-yfinance baseline | MSTR's 2020-08 factor pivot is hand-coded; tick-level BTC enables drift detection |
+| **Walk-forward backtest (engineering)** | $0 | Distribution of buffer values + standard errors instead of point estimates from one OOS split | Six expanding-window splits 2018→2026; report buffer mean ± SE per τ; re-derive Kupiec CI | Single-split sample-size-1 buffer (§9.4) — biggest paper-vulnerability fix |
+| **Bounds-grid extension (engineering)** | $0 | Resolves τ=0.99 structural ceiling | Re-run v1b backtest with claimed grid {0.995, 0.997, 0.999}; report new Kupiec at τ=0.99 | §9.1 limitation becomes solvable |
+| **Helius Pro / Triton / QuickNode (Superteam credit eligible)** | $50–250/mo (or sponsored) | Faster V5 on-chain tape accumulation for F_tok forecaster | Time-to-150-weekend-obs per (symbol, regime) accelerated from ~Q3 2026 to ~Q2 2026 | Cong et al. 2025 baseline gap (§9.10): on-chain xStock TWAP forecaster gated on tape size |
+| **Wall Street Horizon / Estimize earnings calendar** | $50–500/mo | Earnings-event regressor with date + estimated-move-size + timing | Re-run ablation with finer earnings input; report Δcoverage with bootstrap CI; either kills disclosure or becomes detectable contribution | §9.5 "earnings regressor not detectable at our sample size" — testable |
+| **Trading Economics macro events** | $0 (free tier) – $100/mo | Cross-vendor macro calendar for FRED redundancy | Sanity-check shock-tertile finding against second source | Secondary insurance on FRED-based finding |
+| **Databento historical equity + futures tick** | $200–500 one-time | Validates factor switchboard at intraday granularity; opens overnight-prediction window | Compare daily-yfinance factor switchboard MAE vs minute-level reconstruction; identifies which weekends the daily window obscured | Enables v2-paper "intraday + weekend" prediction-window extension |
+| **Polygon.io Stocks Advanced** | $199/mo real-time | Live-mode Oracle deployment (currently historical-mode-only) | First production weekend with live-mode `fair_value` calls; consumer-experienced coverage measurement begins | §9.7 "no live deployment window" — opens the live measurement record |
+| **DefiLlama / Birdeye xStock TWAP backfill** | $0–200/mo | Fast-forward F_tok validation rather than waiting for tape accumulation | Run F_tok serve at OOS targets; report Kupiec/Christoffersen vs deployed F1_emp_regime baseline | Same as Helius Pro tier — Cong baseline gap |
+
+### Grant-application narrative (template)
+
+For a grant proposal, frame the asks as **three tiers, each with a specific paper-quality milestone**:
+
+**Tier 1 — Engineering-only (no funding required, listed for completeness; ~3–4 weeks):**
+
+- Pyth Hermes + Chainlink reconstruction → **first quantitative incumbent-oracle comparison table** in the literature.
+- Walk-forward backtest → **distribution-valued calibration claims with standard errors** instead of point estimates.
+- Bounds-grid extension → **resolves the τ=0.99 structural ceiling** documented in §9.1.
+
+**Tier 2 — Funded data ($500 one-time + $50–500/mo; ~6–8 weeks of follow-on work):**
+
+- Earnings calendar (Wall Street Horizon or equivalent): tests the §9.5 disclosure that a finer-granularity earnings input would make the regressor detectable. Either confirms the methodology already captures the available signal (paper-strengthening) or improves served-band sharpness measurably (model-improvement). **Either result is a publishable finding.**
+- Databento one-time historical: enables v2-paper "intraday + weekend" prediction-window extension. Fundamentally expands the addressable consumer set from "weekend bands" to "any closed-market window."
+
+**Tier 3 — Production-readiness ($200–250/mo + Superteam credits; ~12-week deployment runway):**
+
+- Polygon.io real-time: first live deployment, opens the consumer-experienced coverage measurement record (§9.11 + docs/v2.md §V2.3).
+- Helius Pro tier (Superteam credits could substitute): unlocks F_tok forecaster timeline (Cong baseline gap, §9.10 + docs/v2.md §V2.1) on Q2-2026 cadence rather than Q3+.
+
+### Grant-impact dollar ranges
+
+For grant applications that prefer ranges:
+
+- **$0** (Tier 1 engineering): three publishable improvements, ~3–4 weeks.
+- **~$500 one-time + ~$300/mo for 3 months** (Tier 1 + Tier 2 minimum): adds earnings-calendar test + Databento historical → v2-paper enabler.
+- **~$500 one-time + ~$700/mo for 6 months ≈ $4,700** (Tier 1 + 2 + 3): full production-readiness path, including live-deployment first quarter and F_tok forecaster validation.
+
+### Open methodology questions this addendum maps to
+
+Each row above closes or partially closes an entry in [`reports/methodology_history.md`](../reports/methodology_history.md) §2 (Open methodology questions). When an item closes, the corresponding row in this table can be moved to a Completed-deliverables sub-section and the methodology log entry resolved.
+
+Cross-reference: any new paid-source decision should append to both `methodology_history.md` §1 (Decision log) and update §0 (State of the world).
