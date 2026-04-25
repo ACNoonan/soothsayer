@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Soothsayer — real-world assets don't sleep on the weekend</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -65,9 +66,11 @@
     height: 68px;
   }
   nav.top .brand {
+    display: inline-flex; align-items: center; gap: 10px;
     font-size: 22px; font-weight: 500; letter-spacing: -0.02em;
   }
   nav.top .brand .dot { color: var(--green); }
+  nav.top .brand .mark { width: 22px; height: 22px; flex: 0 0 auto; }
   nav.top .links { display: flex; gap: 36px; align-items: center; }
   nav.top .links a { font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--ink-dim); }
   nav.top .links a:hover { color: var(--ink); }
@@ -437,8 +440,9 @@
     display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap;
     font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--ink-faint);
   }
-  footer .brand { font-family: var(--sans); font-size: 18px; font-weight: 500; letter-spacing: -0.015em; color: var(--ink); }
+  footer .brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 18px; font-weight: 500; letter-spacing: -0.015em; color: var(--ink); }
   footer .brand .dot { color: var(--green); }
+  footer .brand .mark { width: 18px; height: 18px; flex: 0 0 auto; }
   footer .legal { text-transform: uppercase; }
   footer .links-foot { display: flex; gap: 24px; }
   footer .links-foot a:hover { color: var(--ink); }
@@ -449,7 +453,13 @@
 
 <nav class="top">
   <div class="wrap inner">
-    <a class="brand" href="#top">Soothsayer<span class="dot">.</span></a>
+    <a class="brand" href="#top">
+      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6 L21 6 M3 18 L21 18" stroke="#14F195" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <circle cx="12" cy="12" r="3" fill="#14F195"/>
+      </svg>
+      <span>Soothsayer<span class="dot">.</span></span>
+    </a>
     <div class="links">
       <a href="#gap">The gap</a>
       <a href="#product">Product</a>
@@ -854,7 +864,13 @@
 
 <footer>
   <div class="wrap inner">
-    <div class="brand">Soothsayer<span class="dot">.</span></div>
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6 L21 6 M3 18 L21 18" stroke="#14F195" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <circle cx="12" cy="12" r="3" fill="#14F195"/>
+      </svg>
+      <span>Soothsayer<span class="dot">.</span></span>
+    </div>
     <div class="links-foot">
       <a href="pitch.html">Pitch deck</a>
       <a href="#method">Methodology</a>

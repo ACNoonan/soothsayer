@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <title>Soothsayer — Colosseum Pitch</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -348,9 +349,12 @@
     letter-spacing: -0.045em;
     line-height: 0.88;
     color: var(--ink);
-    margin-top: 40px;
+    margin-top: 12px;
   }
   .cover .wordmark .dot { color: var(--green); }
+  .cover .cover-mark {
+    width: 96px; height: 96px; display: block; margin-top: 28px;
+  }
   .cover .tagline {
     font-size: 72px;
     font-weight: 300;
@@ -474,6 +478,10 @@
     </div>
 
     <div>
+      <svg class="cover-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6 L21 6 M3 18 L21 18" stroke="#14F195" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <circle cx="12" cy="12" r="3" fill="#14F195"/>
+      </svg>
       <div class="wordmark">Soothsayer<span class="dot">.</span></div>
       <div class="tagline">The oracle that <span class="em">shows its math.</span></div>
       <div class="subbrief">Open-source fair value + confidence intervals for tokenized equities on Solana.</div>

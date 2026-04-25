@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="landing/favicon.svg" width="64" height="64" alt="Soothsayer logo — point inside a band" />
+</p>
+
 # soothsayer
 
 **A calibration-transparent fair-value oracle for tokenized RWAs on Solana.**
