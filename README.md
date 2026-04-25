@@ -8,7 +8,7 @@ The product shape is different from every other oracle on Solana: **consumers sp
 
 It is designed to be read **alongside** a primary price oracle, not to replace one. The moat is *calibration transparency*, not "our math is better."
 
-> **Status (2026-04-25):** Phase 0 validation complete; **full PASS**. On a held-out 2023+ slice (1,720 rows × 172 weekends, temporally disjoint from the surface's training window), the served Oracle delivers Kupiec + Christoffersen passes at three operating points — τ=0.95 → realised 0.950 ($p_{uc}$=1.000, $p_{ind}$=0.485); τ=0.85 → realised 0.855 ($p_{uc}$=0.541, $p_{ind}$=0.185); τ=0.68 → realised 0.678 ($p_{uc}$=0.893, $p_{ind}$=0.647). τ=0.99 hits a structural finite-sample tail ceiling and is disclosed as out-of-scope for v1. Phase 1 underway: devnet deploy + Paper 1 to arXiv + Paper 2 first draft, in parallel. Source-of-truth log: [`reports/methodology_history.md`](reports/methodology_history.md). Paper drafts: [`reports/paper/`](reports/paper/). See also [`reports/v1b_decision.md`](reports/v1b_decision.md), [`reports/v1b_calibration.md`](reports/v1b_calibration.md), and [`reports/option_c_spec.md`](reports/option_c_spec.md).
+> **Status (2026-04-25):** Phase 0 validation complete; **full PASS**. On a held-out 2023+ slice (1,720 rows × 172 weekends, temporally disjoint from the surface's training window), the served Oracle delivers Kupiec + Christoffersen passes at three operating points — τ=0.95 → realised 0.950 ($p_{uc}$=1.000, $p_{ind}$=0.485); τ=0.85 → realised 0.855 ($p_{uc}$=0.541, $p_{ind}$=0.185); τ=0.68 → realised 0.678 ($p_{uc}$=0.893, $p_{ind}$=0.647). τ=0.99 hits a structural finite-sample tail ceiling and is disclosed as out-of-scope for v1. Phase 1 underway: devnet deploy + Paper 1 to arXiv + Paper 2 (OEV mechanism design) and Paper 3 (liquidation policy) plans being developed in parallel. Source-of-truth log: [`reports/methodology_history.md`](reports/methodology_history.md). Paper drafts: [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) (in flight), [`reports/paper2_oev_mechanism_design/`](reports/paper2_oev_mechanism_design/) (planning), [`reports/paper3_liquidation_policy/`](reports/paper3_liquidation_policy/) (planning). See also [`reports/v1b_decision.md`](reports/v1b_decision.md), [`reports/v1b_calibration.md`](reports/v1b_calibration.md), and [`reports/option_c_spec.md`](reports/option_c_spec.md).
 
 ## Why this exists
 
@@ -40,7 +40,7 @@ fv.diagnostics                 # full auditable receipt
 
 `target_coverage`, `calibration_buffer_applied`, `claimed_coverage_served`, `forecaster_used`, and `regime` together compose the trust primitive. They say: *"to deliver your requested 85% realised coverage on a (SPY, normal) bucket, we added a 4.5pp empirical buffer to your target, inverted our calibration surface at the buffered quantile, and served you the band from F1_emp_regime — because that combination has historically covered 85% of Mondays on held-out 2023+ data."* Any consumer can reconstruct the surface and verify that mapping against [`reports/v1b_calibration.md`](reports/v1b_calibration.md) and the persisted bounds at `data/processed/v1b_bounds.parquet`.
 
-The deployment default is **τ = 0.85**, picked on protocol-expected-loss grounds against a Kamino-style flat ±300bps benchmark (see [`reports/paper2_liquidation_policy_plan.md`](reports/paper2_liquidation_policy_plan.md)). Any τ ∈ (0, 1) is a valid request; τ = 0.95 is the paper's headline oracle-validation target.
+The deployment default is **τ = 0.85**, picked on protocol-expected-loss grounds against a Kamino-style flat ±300bps benchmark (see [`reports/paper3_liquidation_policy/plan.md`](reports/paper3_liquidation_policy/plan.md)). Any τ ∈ (0, 1) is a valid request; τ = 0.95 is the paper's headline oracle-validation target.
 
 ## The methodology (one screen)
 
@@ -90,9 +90,9 @@ Per-regime breakdown at τ = 0.95 (OOS):
 | long_weekend | 190 | 0.953 | 396.5 | F1_emp_regime |
 | high_vol | 380 | 0.963 | 591.6 | F0_stale |
 
-τ = 0.95 is the paper's headline oracle-validation target. τ = 0.85 is the shipping default per protocol-EL evidence vs Kamino flat ±300bps (`reports/paper2_liquidation_policy_plan.md`). τ = 0.99 is structurally limited by the rolling 156-weekend per-bucket window and the 0.995 grid ceiling — disclosed in §9.1 of the paper.
+τ = 0.95 is the paper's headline oracle-validation target. τ = 0.85 is the shipping default per protocol-EL evidence vs Kamino flat ±300bps (`reports/paper3_liquidation_policy/plan.md`). τ = 0.99 is structurally limited by the rolling 156-weekend per-bucket window and the 0.995 grid ceiling — disclosed in §9.1 of the paper.
 
-Full surface, per-symbol breakdown, calibration curves: [`reports/v1b_calibration.md`](reports/v1b_calibration.md), [`reports/paper/06_results.md`](reports/paper/06_results.md). Ablation with bootstrap CIs: [`reports/v1b_ablation.md`](reports/v1b_ablation.md). Reproducible end-to-end via `uv run python scripts/run_calibration.py` and `uv run python scripts/smoke_oracle.py`.
+Full surface, per-symbol breakdown, calibration curves: [`reports/v1b_calibration.md`](reports/v1b_calibration.md), [`reports/paper1_coverage_inversion/06_results.md`](reports/paper1_coverage_inversion/06_results.md). Ablation with bootstrap CIs: [`reports/v1b_ablation.md`](reports/v1b_ablation.md). Reproducible end-to-end via `uv run python scripts/run_calibration.py` and `uv run python scripts/smoke_oracle.py`.
 
 ## Setup
 
@@ -133,8 +133,9 @@ reports/
   v1b_buffer_tune.md        per-target buffer sweep
   v1b_conformal_comparison.md  vanilla / nexCP / block-recency vs heuristic
   option_c_spec.md          product spec (customer-selects-coverage)
-  paper/                    Paper 1 drafts (§1, §2, §3, §6, §9 + references)
-  paper2_liquidation_policy_plan.md  Paper 2 plan (band → action)
+  paper1_coverage_inversion/         Paper 1 drafts (§1, §2, §3, §6, §9 + references)
+  paper2_oev_mechanism_design/       Paper 2 plan + working bibliography (OEV mechanism design)
+  paper3_liquidation_policy/         Paper 3 plan + working bibliography (band → action)
   figures/, tables/         plots and persisted CSVs
 
 notebooks/                  V1-V4 historical notebooks (superseded by v1b — see reports/)
@@ -152,9 +153,9 @@ crates/                     Rust — production parity port of oracle.py
 Full roadmap with three parallel tracks (product/deploy, research, methodology) lives in [`docs/ROADMAP.md`](docs/ROADMAP.md). Quick view:
 
 - **Phase 0 ✅** — V1b decade-scale backtest → full PASS (Kupiec + Christoffersen, OOS) → Option C product shape locked → Rust port at parity with Python reference.
-- **Phase 1 (now)** — Devnet deploy + **Paper 1** (§4/§5/§7/§8 + coherence review → arXiv: q-fin.RM, ACM AFT) + **Paper 2** (band → liquidation-policy decision-theoretic mapping) outline & first draft, in parallel.
-- **Phase 2** — Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) + both papers live (arXiv + SSRN) + first design-partner conversations.
-- **Phase 3** (gated on Paper 2 evidence + ≥1 design-partner LOI) — Mainnet + B2B + AFT/FC submission.
+- **Phase 1 (now)** — Devnet deploy + **Paper 1** (§4/§5/§7/§8 + coherence review → arXiv: q-fin.RM, ACM AFT) + **Paper 3** (calibrated band → liquidation-policy decision-theoretic mapping) outline & first draft (existing protocol-compare scaffolding) + **Paper 2** (OEV mechanism design under calibration-transparent oracles) plan refinement & auction-simulator design — in parallel.
+- **Phase 2** — Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) + Paper 1 & Paper 3 live (arXiv + SSRN) + Paper 2 active drafting (simulator build, theoretical results) + first design-partner conversations.
+- **Phase 3** (gated on Paper 3 evidence + ≥1 design-partner LOI) — Mainnet + B2B + AFT/FC submission for Paper 1 & Paper 3 + Paper 2 to arXiv → AFT/EC.
 
 ## Contributing
 

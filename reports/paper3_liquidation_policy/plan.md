@@ -1,7 +1,12 @@
-# Paper 2 Plan — Optimal Liquidation Policy Defaults Under Calibrated Oracle Uncertainty
+# Paper 3 Plan — Optimal Liquidation Policy Defaults Under Calibrated Oracle Uncertainty
 
 **Status:** planning document (internal).  
-**Relationship to Paper 1:** Paper 1 validates an **oracle calibration primitive** (coverage inversion + receipts) on held-out data. Paper 2 is a **decision-theoretic protocol policy** paper: given a calibrated band, what should a lending protocol do?
+**Relationship to Paper 1 and Paper 2:**
+- **Paper 1** validates an **oracle calibration primitive** (coverage inversion + receipts) on held-out data.
+- **Paper 2** (in planning, `../paper2_oev_mechanism_design/plan.md`) studies **OEV mechanism design under calibration-transparent oracles** — how publishing the calibration band itself reshapes liquidation-auction equilibria.
+- **Paper 3** (this document, `plan.md`) is the **decision-theoretic protocol-policy** capstone: given a calibrated band and the auction structure of Paper 2, what should a lending protocol's liquidation-policy defaults be?
+
+The trilogy is methodology → mechanism → policy. Paper 3 can be read independently of Paper 2, but its strongest claims (welfare-comparable expected loss, robust operating regions) hold most cleanly when the auction layer is the one specified by Paper 2 rather than an arbitrary opaque-oracle baseline.
 
 ---
 
@@ -13,18 +18,18 @@ This paper is about that mapping: **band → action**.
 
 ---
 
-## 2) Research question (what Paper 2 answers)
+## 2) Research question (what Paper 3 answers)
 
 ### Primary question
 **What liquidation-policy default minimizes expected protocol loss out of sample when the protocol consumes a calibrated, regime-aware oracle band?**
 
 ### What this is *not*
-Paper 2 is not “is the oracle calibrated?” (that is Paper 1).  
-Paper 2 is not “what is the best forecaster?” (Paper 1 explicitly does not claim minimum-variance prediction).
+Paper 3 is not “is the oracle calibrated?” (that is Paper 1).  
+Paper 3 is not “what is the best forecaster?” (Paper 1 explicitly does not claim minimum-variance prediction).
 
 ---
 
-## 3) The conceptual gap Paper 2 closes
+## 3) The conceptual gap Paper 3 closes
 
 Paper 1’s contract is about a calibrated band:
 - the oracle returns `PricePoint(symbol, t_pub, τ) → (lower, upper, receipts)`
@@ -32,23 +37,23 @@ Paper 1’s contract is about a calibrated band:
 A lending protocol’s contract is about actions:
 - `Safe / Caution / Liquidate`
 
-Paper 2 supplies the missing layer: a defensible way to select defaults for that action policy, with uncertainty explicitly accounted for.
+Paper 3 supplies the missing layer: a defensible way to select defaults for that action policy, with uncertainty explicitly accounted for.
 
 ### What recent external research now makes much sharper
 
 The production landscape is now clearer than when this plan was first drafted:
 
-- **Kamino xStocks is the direct implementation target.** It already runs soft liquidations, dynamic penalties, TWAP/EWMA defenses, and per-asset risk multipliers. Paper 2 does not need to invent a new protocol; it needs to show how a calibrated band plugs into an existing liquidation ladder.
+- **Kamino xStocks is the direct implementation target.** It already runs soft liquidations, dynamic penalties, TWAP/EWMA defenses, and per-asset risk multipliers. Paper 3 does not need to invent a new protocol; it needs to show how a calibrated band plugs into an existing liquidation ladder.
 - **Chainlink's published 24/5 equities guidance leaves the weekend unresolved.** Their explicit recommendation for weekend coverage is to use prices of tokenized stocks on secondary CEX/DEX venues. For a lending protocol collateralized by those same tokens, that can become a circular reference: the collateral is priced by the venue where the collateral itself can be pushed around.
-- **Kraken/backed-style market makers already behave like "factor switchboards."** Their published off-hours methodology cites ATS venues, index futures, and internal models, with wider off-hours spreads. That is pragmatic validation that Paper 2 is directionally aligned with how desks already approximate fair value off-hours.
-- **Gauntlet and Chaos Labs already frame liquidation policy as an optimization problem.** This is strategically excellent for positioning. Paper 2 is not introducing the optimization framing; it is supplying a calibrated uncertainty input that existing consultancy-style optimization stacks currently do not publish.
-- **Institutional RWA venues already admit that time-of-day and market-closure constraints matter.** Aave Horizon and similar setups acknowledge custom liquidation logic, custodial delay, and market-closure handling. Paper 2 can therefore frame regime-aware liquidation policy as a standardization of something sophisticated venues already do by hand.
+- **Kraken/backed-style market makers already behave like "factor switchboards."** Their published off-hours methodology cites ATS venues, index futures, and internal models, with wider off-hours spreads. That is pragmatic validation that Paper 3 is directionally aligned with how desks already approximate fair value off-hours.
+- **Gauntlet and Chaos Labs already frame liquidation policy as an optimization problem.** This is strategically excellent for positioning. Paper 3 is not introducing the optimization framing; it is supplying a calibrated uncertainty input that existing consultancy-style optimization stacks currently do not publish.
+- **Institutional RWA venues already admit that time-of-day and market-closure constraints matter.** Aave Horizon and similar setups acknowledge custom liquidation logic, custodial delay, and market-closure handling. Paper 3 can therefore frame regime-aware liquidation policy as a standardization of something sophisticated venues already do by hand.
 
 That gives the paper a sharper opening claim: the gap is not "protocols ignore liquidation risk." The gap is that **production systems already optimize liquidation policy, but do so with point-price or aggregation-diagnostic inputs that do not publish an auditable coverage SLA for closed-market uncertainty.**
 
 ---
 
-## 4) Draft claims (what Paper 2 would aim to prove)
+## 4) Draft claims (what Paper 3 would aim to prove)
 
 ### C1 — Decision-theoretic framing is necessary (and changes conclusions)
 Liquidation-policy defaults are not identifiable from calibration metrics alone. A default depends on:
@@ -69,7 +74,7 @@ The strongest deployment case is not "bands are always better than points everyw
 
 ## 5) Explicit non-claims (guardrails)
 
-Paper 2 should *not* claim:
+Paper 3 should *not* claim:
 - universal optimality for all lending protocols
 - optimality without stating cost ratios and portfolio weights
 - MEV-aware “execution optimality” unless we measure execution outcomes (bundle reconstruction / slippage model)
@@ -120,7 +125,7 @@ All policies must share the same action semantics ladder `Safe / Caution / Liqui
 
 ## 8) “Truth semantics” (what counts as correct)
 
-This is where the literature often cheats by leaving it implicit. Paper 2 should *name it* and treat it as an experimental dimension:
+This is where the literature often cheats by leaving it implicit. Paper 3 should *name it* and treat it as an experimental dimension:
 
 - **Economic truth (flat):** realized Monday price + flat threshold (simple insolvency proxy).
 - **Policy-consistent truth:** realized price + the policy’s own threshold semantics.
@@ -177,7 +182,7 @@ Use weekend-block bootstrap on deltas and ranking stability:
 ### Protocol semantics reference
 - `crates/soothsayer-demo-kamino/src/lib.rs` — the canonical `Safe/Caution/Liquidate` ladder used in the demo.
 
-Paper 2 should treat these as the prototype implementation, then strengthen the evaluation design (walk-forward, richer baselines, path-aware truth, protocol-specific costs).
+Paper 3 should treat these as the prototype implementation, then strengthen the evaluation design (walk-forward, richer baselines, path-aware truth, protocol-specific costs).
 
 ### External anchors now secured and worth citing directly
 - **Kamino xStocks docs / launch materials** for the direct policy target: soft liquidations, dynamic penalty ladder, TWAP/EWMA protections, LTV + borrow factor semantics.
@@ -191,9 +196,9 @@ These are not decorative citations. Together they let the introduction say: the 
 
 ---
 
-## 11) Practical market structure: **how** on-chain venues work (and why it matters for Paper 2)
+## 11) Practical market structure: **how** on-chain venues work (and why it matters for Paper 3)
 
-Protocols do not trade against an abstract “market.” They depend on *specific* execution paths: a bonding curve, a set of price ticks, or a signed quote from a pro market maker. Paper 2’s policy recommendations are more credible if we describe **how** those mechanisms produce prices, not only *what* they are called.
+Protocols do not trade against an abstract “market.” They depend on *specific* execution paths: a bonding curve, a set of price ticks, or a signed quote from a pro market maker. Paper 3’s policy recommendations are more credible if we describe **how** those mechanisms produce prices, not only *what* they are called.
 
 ### 11.1 Passive constant-function AMMs (CFMMs) — how price is formed and updated
 
@@ -201,7 +206,7 @@ Protocols do not trade against an abstract “market.” They depend on *specifi
 - **How the marginal price is defined.** The instantaneous *pool price* (up to fee) is the rate at which a tiny trade would move along the curve—equivalently, a function of the current reserves (for constant product, spot \(\propto R_B / R_A\)). It is *not* an independent oracle; it is the slope implied by the curve at the current point.
 - **How a user trade executes.** A taker adds one asset to the pool and withdraws the other; reserves change so the invariant holds; the **effective** price for finite size is an average over the path on the curve (**slippage** grows with trade size and curvature).
 - **How the on-chain price tracks the rest of the world.** If the pool’s marginal price drifts from off-chain CEX or index “fair” value, **arbitrageurs** buy cheap / sell rich until the gap closes enough to pay fees, gas, and risk. So the AMM price is a **lagged, fee-discounted, inventory-mediated** reflection of *other* venues—not a first-class risk forecast.
-- **Implications for lending/oracles (Paper 2 narrative).** A single DEX *spot* is path-dependent, depth-dependent, and can be pushed around in low liquidity or across thin windows. **Time-weighted averages (TWAP)** reduce manipulation but add **lag** and **stale** risk during gaps. A **calibrated fair-value band** is complementary: it states *uncertainty* and auditability, which raw reserves do not.
+- **Implications for lending/oracles (Paper 3 narrative).** A single DEX *spot* is path-dependent, depth-dependent, and can be pushed around in low liquidity or across thin windows. **Time-weighted averages (TWAP)** reduce manipulation but add **lag** and **stale** risk during gaps. A **calibrated fair-value band** is complementary: it states *uncertainty* and auditability, which raw reserves do not.
 
 ### 11.2 Concentrated liquidity (CLMMs) — how execution differs from “full-curve” CFMMs
 
@@ -209,7 +214,7 @@ Protocols do not trade against an abstract “market.” They depend on *specifi
 - **How price moves in a trade.** A swap walks the current price through ticks; at each step, it consumes the liquidity in that **tick** until the price crosses a boundary, then the next tick’s depth applies. The venue price is the **path through deployed liquidity**, not a single smooth pool ratio over all capital.
 - **What breaks on large moves.** If the true price *jumps* outside the ranges where LPs have capital, the pool can be **out of range**: remaining liquidity is far from the new price, **depth can collapse**, and the next print can be a poor or volatile executable (until LPs rebalance or new range is set).
 - **Informed flow and rebalancing.** Informed takers and JIT liquidity can **pull** the executable price; passive range positions can go **stale** (wrong range after a regime shift). So “the CLMM mid” is even more **state- and path-dependent** than a v2 spot.
-- **Implications for Paper 2.** A protocol that treats “DEX mid” as ground truth in a CLMM world is *more* exposed to *executable* dislocations, not less. The paper can argue for defaults that use **calibrated reference bands** (and explicit operational semantics) rather than assuming one venue’s **marginal** price equals **economic** fair value.
+- **Implications for Paper 3.** A protocol that treats “DEX mid” as ground truth in a CLMM world is *more* exposed to *executable* dislocations, not less. The paper can argue for defaults that use **calibrated reference bands** (and explicit operational semantics) rather than assuming one venue’s **marginal** price equals **economic** fair value.
 
 ### 11.3 Solvers, RFQ, and proprietary / oracle-driven market making — how modern on-chain routing actually works
 
@@ -219,8 +224,8 @@ These designs separate **where fair value is computed** from **where the trade s
 - **On-chain settlement.** The user (or an aggregator) lands a transaction that **verifies a signature** or **applies a parameter update** to a program-controlled curve, then performs the asset exchange **atomically** in one bundle.
 - **RFQ (request for quote).** The MM signs a *specific* \((\text{in}, \text{out}, \text{expiry}, \text{chain})\) offer; the taker fills that exact quote. Price is **negotiated for that size and moment**, not read purely from a passive formula—useful for size, but **adverse selection** against slow quotes is a first-order risk.
 - **Aggregators and route splitting.** Routers (e.g. Jupiter-style on Solana, 1inch-style on EVM) **search many venues** and split flow to minimize user slippage under constraints. The **relevant** price for a borrower/liquidator is the **best executable path**, not a single pool’s mid.
-- **Ordering and MEV (brief).** On chains with private bundles (e.g. Jito on Solana) or MEV on EVM, **inclusion order** and **frontrunning** can change the **realized** fill versus the *quoted* one at signing time. Paper 2 should only claim **execution-robust** optimality if we model or measure that layer (Section 5 and §12.5 non-claims already flag this).
-- **Implications for Paper 2.** In production, the ecosystem already behaves like **fast-updating, oracle-aware execution** (CFMM/CLMM as *one* source among many) rather than a single static v2 pool. **Liquidation policy defaults** should be stated in terms compatible with: **(i)** uncertain reference levels, **(ii)** multiple venues, and **(iii)** time-varying executability—exactly the setting where a **calibrated band interface** and an explicit **loss/cost** model (Sections 6–9) are the right abstraction, not a single spot print.
+- **Ordering and MEV (brief).** On chains with private bundles (e.g. Jito on Solana) or MEV on EVM, **inclusion order** and **frontrunning** can change the **realized** fill versus the *quoted* one at signing time. Paper 3 should only claim **execution-robust** optimality if we model or measure that layer (Section 5 and §12.5 non-claims already flag this).
+- **Implications for Paper 3.** In production, the ecosystem already behaves like **fast-updating, oracle-aware execution** (CFMM/CLMM as *one* source among many) rather than a single static v2 pool. **Liquidation policy defaults** should be stated in terms compatible with: **(i)** uncertain reference levels, **(ii)** multiple venues, and **(iii)** time-varying executability—exactly the setting where a **calibrated band interface** and an explicit **loss/cost** model (Sections 6–9) are the right abstraction, not a single spot print.
 
 ### 11.4 One-line contrast (for the paper’s “how” table)
 
@@ -237,11 +242,11 @@ These designs separate **where fair value is computed** from **where the trade s
 - **RedStone's public weekend-gap framing** is useful adversarial corroboration: even a competing oracle provider is openly stating that weekend dislocation remains unresolved.
 - **Perp/synthetic equity venues** should be used as a "continuous quoting" comparator, not as proof that the problem disappears. Their mark/index separation and off-hours quoting logic show that sophisticated venues explicitly manage uncertainty rather than pretending the spot is exact.
 
-The practical implication is that Paper 2 should read less like abstract mechanism design and more like a policy standard for venues already operating under uncertain off-hours fair value.
+The practical implication is that Paper 3 should read less like abstract mechanism design and more like a policy standard for venues already operating under uncertain off-hours fair value.
 
 ---
 
-## 12) What new evidence Paper 2 must add (beyond current repo)
+## 12) What new evidence Paper 3 must add (beyond current repo)
 
 This is the real “bar to publication” list.
 
@@ -255,7 +260,7 @@ Replace purely stylized costs with at least a small set of plausible protocol co
 - utilization cost assumptions
 
 ### 12.3 Realistic book-weight priors
-The current weight schemes are a good sensitivity scaffold, but Paper 2 should add at least one “Kamino-like” synthetic book and one “risk-on” skewed book (explicitly declared).
+The current weight schemes are a good sensitivity scaffold, but Paper 3 should add at least one “Kamino-like” synthetic book and one “risk-on” skewed book (explicitly declared).
 
 ### 12.4 Broader baseline set
 At least one baseline beyond “flat ±300bps” to show we are not only beating one strawman:
@@ -284,13 +289,13 @@ The paper should cite a tight, pragmatic shelf rather than a broad literature du
 - **Weekend / overnight risk in TradFi:** weekend-gap and overnight-return literature establishing that off-hours price risk is real, priced, and structurally different from intraday risk
 - **Adaptive-LTV / time-friction analogues:** the closest prior work arguing that leverage constraints should vary with time-of-market and market-closure frictions
 
-The goal of this section is not to claim novelty over every adjacent paper. It is to show that Paper 2 sits at the intersection of three mature ideas that have not yet been joined cleanly in production: calibration, liquidation optimization, and off-hours market microstructure.
+The goal of this section is not to claim novelty over every adjacent paper. It is to show that Paper 3 sits at the intersection of three mature ideas that have not yet been joined cleanly in production: calibration, liquidation optimization, and off-hours market microstructure.
 
 ---
 
 ## 13) Success criteria (what would make the second paper a “yes”)
 
-I would consider Paper 2 ready to draft when we can show:
+I would consider Paper 3 ready to draft when we can show:
 - A Soothsayer-based policy family beats baselines in expected loss on walk-forward OOS.
 - The win is robust across a reasonable grid of cost and weight assumptions.
 - We can explain the mechanism (narrow when calm, widen when risky, fewer expensive misses without too many unnecessary liquidations).
@@ -337,7 +342,7 @@ The paper's contribution is therefore a policy layer, not a new oracle primitive
 Start with the architecture mismatch: tokenized RWAs trade continuously, underlying venues do not. Emphasize that the economically relevant problem is not merely "what is the price?" but "what action should a lending protocol take when the reference level is uncertain and the venue that anchors fair value is closed?"
 
 #### Intro ¶2 — Why this matters for liquidation policy
-Move immediately from oracle language to policy language. Liquidation is where uncertainty becomes costly: missed liquidations create bad debt; unnecessary liquidations destroy borrower value and trust; unnecessary caution reduces utilization and revenue. This paragraph should make clear that Paper 2 is about protocol loss, not forecast elegance.
+Move immediately from oracle language to policy language. Liquidation is where uncertainty becomes costly: missed liquidations create bad debt; unnecessary liquidations destroy borrower value and trust; unnecessary caution reduces utilization and revenue. This paragraph should make clear that Paper 3 is about protocol loss, not forecast elegance.
 
 #### Intro ¶3 — What production systems do today
 Name the real stack directly. Kamino xStocks is the main comparable. Gauntlet and Chaos Labs already formulate parameter selection as optimization. Aave Horizon already admits closed-market and operational-friction constraints. This paragraph should say: the industry is not missing optimization; it is missing a calibrated uncertainty input for optimization.
@@ -348,7 +353,7 @@ This is where Chainlink belongs. State clearly that published 24/5 equities guid
 #### Intro ¶5 — What Paper 1 gives us, and why that still does not answer the policy question
 Briefly summarize Paper 1 as the primitive: a calibrated, auditable band with receipts and empirical coverage evidence. Then pivot: calibration alone does not tell a protocol when to warn, liquidate, or demote thresholds. That requires action semantics, costs, and book assumptions.
 
-#### Intro ¶6 — Paper 2's formal question
+#### Intro ¶6 — Paper 3's formal question
 State the paper's question in one sentence: given a calibrated band, which liquidation-policy default minimizes expected protocol loss out of sample? Introduce the three explicit modeling axes: cost model, weight scheme, and truth semantics. This is where the reader should understand why "optimal" must be conditional, not universal.
 
 #### Intro ¶7 — Main claims
@@ -363,7 +368,7 @@ Keep the claims narrow and production-facing.
 Preview walk-forward evaluation, sensitivity grids, and bootstrap stability. Explicitly mention that endpoint Monday-open truth is insufficient on its own and that the paper uses or requires path-aware weekend truth as the harsher validation target.
 
 #### Intro ¶9 — Contributions
-List contributions in Paper 2 language, not Paper 1 language:
+List contributions in Paper 3 language, not Paper 1 language:
 - a formal band-to-action decision problem
 - a protocol-comparable evaluation stack using current lending semantics
 - evidence on robust operating regions under explicit costs and book assumptions
@@ -377,7 +382,7 @@ Close the introduction by narrowing scope: no universal optimality, no claim of 
 These are candidate lines or near-lines, not final prose:
 
 - "The production gap is not that protocols fail to optimize liquidation policy; it is that they optimize against off-hours price inputs that do not publish an auditable uncertainty contract."
-- "Paper 1 asks whether a served band is calibrated. Paper 2 asks what a protocol should do with that band."
+- "Paper 1 asks whether a served band is calibrated. Paper 2 asks how OEV auctions should be designed to consume that band. Paper 3 asks what a lending protocol should do with the resulting (band, auction) primitive."
 - "In closed-market tokenized-equity lending, uncertainty is not an implementation detail of the price feed; it is part of the state variable that should govern liquidation."
 - "The relevant benchmark is not a single Monday reopening print but the worst executable off-hours path the protocol would have had to survive."
 
@@ -453,7 +458,7 @@ Job: justify why liquidation policy is an economic decision problem rather than 
 - **Aave governance literature on optimal liquidation / protocol equity**
   - For the fact that the ecosystem already has a mathematical language for liquidation-policy choice.
 
-Job: show that Paper 2 plugs into an existing production/governance workflow.
+Job: show that Paper 3 plugs into an existing production/governance workflow.
 
 #### Shelf D — Off-hours price discovery and adaptive leverage
 - **Weekend / overnight TradFi literature**
@@ -463,7 +468,7 @@ Job: show that Paper 2 plugs into an existing production/governance workflow.
 - **Perp / synthetic venue docs**
   - For practical comparators on mark/index handling under continuous trading of discontinuously anchored underlyings.
 
-Job: establish that Paper 2's regime-aware liquidation idea has both empirical and practical precedent.
+Job: establish that Paper 3's regime-aware liquidation idea has both empirical and practical precedent.
 
 ### 16.4 Problem statement / model section
 
@@ -507,7 +512,7 @@ This is where citations should explain market plumbing, not just decorate the na
 - **Protocol docs and oracle docs**
   - Good place for implementation details, feed behavior, parameter ladders, and fallback logic.
 - **Paper 1**
-  - Good place to offload primitive-specific details so Paper 2 stays a policy paper.
+  - Good place to offload primitive-specific details so Paper 3 stays a policy paper.
 
 ### 16.9 Anti-bloat rules for citation use
 
