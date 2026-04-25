@@ -67,6 +67,9 @@ V1b decade-scale backtest → PASS-LITE → Option C product shape locked. Full 
 - Verify open production-anchor citations (Chainlink SVR, RedStone Atom, API3 OEV, UMA Oval) and convert TODO entries in `paper2_oev_mechanism_design/references.md` to verified entries
 - Equilibrium-analysis sketch for C1 (rent monotonicity in band sharpness) under stylised assumptions
 
+**Methodology / verification — open empirical questions:**
+- **Monday 2026-04-27 morning ET** — verify Chainlink Data Streams **v11 24/5 cadence** during pre-market window (04:00–09:30 ET = 08:00–13:30 UTC). Re-run [`scripts/scan_chainlink_schemas.py`](../scripts/scan_chainlink_schemas.py) and inspect a v11 sample with `market_status ∈ {1 pre-market, 2 regular, 3 post-market, 4 overnight}` to confirm whether `mid`/`bid`/`ask` carry real values during 24/5 sessions or are placeholder-derived as they are during weekend (`market_status = 5`). Outcome shapes Phase 2 comparator design and Paper 1 §2 incumbent-archetype framing. Context: [`docs/v5-tape.md`](v5-tape.md) "Open empirical question".
+
 ### Phase 2 — Dashboard + Paper 1 & 3 live + Paper 2 simulator + design partners
 
 **Product/deploy:**

@@ -2,7 +2,7 @@
 
 **Status:** Phase 1 data infrastructure. Feeds the V2.1 F_tok forecaster (see [`docs/v2.md`](v2.md)) and the Phase 2 comparator dashboard. Not a methodology decision — the v1b oracle ships without it.
 
-This doc covers: (1) the V5 tape daemon design, (2) the verified xStock mint universe, and (3) the Chainlink decoder schema corrections from 2026-04-24 (which retired V1 and reshape how we compare against live Chainlink).
+This doc covers: (1) the V5 tape daemon design, (2) the verified xStock mint universe, and (3) the Chainlink Data Streams schema reality on Solana — empirically established 2026-04-25 across both v10 and v11 feeds.
 
 > **Historical context.** This file replaces `docs/plan-b.md`, which evaluated a "Chainlink xStock quality monitor" pivot in early April 2026. That pivot was not taken — Option C (calibration transparency) won instead, see [`reports/v1b_decision.md`](../reports/v1b_decision.md) and [`reports/option_c_spec.md`](../reports/option_c_spec.md). The operational content (V5 tape design, mints, decoder schema) survives here because it's still load-bearing for Phase 1.
 
@@ -25,7 +25,7 @@ nohup uv run python -u scripts/run_v5_tape.py > /tmp/v5_tape.log 2>&1 &
 ```
 
 - **DEX side.** Jupiter quote API (`lite-api.jup.ag/swap/v1/quote`) — free, unmetered, no key. The older `quote-api.jup.ag` was decommissioned (NXDOMAIN); Jupiter consolidated under `lite-api.jup.ag` in 2026.
-- **CL side.** Compares Jupiter mid against `tokenized_price` (the 24/7 CEX mark Chainlink publishes via the v10 schema), NOT a synthetic "mid" from bid/ask — see decoder section below.
+- **CL side.** Currently logs only v10 fields (`cl_tokenized_px` = w12, `cl_venue_px` = w7). Does NOT log v11. If Phase 2 comparator wants v11 data, the daemon needs to be extended to filter both schemas and log v11 mid/bid/ask/last_traded.
 
 ### Five tape axes (for the Phase 2 comparator)
 
@@ -54,33 +54,61 @@ All 8 verified on-chain via Helius RPC (`getAccountInfo` + `getTokenSupply`). To
 
 USDC on Solana: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`.
 
-## Chainlink v10 vs v11 decoder schema
+## Chainlink Data Streams — schema reality on Solana (verified 2026-04-25)
 
-Resolved 2026-04-24. Pre-fix, the scraper was treating v10 like v11 (assuming bid/ask/mid). v10 is a different schema with no order book.
+Both v10 (Tokenized Asset, schema `0x000a`) and v11 (RWA Advanced, schema `0x000b`) are active on Solana. The plan-b doc and pre-2026-04-25 framing were partial. Empirical scan: `scripts/scan_chainlink_schemas.py`; data: `data/raw/v5_tape_*.parquet`.
 
-### v10 — "Tokenized Asset" schema (xStocks)
+### Field-level cadence (Saturday 2026-04-25, market_status = closed/weekend)
 
-Fields: `price`, `marketStatus`, `currentMultiplier`, `newMultiplier`, `activationDateTime`, `tokenizedPrice`.
+| Schema | Field | Weekend behaviour | Source of truth |
+|---|---|---|---|
+| v10 (`0x000a`) | `price` (w7) | Frozen at Friday NYSE close | NYSE last-trade — regular session only |
+| v10 (`0x000a`) | **`tokenized_price` (w12)** | **Continuous sub-second updates 24/7** | CEX-aggregated mark (methodology to verify in Chainlink docs) |
+| v11 (`0x000b`) | `mid` | (bid + ask) / 2 of placeholder bookends | Derived, not a real mark |
+| v11 (`0x000b`) | `bid` / `ask` | Synthetic min/max placeholders (e.g. 21.01 / 715.01 for SPY-class feed) | Not real market quotes |
+| v11 (`0x000b`) | `last_traded_price` | Frozen at Friday NYSE close | Same archetype as v10 `price` |
 
-- `price` is the NYSE last-trade — **frozen when the underlying market is closed**.
-- `tokenizedPrice` is Chainlink's **continuous 24/7 CEX mark** (undisclosed methodology).
-- There is no bid/ask. `chainlink/v10.py` and the scraper's yielded dict reflect the corrected schema.
+**Net: v10's `tokenized_price` is the only Chainlink field across either schema that updates continuously on weekends.** Everything else is stale at Friday close, and v11 weekend `bid`/`ask`/`mid` are placeholder-derived rather than real prices.
 
-### v11 — "RWA Advanced" schema
+### v10 Tokenized Asset schema (xStocks)
 
-Has bid/ask/mid. Different feed family from v10.
+Fields: `feedId, validFromTimestamp, observationsTimestamp, nativeFee, linkFee, expiresAt, lastUpdateTimestamp, price, marketStatus, currentMultiplier, newMultiplier, activationDateTime, tokenizedPrice`. `marketStatus` codes: `0 Unknown, 1 Closed, 2 Open` — coarse; doesn't distinguish weekend / overnight / halt.
 
-### What this changed
+`chainlink/v10.py` and the V5 tape's yielded dict reflect this schema. Eight xStock feed_ids enumerated in `chainlink/feeds.py`.
+
+### v11 RWA Advanced schema (active on Solana, distinct feed_ids)
+
+Fields: `feedId, validFromTimestamp, observationsTimestamp, nativeFee, linkFee, expiresAt, mid, lastSeenTimestampNs, bid, bidVolume, ask, askVolume, lastTradedPrice, marketStatus`. `marketStatus` codes: `0 Unknown, 1 Pre-market, 2 Regular, 3 Post-market, 4 Overnight, 5 Closed (weekend)` — fine-grained.
+
+The 8-xStock feed_ids in `chainlink/feeds.py` are v10-only (prefix `0x000a`). v11 publishes under different feed_ids (`0x000b`-prefixed) — likely covering the same underlyings, but the symbol mapping needs verification. Feed-id enumeration deferred until we need to consume v11 (currently only v10 is in production code paths).
+
+### What this changes — and what it doesn't
 
 **V1 (Chainlink weekend bias) was retroactively invalidated.** Pre-fix V1 used `w7` as "mid" but `w7` is `price`. On Sunday evening, `w7` for SPYx equals the Friday NYSE close, so V1's residual `(Mon_open − Fri_close) − (Sun_last_mid − Fri_close)` collapsed to `(Mon_open − Fri_close) − 0` — measuring the realized Monday gap with zero Chainlink content. **Don't cite V1 numbers.** v1b on yfinance underlyings supersedes V1 on a different data substrate; nothing in v1b reads Chainlink, so v1b is unaffected.
 
-**Live Chainlink xStocks is NOT the stale-hold archetype.** Chainlink Data Streams for xStocks went live 2026-01-26 publishing `tokenized_price` continuously. Our F0 stale-hold remains a valid academic baseline (and is what we report 28%-tighter against), but live Chainlink xStocks is structurally closer to RedStone Live ("continuous undisclosed mark") than to true stale-hold. The Phase 2 comparator should compare against `tokenized_price`, not synthetic stale-hold. README and Paper 1 §1/§2 framing should be threaded with this nuance — calibration transparency is the live differentiator, sharpness vs F0 is the academic one.
+**Two competitor archetypes coexist in Chainlink, depending on which field/schema a consumer reads.** This refines (but doesn't overturn) the README + Paper 1 §2 framing:
+
+- A consumer reading **v10 `price`** or **any v11 field** sees stale-hold semantics on weekends — exactly what F0 stale-hold models. The "Chainlink stale-hold during marketStatus=5" framing is correct *for these fields*, which is what most lending integrations historically consume.
+- A consumer reading **v10 `tokenized_price`** sees a continuous CEX-aggregated mark with undisclosed methodology — same archetype as RedStone Live.
+
+So Soothsayer has two pitches against Chainlink:
+- vs `price` (or v11): tighter band + auditable calibration claim (the 28%-tighter-than-stale-hold story holds).
+- vs `tokenized_price`: same temporal coverage, but Soothsayer publishes an auditable calibration claim while `tokenized_price` is undisclosed.
+
+**Phase 2 comparator dashboard should evaluate against ALL three: v10 `price`, v10 `tokenized_price`, and v11 `mid`/`last_traded_price` separately.** This gives the most honest picture and forecloses the "you didn't compare against the right Chainlink field" objection.
+
+### Open empirical question
+
+Our 2026-04-25 scan only covered weekend state (market_status = 5 for v11; market_status = 1 for v10). We have not yet observed v11 behaviour during the 24/5 windows (pre-market, regular, post-market, overnight). The user's claim that v11 has "sub-second updates across all 24/5 sessions" is plausible but unverified.
+
+Verification task scheduled — see `docs/ROADMAP.md` Phase 1 → Methodology / verification.
 
 ## Open execution items
 
+- [ ] Monday 2026-04-27 morning ET — verify v11 24/5 cadence (pre-market 04:00-09:30 ET = 08:00-13:30 UTC). Re-run `scripts/scan_chainlink_schemas.py` and check whether v11 `mid`/`bid`/`ask` carry real values during pre-market state.
+- [ ] Map v11 feed_ids → xStock symbols (defer until needed for Phase 2 comparator).
+- [ ] Extend `scripts/run_v5_tape.py` to log v11 fields alongside v10 (defer until Phase 2 comparator design).
 - [ ] FASTRPC wiring — replaces Helius free-tier path for the cold-scrape problem.
-- [ ] `scripts/run_v5_tape.py` — forward-cursor daemon (depends on FASTRPC).
-- [ ] Run tape ≥5 days to capture ≥1 full weekend cycle (V2.1 trigger needs ≥150 weekends).
 - [ ] `scripts/analyze_v5.py` — per-axis charts + pooled stats for the Phase 2 comparator dashboard.
 
 ## Done
@@ -90,3 +118,6 @@ Has bid/ask/mid. Different feed family from v10.
 - [x] `src/soothsayer/sources/jupiter.py` — quote wrapper, `XSTOCK_MINTS`, mid helpers
 - [x] V5 smoke test: 3 SPYx snapshots, basis −3.7 / +2.3 / +6.4 bp (sign-flipping, consistent with tight coupling)
 - [x] Chainlink v10 decoder corrected to actual schema (2026-04-24)
+- [x] **Verified v10 `tokenized_price` updates continuously on weekends** (2026-04-25, 1021 distinct values across 30h Fri+Sat sample)
+- [x] **Verified v11 IS active on Solana** (2026-04-25, ~1.6% of recent Verifier txs are schema 0x000b)
+- [x] **Verified v11 weekend payload is placeholder-derived** (2026-04-25, bid/ask are synthetic bookends, mid is derived, last_traded frozen)

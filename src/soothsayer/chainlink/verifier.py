@@ -31,8 +31,13 @@ the versioned report; first 2 of the embedded feed_id are the schema:
   0x0003 = v3  (crypto / forex)
   0x0007 = v7  (DEX / LP)
   0x0008 = v8  (stables extension)
-  0x000a = v10 (24/5 US equities — xStocks, as of Apr 2026)
-  0x000b = v11 (v10 + market_status; not yet active on Solana for xStocks)
+  0x000a = v10 (US equities — xStocks; v10 `price` is regular-session-only,
+                v10 `tokenizedPrice` updates 24/7 on weekends)
+  0x000b = v11 (RWA Advanced — active on Solana as of 2026-04-25 alongside
+                v10; carries bid/ask/mid + fine-grained marketStatus codes
+                0..5. Weekend bid/ask are synthetic bookend placeholders,
+                last_traded_price is frozen at Friday close. 24/5-session
+                cadence empirically TBD.)
 """
 
 from __future__ import annotations

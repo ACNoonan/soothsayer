@@ -20,11 +20,17 @@
 - Per-target buffer schedule: `{0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}`, linearly interpolated off-grid (τ=0.99 bumped from 0.005 → 0.010 after 2026-04-25 grid extension).
 - Claimed-coverage grid: `{..., 0.95, 0.975, 0.99, 0.995, 0.997, 0.999}` (extended 2026-04-25 from prior top of 0.995); `MAX_SERVED_TARGET = 0.999`.
 
-**Incumbent-oracle comparison (2026-04-25 evening).**
+**Incumbent-oracle comparison (2026-04-25 evening + late-evening schema scan).**
 - Pyth + naive $\pm 1.96\cdot\text{conf}$ on 2024+ subset (265 obs): realised **10.2%** at "claimed" 95%. Pyth's CI is documented as aggregation diagnostic, not probability statement; the under-coverage is a feature of the published claim, not a defect.
 - Pyth + consumer-fit $\pm 50\cdot\text{conf}$: realised 95.1% at half-width 280 bps on subset (SPY/QQQ/TLT/TSLA-heavy). Subset bias makes the "Pyth+50× narrower than Soothsayer" finding interesting but small-sample.
-- Chainlink Data Streams during weekend `marketStatus = 5` (87 obs): 100% of observations have $\text{bid} \approx 0$ and $\text{ask} = 0$ — no published band. Chainlink + naive $\pm 3.2\%$ wrap delivers 95% realised at 320 bps on this calm-period sample.
+- Chainlink Data Streams on Solana publishes BOTH v10 (schema 0x000a) AND v11 (schema 0x000b). v11 went live on Solana before 2026-04-25 (date TBD; verifier docstring previously said "not yet active" — wrong). Field-level cadence on weekends:
+    - v10 `price` (w7) — frozen at Friday close (stale-hold archetype, F0)
+    - v10 `tokenized_price` (w12) — continuous sub-second updates 24/7 (undisclosed-methodology continuous-mark archetype, same as RedStone Live)
+    - v11 `mid` / `bid` / `ask` — placeholder-derived (synthetic min/max bookends), NOT real prices
+    - v11 `last_traded_price` — frozen at Friday close (same archetype as v10 `price`)
+- Chainlink Data Streams during weekend `marketStatus = 5` (87 obs, prior entry): 100% of observations have $\text{bid} \approx 0$ and $\text{ask} = 0$ — no published band. Chainlink + naive $\pm 3.2\%$ wrap delivers 95% realised at 320 bps on this calm-period sample. **Caveat:** the 87-obs dataset predates the v10 + v11 decoder corrections; numerical re-derivation deferred to v2 paper.
 - Both findings support §1.1 thesis: no incumbent publishes a verifiable calibration claim at the aggregate feed level. Consumer-supplied wraps can match coverage but require the consumer to do the calibration work themselves.
+- **v11 24/5-window cadence (pre-market, regular, post-market, overnight) untested as of 2026-04-25.** Verification scheduled Monday 2026-04-27 morning ET — see `docs/ROADMAP.md` Phase 1 → Methodology / verification.
 
 **Validated empirical claims (OOS 2023+, 1,720 rows, 172 weekends):**
 - τ = 0.95: realised 0.950, Kupiec $p_{uc}$ = 1.000, Christoffersen $p_{ind}$ = 0.485 (PASS).
@@ -54,6 +60,43 @@
 ---
 
 ## 1. Decision log
+
+### 2026-04-25 (late evening) — Empirical Chainlink schema scan: v10 + v11 field-level weekend behaviour
+
+**Trigger.** Conflicting documentation across the repo about Chainlink Data Streams cadence on Solana — `docs/plan-b.md` claimed `tokenized_price` was a "24/7 CEX mark, updates weekends" with undisclosed methodology; user pushed back that Chainlink equities feeds are 24/5, not 24/7; `verifier.py` docstring said v11 was "not yet active on Solana for xStocks"; `v11.py` docstring said v11 had been live since Jan 2026. None of these were tested on live data. Today is Saturday — natural opportunity to settle the weekend-cadence question empirically.
+
+**Hypotheses tested.**
+
+1. **H1: Chainlink v10 `tokenized_price` (w12) updates continuously across weekends.** *Accepted.* SPYx parquet panel from `data/raw/v5_tape_2026042{4,5}.parquet` (1,021 polls across Friday + Saturday) contains 1,021 distinct `cl_tokenized_px` values vs only 199 distinct `cl_venue_px` values. `tokenized_price` evolves on every poll including all of Saturday under `market_status = 1` (closed). `cl_venue_px` (= v10 `price` w7) is frozen at the Friday close (713.970) for all of Saturday — only updates during the regular NYSE session. *Artefact:* `scripts/check_chainlink_weekend.py` (smoke verification), live tape parquets.
+2. **H2: Chainlink v11 (schema 0x000b) is active on Solana.** *Accepted.* Scan of the most recent ~500 Verifier txs (`scripts/scan_chainlink_schemas.py`): 8 v11 reports observed in the window (~1.6% of decoded reports). Schema distribution: 0x0008 (148, stables) / 0x0003 (128, crypto-forex) / 0x000a (103, v10 xStocks) / 0x0007 (86, DEX-LP) / 0x0009 (16, unidentified) / 0x000b (8, v11). v11 feed_ids do not match our 8-xStock map (which is v10-only); v11 likely covers same underlyings under different feed_ids but symbol mapping is deferred until needed. `verifier.py` "v11 not yet active" claim was stale — corrected.
+3. **H3: v11 weekend payload provides a non-degenerate band.** *Rejected.* All 8 observed v11 samples had `market_status = 5 (closed/weekend)` with payload pattern: `bid` and `ask` are synthetic min/max placeholders (e.g. SPY-class feed at 21.01 / 715.01); `mid` is arithmetic mean of those placeholders (368.01); `last_traded_price` is frozen at Friday close (713.96, matching v10's `price`). No equivalent of v10's continuous `tokenized_price` exists in v11 — every "real" price field in v11 is stale on weekends.
+4. **H4: v11 `mid`/`bid`/`ask` carry real values during the 24/5 windows (pre-market, regular, post-market, overnight).** *Untested* — our scan only covered the weekend `market_status = 5` state. Tomorrow's pre-market window (Monday 04:00-09:30 ET = 08:00-13:30 UTC, market_status = 1 pre-market) is the next chance to observe this. Roadmap entry added under Phase 1 → Methodology / verification.
+
+**Implication for incumbent-archetype framing.** Two competitor archetypes coexist *within Chainlink*, depending on which schema/field a consumer reads:
+
+- A consumer reading **v10 `price` (w7)**, **v11 `last_traded_price`**, or **v11 `mid`/`bid`/`ask`** sees stale-hold semantics on weekends — exactly what F0 stale-hold models. The "Chainlink stale-hold during marketStatus=5" framing in §1.1 / §2 of the paper is correct for these fields, which are what most lending integrations consume.
+- A consumer reading **v10 `tokenized_price` (w12)** sees a continuous CEX-aggregated mark with undisclosed methodology — same archetype as RedStone Live.
+
+So Soothsayer has two pitches against Chainlink, and **the Phase 2 comparator dashboard should evaluate against ALL of: v10 `price`, v10 `tokenized_price`, and v11 `mid` / `last_traded_price` separately.** This forecloses the "you didn't compare against the right Chainlink field" objection.
+
+**Implication for the 2026-04-25 (evening) entry's H3 finding.** Prior H3 found "100% of weekend observations have `cl_bid ≈ 0` and `cl_ask = 0`" on the 87-obs Feb–Apr 2026 dataset. Today's v11 scan sees `bid`/`ask` as synthetic placeholders (21.01 / 715.01), not zero. Possible explanations: (a) the 87-obs dataset predates v11 going live on Solana, or (b) the 87-obs dataset was decoded under the pre-2026-04-24 broken decoder that mistreated v10 fields as bid/ask. Either way, the *interpretation* of the prior H3 holds — Chainlink does not publish a verifiable band during the weekend window — but the underlying numbers should be re-derived against the corrected v10 + v11 decoders before publication. Flagged as v2 deliverable; not a v1 paper-blocker because the calibration-claim point is structural, not numerical.
+
+**No methodology change.** The Soothsayer oracle does not read Chainlink at any point — v1b is fit on yfinance underlyings + futures + vol indices. This entry only refines the *competitor-archetype description* used in §1.1 / §2 / §6 of the paper.
+
+**Cascading paper edits required.**
+- §1.1: refine "Chainlink stale-hold during marketStatus=5" to specify *which Chainlink field* — applies to `price` (v10 w7) and to all v11 fields; does NOT apply to v10 `tokenized_price` (w12).
+- §2: distinguish two competitor archetypes within Chainlink — stale-hold (`price`, v11) and continuous undisclosed mark (`tokenized_price`); position RedStone Live as the same archetype as v10 `tokenized_price`.
+- §6 (incumbent comparator subsection from prior entry): add a v10 `tokenized_price` row alongside the existing Chainlink-stale-hold row, with the appropriate caveat that the comparison is one of *calibration claim*, not bandwidth (both are continuous; only Soothsayer publishes a verifiable claim).
+- §9: update incumbent-comparison limitations subsection — the 87-obs Chainlink dataset needs re-derivation under the corrected decoders before being treated as the canonical numerical comparison.
+
+**Artefacts.**
+- `scripts/check_chainlink_weekend.py` — smoke verification of weekend behaviour for a single xStock
+- `scripts/scan_chainlink_schemas.py` — schema-distribution scan across recent Verifier txs
+- `data/raw/v5_tape_2026042{4,5}.parquet` — empirical SPYx panel
+- `docs/v5-tape.md` — operational documentation of the empirical findings (replaces the speculative pre-2026-04-25 framing)
+- `src/soothsayer/chainlink/verifier.py` — docstring updated to reflect v11 active state
+
+---
 
 ### 2026-04-25 (evening) — Incumbent oracle comparators: Pyth Hermes + Chainlink Data Streams
 
