@@ -46,7 +46,7 @@ Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_
 | normal (1,150)     | 0.691 / 121.2 | 0.863 / 229.7 | 0.945 / 401.1 | 0.973 / 457.9 |
 | long_weekend (190) | 0.632 / 121.0 | 0.821 / 283.3 | 0.953 / 396.5 | 0.958 / 435.3 |
 | high_vol (380)     | 0.663 / 188.0 | 0.850 / 299.6 | 0.963 / 591.6 | 0.974 / 747.5 |
-| **pooled (1,720)** | **0.678 / 135.9** | **0.855 / 251.1** | **0.950 / 442.7** | **0.972 / 519.4** |
+| **pooled (1,720)** | **0.678 / 135.9** | **0.855 / 251.1** | **0.950 / 442.7** | **0.977\* / 519.4\*** |
 
 ### Conditional-coverage tests (pooled OOS)
 
@@ -61,7 +61,9 @@ Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_
 
 This result should be read as validation of the oracle's coverage contract at $\tau = 0.95$, not as proof that $\tau = 0.95$ is the welfare-optimal operating point for a protocol that consumes the band for liquidations or collateral haircuts.
 
-**Other operating points.** At $\tau = 0.85$ (the protocol-deployment default per the EL-comparison work in §8), realised coverage is $0.855$, both tests pass at $\alpha = 0.05$. At $\tau = 0.68$, realised lands $0.2$pp below target with both tests passing comfortably. At $\tau = 0.99$, Kupiec rejects: realised coverage is $0.972$, materially below the requested $0.99$. This is a structural ceiling — the rolling 156-weekend calibration window cannot resolve the 1% tail reliably in any per-(symbol, regime) bucket, and the bounds grid clips at 0.995 so additional buffer cannot recover it. §9.1 discusses the failure mode; §10 frames the conformal-prediction upgrade that would address it.
+**Other operating points.** At $\tau = 0.85$ (the protocol-deployment default per the EL-comparison work in §8), realised coverage is $0.855$, both tests pass at $\alpha = 0.05$. At $\tau = 0.68$, realised lands $0.2$pp below target with both tests passing comfortably. At $\tau = 0.99$, Kupiec rejects: realised coverage is $0.977$\*, materially below the requested $0.99$. This is a structural ceiling — the rolling 156-weekend per-(symbol, regime) calibration window cannot resolve the 1% tail reliably; even with the bounds grid extended to 0.999 (`reports/v1b_extended_grid.md`), the per-bucket sample size is too small to estimate the 1% quantile with the precision the consumer is asking for. §9.1 discusses the failure mode; §10 frames the conformal-prediction upgrade that would address it.
+
+\* The $\tau = 0.99$ realised value reflects the 2026-04-25 grid extension to {0.997, 0.999}; the conditional-coverage table (line above) and the full per-regime breakdown reflect the prior 0.995-cap configuration. Pending re-derivation under the extended grid before paper submission — see `reports/methodology_history.md` §0.
 
 The Oracle therefore passes Kupiec + Christoffersen at three of four standard operating points (0.68, 0.85, 0.95) on held-out data, with the upper-tail failure (0.99) disclosed as a finite-sample structural ceiling rather than a deployment defect.
 

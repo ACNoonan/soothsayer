@@ -71,7 +71,7 @@ Per-symbol vol indices: VIX for equities, GVZ for gold, MOVE for treasuries.
 
 **Layer 3 — Hybrid + per-target buffer at the serving layer.**
 - `REGIME_FORECASTER = {normal: F1_emp_regime, long_weekend: F1_emp_regime, high_vol: F0_stale}`. Evidence: at matched realised coverage, F1 is 27–43% tighter than F0 on `normal`/`long_weekend`. In `high_vol`, F0 is what prevents the OOS Christoffersen-independence rejection that pure-F1 produces (clustered violations).
-- `BUFFER_BY_TARGET = {0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.005}`, linearly interpolated off-grid. Per-target tuned on the OOS 2023+ slice as the smallest buffer satisfying realised-within-0.5pp + Kupiec $p_{uc} > 0.10$ + Christoffersen $p_{ind} > 0.05$. The buffer is **load-bearing for the OOS Kupiec pass** at every τ ≤ 0.95; without it, surface inversion alone delivers 92.2% realised at τ=0.95 and Kupiec rejects.
+- `BUFFER_BY_TARGET = {0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}`, linearly interpolated off-grid. Per-target tuned on the OOS 2023+ slice as the smallest buffer satisfying realised-within-0.5pp + Kupiec $p_{uc} > 0.10$ + Christoffersen $p_{ind} > 0.05$. The buffer is **load-bearing for the OOS Kupiec pass** at every τ ≤ 0.95; without it, surface inversion alone delivers 92.2% realised at τ=0.95 and Kupiec rejects.
 
 The Madhavan-Sobczyk / VECM / HAR-RV / Hawkes stack originally researched was tested and dropped — the simpler stack hit the calibration target first. Vanilla split-conformal (Vovk), Barber et al. (2022) nexCP at 6/12-month half-lives, and block-recency conformal were each compared on the same OOS slice with bootstrap CIs and rejected vs the per-target heuristic. Conformal is reframed as v2-conditional in §9.4 of the paper, gated on a finer claimed-coverage grid (above 0.995) or multi-split walk-forward evaluation. Full evolution log: [`reports/methodology_history.md`](reports/methodology_history.md).
 
@@ -84,7 +84,7 @@ Held-out 2023+ slice (1,720 rows × 172 weekends), Oracle served end-to-end thro
 | 0.68 | 1,720 | 0.678 | 135.9 | **0.893** | **0.647** |
 | 0.85 | 1,720 | 0.855 | 251.1 | **0.541** | **0.185** |
 | **0.95** | **1,720** | **0.950** | **442.7** | **1.000** | **0.485** |
-| 0.99 | 1,720 | 0.972 | 519.4 | 0.000 | 0.897 |
+| 0.99 | 1,720 | 0.977 | 519.4* | 0.000 | 0.897* |
 
 Per-regime breakdown at τ = 0.95 (OOS):
 
@@ -94,7 +94,7 @@ Per-regime breakdown at τ = 0.95 (OOS):
 | long_weekend | 190 | 0.953 | 396.5 | F1_emp_regime |
 | high_vol | 380 | 0.963 | 591.6 | F0_stale |
 
-τ = 0.95 is the paper's headline oracle-validation target. τ = 0.85 is the shipping default per protocol-EL evidence vs Kamino flat ±300bps (`reports/paper3_liquidation_policy/plan.md`). τ = 0.99 is structurally limited by the rolling 156-weekend per-bucket window and the 0.995 grid ceiling — disclosed in §9.1 of the paper.
+τ = 0.95 is the paper's headline oracle-validation target. τ = 0.85 is the shipping default per protocol-EL evidence vs Kamino flat ±300bps (`reports/paper3_liquidation_policy/plan.md`). τ = 0.99 is structurally limited by the rolling 156-weekend per-(symbol, regime) calibration-window size — too few tail observations to resolve the 1% claim reliably, even with the grid extended to 0.999 (Kupiec still rejects post-extension). Disclosed in §9.1 of the paper. *Half-width and Christoffersen p_ind are 2026-04-24 OOS values; pending re-derivation under the extended grid (see `reports/v1b_extended_grid.md`).
 
 Full surface, per-symbol breakdown, calibration curves: [`reports/v1b_calibration.md`](reports/v1b_calibration.md), [`reports/paper1_coverage_inversion/06_results.md`](reports/paper1_coverage_inversion/06_results.md). Ablation with bootstrap CIs: [`reports/v1b_ablation.md`](reports/v1b_ablation.md). Reproducible end-to-end via `uv run python scripts/run_calibration.py` and `uv run python scripts/smoke_oracle.py`.
 
