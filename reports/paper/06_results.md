@@ -56,12 +56,12 @@ Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_
 | **0.950** | **70** | **0.041** | **3.337** | **0.068** | **2.939** | **0.086** |
 | 0.990 | 49 | 0.028 | 39.595 | 0.000 | 0.245 | 0.621 |
 
-**The $\tau = 0.95$ row is the headline result.** On held-out data, at the pitch-relevant consumer target, the Oracle delivers realised coverage within $0.9$pp of request, with:
+**The $\tau = 0.95$ row is the headline oracle-validation result.** On held-out data, at the paper's primary consumer target, the Oracle delivers realised coverage within $0.9$pp of request, with:
 
 - Kupiec unconditional-coverage test $p = 0.068$ → not rejected at $\alpha = 0.05$
 - Christoffersen independence test $p = 0.086$ → not rejected at $\alpha = 0.05$
 
-Both tests pass. We are not aware of a prior tokenized-RWA or closed-market-oracle fair-value band for which this conjunction of tests is reported on a temporally held-out slice.
+Both tests pass. We are not aware of a prior tokenized-RWA or closed-market-oracle fair-value band for which this conjunction of tests is reported on a temporally held-out slice. This result should be read as validation of the oracle's coverage contract at $\tau = 0.95$, not as proof that $\tau = 0.95$ is the welfare-optimal operating point for a protocol that consumes the band for liquidations or collateral haircuts.
 
 **Lower-$\tau$ and upper-$\tau$ commentary.** At $\tau = 0.68$, realised coverage lands $1.7$pp low of target with both tests passing (Kupiec $p=0.128$, Christoffersen $p=0.152$). At $\tau = 0.99$, Kupiec rejects: realised coverage is $0.972$, materially below the requested $0.99$. This is a structural ceiling — the rolling 156-weekend window used to fit the per-symbol log-log residual model cannot resolve the 1% tail reliably in any per-(symbol, regime) bucket. §9 discusses the failure mode; §10 frames the conformal-prediction upgrade that would address it.
 
@@ -105,4 +105,4 @@ On held-out 2023+ data at consumer target $\tau = 0.95$:
 - Christoffersen $p_{ind} = 0.086$ (pass)
 - Mean served half-width: $456$ bps; per-regime widths: $414$ bps (normal), $396$ bps (long_weekend), $614$ bps (high_vol)
 
-These figures constitute the empirical support for claim P2 (conditional empirical coverage, §3.4). Claim P3 (per-regime efficiency) is supported by the ablation reported in §7. Claim P1 (auditability) is evidenced by the artifact released with this paper (§8).
+These figures constitute the empirical support for claim P2 (conditional empirical coverage, §3.4). Claim P3 (per-regime serving efficiency) is supported by the ablation reported in §7. Claim P1 (auditability) is evidenced by the artifact released with this paper (§8). None of the figures in this section, by themselves, identify an optimal liquidation-policy default for a lending protocol; they validate the oracle contract that an integrator would then have to map into its own loss function.

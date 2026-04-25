@@ -53,23 +53,27 @@ The empirical claims of §6 are backtested, not live. As of the submission of th
 
 We do not report a systematic numerical comparison of Soothsayer's served bands against Pyth, Chainlink Data Streams, or RedStone Live on a matched evaluation window. The conceptual comparison in §1.1 (stale-hold, dispersion CI, undisclosed methodology) is qualitative; a numerical benchmark would require either access to incumbent-internal historical bands or a reconstruction of incumbent values from on-chain feeds. Our team has partial Chainlink v10 / v11 reconstruction infrastructure in-repo that was used for a sanity-check comparison (reports/v1_chainlink_bias.md) but not at the rigor required for a research-paper-grade benchmark. We flag this as future work (§10) — specifically, an AFT-community-facing public comparator dashboard computed on a common historical window.
 
-## 9.9 Single market-region coverage
+## 9.9 No optimal liquidation-policy benchmark
+
+The paper validates an oracle interface, not a lending policy. We do not report a decision-theoretic benchmark of "what target $\tau$ should a protocol choose?" or "does a regime-demoted liquidation threshold dominate a flat threshold once portfolio weights and protocol losses are specified?" Answering those questions requires at least three ingredients absent from the present evaluation: (i) an explicit distribution over borrower-book LTV weights rather than a pure coverage metric, (ii) a protocol-specific cost model distinguishing unnecessary liquidation, unnecessary caution, and missed liquidation / bad debt, and (iii) a declared semantics for what counts as the correct action under realised prices. Without those ingredients, a claim of optimal liquidation-policy default would be stronger than the evidence we present here.
+
+## 9.10 Single market-region coverage
 
 All ten tickers in the backtest are US-listed. The weekend we predict is the US weekend. The factor-switchboard mapping (ES/NQ/GC/ZN/BTC) privileges US session data. We make no claim about the generalisation of the coverage-inversion primitive to tokenized-JP equities, tokenized-EU equities, or commodities whose primary discovery venue is not a US exchange. A multi-region replication is future work.
 
-## 9.10 On-chain tokenized-stock prices as an unused signal
+## 9.11 On-chain tokenized-stock prices as an unused signal
 
 Cong et al. [cong-tokenized-2025] document that off-hour returns on tokenized stocks *anticipate*, rather than amplify, subsequent Monday opens. Their finding implies that the contemporaneous on-chain xStock price during a closed-market interval already aggregates a non-trivial part of the weekend information set. Our base forecaster does not read this signal: $\hat P$ is a function of off-chain factor returns and a per-symbol volatility index only. A natural competing baseline — and one a reviewer is likely to raise — is "use the on-chain xStock TWAP as the point estimate."
 
 We do not report this comparison in the present paper for one reason: data history. Tokenized-equity primary venues on Solana launched in mid-2025, providing on the order of 30 weekends of on-chain price data through the cutoff of this evaluation. A stable per-(symbol, regime) Kupiec test requires on the order of 150 observations; per-regime Christoffersen requires more. The xStock-anchored forecaster is documented as a v2 deliverable in `docs/v2.md` §V2.1 (the *F_tok* forecaster, gated on the V5 on-chain tape that began continuous capture on 2026-04-24) and will be reported in the v2 paper once data history supports OOS validation. The omission is a deliberate evaluation-power choice, not an architectural exclusion.
 
-## 9.11 MEV and consumer-experienced coverage
+## 9.12 MEV and consumer-experienced coverage
 
 The realised coverage figures reported in §6 are computed against the realised Monday opening reference price $P_t$ on the underlying venue. Daian et al. [flashboys-2] document that on-chain transaction ordering is adversarial: searchers and validators compete to reorder transactions for profit, and band-edge events are economically attractive targets. A consumer who reads the Soothsayer band at on-chain mid and then transacts at a worse price (because of front-running, sandwich attacks, or block-builder reordering) experiences an *effective* coverage rate that may differ from our reported coverage rate near the band edge.
 
 We do not currently measure this gap. The infrastructure to do so requires (i) a Solana tape with mempool-or-bundle granularity (the V5 forward-cursor tape, started 2026-04-24, supplies this but with insufficient history at submission), (ii) a model of consumer transaction behaviour at band-edge thresholds, and (iii) a Jito-bundle reconstruction of bundled flow. The MEV-adjusted coverage measurement is documented as v2 work in `docs/v2.md` §V2.3. The present paper's coverage claim should therefore be read at face value — coverage of $P_t$ at the venue — not as a guarantee on consumer-experienced execution near the band edge.
 
-## 9.12 What is not a limitation
+## 9.13 What is not a limitation
 
 For completeness, we enumerate two concerns that do *not* apply to the coverage-inversion primitive as specified:
 

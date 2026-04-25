@@ -50,7 +50,7 @@ $$\Pr\!\bigl[\,P_t \in [L^f_t(s; q_\mathrm{served}),\ U^f_t(s; q_\mathrm{served}
 
 as $|\mathcal{T}_{s,r}| \to \infty$. Finite-sample deviations are measurable, tested (§6), and disclosed as a per-regime *calibration buffer* applied pre-inversion.
 
-**(P3) Per-regime efficiency.** For each regime $r$, the oracle selects $f^\star(r)$ from a candidate set $\mathcal{F}$. The selection is a joint argmin over two criteria observable post-hoc on historical data: (i) mean bandwidth at matched realised coverage, and (ii) the Christoffersen independence $p$-value. In our evaluation $\mathcal{F} = \{\texttt{F0\_stale},\ \texttt{F1\_emp\_regime}\}$; §7 reports the ablation matrix that justifies the hybrid regime-to-forecaster assignment. We emphasise that on held-out data the *primary* justification for switching to $\texttt{F0\_stale}$ in the \texttt{high\_vol} regime shifts from mean-bandwidth dominance (the in-sample finding) to violation de-clustering (the out-of-sample finding). Both framings are disclosed and tested.
+**(P3) Per-regime serving efficiency.** For each regime $r$, the oracle selects $f^\star(r)$ from a candidate set $\mathcal{F}$. The selection is a joint argmin over two criteria observable post-hoc on historical data: (i) mean bandwidth at matched realised coverage, and (ii) the Christoffersen independence $p$-value. In our evaluation $\mathcal{F} = \{\texttt{F0\_stale},\ \texttt{F1\_emp\_regime}\}$; §7 reports the ablation matrix that justifies the hybrid regime-to-forecaster assignment. We emphasise that on held-out data the *primary* justification for switching to $\texttt{F0\_stale}$ in the \texttt{high\_vol} regime shifts from mean-bandwidth dominance (the in-sample finding) to violation de-clustering (the out-of-sample finding). Both framings are disclosed and tested. This property is an oracle-serving claim about width allocation at matched realised coverage; it is not a claim that the resulting band is already the optimal liquidation-policy threshold for a lending protocol.
 
 ## 3.5 Non-goals
 
@@ -60,6 +60,7 @@ We explicitly do not claim:
 2. **Parametric tail guarantees.** The surface is empirical; shock-regime coverage is bounded above by the fraction of historical observations in the same tail of the forecast distribution (§9).
 3. **Distribution-free coverage.** P2 requires stationarity of the conditional distribution. A conformalised variant (Vovk, Barber et al.) would upgrade the statement to a finite-sample guarantee under exchangeability; we flag this as future work.
 4. **Protection against adversarial data feeds.** Soothsayer is a calibration-transparency primitive, not an integrity primitive. Its value proposition is orthogonal to oracle manipulation resistance; it is intended to be integrated *alongside*, not in place of, an adversarially-robust price feed.
+5. **Optimal lending-policy defaults.** We do not claim in this paper to identify the welfare-optimal liquidation rule, collateral haircut, or target $\tau$ for a lending protocol. Those questions require explicit assumptions about account-weight distributions, protocol-specific loss functions, and the semantics by which realised outcomes are mapped into liquidation quality.
 
 ## 3.6 Evaluation questions
 
@@ -69,3 +70,5 @@ The body of the paper answers:
 - **Q2** (sharpness, §6–§7). How much tighter than a naïve stale-hold Gaussian baseline is the served band at matched realised coverage, per regime?
 - **Q3** (ablations, §7). Which components of $f^\star$ (factor switchboard, log-log vol regression, earnings regressor, long-weekend regressor, hybrid regime selection, empirical buffer) are load-bearing for the P2/P3 claims, and which are disclosed for auditability but contribute no measurable signal at our sample size? The ablation reports block-bootstrap 95% CIs on each pairwise effect size.
 - **Q4** (auditability, §4 + artifact). Can a third party reconstruct $S^f$ on public data and independently verify a served `PricePoint`?
+
+Questions such as "which served target $\tau$ should a Kamino-style protocol choose as its liquidation-policy default?" are downstream integration questions. They are important, but they sit outside Q1-Q4 and are not answered by this paper's evidence alone.
