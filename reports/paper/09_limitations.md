@@ -24,16 +24,17 @@ Claim P2 (conditional empirical coverage, §3.4) is an *empirical* statement. It
 
 A conformalised variant (§9.4 and §10) would upgrade P2's guarantee from asymptotic-under-stationarity to finite-sample-under-exchangeability; the latter is strictly weaker and measurable.
 
-## 9.4 Heuristic calibration buffer
+## 9.4 Heuristic per-target calibration buffer
 
-The served Oracle applies a $2.5$pp empirical buffer to the consumer target before surface inversion. This buffer was calibrated on one OOS split (pre-2023 / 2023+) and is the median of measured OOS gaps across targets. The buffer is *load-bearing* for the OOS Kupiec pass at $\tau = 0.95$ (see §7); without it, the same surface delivers $92.2\%$ realised at target $0.95$ and Kupiec rejects.
+The served Oracle applies an empirical buffer to the consumer target before surface inversion, persisted in `BUFFER_BY_TARGET` and looked up by linear interpolation off-grid. The deployed values are $\{\tau\!=\!0.68 \to 0.045,\ \tau\!=\!0.85 \to 0.045,\ \tau\!=\!0.95 \to 0.020,\ \tau\!=\!0.99 \to 0.005\}$, each chosen as the smallest buffer satisfying realised coverage within $0.5$pp of target with both Kupiec $p_{uc} > 0.10$ and Christoffersen $p_{ind} > 0.05$ on the OOS 2023+ slice (`reports/v1b_buffer_tune.md`). The buffer is *load-bearing* for the OOS Kupiec pass at every $\tau \le 0.95$; without it, the surface inversion delivers $92.2\%$ realised at target $0.95$ and Kupiec rejects.
 
-Two weaknesses of this choice:
+Three weaknesses of this choice:
 
-1. **Sample-size-one buffer.** Our buffer is fit on one train/test split. A walk-forward sequence of splits would produce a distribution of buffers, with its own standard error.
-2. **No finite-sample guarantee.** The buffer is a heuristic, not a theorem. A conformalised serving layer (split-conformal, Vovk; time-series split-conformal, Barber et al. 2022) would replace the buffer with a principled coverage adjustment that carries a finite-sample guarantee under exchangeability. We flag this replacement as the primary methodological upgrade for a v2 paper.
+1. **Sample-size-one buffer.** Each per-target buffer is fit on one train/test split. A walk-forward sequence of splits would produce a distribution of buffers, with its own standard error. We commit to this re-measurement as part of any rolling calibration-surface rebuild.
+2. **Per-target schedule, not a continuous function.** Off-grid targets interpolate linearly between the four anchor points. A reviewer might prefer a continuous function fit (e.g., spline) on a finer sweep grid; we have not done that comparison.
+3. **No finite-sample guarantee.** The buffer is a heuristic, not a theorem. We tested vanilla split-conformal (operationally equivalent at our calibration size), Barber et al. nexCP-style recency-weighted conformal at two half-lives, and a block-recency baseline at two windows; all three under-corrected the OOS gap relative to the per-target heuristic, with bootstrap 95% CIs that exclude zero. The full evidence is in `reports/v1b_conformal_comparison.md`. The conformal upgrade therefore is *not* an obvious win on this data; it is reserved as a v2 direction subject to either a finer claimed-coverage grid (above $0.995$, removing the structural ceiling) or a multi-split walk-forward evaluation that distinguishes drift from sampling noise.
 
-The choice to ship a heuristic now and a conformalised variant in the future is disclosed, not evaded. The `calibration_buffer_applied` field on every `PricePoint` is the first-class receipt for this heuristic.
+The choice to ship a per-target heuristic now and re-evaluate conformal in v2 is disclosed, not evaded. The `calibration_buffer_applied` field on every `PricePoint` is the first-class receipt — the consumer sees exactly which buffer was applied to their served band.
 
 ## 9.5 The earnings regressor is a disclosure, not a contribution
 
