@@ -44,6 +44,14 @@ Buckets:
 - **Bucket:** oev-mechanism
 - **Verification status:** URL confirmed; capture exact litepaper version/date at draft time.
 
+### [pyth-express-relay] Pyth Network. 2024. *Pyth Express Relay: Solana-native OEV auctions*.
+- **Venue:** Pyth Network product documentation
+- **URL / DOI:** https://docs.pyth.network/express-relay · https://docs.pyth.network/price-feeds/core/use-real-time-data/pull-integration/solana
+- **Contribution:** Permissioned auction system on Solana that allows protocols to capture a share of OEV on each oracle update. Searchers register with Pyth and bid for the right to perform the post-update liquidation atomically. **The only deployed OEV-recapture auction native to Solana at writing.**
+- **Why we cite it:** Production exemplar of M1-SOL — and, since Paper 2's empirical replay (C4) runs on Solana (Kamino + MarginFi), this is the M1 baseline for the empirical replay, not Chainlink SVR. Strongest reference of the deployed-mechanism set for this paper's deployment story.
+- **Bucket:** oev-mechanism
+- **Verification status:** URL confirmed; capture exact docs version + auction-format details (refund split, searcher onboarding) at draft time.
+
 ### [uma-oval] UMA Project. 2024. *Oval: a permissionless MEV recapture system*.
 - **Venue:** UMA Protocol product announcement
 - **URL / DOI:** TODO — confirm exact announcement post URL and date.
@@ -146,7 +154,7 @@ The following Paper 1 entries will be cited in Paper 2 without restatement here.
 
 ## Verification summary
 
-- **Verified:** 5 references (andreoulis-fair-oev, myerson-1981, milgrom-weber-1982, krishna-auction-theory, bulow-klemperer-1996).
+- **Verified:** 6 references (andreoulis-fair-oev, pyth-express-relay, myerson-1981, milgrom-weber-1982, krishna-auction-theory, bulow-klemperer-1996).
 - **TODO — verification pending:** chainlink-svr (URL only), redstone-oev-blog (specific post pending), api3-oev-litepaper (version/date pending), uma-oval (primary source), heimbach-pbs, wadhwa-ofa, gudgeon-2020, qin-cefi-defi.
 - **Inherited from Paper 1 (no re-verification needed):** allen-tail-2025, flashboys-2, sok-oracles, chainlink-2, chainlink-streams, redstone-live, pyth-conf.
 

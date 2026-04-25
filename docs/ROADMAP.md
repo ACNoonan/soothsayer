@@ -62,10 +62,22 @@ V1b decade-scale backtest → PASS-LITE → Option C product shape locked. Full 
 - Outline → first draft
 
 **Research — Paper 2 plan refinement + simulator design (parallel, lower-bandwidth):**
+- ✅ Fold **Pyth Express Relay** (the only Solana-native deployed OEV-recapture auction) into the Paper 2 plan as the M1 empirical-replay baseline — the prior plan listed only EVM-only mechanisms (Chainlink SVR, RedStone Atom, API3 OEV, UMA Oval), which would not match the Solana replay venue.
 - Resolve open forks in [`reports/paper2_oev_mechanism_design/plan.md`](../reports/paper2_oev_mechanism_design/plan.md) §17 (auction format for M3, builder-coalition modelling depth, empirical-replay venue, target conference)
 - Auction-simulator architecture spec (M0–M4 instantiation; builder/searcher coalition model; Andreoulis OURW M2 sanity-check baseline)
-- Verify open production-anchor citations (Chainlink SVR, RedStone Atom, API3 OEV, UMA Oval) and convert TODO entries in `paper2_oev_mechanism_design/references.md` to verified entries
+- Verify open production-anchor citations (Chainlink SVR, RedStone Atom, API3 OEV, UMA Oval, Pyth Express Relay) and convert TODO entries in `paper2_oev_mechanism_design/references.md` to verified entries
 - Equilibrium-analysis sketch for C1 (rent monotonicity in band sharpness) under stylised assumptions
+
+**Funding — Solana Foundation OEV-research grant** (parallel to Paper 2 plan refinement):
+- Draft + submit a one-page proposal: build the first public **xStocks-on-Kamino liquidation dataset** (2025-07-14 onward) instrumented with reconstructed Soothsayer bands, and publish empirical findings on whether OEV concentrates at oracle-band-edge events. This deliverable is *literally* Paper 2's §C4 wrapped as a grant; the same data-collection effort feeds the paper, the bot (below), and the public-good dataset.
+- One-pager scope and hypothesis: [`docs/grant_solana_oev_band_edge.md`](grant_solana_oev_band_edge.md). Target ask $25k–$100k for a 4-month deliverable.
+
+**Product / research bridge — narrow xStocks liquidator bot** (parallel; instrumentation-first):
+- Scoping + modeling doc: [`docs/bot_kamino_xstocks_liquidator.md`](bot_kamino_xstocks_liquidator.md). Single-purpose Kamino-on-Solana liquidator targeting xStocks weekend-reopen LTV breaches. Consumes the Soothsayer band as its pricing input (dogfooding); every event is logged into the V5 forward-cursor tape as research-grade C4 data; net revenue covers infra.
+- Strategic value: (i) tests Paper 2's C4 conjecture in production rather than retrospect, (ii) builds the dataset Paper 2 needs anyway, (iii) generates a deployment story for Paper 2's empirical section, (iv) underwrites the grant proposal with "we already have a tape and a working consumer."
+- The general-purpose Solana-liquidator path is not pursued: Kamino's Sep 2025 penalty drop to 0.1% means median liquidations are unprofitable for solo bots; rents now concentrate in tail (band-edge) events, which is exactly the subset Soothsayer was designed for.
+- Phased delivery: MVP devnet (observe-only, 2–3 weeks) → v1 mainnet observe-only (2–3 weeks) → v2 mainnet bidding (4–6 weeks, $25k–$50k working capital). Hard stop conditions specified in scoping doc Section 7.
+- **First modeling exercise (cheap, fast, today):** quantify per-event gross EV distribution and band-exit event frequency on the existing Paper 1 dataset (5,986 weekend windows × 10 symbols). Output is a single notebook + table that becomes the grant's economic justification and the bot's bid-floor input — derivable today, before any bot is deployed. See scoping doc §10.1 + §10.2.
 
 **Methodology / verification — open empirical questions:**
 - **Monday 2026-04-27 morning ET** — verify Chainlink Data Streams **v11 24/5 cadence** during pre-market window (04:00–09:30 ET = 08:00–13:30 UTC). Re-run [`scripts/scan_chainlink_schemas.py`](../scripts/scan_chainlink_schemas.py) and inspect a v11 sample with `market_status ∈ {1 pre-market, 2 regular, 3 post-market, 4 overnight}` to confirm whether `mid`/`bid`/`ask` carry real values during 24/5 sessions or are placeholder-derived as they are during weekend (`market_status = 5`). Outcome shapes Phase 2 comparator design and Paper 1 §2 incumbent-archetype framing. Context: [`docs/v5-tape.md`](v5-tape.md) "Open empirical question".

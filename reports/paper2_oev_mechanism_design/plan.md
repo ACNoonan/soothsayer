@@ -115,13 +115,16 @@ This information-structure shift is the formal hook for all four claims.
 ## 7) Mechanism families to compare
 
 At minimum:
-- **M0 — Opaque first-price liquidation auction (status quo baseline).** Aave/Compound-style: anyone can call `liquidationCall`; price priority.
-- **M1 — Chainlink-SVR top-of-block auction with opaque oracle.** Flashbots integration, top-of-block priority, refund to protocol.
-- **M2 — Andreoulis-style OURW with opaque oracle.** Refund + fallback window mechanism with censorship-proofness inequality.
-- **M3 — Band-conditional auction with calibration receipts (Soothsayer × OURW).** Same auction format as M2 but with band-conditional triggers and a censorship-proofness inequality re-derived under transparent oracle.
-- **M4 — Calibration-band-tail trigger.** Trigger fires only on $N$-of-$M$ band exits; auction format identical to M2/M3.
+- **M0 — Opaque first-price liquidation auction (status quo baseline).** Aave/Compound-style on EVM, Kamino/MarginFi-style on Solana: anyone can call `liquidationCall`; price priority.
+- **M1 — Opaque-oracle OEV auction (production).** Auctioned right to perform the post-update liquidation, refund to protocol. Two production instances at writing:
+  - **M1-EVM = Chainlink SVR** (with Flashbots, top-of-block).
+  - **M1-SOL = Pyth Express Relay** (Solana-native, atomic; the empirical-replay baseline for this paper).
+  RedStone Atom, API3 OEV, and UMA Oval are EVM-only siblings in the same family.
+- **M2 — Andreoulis-style OURW with opaque oracle.** Refund + fallback window mechanism with censorship-proofness inequality. Theoretical / academic baseline.
+- **M3 — Band-conditional auction with calibration receipts (Soothsayer × OURW; or Soothsayer × Pyth Express Relay).** Same auction format as M2 / M1-SOL but with band-conditional triggers and a censorship-proofness inequality re-derived under transparent oracle.
+- **M4 — Calibration-band-tail trigger.** Trigger fires only on $N$-of-$M$ band exits; auction format identical to M0 / M1 / M2 / M3 (overlay).
 
-All five mechanisms share a common rebate split for comparability; the paper sweeps the split as a sensitivity dimension.
+All five mechanisms share a common rebate split for comparability; the paper sweeps the split as a sensitivity dimension. The empirical replay (C4) instantiates M1 specifically as **M1-SOL = Pyth Express Relay** because that is the deployed Solana-native baseline xStocks/Kamino positions trade against.
 
 ---
 
@@ -168,15 +171,18 @@ This is the big difference from Paper 3 — Paper 2 is more theoretical and has 
 ### Available now
 - **Soothsayer historical band serving** (Paper 1 deliverable). Reconstructable bands on 5,986 weekend windows × 10 symbols.
 - **`scripts/run_protocol_compare.py`** can be partially adapted to evaluate mechanism-level welfare in addition to policy-level welfare.
-- **Historical liquidation data** for Aave V2/V3 (Andreoulis et al. published the 2023–2025 panel; we should request access or reconstruct from on-chain).
-- **Kamino xStocks liquidations** since launch — small N but the most directly relevant venue.
+- **Historical liquidation data** for Aave V2/V3 (Andreoulis et al. published the 2023–2025 panel; secondary EVM cross-check).
+- **Kamino xStocks liquidations** since 2025-07-14 — small N but the deployment-target venue and the empirical-replay primary.
+- **MarginFi liquidations 2025** — Q1 2025 liquidation-fee figure ($88.5M) and active-liquidator count (~9) are public and corroborate Andreoulis-style coalition concentration on Solana.
+- **V5 forward-cursor tape** (started 2026-04-24) — the input source for Jito bundle reconstruction.
 
 ### Needs to be built
-- **Auction simulator.** New tool: parameterised agent-based simulator for M0–M4 with builder/searcher coalition modelling.
-- **Solana Jito bundle reconstruction.** V5 forward-cursor tape (started 2026-04-24) is the input source; need a reconstructor that maps liquidation transactions to bid stacks.
-- **Counterfactual welfare engine.** Replay historical liquidations under each mechanism using the simulator and observed bid stacks.
+- **Auction simulator.** New tool: parameterised agent-based simulator for M0–M4 with builder/searcher coalition modelling. Validate against Andreoulis OURW M2 numerical results.
+- **Solana liquidation reconstructor.** V5 forward-cursor tape → Kamino + MarginFi program logs + Pyth Express Relay update timestamps + Jito bundles → liquidation events with bid stacks.
+- **Counterfactual welfare engine.** Replay historical liquidations under each mechanism (M0 / M1-SOL / M2 / M3 / M4) using the simulator and observed bid stacks.
+- **Live instrumentation hook.** A narrow xStocks-weekend-reopen liquidator on Kamino is being scoped (separate planning doc); whether or not it executes liquidations, the same instrumentation produces ground-truth data for the empirical replay. See `docs/grant_solana_oev_band_edge.md` for the proposal framing.
 
-The auction simulator is the load-bearing build. Without it, the paper is purely theoretical and reviewers will (rightly) ask for empirical grounding.
+The auction simulator is the load-bearing build for the *theoretical* contribution. The Solana liquidation reconstructor + V5 tape integration is the load-bearing build for the *empirical* contribution (C4). Without one of these the paper has either no theory or no empirics; with both, the paper is a complete mechanism-design contribution that demonstrably moves the deployed Solana-OEV stack forward.
 
 ---
 
@@ -184,36 +190,41 @@ The auction simulator is the load-bearing build. Without it, the paper is purely
 
 Production systems are converging fast. The paper should anchor each mechanism family to a specific deployed comparable so the contribution reads as additive, not abstract.
 
-### 11.1 Chainlink SVR — opaque oracle + top-of-block auction
-Smart Value Recapture (Chainlink + Flashbots, 2024). Auctions the right to perform the first liquidation immediately after a Chainlink oracle update at the top of an Ethereum block; refunds to the protocol. The oracle is a black box. **Maps to M1 in our taxonomy.**
+### 11.1 Pyth Express Relay — Solana-native opaque-oracle OEV auction (the empirical-replay baseline)
+Pyth's permissioned auction system on Solana that allows protocols to capture a share of OEV on each oracle update. Searchers register with Pyth and bid for the right to perform the post-update liquidation atomically. **The only deployed OEV-recapture auction native to Solana at writing**, which makes it the M1 baseline for this paper's empirical replay (C4) — not Chainlink SVR, which is Ethereum-only. Production-relevant facts: Kamino is the dominant lending venue ($2.8B TVL Q3 2025) and reduced its liquidation penalty to **0.1%** in September 2025 in response to Jupiter Lend competition, materially compressing the median-event opportunity and concentrating remaining rents in tail (band-edge) events. MarginFi alone generated **~$88.5M in liquidation fees in Q1 2025**, captured by **only ~9 active liquidators** — concentration consistent with the Andreoulis et al. coalition pattern, and exactly the empirical setting Paper 2's C4 claim predicts.
 
-### 11.2 RedStone Atom — opaque oracle + atomic auction
-Atomic OEV auctions from RedStone (2024–2025); the auction is atomic in the sense that price update + liquidation execute in a single bundle. Reduces the gap between oracle update and liquidation execution. **Maps to M1 with a tighter atomicity guarantee.**
+### 11.2 Chainlink SVR — opaque oracle + top-of-block auction (the EVM analogue)
+Smart Value Recapture (Chainlink + Flashbots, 2024). Auctions the right to perform the first liquidation immediately after a Chainlink oracle update at the top of an Ethereum block; refunds to the protocol. The oracle is a black box. **Maps to M1-EVM in our taxonomy.** Useful as the EVM cross-check for the simulator (Andreoulis OURW M2 numerical validation lives here too), but the empirical replay does not run on this venue.
 
-### 11.3 API3 OEV / Order Flow Auctions
+### 11.3 RedStone Atom — opaque oracle + atomic auction (EVM)
+Atomic OEV auctions from RedStone (2024–2025); the auction is atomic in the sense that price update + liquidation execute in a single bundle. Reduces the gap between oracle update and liquidation execution. **Maps to M1-EVM with a tighter atomicity guarantee.**
+
+### 11.4 API3 OEV / Order Flow Auctions (EVM)
 First-party oracle with explicit order-flow auctions; up to 80% of OEV proceeds redistributed in API3 token. Documented in [api3-oev-litepaper] and the Burak Benligiray Medium series. **Maps to M1/M2 hybrid: order-flow rather than top-of-block.**
 
-### 11.4 UMA Oval
-MEV recapture for lending dApps that consume UMA price feeds; integrates with Flashbots. **Maps to M1 with UMA-specific oracle staleness assumptions.**
+### 11.5 UMA Oval (EVM)
+MEV recapture for lending dApps that consume UMA price feeds; integrates with Flashbots. **Maps to M1-EVM with UMA-specific oracle staleness assumptions.**
 
-### 11.5 Andreoulis et al. OURW
+### 11.6 Andreoulis et al. OURW (academic / theoretical)
 Theoretical mechanism: Oracle Update Rebate Window with explicit censorship-proofness inequality. Empirical evidence on Aave V2/V3 2023–2025. **Maps directly to M2; the band-aware variant we propose is M3.**
 
-### 11.6 Soothsayer × OURW (proposed M3)
-The novel contribution. Replaces the opaque-oracle assumption in OURW with a calibration-transparent oracle and re-derives the censorship-proofness inequality, the trigger rule, and the welfare comparison.
+### 11.7 Soothsayer × Pyth Express Relay (or × OURW) — proposed M3
+The novel contribution. Replaces the opaque-oracle assumption in M1-SOL (Pyth Express Relay) or M2 (OURW) with a calibration-transparent oracle and re-derives the censorship-proofness inequality, the trigger rule, and the welfare comparison. The deployment-ready instantiation is **M3-SOL = Soothsayer × Pyth Express Relay**, since that is the auction venue Solana xStocks/Kamino positions actually trade against.
 
-### 11.7 Calibration-band-tail trigger (proposed M4)
-A simpler deployment-ready variant: instead of restructuring the auction, modify only the trigger rule. Liquidation eligibility requires an $N$-of-$M$ band exit at the served $\tau$. Compatible with any auction format, including M0. The minimum-viable calibration-aware mechanism.
+### 11.8 Calibration-band-tail trigger (proposed M4)
+A simpler deployment-ready variant: instead of restructuring the auction, modify only the trigger rule. Liquidation eligibility requires an $N$-of-$M$ band exit at the served $\tau$. Compatible with any auction format, including M0 / M1-SOL / M1-EVM / M2 / M3. The minimum-viable calibration-aware mechanism.
 
-### 11.8 Comparator table (for the paper)
+### 11.9 Comparator table (for the paper)
 
-| Mechanism | Oracle assumption | Auction format | Censorship-proofness | Soothsayer-compatible? |
-|---|---|---|---|---|
-| M0 — `liquidationCall` baseline | Opaque price | First-price, on-demand | None | Yes (degraded) |
-| M1 — Chainlink SVR | Opaque price | Top-of-block, sealed | Top-of-block ordering | Yes (drop-in) |
-| M2 — Andreoulis OURW | Opaque price | Refund + fallback window | Inequality on (refund, window, builder) | Yes (drop-in) |
-| **M3 — Soothsayer × OURW** | **Calibration-transparent** | Refund + fallback window with band-conditional triggers | Tightened inequality; band-aware fallback | **Native** |
-| **M4 — Tail-trigger overlay** | **Calibration-transparent** | Any (M0/M1/M2) | Inherits from base mechanism | **Native overlay** |
+| Mechanism | Chain | Oracle assumption | Auction format | Censorship-proofness | Soothsayer-compatible? |
+|---|---|---|---|---|---|
+| M0 — `liquidationCall` baseline | EVM + Solana | Opaque price | First-price, on-demand | None | Yes (degraded) |
+| **M1-SOL — Pyth Express Relay** | **Solana** | **Opaque price** | **Permissioned auction; atomic update + liquidation** | **Atomicity-derived** | **Yes (drop-in); the empirical-replay baseline** |
+| M1-EVM — Chainlink SVR | Ethereum | Opaque price | Top-of-block, sealed (Flashbots) | Top-of-block ordering | Yes (drop-in) |
+| M1-EVM-alt — RedStone Atom / API3 OEV / UMA Oval | Ethereum / Arbitrum | Opaque price | Atomic / order-flow / Flashbots | Various | Yes (drop-in) |
+| M2 — Andreoulis OURW | Theory (modelled on EVM) | Opaque price | Refund + fallback window | Inequality on (refund, window, builder) | Yes (drop-in) |
+| **M3 — Soothsayer × Pyth Express Relay (or × OURW)** | **Solana (deployment-ready); EVM (theoretical)** | **Calibration-transparent** | **Permissioned auction with band-conditional triggers; or refund + fallback window with band-conditional triggers** | **Tightened inequality; band-aware fallback** | **Native** |
+| **M4 — Tail-trigger overlay** | **Any** | **Calibration-transparent** | **Any (overlay on M0 / M1 / M2 / M3)** | **Inherits from base mechanism** | **Native overlay** |
 
 ---
 
@@ -416,6 +427,6 @@ These are explicit forks the planning document leaves unresolved; the user shoul
 
 1. **Auction format choice for M3.** First-price sealed-bid? Second-price? Order-flow? Each implies a different equilibrium analysis; the "right" choice is the one closest to deployed M1/M2 mechanisms, which suggests sealed first-price + top-of-block ordering.
 2. **Builder-coalition modelling depth.** Andreoulis et al. model coalitions in reduced form. We should match their treatment unless there's a specific reason to extend it.
-3. **Empirical-replay venue selection.** Aave V2/V3 (Andreoulis-replicable, large N) vs Kamino (deployment-target, small N) vs both (best). Cost-benefit: doing both is the right answer; the marginal cost is mostly engineering on the Solana Jito reconstructor.
+3. **Empirical-replay venue selection.** ✅ **Resolved 2026-04-25: primary venue is Solana (Kamino + MarginFi liquidations against Pyth Express Relay).** Rationale: Pyth Express Relay is the only Solana-native deployed OEV auction, xStocks live on Kamino since 2025-07-14, MarginFi already produced ~$88.5M in liquidation fees Q1 2025 with ~9 active liquidators (Andreoulis-style coalition concentration confirmed on-chain), and the V5 forward-cursor tape captures the right primitives. Kamino's Sep 2025 penalty drop to 0.1% strengthens the C4 thesis: rents now concentrate at tail / band-edge events, which is precisely what a calibration-transparent oracle is designed for. Aave V2/V3 stays as a secondary EVM cross-check using the Andreoulis et al. published panel; we do not build new EVM tooling for it.
 4. **Whether to publish the auction simulator as a standalone artifact.** Likely yes — it's a small open-source release that carries reputational weight independent of the paper, and slots into the consultancy/risk-research positioning from the broader career strategy.
 5. **Target venue.** ACM AFT 2026 (DeFi-friendly, fast cycle), ACM EC 2027 (mechanism-design canonical), Financial Cryptography 2027 (RWA-friendly), or arXiv-only as a research-program signal. AFT seems strongest fit; EC if the theoretical results land cleanly.
