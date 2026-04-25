@@ -83,18 +83,18 @@ Held-out 2023+ slice (1,720 rows × 172 weekends), Oracle served end-to-end thro
 |---:|---:|---:|---:|---:|---:|
 | 0.68 | 1,720 | 0.678 | 135.9 | **0.893** | **0.647** |
 | 0.85 | 1,720 | 0.855 | 251.1 | **0.541** | **0.185** |
-| **0.95** | **1,720** | **0.950** | **442.7** | **1.000** | **0.485** |
-| 0.99 | 1,720 | 0.977 | 519.4* | 0.000 | 0.897* |
+| **0.95** | **1,720** | **0.950** | **456.0** | **1.000** | **0.485** |
+| 0.99 | 1,720 | 0.977 | 580.8 | 0.000 | 0.956 |
 
 Per-regime breakdown at τ = 0.95 (OOS):
 
 | Regime | n | Realised | Half-width (bps) | Forecaster served |
 |---|---:|---:|---:|---|
-| normal | 1,150 | 0.945 | 401.1 | F1_emp_regime |
-| long_weekend | 190 | 0.953 | 396.5 | F1_emp_regime |
+| normal | 1,150 | 0.945 | 417.7 | F1_emp_regime |
+| long_weekend | 190 | 0.953 | 416.6 | F1_emp_regime |
 | high_vol | 380 | 0.963 | 591.6 | F0_stale |
 
-τ = 0.95 is the paper's headline oracle-validation target. τ = 0.85 is the shipping default per protocol-EL evidence vs Kamino flat ±300bps (`reports/paper3_liquidation_policy/plan.md`). τ = 0.99 is structurally limited by the rolling 156-weekend per-(symbol, regime) calibration-window size — too few tail observations to resolve the 1% claim reliably, even with the grid extended to 0.999 (Kupiec still rejects post-extension). Disclosed in §9.1 of the paper. *Half-width and Christoffersen p_ind are 2026-04-24 OOS values; pending re-derivation under the extended grid (see `reports/v1b_extended_grid.md`).
+τ = 0.95 is the paper's headline oracle-validation target. τ = 0.85 is the shipping default per protocol-EL evidence vs Kamino flat ±300bps (`reports/paper3_liquidation_policy/plan.md`). τ = 0.99 is structurally limited by the rolling 156-weekend per-(symbol, regime) calibration-window size — too few tail observations to resolve the 1% claim reliably, even with the grid extended to 0.999 (Kupiec still rejects post-extension; Christoffersen passes with $p_\text{ind} = 0.956$, so the failure is level-attribution, not violation-clustering). Disclosed in §9.1 of the paper.
 
 Full surface, per-symbol breakdown, calibration curves: [`reports/v1b_calibration.md`](reports/v1b_calibration.md), [`reports/paper1_coverage_inversion/06_results.md`](reports/paper1_coverage_inversion/06_results.md). Ablation with bootstrap CIs: [`reports/v1b_ablation.md`](reports/v1b_ablation.md). Reproducible end-to-end via `uv run python scripts/run_calibration.py` and `uv run python scripts/smoke_oracle.py`.
 

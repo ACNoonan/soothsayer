@@ -43,10 +43,10 @@ Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_
 
 | Regime ($n$)       | $\tau = 0.68$: realised / width | $\tau = 0.85$: realised / width | $\tau = 0.95$: realised / width | $\tau = 0.99$: realised / width |
 |---|---|---|---|---|
-| normal (1,150)     | 0.691 / 121.2 | 0.863 / 229.7 | 0.945 / 401.1 | 0.973 / 457.9 |
-| long_weekend (190) | 0.632 / 121.0 | 0.821 / 283.3 | 0.953 / 396.5 | 0.958 / 435.3 |
-| high_vol (380)     | 0.663 / 188.0 | 0.850 / 299.6 | 0.963 / 591.6 | 0.974 / 747.5 |
-| **pooled (1,720)** | **0.678 / 135.9** | **0.855 / 251.1** | **0.950 / 442.7** | **0.977\* / 519.4\*** |
+| normal (1,150)     | 0.691 / 121.2 | 0.863 / 229.7 | 0.945 / 417.7 | 0.977 / 502.8 |
+| long_weekend (190) | 0.632 / 121.0 | 0.821 / 283.3 | 0.953 / 416.6 | 0.958 / 465.2 |
+| high_vol (380)     | 0.663 / 188.0 | 0.850 / 299.6 | 0.963 / 591.6 | 0.984 / 874.5 |
+| **pooled (1,720)** | **0.678 / 135.9** | **0.855 / 251.1** | **0.950 / 456.0** | **0.977 / 580.8** |
 
 ### Conditional-coverage tests (pooled OOS)
 
@@ -55,15 +55,13 @@ Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_
 | 0.680 | 553 | 0.322 | 0.018 | **0.893** | 7.818 | **0.647** |
 | 0.850 | 249 | 0.145 | 0.373 | **0.541** | 13.750 | **0.185** |
 | **0.950** | **86** | **0.050** | **0.000** | **1.000** | 9.500 | **0.485** |
-| 0.990 | 49 | 0.028 | 39.595 | 0.000 | 4.910 | 0.897 |
+| 0.990 | 40 | 0.023 | 22.224 | 0.000 | 3.801 | 0.956 |
 
 **The $\tau = 0.95$ row is the headline oracle-validation result.** On held-out data, the Oracle delivers realised coverage of exactly $0.950$ — Kupiec $p_{uc} = 1.000$ (test statistic essentially zero, no evidence of mis-calibration) and Christoffersen $p_{ind} = 0.485$ (no clustering of violations). The conjunction passes by margin, not by inches. We are not aware of a prior tokenized-RWA or closed-market-oracle fair-value band for which this conjunction of tests is reported on a temporally held-out slice.
 
 This result should be read as validation of the oracle's coverage contract at $\tau = 0.95$, not as proof that $\tau = 0.95$ is the welfare-optimal operating point for a protocol that consumes the band for liquidations or collateral haircuts.
 
-**Other operating points.** At $\tau = 0.85$ (the protocol-deployment default per the EL-comparison work in §8), realised coverage is $0.855$, both tests pass at $\alpha = 0.05$. At $\tau = 0.68$, realised lands $0.2$pp below target with both tests passing comfortably. At $\tau = 0.99$, Kupiec rejects: realised coverage is $0.977$\*, materially below the requested $0.99$. This is a structural ceiling — the rolling 156-weekend per-(symbol, regime) calibration window cannot resolve the 1% tail reliably; even with the bounds grid extended to 0.999 (`reports/v1b_extended_grid.md`), the per-bucket sample size is too small to estimate the 1% quantile with the precision the consumer is asking for. §9.1 discusses the failure mode; §10 frames the conformal-prediction upgrade that would address it.
-
-\* The $\tau = 0.99$ realised value reflects the 2026-04-25 grid extension to {0.997, 0.999}; the conditional-coverage table (line above) and the full per-regime breakdown reflect the prior 0.995-cap configuration. Pending re-derivation under the extended grid before paper submission — see `reports/methodology_history.md` §0.
+**Other operating points.** At $\tau = 0.85$ (the protocol-deployment default per the EL-comparison work in §8), realised coverage is $0.855$, both tests pass at $\alpha = 0.05$. At $\tau = 0.68$, realised lands $0.2$pp below target with both tests passing comfortably. At $\tau = 0.99$, Kupiec rejects: realised coverage is $0.977$, materially below the requested $0.99$. This is a structural ceiling — the rolling 156-weekend per-(symbol, regime) calibration window cannot resolve the 1% tail reliably; even with the bounds grid extended to 0.999 (`reports/v1b_extended_grid.md`), the per-bucket sample size is too small to estimate the 1% quantile with the precision the consumer is asking for. The Christoffersen independence test continues to pass on the OOS slice ($p_\text{ind} = 0.956$): the rejected coverage is a level-attribution failure, not a violation-clustering failure. §9.1 discusses the structural ceiling; §10 frames the conformal-prediction upgrade that would address it.
 
 The Oracle therefore passes Kupiec + Christoffersen at three of four standard operating points (0.68, 0.85, 0.95) on held-out data, with the upper-tail failure (0.99) disclosed as a finite-sample structural ceiling rather than a deployment defect.
 
