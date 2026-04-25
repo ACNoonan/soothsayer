@@ -7,8 +7,9 @@ flushed every FLUSH_INTERVAL_S (default 600 s) to keep I/O sane; also
 flushed at day rollover and at SIGINT.
 
 Feeds the Phase 1 Week 3 xStock-specific residual overlay (per
-`docs/plan-b.md` axes 3 and 4). Need ≥ ~1 month of tape before the overlay
-calibration fits anything stable — so start this early, let it run.
+`docs/v5-tape.md` axes 3 and 4) and the V2.1 F_tok forecaster
+(`docs/v2.md`). Need ≥ ~1 month of tape before the overlay calibration
+fits anything stable — so start this early, let it run.
 
 Run with unbuffered stdout so the monitor can follow progress:
 
