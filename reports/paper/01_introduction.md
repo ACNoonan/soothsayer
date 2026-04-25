@@ -1,0 +1,61 @@
+# §1 — Introduction (draft)
+
+Tokenized equities and other real-world assets (RWAs) on public blockchains trade 24 hours a day, 7 days a week. Their underlying price-discovery venues do not. A US equity listed on NASDAQ has a regular trading session of 6.5 hours per weekday, or roughly 32% of wall-clock time. In the other 68% — nights, weekends, halts, and extended holiday closures — the price continues to change: earnings are released, macro prints land, geopolitical events clear, and overseas sessions trade correlated instruments. But the venues that establish reference prices are closed.
+
+This gap between continuous on-chain demand and discontinuous off-chain price discovery is a structural feature of the tokenized-RWA architecture. It is also where the great majority of adverse selection, undercollateralized liquidations, and protocol-level loss events have historically concentrated. Any decentralized-finance protocol that accepts tokenized RWAs as collateral or as inputs to an automated market maker must resolve a concrete question at every block: *at this on-chain moment, with the underlying venue closed, what is the fair price — and how uncertain is it?*
+
+## 1.1 How existing oracles answer, and what they leave unanswered
+
+Three classes of RWA price oracle are deployed at scale today. Each resolves the *what* of the question above, and each silences the *how uncertain*.
+
+**Stale-hold.** Chainlink Data Streams [cite] emits the last observed trade and flags it with `marketStatus = 5`. The value is held static until the venue reopens. Its uncertainty signal is binary: stale or live. A consumer cannot distinguish a two-hour halt from a three-day weekend from a long Presidents' Day weekend ending an earnings week, even though the *expected* drift across those three intervals differs by more than an order of magnitude.
+
+**Quote-dispersion confidence intervals.** Pyth Network [cite] publishes an aggregate of prices from permissioned publishers together with a confidence interval $\sigma$ derived from the dispersion of those quotes. During market hours this $\sigma$ is an aggregation diagnostic — it measures how much publishers disagree. During closed-market hours, when the contributor set thins, $\sigma$ becomes noisy; critically, it is never asserted to be the standard deviation of the $P_t$ distribution *conditional on* time-of-week, elapsed interval, or realised volatility regime. Protocols that read Pyth's $\sigma$ as a probability-of-coverage statement are extrapolating.
+
+**Undisclosed methodology.** RedStone Live [cite] and several smaller providers offer "24/7" equity feeds whose closed-market value is computed by methods that are not publicly documented. A consumer cannot reconstruct the value or audit whether the served band corresponds to any particular probability-of-coverage level. The feed is consumed on trust.
+
+None of the three publishes a *calibration claim verifiable against public data at the aggregate feed level*: a statement of the form *"over $N$ historical prediction windows, our 95% band contained the realised price $N_\text{in}$ times, giving realised coverage $N_\text{in}/N$."* Pyth's documentation [pyth-conf] recommends that *individual publishers* calibrate their submitted confidence intervals to approximately 95% coverage, but this is a per-publisher self-attestation rather than a verifiable property of the aggregate served feed; downstream protocols read the aggregate. None of the three publishes the rolling dataset from which an aggregate-level calibration claim could be independently reproduced.
+
+## 1.2 Coverage as a first-class API parameter
+
+The design point of this paper is an RWA oracle whose *product contract* is a calibration statement. We invert the usual interface. Instead of publishing a single band and leaving its coverage level implicit, we take a consumer-specified target coverage $\tau \in (0,1)$ as a request parameter and return the band that has *empirically* delivered coverage $\tau$ on a rolling historical sample, stratified by asset and pre-publish regime.
+
+Concretely, for a base forecaster $f$ producing bands $[L^f_t(s;q),\, U^f_t(s;q)]$ at a grid of claimed quantiles $q$, we build the empirical calibration surface
+
+$$S^f(s, r, q) \;=\; \frac{1}{|\mathcal{T}_{s,r}|} \sum_{t \in \mathcal{T}_{s,r}} \mathbf{1}\!\bigl[\,L^f_t(s;q) \le P_t(s) \le U^f_t(s;q)\,\bigr]$$
+
+over historical prediction windows $\mathcal{T}_{s,r}$ in each (symbol, regime) bucket. At serve time, we invert: the band delivered for a request $(s, t, \tau)$ is the one at the interpolated $q_\text{served} = (S^f)^{-1}(s, \rho(\mathcal{F}_t), \tau)$.
+
+Two properties follow from this construction that are absent in the incumbent designs:
+
+1. **Auditability.** $S^f$ is a deterministic function of public data (prices, implied-vol indices, calendar flags), the choice of base forecaster $f$, and a documented regime labeler $\rho$. Any third party with access to those inputs can reconstruct $S^f$ and verify that a served band corresponds to the published $q_\text{served}$ on the claimed surface.
+
+2. **Served-coverage receipts.** Every oracle read exposes the tuple $(q_\text{served},\, f,\, r)$ alongside the band. A protocol integrator can log this tuple, backtest the oracle against its own loss function, and challenge the provider if the realised rate drifts.
+
+We are not the first to argue for calibration in financial forecasting — the framework traces to Christoffersen [1998] and has institutional instantiations in SR 11-7 / SR 26-02 model-risk management guidance. What is new here is the application to a decentralised oracle with a consumer-facing SLA on realised coverage rather than on point-estimator accuracy.
+
+## 1.3 What this paper shows
+
+We evaluate the coverage-inversion primitive on 5,986 weekend prediction windows spanning 2014-01-17 through 2026-04-17 across 10 tickers: seven liquid US equities and ETFs (SPY, QQQ, AAPL, GOOGL, NVDA, TSLA, HOOD), one leveraged-gold ETF (GLD), one long-duration treasury ETF (TLT), and one Bitcoin-proxy equity (MSTR). Each prediction window runs from Friday 16:00 ET to Monday 09:30 ET, the contiguous non-trading interval that produces the largest expected drift and the most adverse oracle-failure cases.
+
+Our base forecaster combines a factor-switchboard point estimate (Friday close scaled by a per-asset-class futures return: ES/NQ/GC/ZN/BTC) with a log-log regression on a per-symbol volatility index (VIX / GVZ / MOVE) for the conditional sigma, and constructs the band by empirical quantiles of the standardised residual. The forecaster is deliberately simple. We do not claim it is minimum-variance. The contribution of the paper is the *primitive* that surrounds any such forecaster — the calibration surface, its inversion, and the audit receipts — together with empirical evidence that this primitive delivers its coverage promise on held-out data.
+
+The headline empirical claims are:
+
+- At consumer target $\tau = 0.95$, the shipped Oracle's realised coverage on a held-out 2023+ slice (1,720 rows, 172 weekends) is **95.9%**, with Kupiec unconditional-coverage test $p$-value of **0.068** (not rejected) and Christoffersen independence $p$-value of **0.086** (not rejected). This is the first reported Kupiec $+$ Christoffersen pass for a weekend fair-value band on tokenized-RWA reference prices, to our knowledge.
+- An ablation across eight forecaster variants with block-bootstrap 95% confidence intervals isolates the contribution of each component. The factor-switchboard point and empirical-quantile residual quantile together produce a **39.3% (CI [37.3%, 41.3%])** reduction in pooled band half-width versus a stale-Gaussian baseline. The log-log vol regression is regime-localised: it lifts high-volatility coverage by $10.4\text{pp}$ cumulatively at the cost of wider bands, explaining why the serving-layer hybrid policy switches to the stale-Gaussian band in that regime.
+- The empirical calibration buffer on the serving path is the OOS coverage workhorse: applying a $2.5\text{pp}$ buffer to the target before surface inversion closes the coverage gap by $+3.8\text{pp}$ (CI [$+2.8$, $+4.9$]). The hybrid regime policy contributes essentially nothing to mean coverage on OOS data but decluters violations in a way that the Christoffersen test detects.
+
+## 1.4 Contributions and structure
+
+This paper makes four contributions.
+
+**C1. Coverage inversion as an oracle primitive.** We formalise (§3) the calibration-surface construction and its serving-time inversion, and position it as a consumer-facing SLA distinct from existing point-plus-CI interfaces.
+
+**C2. A 12-year empirical calibration surface on public data.** We describe (§4, §5) a simple, reproducible forecaster and regime labeler whose calibration surface can be rebuilt by any third party from freely available data. Our artifact includes the persisted surface, the bounds table, and the serving-time Oracle code.
+
+**C3. Held-out Kupiec $+$ Christoffersen validation.** We report (§6) conditional-coverage diagnostics in the form required by institutional model-risk management, on a held-out slice that is temporally disjoint from the surface's training window.
+
+**C4. An ablation with bootstrap confidence intervals.** We quantify (§7) which components of the forecaster and serving layer are load-bearing for the calibration claim, and which are disclosed for auditability but contribute no measurable signal at our sample size.
+
+Section 2 surveys related work in oracle design, price discovery across venues, and calibrated / conformal prediction. Section 3 gives the formal problem statement. Section 4 describes the methodology. Section 5 describes the data and regime labeler. Section 6 reports calibration results. Section 7 presents the ablation study. Section 8 describes the serving-layer system (Rust runtime, Anchor on-chain publisher, parity verification). Section 9 enumerates limitations and the assumptions under which the coverage-inversion claim holds. Section 10 lists future work including a conformal upgrade and a systematic incumbent-oracle benchmark.

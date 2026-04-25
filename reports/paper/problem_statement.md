@@ -50,7 +50,7 @@ $$\Pr\!\bigl[\,P_t \in [L^f_t(s; q_\mathrm{served}),\ U^f_t(s; q_\mathrm{served}
 
 as $|\mathcal{T}_{s,r}| \to \infty$. Finite-sample deviations are measurable, tested (§6), and disclosed as a per-regime *calibration buffer* applied pre-inversion.
 
-**(P3) Per-regime sharpness dominance.** For each regime $r$, the oracle selects $f^\star(r) \in \arg\min_{f} \mathrm{E}\!\bigl[U^f - L^f \mid \text{realised cov} = \tau,\, r\bigr]$ from a candidate set $\mathcal{F}$. In our evaluation $\mathcal{F} = \{\texttt{F0\_stale}, \texttt{F1\_emp\_regime}\}$; §7 reports the ablation matrix that justifies both the inclusion of $\texttt{F1\_emp\_regime}$'s extra regressors and the hybrid regime-to-forecaster assignment $f^\star(\cdot)$.
+**(P3) Per-regime efficiency.** For each regime $r$, the oracle selects $f^\star(r)$ from a candidate set $\mathcal{F}$. The selection is a joint argmin over two criteria observable post-hoc on historical data: (i) mean bandwidth at matched realised coverage, and (ii) the Christoffersen independence $p$-value. In our evaluation $\mathcal{F} = \{\texttt{F0\_stale},\ \texttt{F1\_emp\_regime}\}$; §7 reports the ablation matrix that justifies the hybrid regime-to-forecaster assignment. We emphasise that on held-out data the *primary* justification for switching to $\texttt{F0\_stale}$ in the \texttt{high\_vol} regime shifts from mean-bandwidth dominance (the in-sample finding) to violation de-clustering (the out-of-sample finding). Both framings are disclosed and tested.
 
 ## 3.5 Non-goals
 
@@ -67,5 +67,5 @@ The body of the paper answers:
 
 - **Q1** (calibration, §6). Does the served band achieve $\tau$ within 2pp on held-out data? What is the Kupiec unconditional-coverage $p$-value, and do violations cluster (Christoffersen independence $p$)?
 - **Q2** (sharpness, §6–§7). How much tighter than a naïve stale-hold Gaussian baseline is the served band at matched realised coverage, per regime?
-- **Q3** (ablations, §7). Which components of $f^\star$ (factor switchboard, log-log vol regression, earnings regressor, long-weekend regressor, hybrid regime selection, empirical buffer) are load-bearing for the P2/P3 claims, and which are not?
+- **Q3** (ablations, §7). Which components of $f^\star$ (factor switchboard, log-log vol regression, earnings regressor, long-weekend regressor, hybrid regime selection, empirical buffer) are load-bearing for the P2/P3 claims, and which are disclosed for auditability but contribute no measurable signal at our sample size? The ablation reports block-bootstrap 95% CIs on each pairwise effect size.
 - **Q4** (auditability, §4 + artifact). Can a third party reconstruct $S^f$ on public data and independently verify a served `PricePoint`?
