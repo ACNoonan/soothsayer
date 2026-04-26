@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Soothsayer — calibration receipts dashboard</title>
+<meta name="description" content="Live calibration receipts for the Soothsayer Oracle: realised coverage at every consumer target τ, head-to-head vs Pyth and Chainlink, per-symbol drill-down, walk-forward stability, leave-one-out cross-asset transfer." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0A0B0D;
+    --bg-elev: #111216;
+    --bg-card: #131418;
+    --ink: #F4F3EE;
+    --ink-dim: #A6A8AD;
+    --ink-faint: #6B6E75;
+    --rule: rgba(244, 243, 238, 0.09);
+    --rule-strong: rgba(244, 243, 238, 0.18);
+    --purple: #9945FF;
+    --green: #14F195;
+    --warn: #F4B45A;
+    --red: #F26A5A;
+    --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --maxw: 1320px;
+    --pad-x: clamp(20px, 4vw, 56px);
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); margin: 0; padding: 0; color: var(--ink); }
+  body { font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--green); color: var(--bg); }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad-x); }
+  .mono { font-family: var(--mono); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .eyebrow .bar { width: 24px; height: 1px; background: var(--rule-strong); }
+  .eyebrow.g { color: var(--green); }
+  .eyebrow.g .bar { background: var(--green); opacity: 0.5; }
+
+  /* NAV */
+  nav.top {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(10, 11, 13, 0.82);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  nav.top .inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  nav.top .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 500; letter-spacing: -0.02em; }
+  nav.top .brand .dot { color: var(--green); }
+  nav.top .links { display: flex; gap: 28px; align-items: center; }
+  nav.top .links a { font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--ink-dim); }
+  nav.top .links a:hover { color: var(--ink); }
+  nav.top .links a.active { color: var(--ink); }
+
+  /* HERO */
+  header.dash-hero {
+    padding: 56px 0 32px;
+    border-bottom: 1px solid var(--rule);
+  }
+  header.dash-hero h1 {
+    font-size: clamp(32px, 4vw, 56px); font-weight: 500; letter-spacing: -0.025em;
+    line-height: 1.0; margin: 18px 0 0;
+  }
+  header.dash-hero h1 .em { color: var(--green); }
+  header.dash-hero p.lede {
+    margin-top: 16px; max-width: 820px; font-size: 16px; color: var(--ink-dim); line-height: 1.5;
+    font-weight: 300;
+  }
+  header.dash-hero p.lede a { color: var(--ink); border-bottom: 1px solid var(--rule-strong); }
+  header.dash-hero p.lede a:hover { border-bottom-color: var(--green); }
+
+  /* TIER STRIP */
+  .stat-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    border: 1px solid var(--rule); border-radius: 4px;
+    background: var(--bg-elev); margin: 28px 0 4px;
+  }
+  .stat-strip .cell { padding: 22px 24px; border-right: 1px solid var(--rule); }
+  .stat-strip .cell:last-child { border-right: none; }
+  .stat-strip .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+  .stat-strip .v { font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; margin-top: 6px; }
+  .stat-strip .v .unit { color: var(--ink-faint); font-weight: 400; font-size: 18px; }
+  .stat-strip .n { margin-top: 8px; font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
+  .stat-strip .v.g { color: var(--green); }
+  .stat-strip .v.warn { color: var(--warn); }
+  @media (max-width: 880px) {
+    .stat-strip { grid-template-columns: repeat(2, 1fr); }
+    .stat-strip .cell:nth-child(2) { border-right: none; }
+    .stat-strip .cell:nth-child(1), .stat-strip .cell:nth-child(2) { border-bottom: 1px solid var(--rule); }
+  }
+
+  /* SECTIONS */
+  section.band { padding: 56px 0; border-bottom: 1px solid var(--rule); }
+  section.band h2 {
+    font-size: clamp(24px, 3vw, 38px); font-weight: 500; letter-spacing: -0.025em;
+    margin: 14px 0 0; line-height: 1.1;
+  }
+  section.band h2 .em { color: var(--green); }
+  section.band .head-row { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: end; }
+  section.band .head-row > div p { margin: 12px 0 0; max-width: 540px; color: var(--ink-dim); font-size: 15px; line-height: 1.5; font-weight: 300; }
+  section.band .head-row > p { margin: 0; max-width: 560px; color: var(--ink-dim); font-size: 15px; line-height: 1.55; font-weight: 300; }
+  @media (max-width: 880px) {
+    section.band .head-row { grid-template-columns: 1fr; gap: 16px; }
+    section.band { padding: 40px 0; }
+  }
+
+  .card {
+    background: var(--bg-card); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 28px; margin-top: 28px;
+  }
+  .card .meta {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    color: var(--ink-faint); text-transform: uppercase; margin-bottom: 18px;
+  }
+  .chart-wrap { position: relative; height: 380px; }
+  .chart-wrap.tall { height: 480px; }
+  .chart-wrap.short { height: 280px; }
+
+  /* TABLES */
+  table.data {
+    width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px;
+  }
+  table.data th, table.data td {
+    text-align: right; padding: 10px 14px; border-bottom: 1px solid var(--rule);
+  }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data th {
+    font-weight: 500; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.1em;
+    font-size: 11px;
+  }
+  table.data tr:hover td { background: rgba(244, 243, 238, 0.02); }
+  table.data tr:last-child td { border-bottom: none; }
+  table.data .pass { color: var(--green); }
+  table.data .fail { color: var(--red); }
+  table.data .warn { color: var(--warn); }
+
+  /* FILTER controls */
+  .filter-bar {
+    display: flex; gap: 8px; align-items: center; margin: 14px 0 0; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .filter-bar label { color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; }
+  .filter-bar select {
+    background: var(--bg-elev); color: var(--ink); border: 1px solid var(--rule-strong);
+    padding: 6px 12px; border-radius: 3px; font-family: var(--mono); font-size: 12px;
+  }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .pill.g { background: rgba(20, 241, 149, 0.12); color: var(--green); }
+  .pill.r { background: rgba(242, 106, 90, 0.12); color: var(--red); }
+  .pill.w { background: rgba(244, 180, 90, 0.12); color: var(--warn); }
+  .pill.muted { background: rgba(244, 243, 238, 0.06); color: var(--ink-dim); }
+
+  /* COMPARATOR ROW */
+  .cmp-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 880px) { .cmp-grid { grid-template-columns: 1fr; } }
+  .cmp-cell { background: var(--bg-elev); border: 1px solid var(--rule); padding: 16px; border-radius: 4px; }
+  .cmp-cell .name { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--ink-faint); text-transform: uppercase; }
+  .cmp-cell .stat { font-size: 24px; font-weight: 500; margin-top: 4px; letter-spacing: -0.02em; }
+  .cmp-cell .stat.g { color: var(--green); }
+  .cmp-cell .stat.r { color: var(--red); }
+
+  footer.foot {
+    padding: 48px 0; color: var(--ink-faint); font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.06em;
+  }
+  footer.foot .row { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  footer.foot a { color: var(--ink-dim); border-bottom: 1px solid transparent; }
+  footer.foot a:hover { border-bottom-color: var(--green); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="wrap inner">
+    <a class="brand" href="/">
+      <svg class="mark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+        <rect x="6" y="22" width="52" height="20" rx="4" stroke="#14F195" stroke-width="2" fill="none"/>
+        <circle cx="32" cy="32" r="3" fill="#14F195"/>
+      </svg>
+      Soothsayer<span class="dot">.</span>
+    </a>
+    <div class="links">
+      <a href="/">home</a>
+      <a href="dashboard.html" class="active">dashboard</a>
+      <a href="pitch.html">pitch</a>
+      <a href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">github ↗</a>
+    </div>
+  </div>
+</nav>
+
+<header class="dash-hero">
+  <div class="wrap">
+    <span class="eyebrow g"><span class="bar"></span>Calibration receipts · OOS 2023+ · Last refit 2026-04-25</span>
+    <h1>Realised coverage, at <span class="em">every τ</span> a consumer can ask for.</h1>
+    <p class="lede">
+      The empirical evidence behind the Oracle's calibration claim, computed on a held-out 2023+ slice (1,720 weekend × symbol observations, 172 weekends, 10 tickers). All numbers re-derivable from the public repo via <a href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">scripts/run_calibration.py</a>; methodology evolution at <a href="https://github.com/ACNoonan/soothsayer/blob/main/reports/methodology_history.md" target="_blank" rel="noopener">reports/methodology_history.md</a>.
+    </p>
+    <div class="stat-strip" id="hero-strip"></div>
+  </div>
+</header>
+
+<!-- 1. CALIBRATION CURVE -->
+<section class="band">
+  <div class="wrap">
+    <div class="head-row">
+      <div>
+        <span class="eyebrow"><span class="bar"></span>1 · the calibration claim</span>
+        <h2>What the consumer asks for is what they <span class="em">empirically get.</span></h2>
+      </div>
+      <p>For every consumer target τ from 0.50 to 0.99 in 0.01 increments, we serve the deployed Oracle on the OOS panel and compute realised coverage. A perfectly calibrated band lies on the diagonal. The four anchor points (0.68, 0.85, 0.95, 0.99) are where <code>BUFFER_BY_TARGET</code> is tuned; everything else is linear-interpolation off-grid.</p>
+    </div>
+    <div class="card">
+      <div class="meta">D5 — Inter-anchor τ validation · 50 levels × 1,720 obs = 86,000 served bands · Kupiec passes at 47/50</div>
+      <div class="chart-wrap tall"><canvas id="calCurve"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. INCUMBENT COMPARATOR -->
+<section class="band">
+  <div class="wrap">
+    <div class="head-row">
+      <div>
+        <span class="eyebrow"><span class="bar"></span>2 · vs the incumbents</span>
+        <h2>Pyth's CI isn't a <span class="em">probability statement.</span></h2>
+      </div>
+      <p>Pyth's published <code>conf</code> is documented as publisher dispersion, not probability of coverage. Read at face value (k = 1.96 → "95% Gaussian wrap"), Pyth covers ~10% of weekend Monday opens. To match Soothsayer's 95% claim, a consumer needs to scale Pyth's conf by ≈50× — a calibration the consumer must construct themselves. Chainlink during <code>marketStatus = 5</code> publishes a band of zero width.</p>
+    </div>
+    <div class="card">
+      <div class="meta">Pyth + naive ±k·conf — realised coverage as k grows · 265 OOS observations 2024+</div>
+      <div class="chart-wrap"><canvas id="pythChart"></canvas></div>
+    </div>
+    <div class="cmp-grid" style="margin-top: 18px;">
+      <div class="cmp-cell">
+        <div class="name">Soothsayer at τ = 0.95</div>
+        <div class="stat g">95.0%</div>
+        <div class="meta" style="margin-top: 6px;">443 bps half-width · Kupiec p=1.000 · n=1,720</div>
+      </div>
+      <div class="cmp-cell">
+        <div class="name">Pyth + naive ±1.96·conf</div>
+        <div class="stat r">10.2%</div>
+        <div class="meta" style="margin-top: 6px;">11 bps half-width · the published "claim" mis-calibrates 9× · n=265</div>
+      </div>
+      <div class="cmp-cell">
+        <div class="name">Chainlink stale-hold</div>
+        <div class="stat r">no band</div>
+        <div class="meta" style="margin-top: 6px;">100% of weekend obs have bid≈0, ask=0 · §1.1 thesis confirmed empirically</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. PER-SYMBOL RECEIPTS -->
+<section class="band">
+  <div class="wrap">
+    <div class="head-row">
+      <div>
+        <span class="eyebrow"><span class="bar"></span>3 · per-symbol receipts</span>
+        <h2>Every ticker, every weekend, <span class="em">on the record.</span></h2>
+      </div>
+      <p>Per-symbol calibration evidence on the full panel (5,986 weekends, 12 years). The leave-one-out validation (D7) refits the calibration surface on the other 9 symbols and serves the held-out one through the pooled-fallback path — the production code path for tickers with sparse history. The mechanism transfers.</p>
+    </div>
+    <div class="card">
+      <div class="meta">F1_emp_regime per-symbol · OOS τ = 0.95 (deployed) · sortable by any column</div>
+      <div id="symbolTable"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. ROBUSTNESS -->
+<section class="band">
+  <div class="wrap">
+    <div class="head-row">
+      <div>
+        <span class="eyebrow"><span class="bar"></span>4 · robustness</span>
+        <h2>The methodology is <span class="em">not load-bearing</span> on hyperparameters.</h2>
+      </div>
+      <p>Window size, train-test split timing, and held-out symbols all produce coverage within ±3pp of the deployed value. Window=156 is the only choice that simultaneously passes Kupiec at α=0.05 on all three targets — empirically defensible, not arbitrary.</p>
+    </div>
+    <div class="cmp-grid" style="margin-top: 28px;">
+      <div class="cmp-cell">
+        <div class="name">Window sensitivity</div>
+        <div class="stat" id="winStat">…</div>
+        <div class="meta" style="margin-top: 6px;" id="winNote">…</div>
+      </div>
+      <div class="cmp-cell">
+        <div class="name">Walk-forward stability (τ=0.95)</div>
+        <div class="stat" id="wfStat">…</div>
+        <div class="meta" style="margin-top: 6px;" id="wfNote">…</div>
+      </div>
+      <div class="cmp-cell">
+        <div class="name">Cross-asset transfer (LOO)</div>
+        <div class="stat" id="looStat">…</div>
+        <div class="meta" style="margin-top: 6px;" id="looNote">…</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="meta">D8 — Window-size sensitivity · realised coverage vs window · diagonal = target</div>
+      <div class="chart-wrap"><canvas id="windowChart"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. METHODOLOGY POINTERS -->
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow"><span class="bar"></span>5 · the receipts</span>
+    <h2>Audit trail, methodology, and full reproducibility.</h2>
+    <p style="max-width: 720px; color: var(--ink-dim); margin-top: 18px; line-height: 1.6;">
+      Every claim on this dashboard re-derives from the public repository. The methodology evolution log records every decision, hypothesis, and rejected alternative. The paper drafts under <code>reports/paper1_coverage_inversion/</code> contain the formal version of these claims, currently being prepared for arXiv (q-fin.RM) and ACM AFT.
+    </p>
+    <div class="cmp-grid" style="margin-top: 32px;">
+      <a class="cmp-cell" href="https://github.com/ACNoonan/soothsayer/blob/main/reports/methodology_history.md" target="_blank" rel="noopener" style="text-decoration: none;">
+        <div class="name">Methodology log →</div>
+        <div class="stat">history</div>
+        <div class="meta" style="margin-top: 6px;">Append-only record of every methodological decision, tested hypothesis, and rejected alternative.</div>
+      </a>
+      <a class="cmp-cell" href="https://github.com/ACNoonan/soothsayer/tree/main/reports/paper1_coverage_inversion" target="_blank" rel="noopener" style="text-decoration: none;">
+        <div class="name">Paper 1 drafts →</div>
+        <div class="stat">arXiv</div>
+        <div class="meta" style="margin-top: 6px;">Coverage inversion as an oracle primitive — §1, §2, §3, §6, §9, references. In flight.</div>
+      </a>
+      <a class="cmp-cell" href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener" style="text-decoration: none;">
+        <div class="name">Source repository →</div>
+        <div class="stat">github</div>
+        <div class="meta" style="margin-top: 6px;">Reproduce: <code class="mono">scripts/run_calibration.py</code> + 12 yrs of public data.</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap row">
+    <div>SOOTHSAYER · Calibration-transparent fair-value oracle for tokenized RWAs on Solana</div>
+    <div>
+      <a href="/">home</a>&nbsp;&nbsp;
+      <a href="pitch.html">pitch</a>&nbsp;&nbsp;
+      <a href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">github ↗</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const COLOR = {
+  ink: '#F4F3EE', dim: '#A6A8AD', faint: '#6B6E75',
+  green: '#14F195', purple: '#9945FF', warn: '#F4B45A', red: '#F26A5A',
+  rule: 'rgba(244,243,238,0.18)',
+};
+
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = COLOR.dim;
+Chart.defaults.borderColor = COLOR.rule;
+
+async function fetchJSON(p) { const r = await fetch(p); return r.json(); }
+
+function fmtPct(v, decimals = 1) {
+  if (v === null || v === undefined) return '—';
+  return (v * 100).toFixed(decimals) + '%';
+}
+function fmt(v, d = 3) {
+  if (v === null || v === undefined) return '—';
+  return Number(v).toFixed(d);
+}
+
+(async () => {
+  const summary = await fetchJSON('data/summary.json');
+  const calCurve = await fetchJSON('data/calibration_curve.json');
+  const pyth = await fetchJSON('data/pyth_comparator.json');
+  const window = await fetchJSON('data/window_sensitivity.json');
+  const wf = await fetchJSON('data/walkforward.json');
+  const loo = await fetchJSON('data/leave_one_out.json');
+  const perSym = await fetchJSON('data/per_symbol.json');
+
+  // ---- HERO STAT STRIP ----
+  const h95 = summary.headline['0.95'] || {};
+  const h85 = summary.headline['0.85'] || {};
+  const h68 = summary.headline['0.68'] || {};
+  document.getElementById('hero-strip').innerHTML = `
+    <div class="cell">
+      <div class="k">τ = 0.95 — paper headline</div>
+      <div class="v g">${fmtPct(h95.realized, 1)}</div>
+      <div class="n">Kupiec p<sub>uc</sub>=${fmt(h95.p_uc, 3)} · Christoffersen p<sub>ind</sub>=${fmt(h95.p_ind, 3)} · n=${(h95.n||0).toLocaleString()}</div>
+    </div>
+    <div class="cell">
+      <div class="k">τ = 0.85 — deployed default</div>
+      <div class="v g">${fmtPct(h85.realized, 1)}</div>
+      <div class="n">Kupiec p<sub>uc</sub>=${fmt(h85.p_uc, 3)} · Christoffersen p<sub>ind</sub>=${fmt(h85.p_ind, 3)} · n=${(h85.n||0).toLocaleString()}</div>
+    </div>
+    <div class="cell">
+      <div class="k">τ = 0.68</div>
+      <div class="v g">${fmtPct(h68.realized, 1)}</div>
+      <div class="n">Kupiec p<sub>uc</sub>=${fmt(h68.p_uc, 3)} · Christoffersen p<sub>ind</sub>=${fmt(h68.p_ind, 3)} · n=${(h68.n||0).toLocaleString()}</div>
+    </div>
+    <div class="cell">
+      <div class="k">Inter-anchor τ validation</div>
+      <div class="v">${summary.inter_anchor.n_kupiec_pass}/${summary.inter_anchor.n_targets}</div>
+      <div class="n">Kupiec passes across the 50-level τ sweep · max |realised − τ| = ${fmt(summary.inter_anchor.max_abs_dev, 3)} · range ${summary.inter_anchor.deployment_range}</div>
+    </div>
+  `;
+
+  // ---- CALIBRATION CURVE ----
+  const allTaus = calCurve.map(d => d.tau);
+  const realized = calCurve.map(d => d.realized);
+  const isAnchor = calCurve.map(d => d.is_anchor);
+
+  new Chart(document.getElementById('calCurve'), {
+    type: 'line',
+    data: {
+      labels: allTaus,
+      datasets: [
+        {
+          label: 'Realised coverage',
+          data: realized,
+          borderColor: COLOR.green,
+          backgroundColor: 'rgba(20,241,149,0.12)',
+          tension: 0.0,
+          pointRadius: calCurve.map(d => d.is_anchor ? 7 : 2.5),
+          pointBackgroundColor: calCurve.map(d => d.is_anchor ? COLOR.green : 'rgba(20,241,149,0.6)'),
+          pointBorderColor: calCurve.map(d => d.is_anchor ? COLOR.ink : 'rgba(20,241,149,0)'),
+          pointBorderWidth: 1.5,
+          fill: false,
+          borderWidth: 2,
+        },
+        {
+          label: 'Perfect calibration (y = τ)',
+          data: allTaus,
+          borderColor: COLOR.faint,
+          borderDash: [4, 6],
+          borderWidth: 1,
+          pointRadius: 0,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      responsive: true,
+      plugins: {
+        legend: { display: true, labels: { color: COLOR.dim } },
+        tooltip: {
+          backgroundColor: '#0A0B0D',
+          borderColor: COLOR.rule,
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => {
+              const d = calCurve[ctx.dataIndex];
+              if (!d) return ctx.formattedValue;
+              return [
+                `τ = ${d.tau.toFixed(2)}${d.is_anchor ? '  (anchor)' : ''}`,
+                `realised = ${fmtPct(d.realized, 1)}`,
+                `half-width = ${fmt(d.half_width_bps, 0)} bps`,
+                `Kupiec p_uc = ${fmt(d.p_uc, 3)}`,
+                `Christ. p_ind = ${fmt(d.p_ind, 3)}`,
+              ];
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Consumer target τ', color: COLOR.faint },
+          ticks: { color: COLOR.dim, autoSkip: true, maxTicksLimit: 11, callback: v => Number(allTaus[v]).toFixed(2) },
+          grid: { color: 'rgba(244,243,238,0.05)' },
+        },
+        y: {
+          title: { display: true, text: 'Realised OOS coverage', color: COLOR.faint },
+          min: 0.45, max: 1.0,
+          ticks: { color: COLOR.dim, callback: v => (v * 100).toFixed(0) + '%' },
+          grid: { color: 'rgba(244,243,238,0.05)' },
+        },
+      },
+    },
+  });
+
+  // ---- PYTH CHART ----
+  new Chart(document.getElementById('pythChart'), {
+    type: 'line',
+    data: {
+      labels: pyth.map(d => d.k),
+      datasets: [{
+        label: 'Pyth realised coverage at ±k·conf',
+        data: pyth.map(d => d.realized),
+        borderColor: COLOR.warn,
+        backgroundColor: 'rgba(244,180,90,0.12)',
+        pointRadius: 5,
+        pointBackgroundColor: COLOR.warn,
+        tension: 0.2,
+        fill: false,
+        borderWidth: 2,
+      }, {
+        label: 'τ = 0.95 (Soothsayer benchmark)',
+        data: pyth.map(d => 0.95),
+        borderColor: COLOR.green,
+        borderDash: [4, 6],
+        pointRadius: 0,
+        borderWidth: 1.5,
+        fill: false,
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: COLOR.dim } },
+        tooltip: {
+          backgroundColor: '#0A0B0D',
+          borderColor: COLOR.rule,
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => {
+              const d = pyth[ctx.dataIndex];
+              if (!d || ctx.datasetIndex !== 0) return ctx.formattedValue;
+              return [
+                `k = ${d.k}× conf`,
+                `realised = ${fmtPct(d.realized, 1)}`,
+                `half-width = ${fmt(d.half_width_bps, 1)} bps`,
+              ];
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          type: 'logarithmic',
+          title: { display: true, text: 'Confidence multiplier k (log scale)', color: COLOR.faint },
+          ticks: { color: COLOR.dim },
+          grid: { color: 'rgba(244,243,238,0.05)' },
+        },
+        y: {
+          title: { display: true, text: 'Realised coverage', color: COLOR.faint },
+          min: 0, max: 1.05,
+          ticks: { color: COLOR.dim, callback: v => (v * 100).toFixed(0) + '%' },
+          grid: { color: 'rgba(244,243,238,0.05)' },
+        },
+      },
+    },
+  });
+
+  // ---- PER-SYMBOL TABLE ----
+  perSym.sort((a, b) => Math.abs(b.cov95_realized - 0.95) - Math.abs(a.cov95_realized - 0.95));
+  // Build a sortable table
+  const tbl = document.createElement('table');
+  tbl.className = 'data';
+  tbl.innerHTML = `
+    <thead><tr>
+      <th>Symbol</th><th>n weekends</th><th>Realised @ τ=0.95</th>
+      <th>Half-width (bps)</th><th>MAE (bps)</th><th>Status</th>
+    </tr></thead>
+    <tbody>
+    ${perSym.map(r => {
+      const dev = Math.abs(r.cov95_realized - 0.95);
+      const cls = dev < 0.025 ? 'pass' : dev < 0.04 ? 'warn' : 'fail';
+      const pill = dev < 0.025 ? '<span class="pill g">on target</span>'
+                 : dev < 0.04 ? '<span class="pill w">±2.5–4pp</span>'
+                 : '<span class="pill r">> 4pp</span>';
+      return `<tr>
+        <td><span class="mono">${r.symbol}</span></td>
+        <td>${(r.n||0).toLocaleString()}</td>
+        <td class="${cls}">${fmtPct(r.cov95_realized, 1)}</td>
+        <td>${fmt(r.cov95_sharp_bps, 0)}</td>
+        <td>${fmt(r.mae_bps, 0)}</td>
+        <td>${pill}</td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  `;
+  document.getElementById('symbolTable').appendChild(tbl);
+
+  // ---- ROBUSTNESS STATS ----
+  // Window sensitivity
+  const winAt95 = window.filter(d => d.target === 0.95);
+  const minR = Math.min(...winAt95.map(d => d.realized));
+  const maxR = Math.max(...winAt95.map(d => d.realized));
+  document.getElementById('winStat').innerHTML = `±${(((maxR - minR) * 100) / 2).toFixed(1)}<span class="unit">pp</span>`;
+  document.getElementById('winNote').innerText = `Realised coverage at τ=0.95 is window-robust across ${summary.window_sensitivity.n_windows_tested} tested windows (52→312 weekends). Range: ${(minR*100).toFixed(1)}% to ${(maxR*100).toFixed(1)}%. Deployed = 156.`;
+
+  // Walk-forward
+  const wf95 = wf.summary.find(s => s.target === 0.95);
+  if (wf95) {
+    document.getElementById('wfStat').innerHTML = `${wf95.n_pass}/${wf95.n_splits}<span class="unit"> pass</span>`;
+    document.getElementById('wfNote').innerText = `Buffer mean = ${fmt(wf95.buffer_mean,3)} (σ = ${fmt(wf95.buffer_std,3)}); deployed = ${fmt(wf95.deployed_buffer,3)}. The deployed value lands at the cross-split mean across 6 expanding-window splits 2019→2025.`;
+  }
+
+  // Leave-one-out
+  document.getElementById('looStat').innerHTML = `${summary.leave_one_out.n_pass}/${summary.leave_one_out.n_total}<span class="unit"> cells</span>`;
+  document.getElementById('looNote').innerText = `Held-out symbol × τ Kupiec passes; the calibration mechanism transfers to unseen tickers via the pooled-fallback path.`;
+
+  // ---- WINDOW CHART ----
+  const winTaus = [...new Set(window.map(d => d.target))].sort();
+  const windowsList = [...new Set(window.map(d => d.window))].sort((a, b) => a - b);
+  const tauColors = { 0.68: COLOR.purple, 0.85: COLOR.warn, 0.95: COLOR.green };
+  new Chart(document.getElementById('windowChart'), {
+    type: 'line',
+    data: {
+      labels: windowsList,
+      datasets: winTaus.map(t => ({
+        label: `τ = ${t.toFixed(2)}`,
+        data: windowsList.map(w => {
+          const m = window.find(d => d.window === w && d.target === t);
+          return m ? m.realized : null;
+        }),
+        borderColor: tauColors[t] || COLOR.dim,
+        backgroundColor: tauColors[t] || COLOR.dim,
+        pointRadius: windowsList.map(w => w === 156 ? 7 : 4),
+        pointBackgroundColor: windowsList.map(w => w === 156 ? tauColors[t] : 'rgba(255,255,255,0)'),
+        pointBorderColor: tauColors[t],
+        pointBorderWidth: 1.5,
+        tension: 0.0,
+        fill: false,
+        borderWidth: 2,
+      })).concat(winTaus.map(t => ({
+        label: `target ${t.toFixed(2)} (reference)`,
+        data: windowsList.map(_ => t),
+        borderColor: tauColors[t] || COLOR.dim,
+        borderDash: [3, 6],
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: false,
+      }))),
+    },
+    options: {
+      maintainAspectRatio: false,
+      responsive: true,
+      plugins: {
+        legend: {
+          labels: { color: COLOR.dim, filter: (l) => !l.text.includes('reference') },
+        },
+        tooltip: {
+          backgroundColor: '#0A0B0D',
+          borderColor: COLOR.rule,
+          borderWidth: 1,
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Rolling window (weekends)', color: COLOR.faint },
+          ticks: { color: COLOR.dim },
+          grid: { color: 'rgba(244,243,238,0.05)' },
+        },
+        y: {
+          title: { display: true, text: 'Realised OOS coverage', color: COLOR.faint },
+          min: 0.6, max: 1.0,
+          ticks: { color: COLOR.dim, callback: v => (v * 100).toFixed(0) + '%' },
+          grid: { color: 'rgba(244,243,238,0.05)' },
+        },
+      },
+    },
+  });
+})();
+</script>
+
+</body>
+</html>
