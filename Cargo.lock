@@ -2358,6 +2358,8 @@ dependencies = [
 name = "soothsayer-demo-kamino"
 version = "0.0.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "soothsayer-consumer",
  "thiserror",
 ]
