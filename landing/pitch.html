@@ -779,25 +779,25 @@
   <div class="slide">
     <p class="eyebrow"><span class="bar"></span> What we build</p>
     <h1 class="headline">
-      A transparent, model-based fair-value feed for the hours the market is closed.
+      A transparent oracle program for Solana: methodology, OEV, and policy.
     </h1>
 
     <div class="bullet-row" style="margin-top: 80px;">
       <div class="bullet">
         <div class="num">01</div>
-        <div class="h">Free on-chain fair-value feed + confidence interval for tokenized equities on Solana.</div>
-        <div class="p">A second opinion any protocol can read alongside their primary oracle — priced for the hours Chainlink tells them to pause.</div>
+        <div class="h">Paper 1: define the calibration-transparent oracle primitive.</div>
+        <div class="p">Coverage inversion, audit receipts, and a public fair-value band for tokenized equities on Solana. The point is not just a price feed; it is a verifiable uncertainty contract.</div>
       </div>
       <div class="bullet">
         <div class="num">02</div>
-        <div class="h">x402-gated premium data for autonomous agents.</div>
-        <div class="p">Higher-frequency snapshots, model decomposition, historical queries. Stablecoin micropayments per call — no KYC, no subscription.</div>
+        <div class="h">Paper 2: measure Solana OEV where it actually matters.</div>
+        <div class="p">Build the xStocks-on-Kamino and MarginFi liquidation dataset, test whether OEV concentrates at oracle-band exits, and turn that into a mechanism-design proposal for Pyth Express Relay.</div>
       </div>
       <div class="bullet">
         <div class="num">03</div>
-        <div class="h">Three-layer stack — calibration as the trust primitive.</div>
-        <div class="p">Raw forecasters (factor-adjusted point + log-log vol regression on VIX/GVZ/MOVE) → empirical calibration surface (per-(symbol, regime) rolling coverage) → hybrid + per-target buffer at the serving layer. Every read carries an audit receipt: which forecaster served, which claimed quantile was inverted, what buffer was applied.</div>
-        <div class="citation">v1b: full PASS at τ ∈ {0.68, 0.85, 0.95} OOS (Kupiec + Christoffersen). Rust port at byte-for-byte parity with Python (75/75 tests). Reproducible from <code>scripts/run_calibration.py</code> on yfinance data.</div>
+        <div class="h">Paper 3: show consumers how to use the signal.</div>
+        <div class="p">Given a calibrated band, what should a protocol or liquidator do with it? Paper 3 is the deployable policy layer: defaults, triggers, and decision rules that reduce expected loss or increase edge in closed markets.</div>
+        <div class="citation">The trilogy is methodology → mechanism → policy. v1b already passes OOS at τ ∈ {0.68, 0.85, 0.95}; Rust and Python are at byte-for-byte parity (75/75 tests).</div>
       </div>
     </div>
 
@@ -1017,9 +1017,9 @@
       </div>
       <div class="vector">
         <div class="rank">02 · SECONDARY</div>
-        <div class="name">x402-gated premium API</div>
-        <div class="desc">Per-call USDC micropayments for higher frequency, model state, and pre-publication snapshots. Agent-native.</div>
-        <div class="horizon">Ship in MVP</div>
+        <div class="name">Design-partner risk work</div>
+        <div class="desc">Protocol-specific liquidation-policy analysis, risk-parameter studies, and integration work built on top of the calibrated band and the Paper 3 evaluation stack.</div>
+        <div class="horizon">After Paper 3</div>
       </div>
       <div class="vector">
         <div class="rank">03 · TERTIARY</div>
@@ -1103,20 +1103,20 @@
       <div class="phase">
         <div class="ph-lbl">Phase 1</div>
         <div class="ph-when">now · ~4 weeks</div>
-        <div class="ph-h">Devnet + Paper 1 + Paper 2 (parallel)</div>
-        <div class="ph-p">Devnet deploy across 8 Kamino-onboarded xStocks · x402 premium endpoint · Paper 1 §4/§5/§7/§8 → arXiv (q-fin.RM, ACM AFT) · Paper 2 (OEV mechanism design under calibration-transparent oracles) outline + first draft.</div>
+        <div class="ph-h">Devnet + Paper 1 + Paper 3 (parallel)</div>
+        <div class="ph-p">Devnet deploy across 8 Kamino-onboarded xStocks · Paper 1 §4/§5/§7/§8 → arXiv (q-fin.RM, ACM AFT) · Paper 3 outline + first draft · Paper 2 plan refinement + auction-simulator design.</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 2</div>
         <div class="ph-when">~2 weeks after Phase 1</div>
         <div class="ph-h">Dashboard + papers live + design partners</div>
-        <div class="ph-p">Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) · Paper 1 + Paper 2 on arXiv + SSRN · first design-partner conversations (Backed, Ondo, Kamino BD).</div>
+        <div class="ph-p">Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) · Paper 1 + Paper 3 on arXiv + SSRN · Paper 2 simulator build · first design-partner conversations (Backed, Ondo, Kamino BD).</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 3</div>
         <div class="ph-when">gated</div>
         <div class="ph-h">Mainnet + B2B + formal publication</div>
-        <div class="ph-p">Gated on Paper 2 evidence + ≥1 design-partner LOI. Mainnet deployment, first paid pilot, AFT / FC / SBC submissions.</div>
+        <div class="ph-p">Gated on Paper 3 evidence + ≥1 design-partner LOI. Mainnet deployment, first paid pilot, AFT / FC submissions for Paper 1 + Paper 3, and Paper 2 to arXiv / AFT or ACM EC.</div>
       </div>
     </div>
 

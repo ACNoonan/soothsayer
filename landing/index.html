@@ -4,18 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Soothsayer — real-world assets don't sleep on the weekend</title>
-<meta name="description" content="Calibration-transparent fair-value oracle for tokenized RWAs on Solana. Consumers specify target coverage τ; the oracle returns the band that empirically delivers it, with per-(symbol, regime) audit receipts." />
+<meta name="description" content="Calibration-transparent fair-value oracle for tokenized RWAs on Solana. Built to help turn tokenized equities into real 24/7 markets, with audit receipts and empirically validated confidence bands." />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://soothsayer-landing.vercel.app/" />
 <meta property="og:title" content="Soothsayer — calibration-transparent fair-value oracle for tokenized RWAs on Solana" />
-<meta property="og:description" content="Consumers specify target coverage τ; the oracle returns the band that empirically delivers it. OOS Kupiec + Christoffersen pass at τ ∈ {0.68, 0.85, 0.95} on 5,986 weekends × 10 tickers × 12 years." />
+<meta property="og:description" content="The promise of tokenized equities is real 24/7 markets. Soothsayer provides a calibration-transparent fair-value band for the closed-market hours the current stack still struggles to price." />
 <meta property="og:image" content="https://soothsayer-landing.vercel.app/og-image.png" />
 <meta property="og:image:width" content="1280" />
 <meta property="og:image:height" content="640" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Soothsayer — calibration-transparent fair-value oracle for tokenized RWAs on Solana" />
-<meta name="twitter:description" content="Consumers specify target coverage τ; the oracle returns the band that empirically delivers it. OOS Kupiec + Christoffersen pass at three operating points." />
+<meta name="twitter:description" content="A calibration-transparent fair-value oracle built for the closed-market gaps holding back true 24/7 tokenized equity markets." />
 <meta name="twitter:image" content="https://soothsayer-landing.vercel.app/og-image.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,6 +43,7 @@
   * { box-sizing: border-box; }
   html, body { background: var(--bg); margin: 0; padding: 0; color: var(--ink); }
   body { font-family: var(--sans); font-weight: 400; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body.modal-open { overflow: hidden; }
 
   a { color: inherit; text-decoration: none; }
   ::selection { background: var(--green); color: var(--bg); }
@@ -274,23 +275,34 @@
   .method-list { display: flex; flex-direction: column; }
   .method-list .m-item {
     display: grid; grid-template-columns: 44px 1fr auto; gap: 20px;
-    padding: 22px 0;
+    padding: 26px 0;
     border-bottom: 1px solid var(--rule);
     align-items: baseline;
   }
   .method-list .m-item:first-child { border-top: 1px solid var(--rule-strong); }
   .method-list .m-item .n { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.12em; }
   .method-list .m-item .body .h { font-size: 17px; font-weight: 500; letter-spacing: -0.005em; }
-  .method-list .m-item .body .p { font-size: 14px; color: var(--ink-dim); margin-top: 4px; line-height: 1.5; font-weight: 300; }
+  .method-list .m-item .body .p { font-size: 14px; color: var(--ink-dim); margin-top: 6px; line-height: 1.6; font-weight: 300; }
   .method-list .m-item .ref { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em; text-align: right; }
 
+  .signal-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100%;
+  }
   .signal-card {
+    --accent: var(--purple);
+    --accent-rgb: 153,69,255;
     border: 1px solid var(--rule-strong);
     background: rgba(244,243,238,0.015);
     padding: 26px;
     display: flex; flex-direction: column; gap: 18px;
     position: relative;
   }
+  .signal-card.green { --accent: var(--green); --accent-rgb: 20,241,149; }
+  .signal-card.amber { --accent: var(--warn); --accent-rgb: 244,180,90; }
+  .signal-card.compact { padding: 22px; gap: 14px; }
   .signal-card .sc-head {
     display: flex; justify-content: space-between; align-items: center;
     padding-bottom: 14px; border-bottom: 1px solid var(--rule);
@@ -299,37 +311,56 @@
   .signal-card .sc-head .ticker .sub { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-left: 10px; letter-spacing: 0.08em; }
   .signal-card .sc-head .regime {
     font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
-    color: var(--purple); padding: 4px 10px; border: 1px solid rgba(153,69,255,0.5);
+    color: var(--accent); padding: 4px 10px; border: 1px solid rgba(var(--accent-rgb),0.5);
     text-transform: uppercase;
   }
   .signal-card .big {
     display: flex; align-items: baseline; gap: 14px;
   }
   .signal-card .big .fv { font-size: 56px; font-weight: 500; letter-spacing: -0.025em; line-height: 1; }
-  .signal-card .big .delta { font-family: var(--mono); font-size: 13px; color: var(--green); letter-spacing: 0.04em; }
+  .signal-card.compact .big .fv { font-size: 42px; }
+  .signal-card .big .delta { font-family: var(--mono); font-size: 13px; color: var(--accent); letter-spacing: 0.04em; }
   .signal-card .ci-row {
     font-family: var(--mono); font-size: 12px; color: var(--ink-dim); letter-spacing: 0.04em;
     display: flex; gap: 16px;
+    flex-wrap: wrap;
   }
   .signal-card .ci-row .k { color: var(--ink-faint); }
   .signal-card .chart {
-    height: 120px; position: relative;
+    height: 132px; position: relative;
     background:
-      linear-gradient(to bottom, rgba(153,69,255,0.16), rgba(153,69,255,0.16)) 0 36%/100% 28% no-repeat;
-    border-top: 1px dashed rgba(153,69,255,0.4);
-    border-bottom: 1px dashed rgba(153,69,255,0.4);
+      linear-gradient(to bottom, rgba(var(--accent-rgb),0.08), rgba(var(--accent-rgb),0.03)),
+      linear-gradient(to right, rgba(244,243,238,0.04) 1px, transparent 1px);
+    background-size: auto, 56px 100%;
+    border-top: 1px dashed rgba(var(--accent-rgb),0.4);
+    border-bottom: 1px dashed rgba(var(--accent-rgb),0.4);
+    overflow: hidden;
   }
-  .signal-card .chart .line {
-    position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--purple);
+  .signal-card.compact .chart { height: 112px; }
+  .signal-card .chart svg {
+    position: absolute; left: 0; right: 0; top: 10px; bottom: 24px;
+    width: 100%; height: calc(100% - 34px);
   }
-  .signal-card .chart .dot {
-    position: absolute; right: 0; top: 50%; width: 10px; height: 10px; border-radius: 50%;
-    background: var(--purple); transform: translate(50%, -50%);
-    box-shadow: 0 0 0 5px rgba(153,69,255,0.22);
+  .signal-card .chart .band-fill {
+    fill: rgba(var(--accent-rgb),0.14);
+    stroke: rgba(var(--accent-rgb),0.30);
+    stroke-width: 1.5;
+  }
+  .signal-card .chart .mid-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .signal-card .chart .point-dot {
+    fill: var(--accent);
+    stroke: rgba(var(--accent-rgb),0.24);
+    stroke-width: 8;
   }
   .signal-card .chart .ci-label {
     position: absolute; left: 0; top: 36%; transform: translateY(-100%);
-    font-family: var(--mono); font-size: 10px; color: rgba(153,69,255,0.9);
+    font-family: var(--mono); font-size: 10px; color: rgba(var(--accent-rgb),0.9);
     letter-spacing: 0.08em; text-transform: uppercase;
   }
   .signal-card .chart .axis {
@@ -343,8 +374,8 @@
   }
   .signal-card .inputs .i {
     font-family: var(--mono); font-size: 10.5px; padding: 4px 8px;
-    border: 1px solid rgba(153,69,255,0.35);
-    background: rgba(153,69,255,0.06);
+    border: 1px solid rgba(var(--accent-rgb),0.35);
+    background: rgba(var(--accent-rgb),0.06);
     color: var(--ink-dim); letter-spacing: 0.06em;
   }
 
@@ -416,6 +447,70 @@
     letter-spacing: 0.12em; text-transform: uppercase;
   }
 
+  .press-band {
+    padding: 88px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .press-band .head {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 40px;
+    align-items: end;
+    margin-bottom: 36px;
+  }
+  .press-band .head h2 {
+    margin: 18px 0 0;
+    font-size: clamp(30px, 4.2vw, 58px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.04;
+    max-width: 760px;
+  }
+  .press-band .head p {
+    margin: 0;
+    max-width: 500px;
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    font-weight: 300;
+  }
+  .press-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .press-card {
+    border: 1px solid var(--rule);
+    background: rgba(244,243,238,0.015);
+    padding: 28px;
+  }
+  .press-card blockquote {
+    margin: 0;
+    font-size: clamp(22px, 2.5vw, 34px);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    font-weight: 300;
+    color: var(--ink);
+    text-wrap: pretty;
+  }
+  .press-card .mark { color: var(--ink-faint); }
+  .press-card .attrib {
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .press-card .attrib a {
+    color: var(--ink-dim);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  @media (max-width: 900px) {
+    .press-band .head,
+    .press-grid { grid-template-columns: 1fr; }
+  }
+
   /* CTA / CLOSER */
   .cta-band {
     padding: 120px 0 140px;
@@ -442,6 +537,122 @@
     max-width: 640px; font-size: 18px; color: var(--ink-dim); line-height: 1.5; font-weight: 300;
   }
   .cta-band .actions { margin-top: 44px; display: inline-flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+  /* CONTACT MODAL */
+  .contact-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(10, 11, 13, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .contact-modal.is-open { display: flex; }
+  .contact-modal__panel {
+    width: min(680px, 100%);
+    border: 1px solid var(--rule-strong);
+    background:
+      radial-gradient(circle at top left, rgba(20,241,149,0.10), transparent 40%),
+      linear-gradient(180deg, rgba(244,243,238,0.03), rgba(244,243,238,0.01)),
+      var(--bg-elev);
+    box-shadow: 0 28px 80px rgba(0,0,0,0.45);
+    position: relative;
+    padding: 32px;
+  }
+  .contact-modal__close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--rule-strong);
+    background: transparent;
+    color: var(--ink-dim);
+    font-family: var(--mono);
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .contact-modal__close:hover {
+    color: var(--ink);
+    border-color: var(--ink-dim);
+  }
+  .contact-modal__title {
+    margin: 18px 0 0;
+    font-size: clamp(34px, 5vw, 56px);
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    font-weight: 500;
+    max-width: 520px;
+  }
+  .contact-modal__title .em { color: var(--green); }
+  .contact-modal__copy {
+    margin: 18px 0 0;
+    max-width: 540px;
+    color: var(--ink-dim);
+    font-size: 17px;
+    line-height: 1.55;
+    font-weight: 300;
+  }
+  .contact-modal__options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .contact-option {
+    display: block;
+    padding: 18px;
+    border: 1px solid var(--rule-strong);
+    background: rgba(244,243,238,0.02);
+    min-height: 132px;
+    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+  .contact-option:hover {
+    transform: translateY(-2px);
+    border-color: rgba(20,241,149,0.5);
+    background: rgba(20,241,149,0.05);
+  }
+  .contact-option .k {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .contact-option .v {
+    margin-top: 14px;
+    font-size: 20px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 500;
+    color: var(--ink);
+    word-break: break-word;
+  }
+  .contact-option .n {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--ink-dim);
+    line-height: 1.45;
+  }
+  .contact-modal__hint {
+    margin-top: 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  @media (max-width: 780px) {
+    .contact-modal__panel { padding: 24px; }
+    .contact-modal__options { grid-template-columns: 1fr; }
+  }
 
   /* FOOTER */
   footer {
@@ -473,12 +684,11 @@
       <span>Soothsayer<span class="dot">.</span></span>
     </a>
     <div class="links">
-      <a href="#gap">The gap</a>
-      <a href="#product">Product</a>
+      <a href="#gap">The Gap</a>
+      <a href="#product">Research</a>
       <a href="#method">Methodology</a>
       <a href="#compare">Compare</a>
-      <a href="dashboard-narrative.html">Receipts</a>
-      <a class="cta" href="#contact">Request access →</a>
+      <a class="cta" href="#contact" data-open-contact>Request access →</a>
     </div>
   </div>
 </nav>
@@ -489,18 +699,18 @@
   <section class="hero">
     <div class="grid-bg"></div>
     <div class="wrap">
-      <span class="status-pill"><span class="led"></span>Phase 1 · Devnet + Paper 1 · Colosseum 2026</span>
+      <span class="status-pill"><span class="led"></span>Phase 1 · Devnet + Research Program</span>
 
       <h1>
         Real-world assets<br /><span class="em">don't sleep on the weekend.</span>
       </h1>
 
       <p class="lede">
-        An empirically calibrated confidence band for tokenized equities on Solana — with audit receipts any consumer can verify against 12 years of public data. Read <em>alongside</em> a primary oracle. The moat is calibration transparency, not better math.
+        The promise of tokenized equities is real 24/7, permissionless markets. The missing infrastructure is a defensible closed-market price. Soothsayer helps bridge that gap with a calibration-transparent fair-value band grounded in decades of market microstructure, risk-model research, and 12 years of public data.
       </p>
 
       <div class="actions">
-        <a class="btn primary" href="#contact">Request access <span class="arrow">→</span></a>
+        <a class="btn primary" href="#contact" data-open-contact>Request access <span class="arrow">→</span></a>
         <a class="btn ghost" href="pitch.html">Read the pitch <span class="arrow">→</span></a>
       </div>
 
@@ -516,9 +726,9 @@
           <div class="n">Cumulative through Q1 2026 — ~95–99% of tokenized-equity trading lives on Solana.</div>
         </div>
         <div class="cell">
-          <div class="k">Stale-hold window</div>
+          <div class="k">Universal weekend gap</div>
           <div class="v">48<span class="unit">hrs</span></div>
-          <div class="n">Fri 8pm → Sun 8pm ET, across every incumbent equity oracle.</div>
+          <div class="n">Fri 8pm → Sun 8pm ET, where incumbent feeds are either stale or methodologically opaque.</div>
         </div>
         <div class="cell">
           <div class="k">OOS coverage @ τ=0.95</div>
@@ -543,7 +753,7 @@
           <span class="eyebrow"><span class="bar"></span>The gap</span>
           <h2>Every weekend, the incumbents <span class="em">stop thinking.</span></h2>
         </div>
-        <p>Chainlink holds Friday’s last print until Sunday 8pm. Pyth + Blue Ocean cover overnight but not the weekend. For 48 hours, no one publishes a defensible fair value — and the RWA supply keeps growing.</p>
+        <p>Weekends are the cleanest proof of the gap. Chainlink's main consumed fields go stale, Pyth + Blue Ocean extend into 24/5 but still hand back the weekend, and continuous off-hours marks remain difficult to audit. The market has activity, but not yet shared closed-market pricing infrastructure.</p>
       </div>
 
       <div class="gap-card">
@@ -573,7 +783,7 @@
         </div>
 
         <div class="row">
-          <div class="name g">Soothsayer<span class="sub">fair value + CI</span></div>
+          <div class="name g">Soothsayer<span class="sub">fair value + calibrated band</span></div>
           <div class="track g-track">
             <div class="fill green" style="left: 0; width: 100%;"></div>
           </div>
@@ -587,47 +797,76 @@
     </div>
   </section>
 
+  <section class="press-band" id="market-admission">
+    <div class="wrap">
+      <div class="head">
+        <div>
+          <span class="eyebrow"><span class="bar"></span>Market admission</span>
+          <h2>Incumbents understand the risk.</h2>
+        </div>
+        <p>The weekend gap is no longer a hypothetical edge case. Providers themselves are warning that 24/7 tokenized markets can drift away from any defensible reference when the traditional venue is shut and the oracle stack does not adapt.</p>
+      </div>
+
+      <div class="press-grid">
+        <div class="press-card">
+          <blockquote>
+            <span class="mark">“</span>We might see a dislocation of the tokenized stock versus the real value on Nasdaq.<span class="mark">”</span>
+          </blockquote>
+          <div class="attrib">Marcin Kazmierczak · RedStone · quoted in <a href="https://www.coindesk.com/business/2025/11/23/on-chain-stocks-could-misprice-over-weekends-triggering-arbitrage-risks-redstone" target="_blank" rel="noopener">CoinDesk</a></div>
+        </div>
+
+        <div class="press-card">
+          <blockquote>
+            <span class="mark">“</span>If the oracle doesn't update until markets reopen, on-chain protocols could be trading on ghost prices.<span class="mark">”</span>
+          </blockquote>
+          <div class="attrib">CoinDesk weekend-gap coverage · <a href="https://www.coindesk.com/business/2025/11/23/on-chain-stocks-could-misprice-over-weekends-triggering-arbitrage-risks-redstone" target="_blank" rel="noopener">On-chain stocks mispricing risk</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- WHAT WE BUILD -->
   <section class="band" id="product">
     <div class="wrap">
       <div class="head-row">
         <div>
           <span class="eyebrow g"><span class="bar"></span>What we build</span>
-          <h2>A transparent, <span class="em">model-based</span> fair-value feed.</h2>
+          <h2><span class="em">Methodology, OEV &amp; Policy.</span></h2>
         </div>
-        <p>A second opinion any protocol can read alongside their primary oracle — with honest uncertainty, published math, and agent-native access.</p>
+        <p>The current proposal is a public fair-value feed plus three papers: how the methodology works, where OEV concentrates, and how downstream consumers can use the signal.</p>
       </div>
 
       <div class="prod-grid">
         <div class="prod">
-          <span class="num">01 · FREE FEED</span>
-          <h3>On-chain fair value + CI for tokenized equities on Solana.</h3>
-          <p>A free, public Solana feed that publishes a fair-value point and a time-varying confidence band — priced exactly for the hours Chainlink tells protocols to pause.</p>
+          <span class="num">01 · PAPER 1 · METHODOLOGY</span>
+          <h3>Define the calibration-transparent oracle primitive.</h3>
+          <p>Paper 1 formalizes Soothsayer's coverage-inversion methodology: a public Solana fair-value feed that serves a price band, target coverage, and audit receipts instead of asking protocols to trust a black box.</p>
           <div class="tag-row">
-            <span class="tag">Devnet · Q2 26</span>
-            <span class="tag">8 tickers</span>
-          </div>
-        </div>
-
-        <div class="prod">
-          <span class="num">02 · PREMIUM · x402</span>
-          <h3>Agent-native premium data, gated by stablecoin micropayments.</h3>
-          <p>Higher-frequency snapshots, model decomposition, regime state, historical queries. Per-call USDC — no KYC, no subscription, no account.</p>
-          <div class="tag-row">
-            <span class="tag">x402</span>
-            <span class="tag">USDC per call</span>
-            <span class="tag">Agent-native</span>
-          </div>
-        </div>
-
-        <div class="prod">
-          <span class="num">03 · OPEN METHODOLOGY</span>
-          <h3>Published econometrics, not a black box.</h3>
-          <p>Every transform, every weight, every regime switch — in the repo. Methodology is the trust primitive. The math is the moat.</p>
-          <div class="tag-row">
-            <span class="tag">Apache / MIT</span>
-            <span class="tag">Rust</span>
+            <span class="tag">12 years</span>
+            <span class="tag">5,986 weekends</span>
             <span class="tag">Reproducible</span>
+          </div>
+        </div>
+
+        <div class="prod">
+          <span class="num">02 · PAPER 2 · SOLANA OEV</span>
+          <h3>Measure liquidation rent at the band edge.</h3>
+          <p>Paper 2 and the Solana OEV grant proposal focus on xStocks-on-Kamino and MarginFi: build the public liquidation dataset, test whether OEV concentrates at oracle-band exits, and specify a band-aware overlay for Pyth Express Relay.</p>
+          <div class="tag-row">
+            <span class="tag">Open dataset</span>
+            <span class="tag">Mechanism design</span>
+            <span class="tag">Solana grant</span>
+          </div>
+        </div>
+
+        <div class="prod">
+          <span class="num">03 · PAPER 3 · CONSUMER POLICY</span>
+          <h3>Show consumers how the signal improves decisions.</h3>
+          <p>Paper 3 asks what a protocol, liquidator, or other downstream consumer should do with a calibrated band: which defaults, triggers, and policies reduce expected loss or increase edge when markets are closed.</p>
+          <div class="tag-row">
+            <span class="tag">Expected loss</span>
+            <span class="tag">Protocol policy</span>
+            <span class="tag">Deployable</span>
           </div>
         </div>
       </div>
@@ -640,9 +879,9 @@
       <div class="head-row">
         <div>
           <span class="eyebrow p"><span class="bar"></span>Methodology</span>
-          <h2>Three layers, <span class="emp">all auditable.</span></h2>
+          <h2>Five pieces, <span class="emp">one auditable contract.</span></h2>
         </div>
-        <p>The product is the served band, not the raw forecaster. Three layers compose it. Each is reproducible from the repo against public data: 12 years of yfinance + per-symbol vol indices, no proprietary feeds. Full evolution log in <code>reports/methodology_history.md</code>.</p>
+        <p>The product is the served band, not the raw forecaster. These five pieces make up the full contract a consumer receives. Each is reproducible from the repo against public data: 12 years of yfinance + per-symbol vol indices, no proprietary feeds. Full evolution log in <code>reports/methodology_history.md</code>.</p>
       </div>
 
       <div class="method-wrap">
@@ -667,7 +906,7 @@
             <span class="n">03</span>
             <div class="body">
               <div class="h">Hybrid + per-target buffer</div>
-              <div class="p">REGIME_FORECASTER picks F1 in normal / long-weekend (where it's 27–43% tighter at matched coverage) and F0 in high_vol (where it prevents the OOS Christoffersen-independence rejection that pure-F1 produces). BUFFER_BY_TARGET = {0.68→0.045, 0.85→0.045, 0.95→0.020, 0.99→0.005}, linearly interpolated.</div>
+              <div class="p">REGIME_FORECASTER picks F1 in normal / long-weekend (where it's 27–43% tighter at matched coverage) and F0 in high_vol (where it prevents the OOS Christoffersen-independence rejection that pure-F1 produces). BUFFER_BY_TARGET = {0.68→0.045, 0.85→0.045, 0.95→0.020, 0.99→0.010}, linearly interpolated.</div>
             </div>
             <span class="ref">REGIME_FORECASTER</span>
           </div>
@@ -689,39 +928,109 @@
           </div>
         </div>
 
-        <div class="signal-card" aria-label="Sample served-band PricePoint">
-          <div class="sc-head">
-            <div class="ticker">TSLAx<span class="sub">xStock · Sat 14:32 UTC · τ = 0.85</span></div>
-            <div class="regime">Regime · normal</div>
-          </div>
-
-          <div>
-            <div class="big">
-              <span class="fv">$241.07</span>
-              <span class="delta">point · half-width ±2.30% (≈ 230 bps)</span>
+        <div class="signal-stack" aria-label="Sample served-band PricePoint views">
+          <div class="signal-card">
+            <div class="sc-head">
+              <div class="ticker">TSLAx<span class="sub">xStock · Sat 14:32 UTC · τ = 0.85 default</span></div>
+              <div class="regime">Regime · normal</div>
             </div>
-            <div class="ci-row" style="margin-top: 10px;">
-              <span><span class="k">band</span> &nbsp;$235.52 — $246.62</span>
-              <span><span class="k">claimed_served</span> &nbsp;0.895</span>
-              <span><span class="k">buffer</span> &nbsp;0.045</span>
+
+            <div>
+              <div class="big">
+                <span class="fv">$241.07</span>
+                <span class="delta">point · half-width ±2.30% (≈ 230 bps)</span>
+              </div>
+              <div class="ci-row" style="margin-top: 10px;">
+                <span><span class="k">band</span> &nbsp;$235.52 — $246.62</span>
+                <span><span class="k">claimed_served</span> &nbsp;0.895</span>
+                <span><span class="k">buffer</span> &nbsp;0.045</span>
+              </div>
+            </div>
+
+            <div class="chart" aria-hidden="true">
+              <span class="ci-label">τ = 0.85 band</span>
+              <svg viewBox="0 0 420 108" preserveAspectRatio="none">
+                <path class="band-fill" d="M0,68 C40,62 76,58 116,56 C154,54 194,49 228,47 C272,45 310,43 350,39 C378,37 398,35 420,33 L420,72 C399,73 379,75 350,77 C309,80 270,83 228,85 C193,87 154,90 116,91 C78,92 40,93 0,94 Z"></path>
+                <path class="mid-line" d="M0,81 C38,76 75,71 116,68 C154,65 194,60 228,57 C271,54 310,50 349,45 C377,42 398,39 420,36"></path>
+                <circle class="point-dot" cx="420" cy="36" r="5"></circle>
+              </svg>
+              <div class="axis"><span>Fri 16:00 ET</span><span>Sat</span><span>Mon 09:30 ET</span></div>
+            </div>
+
+            <div class="inputs" style="margin-top: 26px;">
+              <span class="i">Friday close</span>
+              <span class="i">ES=F return</span>
+              <span class="i">VIX</span>
+              <span class="i">earnings flag</span>
+              <span class="i">long-weekend flag</span>
             </div>
           </div>
 
-          <div class="chart" aria-hidden="true">
-            <span class="ci-label">τ = 0.85 band</span>
-            <div class="line"></div>
-            <div class="dot"></div>
-            <div class="axis"><span>Fri 16:00 ET</span><span>Sat</span><span>Mon 09:30 ET</span></div>
+          <div class="signal-card compact green">
+            <div class="sc-head">
+              <div class="ticker">SPYx<span class="sub">xStock · Sun 03:10 UTC · τ = 0.85</span></div>
+              <div class="regime">Regime · normal</div>
+            </div>
+            <div>
+              <div class="big">
+                <span class="fv">$604.11</span>
+                <span class="delta">point · half-width ±1.42%</span>
+              </div>
+              <div class="ci-row" style="margin-top: 10px;">
+                <span><span class="k">band</span> &nbsp;$595.54 — $612.68</span>
+                <span><span class="k">claimed_served</span> &nbsp;0.891</span>
+              </div>
+            </div>
+            <div class="chart" aria-hidden="true">
+              <span class="ci-label">SPYx served band</span>
+              <svg viewBox="0 0 420 108" preserveAspectRatio="none">
+                <path class="band-fill" d="M0,58 C44,57 85,56 124,54 C165,52 203,49 242,46 C280,43 321,38 360,34 C384,32 404,30 420,29 L420,57 C405,58 385,59 360,61 C321,64 281,68 242,71 C202,74 164,77 124,79 C84,81 43,82 0,83 Z"></path>
+                <path class="mid-line" d="M0,71 C44,69 84,66 124,63 C164,60 202,56 242,52 C281,48 321,43 360,38 C385,35 404,33 420,31"></path>
+                <circle class="point-dot" cx="420" cy="31" r="5"></circle>
+              </svg>
+              <div class="axis"><span>Fri close</span><span>Weekend</span><span>Mon open</span></div>
+            </div>
           </div>
 
-          <div class="inputs" style="margin-top: 26px;">
-            <span class="i">Friday close</span>
-            <span class="i">ES=F return</span>
-            <span class="i">VIX</span>
-            <span class="i">earnings flag</span>
-            <span class="i">long-weekend flag</span>
+          <div class="signal-card compact amber">
+            <div class="sc-head">
+              <div class="ticker">MSTRx<span class="sub">xStock · Sun 18:40 UTC · τ = 0.85</span></div>
+              <div class="regime">Regime · high vol</div>
+            </div>
+            <div>
+              <div class="big">
+                <span class="fv">$412.66</span>
+                <span class="delta">point · half-width ±3.94%</span>
+              </div>
+              <div class="ci-row" style="margin-top: 10px;">
+                <span><span class="k">band</span> &nbsp;$396.39 — $428.93</span>
+                <span><span class="k">forecaster</span> &nbsp;F0_stale</span>
+              </div>
+            </div>
+            <div class="chart" aria-hidden="true">
+              <span class="ci-label">MSTRx served band</span>
+              <svg viewBox="0 0 420 108" preserveAspectRatio="none">
+                <path class="band-fill" d="M0,74 C38,76 80,72 124,66 C164,61 202,56 242,50 C281,43 320,36 360,27 C384,22 404,18 420,16 L420,64 C404,66 384,69 360,74 C320,81 281,88 242,93 C202,97 163,100 124,102 C80,104 39,103 0,101 Z"></path>
+                <path class="mid-line" d="M0,88 C38,87 80,82 124,75 C163,69 202,63 242,56 C281,49 320,41 360,32 C384,27 404,22 420,19"></path>
+                <circle class="point-dot" cx="420" cy="19" r="5"></circle>
+              </svg>
+              <div class="axis"><span>Fri close</span><span>BTC leads</span><span>Mon open</span></div>
+            </div>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE / PROOF -->
+  <section class="quote-band">
+    <div class="wrap inner">
+      <span class="eyebrow"><span class="bar"></span>Incumbent admission</span>
+      <div>
+        <blockquote>
+          <span class="mark">“</span>Without these capabilities, tokenized products are exposed to potential mispricings, unfair liquidations, regulatory gaps, and other critical risks.<span class="mark">”</span>
+        </blockquote>
+        <div class="attrib">Chainlink · v10/v11 launch · blog.chain.link</div>
       </div>
     </div>
   </section>
@@ -732,16 +1041,16 @@
       <div class="head-row">
         <div>
           <span class="eyebrow"><span class="bar"></span>Compare</span>
-          <h2>Coverage is the race everyone’s running. <span class="em">Methodology is the one nobody’s entered.</span></h2>
+          <h2>The gap is not just coverage. <span class="em">It is what gets priced, how, and with what evidence.</span></h2>
         </div>
-        <p>The incumbents are racing for weekend coverage. None of them publish a confidence interval, and none of them publish the math. That’s the opening.</p>
+        <p>Chainlink largely leaves consumers with stale fields or token-implied circularity. Pyth + Blue Ocean extend into 24/5, not the weekend. RedStone is closer to the problem, but on the public surface it prices the underlier and does not publish a replayable method. The real gap is an auditable closed-market reference for the tokenized asset itself.</p>
       </div>
 
       <table class="mx">
         <thead>
           <tr>
             <th style="width: 24%;">Provider</th>
-            <th style="width: 18%;">Weekend coverage</th>
+            <th style="width: 18%;">Closed-market handling</th>
             <th style="width: 22%;">Methodology</th>
             <th style="width: 20%;">Confidence interval</th>
             <th style="width: 16%;">Open source</th>
@@ -751,7 +1060,7 @@
           <tr>
             <td class="prov">Chainlink Data Streams</td>
             <td><span class="no">— stale hold</span></td>
-            <td><span class="note">Median · opaque</span></td>
+            <td><span class="note">Stale fields / tokenized mark</span></td>
             <td><span class="no">— none</span></td>
             <td><span class="no">— closed</span></td>
           </tr>
@@ -765,7 +1074,7 @@
           <tr>
             <td class="prov">RedStone Live</td>
             <td><span class="mid">~ 24/7 marketed</span></td>
-            <td><span class="no">— undisclosed</span></td>
+            <td><span class="no">— underlier only · undisclosed</span></td>
             <td><span class="no">— none</span></td>
             <td><span class="no">— closed</span></td>
           </tr>
@@ -779,55 +1088,6 @@
         </tbody>
       </table>
 
-      <p style="margin-top: 24px; font-size: 14px; line-height: 1.55; color: var(--ink-faint); max-width: 980px;">
-        * Pyth's documentation recommends per-publisher self-attestation to ~95% coverage, but that is a publisher-level statement, not a property of the aggregate served feed that downstream protocols actually read. Soothsayer publishes the calibration receipt at the aggregate-feed level — replayable against the persisted surface and 12 years of public data.
-      </p>
-    </div>
-  </section>
-
-  <!-- RECEIPTS — calibration curve preview -->
-  <section class="band" id="receipts">
-    <div class="wrap">
-      <div class="head-row">
-        <div>
-          <span class="eyebrow g"><span class="bar"></span>Live receipts</span>
-          <h2>Every τ. Every weekend. <span class="em">On the record.</span></h2>
-        </div>
-        <p>The calibration claim isn't a marketing line — it's a 50-level OOS sweep. Realised coverage tracks the consumer's request to within ±3pp on $\tau \in [0.52, 0.98]$, and the four anchor points (Kupiec p<sub>uc</sub>=1.000 at τ=0.95) sit exactly on the diagonal. <a href="dashboard-narrative.html" style="color: var(--green); border-bottom: 1px solid rgba(20,241,149,0.4);">See the full dashboard →</a></p>
-      </div>
-
-      <div style="background: var(--bg-elev); border: 1px solid var(--rule); border-radius: 4px; padding: 28px; margin-top: 28px;">
-        <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--ink-faint); text-transform: uppercase; margin-bottom: 18px;">Inter-anchor τ validation · 50 levels × 1,720 obs · 47/50 Kupiec passes at α=0.05</div>
-        <div style="position: relative; height: 360px;"><canvas id="indexCalCurve"></canvas></div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--rule); border-radius: 4px; background: var(--bg-elev); margin: 18px 0 4px;">
-        <div style="padding: 22px 24px; border-right: 1px solid var(--rule);">
-          <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint);">τ = 0.95 — paper headline</div>
-          <div style="font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; margin-top: 6px; color: var(--green);">95.0%</div>
-          <div style="margin-top: 8px; font-size: 12px; color: var(--ink-dim); line-height: 1.5;">Kupiec p<sub>uc</sub>=1.000 · Christoffersen p<sub>ind</sub>=0.485 · n=1,720</div>
-        </div>
-        <div style="padding: 22px 24px; border-right: 1px solid var(--rule);">
-          <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint);">τ = 0.85 — deployed default</div>
-          <div style="font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; margin-top: 6px; color: var(--green);">85.5%</div>
-          <div style="margin-top: 8px; font-size: 12px; color: var(--ink-dim); line-height: 1.5;">Kupiec p<sub>uc</sub>=0.541 · Christoffersen p<sub>ind</sub>=0.185 · n=1,720</div>
-        </div>
-        <div style="padding: 22px 24px; border-right: 1px solid var(--rule);">
-          <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint);">vs Pyth + naive ±1.96·conf</div>
-          <div style="font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; margin-top: 6px; color: var(--red);">10.2%</div>
-          <div style="margin-top: 8px; font-size: 12px; color: var(--ink-dim); line-height: 1.5;">The published "claim" mis-calibrates 9× when read as a probability statement on $P_t$.</div>
-        </div>
-        <div style="padding: 22px 24px;">
-          <div style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint);">vs Chainlink during weekend</div>
-          <div style="font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; margin-top: 6px; color: var(--red);">no band</div>
-          <div style="margin-top: 8px; font-size: 12px; color: var(--ink-dim); line-height: 1.5;">100% of weekend obs have bid≈0, ask=0 during marketStatus=5.</div>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 20px; margin-top: 28px; flex-wrap: wrap;">
-        <a class="btn primary" href="dashboard-narrative.html">Open the full dashboard <span class="arrow">→</span></a>
-        <a class="btn ghost" href="https://github.com/ACNoonan/soothsayer/blob/main/reports/methodology_history.md" target="_blank" rel="noopener">Methodology log <span class="arrow">↗</span></a>
-      </div>
     </div>
   </section>
 
@@ -837,9 +1097,9 @@
       <div class="head-row">
         <div>
           <span class="eyebrow"><span class="bar"></span>What it protects against</span>
-          <h2>Every scenario: the protocol has to <span class="em">pick a number to act on.</span></h2>
+          <h2>Three expensive failure modes in <span class="em">closed-market lending.</span></h2>
         </div>
-        <p>Soothsayer is that number — with published uncertainty — so protocols don’t liquidate, freeze, or cascade on a print from an empty lot.</p>
+        <p>Protocols still need a number to act on when the reference venue is closed. These are the three places a stale or opaque number turns directly into loss.</p>
       </div>
 
       <div class="uc-grid">
@@ -859,46 +1119,12 @@
         </div>
 
         <div class="uc">
-          <span class="uc-num">03 · REGIME SHIFT</span>
-          <h3>Volatility regime change into the weekend.</h3>
-          <div class="ob without"><span class="tag-k">Without</span>One-size-fits-all band stays the same width whether vol is 12 or 35.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Pre-publish regime label switches the served forecaster (F1 → F0 in high_vol). Width adapts; receipt declares which forecaster served.</div>
-        </div>
-
-        <div class="uc">
-          <span class="uc-num">04 · HALTS</span>
-          <h3>Corporate actions and multiplier lag.</h3>
-          <div class="ob without"><span class="tag-k">Without</span>Token-2022 multiplier updates late. Liquidations fire in the gap.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Regime = Halt. CI widens to ∞. “Do not act on this price.”</div>
-        </div>
-
-        <div class="uc">
-          <span class="uc-num">05 · ORACLE OUTAGE</span>
+          <span class="uc-num">03 · ORACLE OUTAGE</span>
           <h3>Primary oracle goes stale.</h3>
           <div class="ob without"><span class="tag-k">Without</span>Freeze the protocol and lose revenue, or trust stale and take bad debt.</div>
           <div class="ob with"><span class="tag-k">With Soothsayer</span>An independent secondary — live cross-check plus a fallback number.</div>
         </div>
 
-        <div class="uc">
-          <span class="uc-num">06 · AGENT FLOW</span>
-          <h3>Autonomous agents trading closed markets.</h3>
-          <div class="ob without"><span class="tag-k">Without</span>Agents pay for data they can’t verify, or trade on no price at all.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Pay-per-call USDC via x402. Signed snapshots. Model state on request.</div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- QUOTE / PROOF -->
-  <section class="quote-band">
-    <div class="wrap inner">
-      <span class="eyebrow"><span class="bar"></span>Incumbent admission</span>
-      <div>
-        <blockquote>
-          <span class="mark">“</span>Without these capabilities, tokenized products are exposed to potential mispricings, unfair liquidations, regulatory gaps, and other critical risks.<span class="mark">”</span>
-        </blockquote>
-        <div class="attrib">Chainlink · v10/v11 launch · blog.chain.link</div>
       </div>
     </div>
   </section>
@@ -907,12 +1133,12 @@
   <section class="cta-band" id="contact">
     <div class="glow"></div>
     <div class="wrap inner">
-      <span class="eyebrow g"><span class="bar"></span>Design partners · Colosseum 2026</span>
+      <span class="eyebrow g"><span class="bar"></span>Design partners</span>
       <h2>Build with the <span class="em">weekend-proof</span> oracle.</h2>
-      <p>Phase 0 validation closed full PASS — Kupiec + Christoffersen, OOS, three τ levels. Phase 1 now: devnet deploy + Paper 1 to arXiv + Paper 2 first draft, in parallel. Looking for a small number of design partners across lending, perps, and RWA issuance.</p>
+      <p>Looking for a small number of lending, perp, and RWA teams that need a defensible closed-market reference price, explicit uncertainty, and a secondary oracle input for weekend risk.</p>
 
       <div class="actions">
-        <a class="btn primary" href="mailto:adamcnoonan@gmail.com?subject=Soothsayer%20design%20partner">Request access <span class="arrow">→</span></a>
+        <a class="btn primary" href="#contact" data-open-contact>Request access <span class="arrow">→</span></a>
         <a class="btn ghost" href="pitch.html">Read the pitch</a>
         <a class="btn ghost" href="#method">See the methodology</a>
       </div>
@@ -933,93 +1159,74 @@
     <div class="links-foot">
       <a href="pitch.html">Pitch deck</a>
       <a href="#method">Methodology</a>
-      <a href="#contact">Contact</a>
+      <a href="#contact" data-open-contact>Contact</a>
     </div>
-    <div class="legal">© 2026 · Colosseum · Solana frontier</div>
+    <div class="legal">© 2026 · Soothsayer · Solana</div>
   </div>
 </footer>
 
-<!-- Chart.js for the Receipts section preview -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js" defer></script>
-<script defer>
-window.addEventListener('DOMContentLoaded', async () => {
-  const canvas = document.getElementById('indexCalCurve');
-  if (!canvas || typeof Chart === 'undefined') return;
-  const COLOR = {
-    ink: '#F4F3EE', dim: '#A6A8AD', faint: '#6B6E75',
-    green: '#14F195', rule: 'rgba(244,243,238,0.18)',
-  };
-  Chart.defaults.font.family = "'Inter', sans-serif";
-  Chart.defaults.color = COLOR.dim;
-  try {
-    const data = await (await fetch('data/calibration_curve.json')).json();
-    const taus = data.map(d => d.tau);
-    new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: taus,
-        datasets: [{
-          label: 'Realised coverage',
-          data: data.map(d => d.realized),
-          borderColor: COLOR.green,
-          backgroundColor: 'rgba(20,241,149,0.10)',
-          tension: 0.0,
-          pointRadius: data.map(d => d.is_anchor ? 7 : 2.5),
-          pointBackgroundColor: data.map(d => d.is_anchor ? COLOR.green : 'rgba(20,241,149,0.6)'),
-          pointBorderColor: data.map(d => d.is_anchor ? COLOR.ink : 'rgba(20,241,149,0)'),
-          pointBorderWidth: 1.5,
-          fill: false,
-          borderWidth: 2,
-        }, {
-          label: 'Perfect calibration (y = τ)',
-          data: taus,
-          borderColor: COLOR.faint,
-          borderDash: [4, 6],
-          borderWidth: 1,
-          pointRadius: 0,
-          fill: false,
-        }],
-      },
-      options: {
-        maintainAspectRatio: false,
-        responsive: true,
-        plugins: {
-          legend: { labels: { color: COLOR.dim } },
-          tooltip: {
-            backgroundColor: '#0A0B0D', borderColor: COLOR.rule, borderWidth: 1,
-            callbacks: {
-              label: (ctx) => {
-                const d = data[ctx.dataIndex];
-                if (!d) return ctx.formattedValue;
-                return [
-                  `τ = ${d.tau.toFixed(2)}${d.is_anchor ? '  (anchor)' : ''}`,
-                  `realised = ${(d.realized * 100).toFixed(1)}%`,
-                  `half-width = ${Math.round(d.half_width_bps)} bps`,
-                  `Kupiec p_uc = ${d.p_uc.toFixed(3)}`,
-                ];
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            title: { display: true, text: 'Consumer target τ', color: COLOR.faint },
-            ticks: { color: COLOR.dim, autoSkip: true, maxTicksLimit: 11, callback: v => Number(taus[v]).toFixed(2) },
-            grid: { color: 'rgba(244,243,238,0.05)' },
-          },
-          y: {
-            title: { display: true, text: 'Realised OOS coverage', color: COLOR.faint },
-            min: 0.45, max: 1.0,
-            ticks: { color: COLOR.dim, callback: v => (v * 100).toFixed(0) + '%' },
-            grid: { color: 'rgba(244,243,238,0.05)' },
-          },
-        },
-      },
-    });
-  } catch (err) {
-    console.warn('Receipts chart failed to load:', err);
+<div class="contact-modal" id="contactModal" aria-hidden="true">
+  <div class="contact-modal__panel" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle">
+    <button class="contact-modal__close" type="button" aria-label="Close contact options" data-close-contact>×</button>
+    <span class="eyebrow g"><span class="bar"></span>Get in touch</span>
+    <h2 class="contact-modal__title" id="contactModalTitle">Choose the <span class="em">best channel.</span></h2>
+    <p class="contact-modal__copy">If you want to talk about design partnerships, research, or integration, reach out directly using any of the links below.</p>
+
+    <div class="contact-modal__options">
+      <a class="contact-option" href="mailto:adamcnoonan@gmail.com?subject=Soothsayer%20design%20partner">
+        <div class="k">Email</div>
+        <div class="v">adamcnoonan@gmail.com</div>
+        <div class="n">Best for direct outreach and design-partner conversations.</div>
+      </a>
+      <a class="contact-option" href="https://www.linkedin.com/in/adam-noonan/" target="_blank" rel="noopener">
+        <div class="k">LinkedIn</div>
+        <div class="v">adam-noonan</div>
+        <div class="n">Connect for professional background and ongoing collaboration.</div>
+      </a>
+      <a class="contact-option" href="https://github.com/ACNoonan" target="_blank" rel="noopener">
+        <div class="k">GitHub</div>
+        <div class="v">ACNoonan</div>
+        <div class="n">Review the public repos and current research artifacts.</div>
+      </a>
+    </div>
+
+    <div class="contact-modal__hint">Press Esc to close</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const modal = document.getElementById('contactModal');
+  if (!modal) return;
+
+  const openers = document.querySelectorAll('[data-open-contact]');
+  const closers = modal.querySelectorAll('[data-close-contact]');
+  const panel = modal.querySelector('.contact-modal__panel');
+
+  function openModal(event) {
+    if (event) event.preventDefault();
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
   }
-});
+
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+  }
+
+  openers.forEach((el) => el.addEventListener('click', openModal));
+  closers.forEach((el) => el.addEventListener('click', closeModal));
+
+  modal.addEventListener('click', (event) => {
+    if (!panel.contains(event.target)) closeModal();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+  });
+})();
 </script>
 
 </body>
