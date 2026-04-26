@@ -37,3 +37,6 @@ reports/tables/
 
 # Claude Code — keep shared settings.json, ignore per-user local overrides
 .claude/settings.local.json
+
+# Local-only working docs (outreach targets, draft messages, private notes)
+*.local.md
