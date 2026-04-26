@@ -16,8 +16,10 @@ target/
 # carry provider ToS constraints. Keep .gitkeep so dirs exist.
 data/raw/*
 data/processed/*
+data/bot_tape/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+!data/bot_tape/.gitkeep
 
 # Reports output artifacts (images/csv) — keep the markdown writeups in-repo
 reports/figures/
