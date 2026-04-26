@@ -92,25 +92,29 @@ def yfinance_friday_close(symbols: list[str], target_friday: date) -> dict[str, 
     return out
 
 
-def latest_completed_friday(today: Optional[date] = None) -> date:
+def most_recent_past_friday(today: Optional[date] = None) -> date:
+    """Most recent Friday at-or-before today.
+
+    Distinct from `latest_completed_friday()` (which requires the *Monday* to
+    also be past). For feed-ID enumeration we want the price reference the
+    v11 weekend reports are anchored to — i.e., last Friday's close — even if
+    Monday hasn't happened yet. Today=Sunday → returns this past Friday;
+    today=Friday → returns today; today=Tuesday → returns last Friday.
+    """
     today = today or date.today()
-    days_since_friday = (today.weekday() - 4) % 7
-    candidate_friday = today - timedelta(days=days_since_friday)
-    candidate_monday = candidate_friday + timedelta(days=3)
-    if candidate_monday > today:
-        candidate_friday -= timedelta(days=7)
-    return candidate_friday
+    days_since_friday = (today.weekday() - 4) % 7  # Mon=0..Sun=6, Fri=4
+    return today - timedelta(days=days_since_friday)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--sigs", type=int, default=10000,
                     help="target Verifier signatures to scan (default: 10000)")
-    ap.add_argument("--tolerance-pct", type=float, default=2.0,
-                    help="match tolerance as % of yfinance close (default: 2.0)")
+    ap.add_argument("--tolerance-pct", type=float, default=5.0,
+                    help="match tolerance as % of yfinance close (default: 5.0)")
     args = ap.parse_args()
 
-    target_friday = latest_completed_friday()
+    target_friday = most_recent_past_friday()
     print(f"Enumerating v11 xStock feed IDs by price-band correlation")
     print(f"  Friday close target: {target_friday}")
     print(f"  scan depth: {args.sigs} Verifier signatures")
