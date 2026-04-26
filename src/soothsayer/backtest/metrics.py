@@ -325,6 +325,209 @@ def conditional_coverage_from_bounds(
     return pd.DataFrame(rows)
 
 
+def berkowitz_test(pits: np.ndarray) -> dict:
+    """Berkowitz (2001) joint LR test on inverse-normal-transformed PITs.
+
+    Tests H0: PITs ~ U(0,1) iid by transforming to z = Φ⁻¹(PIT) and asking
+    whether z ~ N(0,1) iid via a joint LR on (mean=0, var=1, AR(1)=0).
+    Joint LR ~ χ²(3) under H0; p > 0.05 = can't reject the calibration claim.
+
+    More powerful than KS-on-PIT in small samples (Berkowitz 2001 §3) because
+    the inverse-normal transform amplifies tail mis-calibration. The standard
+    test in modern density-forecast evaluation; required-cite for any paper
+    claiming "calibrated" beyond fixed-τ coverage.
+
+    PITs at exactly 0 or 1 are dropped (Φ⁻¹ singular). Caller should pass
+    interior PITs only — see `pit_from_quantile_grid` for the construction.
+    """
+    pits = np.asarray(pits, dtype=float)
+    pits = pits[np.isfinite(pits)]
+    pits = pits[(pits > 0) & (pits < 1)]
+    if len(pits) < 30:
+        return {"lr": float("nan"), "p_value": float("nan"), "n": int(len(pits))}
+    z = norm.ppf(pits)
+    z_lag = z[:-1]
+    z_cur = z[1:]
+    n = len(z_cur)
+    var_lag = np.var(z_lag, ddof=0)
+    if var_lag <= 0:
+        return {"lr": float("nan"), "p_value": float("nan"), "n": int(len(pits))}
+    rho = np.cov(z_cur, z_lag, ddof=0)[0, 1] / var_lag
+    c = z_cur.mean() - rho * z_lag.mean()
+    resid = z_cur - c - rho * z_lag
+    sigma2 = float((resid ** 2).mean())
+    if sigma2 <= 0:
+        return {"lr": float("nan"), "p_value": float("nan"), "n": int(len(pits))}
+    ll_unr = -0.5 * n * (np.log(2 * np.pi * sigma2) + 1.0)
+    ll_res = -0.5 * float(np.sum(z_cur ** 2)) - 0.5 * n * np.log(2 * np.pi)
+    lr = 2.0 * (ll_unr - ll_res)
+    p_val = 1.0 - chi2.cdf(max(lr, 0.0), df=3)
+    return {
+        "lr": float(lr),
+        "p_value": float(p_val),
+        "n": int(len(pits)),
+        "rho_hat": float(rho),
+        "mean_z": float(z_cur.mean()),
+        "var_z": float(z_cur.var(ddof=0)),
+    }
+
+
+def dynamic_quantile_test(
+    violations: np.ndarray,
+    claimed: float,
+    n_lags: int = 4,
+    covariate: np.ndarray | None = None,
+) -> dict:
+    """Engle-Manganelli (2004) Dynamic Quantile (DQ) test.
+
+    Tests H0: hit indicator is uncorrelated with lagged hits and (optionally)
+    a contemporaneous covariate. Catches conditional miscalibration that
+    Christoffersen's two-state Markov-chain independence test misses.
+
+    DQ = Hit'X (X'X)⁻¹ X'Hit / (α(1-α))  ~  χ²(rank(X))   under H0
+    where Hit_t = violations_t - α, α = 1 - claimed, and X = [1, lag_1, ...,
+    lag_K, covariate_t].
+
+    Standard modern VaR backtest; a likely reviewer ask for any quant-finance
+    venue. ML translation: like a residual-autocorrelation check but jointly
+    tests multiple lags + covariate conditioning instead of just one-step
+    Markov dependence.
+    """
+    v = np.asarray(violations, dtype=float)
+    n = len(v)
+    if n < n_lags + 5:
+        return {"dq": float("nan"), "p_value": float("nan"), "n": int(n), "df": 0}
+    alpha = 1.0 - claimed
+    hit = v - alpha
+    cols = [np.ones(n - n_lags)]
+    for k in range(1, n_lags + 1):
+        cols.append(v[n_lags - k : n - k])
+    if covariate is not None:
+        cov_arr = np.asarray(covariate, dtype=float)[n_lags:]
+        if len(cov_arr) == n - n_lags and np.all(np.isfinite(cov_arr)):
+            cols.append(cov_arr)
+    X = np.column_stack(cols)
+    h = hit[n_lags:]
+    XtX = X.T @ X
+    try:
+        XtX_inv = np.linalg.inv(XtX)
+    except np.linalg.LinAlgError:
+        return {"dq": float("nan"), "p_value": float("nan"), "n": int(n), "df": int(X.shape[1])}
+    Xth = X.T @ h
+    dq = float(Xth.T @ XtX_inv @ Xth / max(alpha * (1.0 - alpha), 1e-12))
+    df = int(X.shape[1])
+    p_val = 1.0 - chi2.cdf(max(dq, 0.0), df=df)
+    return {"dq": dq, "p_value": float(p_val), "n": int(n - n_lags), "df": df}
+
+
+def crps_from_quantiles(
+    realized: float,
+    tau_grid: np.ndarray,
+    quantile_values: np.ndarray,
+) -> float:
+    """Continuous Ranked Probability Score from a (τ, q_τ) grid.
+
+    CRPS = 2 ∫₀¹ pinball_τ(y, q_τ) dτ where pinball_τ(y, q) = (y - q)(τ - 1{y < q}).
+    We approximate the integral by trapezoid on the supplied τ grid. Grid
+    should be sorted ascending and span (0, 1) reasonably well — denser is
+    more accurate, ~20 points is plenty for paper-grade reporting.
+
+    Returns CRPS in the same units as `realized` (typically a price). Lower
+    is better. Compares forecast distributions on the *full* shape, not just
+    at fixed coverage levels.
+
+    ML translation: the proper-scoring-rule analog of log-loss for continuous
+    distributions; standard in weather forecasting (Gneiting-Raftery 2007).
+    """
+    tg = np.asarray(tau_grid, dtype=float)
+    qv = np.asarray(quantile_values, dtype=float)
+    if len(tg) < 2 or np.any(~np.isfinite(qv)):
+        return float("nan")
+    order = np.argsort(tg)
+    tg = tg[order]
+    qv = qv[order]
+    pinball = (realized - qv) * (tg - (realized < qv).astype(float))
+    # numpy 2.0 renamed trapz → trapezoid; trapz removed.
+    integrate = getattr(np, "trapezoid", None) or np.trapz
+    return float(2.0 * integrate(pinball, tg))
+
+
+def pit_from_quantile_grid(
+    realized: float,
+    cdf_levels: np.ndarray,
+    quantile_values: np.ndarray,
+) -> float:
+    """Probability Integral Transform via interpolation on a (CDF level, quantile) grid.
+
+    Given an empirical CDF defined by points (q_i, F_i) where q_i are quantile
+    values and F_i = Pr(X ≤ q_i), interpolate to find F(realized).
+
+    Inputs need not be sorted; we sort by q_i and apply piecewise-linear
+    interpolation. Realized values outside [min q, max q] saturate at 0 or 1.
+    """
+    qv = np.asarray(quantile_values, dtype=float)
+    cl = np.asarray(cdf_levels, dtype=float)
+    finite = np.isfinite(qv) & np.isfinite(cl)
+    qv = qv[finite]
+    cl = cl[finite]
+    if len(qv) < 2:
+        return float("nan")
+    order = np.argsort(qv)
+    qv = qv[order]
+    cl = cl[order]
+    if realized <= qv[0]:
+        return float(cl[0])
+    if realized >= qv[-1]:
+        return float(cl[-1])
+    return float(np.interp(realized, qv, cl))
+
+
+def exceedance_magnitude(
+    realized: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray,
+    fri_close: np.ndarray,
+) -> dict:
+    """Magnitude-of-violation diagnostic (McNeil-Frey-style, simplified).
+
+    For each violation (realized outside [lower, upper]), compute the breach
+    size in basis points of fri_close. Reports distributional summary so
+    reviewers can distinguish "many tiny misses" from "few catastrophic ones"
+    — same coverage rate, very different protocol risk.
+
+    Full McNeil-Frey fits a GPD to the exceedance residuals; the GPD-fit
+    extension is deferred to v2. This v1 version reports the empirical
+    distribution of breach sizes.
+    """
+    realized = np.asarray(realized, dtype=float)
+    lower = np.asarray(lower, dtype=float)
+    upper = np.asarray(upper, dtype=float)
+    fri_close = np.asarray(fri_close, dtype=float)
+    below = realized < lower
+    above = realized > upper
+    breach = np.zeros_like(realized)
+    breach[below] = lower[below] - realized[below]
+    breach[above] = realized[above] - upper[above]
+    breach_bps = breach / fri_close * 1e4
+    violated = below | above
+    breach_bps_v = breach_bps[violated]
+    if len(breach_bps_v) == 0:
+        return {
+            "n_violations": 0,
+            "mean_bps": float("nan"),
+            "median_bps": float("nan"),
+            "p95_bps": float("nan"),
+            "max_bps": float("nan"),
+        }
+    return {
+        "n_violations": int(violated.sum()),
+        "mean_bps": float(breach_bps_v.mean()),
+        "median_bps": float(np.median(breach_bps_v)),
+        "p95_bps": float(np.percentile(breach_bps_v, 95)),
+        "max_bps": float(breach_bps_v.max()),
+    }
+
+
 def summarize(
     name: str,
     panel: pd.DataFrame,
