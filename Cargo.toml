@@ -38,3 +38,4 @@ clap = { version = "4", features = ["derive"] }
 opt-level = 3
 lto = "thin"
 codegen-units = 1
+overflow-checks = true

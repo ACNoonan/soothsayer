@@ -3,10 +3,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-soothsayer_oracle_program = "11111111111111111111111111111111"
+soothsayer_oracle_program = "AgXLLTmUJEVh9EsJnznU1yJaUeE9Ufe7ZotupmDqa7f6"
 
 [programs.devnet]
-soothsayer_oracle_program = "11111111111111111111111111111111"
+soothsayer_oracle_program = "AgXLLTmUJEVh9EsJnznU1yJaUeE9Ufe7ZotupmDqa7f6"
 
 [registry]
 url = "https://api.apr.dev"

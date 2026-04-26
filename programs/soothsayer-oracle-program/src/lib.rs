@@ -25,7 +25,7 @@ use state::{
 };
 
 // Valid placeholder program ID until deploy tooling rewrites it.
-declare_id!("11111111111111111111111111111111");
+declare_id!("AgXLLTmUJEVh9EsJnznU1yJaUeE9Ufe7ZotupmDqa7f6");
 
 #[program]
 pub mod soothsayer_oracle_program {
