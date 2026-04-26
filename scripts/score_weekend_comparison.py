@@ -228,6 +228,74 @@ def decisions_under_reserve(lower_per_method: dict[str, float], reserve_cfg: dic
     return out
 
 
+def ltv_gap_breach(reserve_cfg: dict, fri_close: float, mon_open: Optional[float],
+                   lower_per_method: dict[str, Optional[float]]) -> dict:
+    """The Kamino-shaped question: did the realized Monday move cross the
+    liquidation threshold for a borrower originated at max-LTV, and did each
+    method's lower bound *predict* that crossing?
+
+    A borrower originated at max-LTV with debt = max_ltv * fri_close * Q gets
+    liquidated when collateral price falls to ``breach_price = fri_close *
+    max_ltv / liq_threshold``. Below that price the new LTV exceeds the
+    liquidation threshold.
+
+    For SPY at LTV=73, liq=75, the breach price is fri_close * 0.9733 — i.e.
+    a 2.67% downside move triggers liquidation. That ~2.67% is the "trigger
+    drop" we report; it's the actually-deployed Kamino tolerance for a borrower
+    at the origination ceiling.
+
+    Per-method classification reduces to whether the method's lower bound is
+    at or below the breach price. Combined with whether the realized Monday
+    open also breached, we get a 2x2:
+
+      flagged & realized   = matched      (correct warning)
+      flagged & ¬realized  = preemptive   (safe-side false positive)
+      ¬flagged & realized  = missed       (dangerous false negative)
+      ¬flagged & ¬realized = silent_safe  (correct silence)
+
+    Aggregating ``matched`` and ``missed`` rates across many weekends is the
+    welfare-relevant comparison for a Kamino-shaped consumer; this function
+    produces the per-(symbol, weekend) inputs to that aggregation.
+    """
+    max_ltv = reserve_cfg["loan_to_value_pct"] / 100.0
+    liq = reserve_cfg["liquidation_threshold_pct"] / 100.0
+    breach_price = fri_close * max_ltv / liq
+    trigger_drop_bps = (breach_price - fri_close) / fri_close * 1e4  # negative
+    realized_gap_bps = ((mon_open - fri_close) / fri_close) * 1e4 if mon_open is not None else None
+    realized_breach = (mon_open is not None) and (mon_open <= breach_price)
+
+    out: dict = {
+        "max_ltv_pct": reserve_cfg["loan_to_value_pct"],
+        "liq_threshold_pct": reserve_cfg["liquidation_threshold_pct"],
+        "ltv_gap_pp": reserve_cfg["liquidation_threshold_pct"] - reserve_cfg["loan_to_value_pct"],
+        "breach_price": breach_price,
+        "trigger_drop_bps": trigger_drop_bps,
+        "realized_gap_bps": realized_gap_bps,
+        "realized_breach": realized_breach,
+        "methods": {},
+    }
+    for method, lower in lower_per_method.items():
+        if lower is None or lower <= 0:
+            out["methods"][method] = {"classification": "n/a"}
+            continue
+        flagged = lower <= breach_price
+        if flagged and realized_breach:
+            cls = "matched"
+        elif flagged and not realized_breach:
+            cls = "preemptive"
+        elif (not flagged) and realized_breach:
+            cls = "missed"
+        else:
+            cls = "silent_safe"
+        out["methods"][method] = {
+            "lower": lower,
+            "lower_distance_bps": (lower - fri_close) / fri_close * 1e4,
+            "flagged_breach": flagged,
+            "classification": cls,
+        }
+    return out
+
+
 def compute_simple_heuristic(fri_close: float, v5: pd.DataFrame) -> dict:
     """±max(|cl_tokenized_px - Fri_close|) observed over the weekend.
     Falls back to ±0.0 if V5 tape didn't cover."""
@@ -336,15 +404,26 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
         # For incumbent, the conservative-protocol view is the Scope-served price at Monday open (NOT
         # the heuristic guard rail), because that is what the protocol actually consumes for LTV.
         kamino_lower_for_decision = scope_mon_px if scope_mon_px is not None else fri_close
+        method_lowers = {
+            "kamino_incumbent": kamino_lower_for_decision,
+            "soothsayer_t085": s85["lower"],
+            "soothsayer_t095": s95["lower"],
+            "simple_heuristic": heuristic["lower"],
+        }
         decisions = decisions_under_reserve(
-            lower_per_method={
-                "kamino_incumbent": kamino_lower_for_decision,
-                "soothsayer_t085": s85["lower"],
-                "soothsayer_t095": s95["lower"],
-                "simple_heuristic": heuristic["lower"],
-            },
+            lower_per_method=method_lowers,
             reserve_cfg=r["config"],
             fri_close=fri_close,
+        )
+
+        # The Kamino-shaped question: did the realized move cross the
+        # liquidation threshold for a max-LTV borrower, and did each method
+        # warn? See ltv_gap_breach() for the 2x2 classification.
+        breach = ltv_gap_breach(
+            reserve_cfg=r["config"],
+            fri_close=fri_close,
+            mon_open=mon_open,
+            lower_per_method=method_lowers,
         )
 
         rows.append({
@@ -367,6 +446,7 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
             "scope_monday_price": scope_mon_px,
             "bands": bands,
             "decisions": decisions,
+            "ltv_gap_breach": breach,
         })
         # Compact stdout summary.
         rgap = ((mon_open - fri_close) / fri_close) * 1e4
@@ -374,8 +454,10 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
             f"{m[:8]}={'✓' if b.get('coverage') else '✗' if b.get('coverage') is False else '?'}"
             for m, b in bands.items()
         )
+        breach_marker = "🔴 BREACH" if breach["realized_breach"] else "—"
         print(f"  [{x_sym:7s}] Fri ${fri_close:>7.2f}  Mon ${mon_open:>7.2f}  "
-              f"realized {rgap:+7.1f} bps   {cov_summary}")
+              f"realized {rgap:+7.1f} bps  trigger {breach['trigger_drop_bps']:+7.1f} bps  "
+              f"{breach_marker}   {cov_summary}")
 
     out = {
         "friday": friday.isoformat(),

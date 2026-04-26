@@ -13,13 +13,13 @@ Structure follows the spec's three sections:
     Per (symbol, weekend): Kamino reserve config snapshot, oracle path,
     Friday close, observed weekend tape range, Monday open.
 
-  Section 2 — Who covered the realized move
+  Section 2 — Coverage context for the same weekend
     Compact coverage + half-width table across the four methods.
     Kamino's PriceHeuristic is reported as a validity guard rail, NOT a
     coverage band — it is included in Section 1 as a recorded incumbent
     parameter rather than scored alongside Soothsayer.
 
-  Section 3 — Lending consequence under real reserve params
+  Section 3 — Primary comparison: lending consequence under real reserve params
     Decision classification at near-origination and near-liquidation
     borrower states for each method's lower bound, evaluated against the
     actually-deployed (loan_to_value_pct, liquidation_threshold_pct).
@@ -128,14 +128,17 @@ def render_markdown(data: dict) -> str:
     md.append("\n")
 
     # --- Section 2: Coverage of realized move -------------------------
-    md.append("## Section 2 — Who covered the realized move\n")
+    md.append("## Section 2 — Coverage context for the same weekend\n")
     md.append(
         "Coverage and half-width comparison across the three methods that publish a "
         "coverage band: Soothsayer at τ=0.85 (deployment default), Soothsayer at τ=0.95 "
         "(stricter oracle-validation comparator), and a simple free-data heuristic "
         "(`Friday close ± max(|Chainlink tokenizedPrice − Friday close|)` over the V5 tape). "
-        "Excess width is half-width minus the realized absolute move; positive values "
-        "indicate over-protection, negative values indicate the band missed the move.\n"
+        "This section is descriptive rather than load-bearing: the more important question for "
+        "Kamino-shaped protocols is how the same weekend interacts with the real reserve buffer "
+        "and near-threshold borrower states. Excess width is half-width minus the realized "
+        "absolute move; positive values indicate over-protection, negative values indicate the "
+        "band missed the move.\n"
     )
     md.append(
         "| Symbol | Realized (bps) | "
@@ -178,7 +181,7 @@ def render_markdown(data: dict) -> str:
     )
 
     # --- Section 3: Lending consequence under real reserve params -----
-    md.append("\n## Section 3 — Lending consequence under real reserve params\n")
+    md.append("\n## Section 3 — Primary comparison: lending consequence under real reserve params\n")
     md.append(
         "For each method's lower bound, what does the same reserve config classify a "
         "near-origination borrower (debt sized to LTV = max-LTV − 0.5pp) and a "
@@ -186,7 +189,8 @@ def render_markdown(data: dict) -> str:
         "Monday? `Kamino-incumbent` uses the Scope-served Monday-open price (or Friday close as "
         "fallback when Scope tape is absent for past weekends) — this is the *actually-deployed* "
         "incumbent decision rule, not a reconstruction. Soothsayer rows use the band's lower bound "
-        "as the conservative collateral price.\n"
+        "as the conservative collateral price. This is the section to read first if the question is "
+        "whether the closed-market signal changes reserve-buffer-relevant decisions.\n"
     )
     md.append(
         "| Symbol | LTV / liq / gap | Method | Near-origination | Near-liquidation | Effective LTV (orig / liq) |\n"
@@ -210,7 +214,8 @@ def render_markdown(data: dict) -> str:
     md.append("\n### Decision divergence summary\n")
     md.append(
         "Cases where Soothsayer (τ=0.85) and Kamino-incumbent reach a *different* classification "
-        "for the near-liquidation borrower. These are the cells the pitch deck is interested in:\n\n"
+        "for the near-liquidation borrower. Treat this as a one-week illustration of the decision "
+        "surface, not a welfare conclusion by itself:\n\n"
     )
     md.append("| Symbol | Realized (bps) | Kamino near-liq | Soothsayer τ=0.85 near-liq | Direction |\n")
     md.append("|---|---:|---|---|---|\n")
@@ -231,8 +236,91 @@ def render_markdown(data: dict) -> str:
     if n_diverge == 0:
         md.append("| *(no divergences this weekend)* | | | | |\n")
     md.append(
-        f"\n**Decision divergence count this weekend: {n_diverge} of {n} symbols** "
-        f"on the near-liquidation borrower.\n"
+        f"\n**Single-week decision divergence: {n_diverge} of {n} symbols** "
+        f"on the near-liquidation borrower. The meaningful aggregate is the cross-week "
+        f"false-liquidation and missed-risk rate under the same reserve parameters.\n"
+    )
+
+    # --- Section 4: LTV-gap breach analysis (the Kamino-shaped question) ----
+    md.append("\n## Section 4 — LTV-gap breach analysis (the actually-Kamino-shaped metric)\n")
+    md.append(
+        "The metrics above (coverage, decision-classification) ask Soothsayer-shaped questions. "
+        "Kamino consumes a Scope-served *point* and applies an `(LTV-at-origination, "
+        "liquidation-threshold)` gap, not a coverage band. The question its risk team would "
+        "actually ask is: *did the realized Monday move cross the threshold below which a "
+        "borrower originated at max-LTV gets liquidated, and did each method's lower bound "
+        "warn about that breach beforehand?*\n\n"
+        "For a borrower originated at the LTV ceiling on Friday, the **trigger drop** is "
+        "`(max_ltv / liq_threshold − 1) × Friday close`. Below that price the new LTV exceeds "
+        "the liquidation threshold. Per-method classification is a 2×2: a method **flags** the "
+        "breach if its lower bound is at or below the trigger price; the realized move "
+        "**breaches** if Monday open is at or below the trigger price.\n\n"
+        "  - `matched` — flagged AND realized → correct warning\n"
+        "  - `preemptive` — flagged but not realized → safe-side false positive\n"
+        "  - `missed` — not flagged but realized → dangerous false negative\n"
+        "  - `silent_safe` — not flagged AND not realized → correct silence\n"
+    )
+    md.append(
+        "\n| Symbol | Trigger drop (bps) | Realized (bps) | Realized breach? | "
+        "Kamino-incumbent | Soothsayer τ=0.85 | Soothsayer τ=0.95 | Simple heuristic |\n"
+    )
+    md.append("|---|---:|---:|---|---|---|---|---|\n")
+    for r in rows:
+        b = r["ltv_gap_breach"]
+        breach_marker = "🔴 **YES**" if b["realized_breach"] else "—"
+
+        def cell(method: str) -> str:
+            info = b["methods"].get(method, {})
+            cls = info.get("classification", "n/a")
+            if cls == "n/a":
+                return "n/a"
+            ld = info.get("lower_distance_bps")
+            ld_str = f"({ld:+.0f}bps)" if ld is not None else ""
+            tag = {
+                "matched": "✓ matched",
+                "preemptive": "⚠️ preemptive",
+                "missed": "🔴 missed",
+                "silent_safe": "✓ silent_safe",
+            }.get(cls, cls)
+            return f"{tag} {ld_str}"
+
+        md.append(
+            f"| **{r['symbol']}** | {b['trigger_drop_bps']:+.1f} | "
+            f"{b['realized_gap_bps']:+.1f} | {breach_marker} | "
+            f"{cell('kamino_incumbent')} | {cell('soothsayer_t085')} | "
+            f"{cell('soothsayer_t095')} | {cell('simple_heuristic')} |\n"
+        )
+
+    # Aggregate per-method breach counts.
+    counts = {m: {"matched": 0, "preemptive": 0, "missed": 0, "silent_safe": 0, "n/a": 0}
+              for m in ("kamino_incumbent", "soothsayer_t085", "soothsayer_t095", "simple_heuristic")}
+    n_breached = 0
+    for r in rows:
+        b = r["ltv_gap_breach"]
+        if b["realized_breach"]:
+            n_breached += 1
+        for method, info in b["methods"].items():
+            cls = info.get("classification", "n/a")
+            if method in counts:
+                counts[method][cls] = counts[method].get(cls, 0) + 1
+
+    md.append(
+        f"\n**Aggregate this weekend:** {n_breached} of {n} symbols realized a breach "
+        f"(Monday open below the LTV-gap trigger). Per-method tallies:\n\n"
+    )
+    md.append("| Method | matched | preemptive | missed | silent_safe |\n")
+    md.append("|---|---:|---:|---:|---:|\n")
+    for method, c in counts.items():
+        md.append(
+            f"| `{method}` | {c['matched']} | {c['preemptive']} | "
+            f"{c['missed']} | {c['silent_safe']} |\n"
+        )
+    md.append(
+        "\n*Welfare-relevant ratios over time:* the cross-week ratio of `matched / "
+        "(matched + missed)` is the *recall* on actual breaches, and "
+        "`matched / (matched + preemptive)` is the *precision* on flagged breaches. "
+        "A single weekend with no breaches doesn't distinguish the methods on this axis; "
+        "the comparison emerges over multiple weekends.\n"
     )
 
     # --- Honest framing ----------------------------------------------
@@ -273,10 +361,10 @@ def render_html(data: dict) -> str:
     html.append(f'  <h2>Kamino xStocks — weekend comparator: {data["friday"]} → {data["monday"]}</h2>\n')
     html.append(
         f'  <p class="kamino-weekend__caption">'
-        f'Forward-running comparator that scores Soothsayer bands against the realized Monday open '
-        f'under Kamino\'s actually-deployed xStock reserve parameters. All 8 xStocks live in one '
-        f'lending market and consume Scope as primary oracle. Reserve config snapshot from '
-        f'{data["snapshot_used"]}. Reproducible from the on-chain klend program.'
+        f'Forward-running comparator that tracks how Soothsayer\'s closed-market signal maps into '
+        f'Kamino\'s actually-deployed xStock reserve buffers and near-threshold borrower states. '
+        f'All 8 xStocks live in one lending market and consume Scope as primary oracle. Reserve '
+        f'config snapshot from {data["snapshot_used"]}. Reproducible from the on-chain klend program.'
         f'</p>\n'
     )
     html.append('  <table class="kamino-weekend__table"><thead><tr>')
@@ -310,9 +398,10 @@ def render_html(data: dict) -> str:
         f'  <p class="kamino-weekend__summary">'
         f'<strong>{n_diverge} of {n} xStocks</strong> reach a different near-liquidation '
         f'classification under Soothsayer τ=0.85 vs Kamino-incumbent on this weekend. '
-        f'Coverage rates: Soothsayer τ=0.85 = {rate(cov_85)}, '
-        f'Soothsayer τ=0.95 = {rate(cov_95)}. One weekend is a small sample; '
-        f'the meaningful aggregate emerges across multiple weekends.'
+        f'Coverage context: Soothsayer τ=0.85 = {rate(cov_85)}, '
+        f'Soothsayer τ=0.95 = {rate(cov_95)}. This is a single-week illustration; the real '
+        f'comparison is the cross-week false-liquidation and missed-risk rate under the same '
+        f'reserve parameters.'
         f'</p>\n'
     )
     html.append('</section>\n')
