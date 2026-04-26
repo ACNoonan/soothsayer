@@ -11,7 +11,16 @@
 
 ## 1. One-sentence pitch
 
-Build the first public **xStocks-on-Kamino + MarginFi liquidation dataset** with reconstructed calibration-transparent oracle bands, publish empirical findings on whether oracle-extractable value (OEV) concentrates at oracle-band-edge events, and specify a band-conditional auction overlay on Pyth Express Relay that — if adopted — eliminates the very rent the dataset documents. Deliverables: an open dataset, an open-source reconstructor, a peer-reviewable paper, and a mechanism-design memo to Pyth and Kamino.
+Build the first public **xStocks-on-Kamino + MarginFi liquidation dataset** with reconstructed calibration-transparent oracle bands, publish empirical findings on whether oracle-extractable value (OEV) concentrates at oracle-band-edge events, and specify a band-conditional auction overlay on Pyth Express Relay that, if adopted, eliminates the very rent the dataset documents. Deliverables: an open dataset, an open-source reconstructor, a peer-reviewable paper, and a mechanism-design memo to Pyth and Kamino.
+
+### Why this fits a Solana Foundation grant
+
+This proposal is a good fit for the Foundation because it finances a public-good artifact the private market is unlikely to produce on its own:
+
+- **Open infrastructure, not a closed trading edge.** The core deliverables are a dataset, reconstructor, paper, and mechanism memo released under permissive licenses.
+- **Direct relevance to a live Solana problem.** The work targets tokenized-stock lending, Pyth Express Relay, Jito bundles, and the protocols where Solana already has real deployment stakes.
+- **Measurable ecosystem outcome.** Success is not "we think the mechanism is better"; success is a public panel, a testable empirical result, and a deployable specification for reducing OEV rents.
+- **Honest technical scope.** Paper 1 already identifies the current system's boundaries. The grant funds the next research step with those boundaries treated as milestones rather than hidden caveats.
 
 ---
 
@@ -41,6 +50,20 @@ H₁ is not a conjecture — it has been measured retrospectively on the 12-year
 
 Full analysis: [`reports/band_edge_oev_oos_counterfactual.md`](../reports/band_edge_oev_oos_counterfactual.md) and companion [`reports/band_edge_oev_analysis.md`](../reports/band_edge_oev_analysis.md). The grant funds a *deployed* test of this retrospective: instrumenting xStocks-on-Kamino + MarginFi liquidations against reconstructed Soothsayer bands to confirm whether the predicted ~3.5× dominance ratio holds on real liquidation events — and to specify the band-conditional auction overlay that captures it.
 
+### Why the current statistical gaps strengthen the grant case
+
+Paper 1's current boundary conditions are precisely the reason this grant is worth funding rather than a reason to defer it. The present Soothsayer system is already a meaningful improvement over stale / opaque off-hours oracle designs, but the diagnostics also say exactly what V2 must improve: the per-anchor buffer is still heuristic rather than theorem-backed; Berkowitz rejects, so the system is not yet a full-distribution-calibrated density forecast; DQ rejects, so residual multi-lag conditional structure remains in the hit sequence; and there is no live Solana deployment window yet. The grant turns those from paper-side disclosures into a funded research program on the chain where the deployment stakes are real.
+
+Concretely, the same infrastructure needed for the band-edge OEV panel also closes the main Paper 1 follow-ups:
+
+- **Live deployment window.** Running the band-aware reconstructor and liquidation tape in production yields the first consumer-experienced coverage evidence rather than a backtest-only read.
+- **MEV-aware calibration.** The bundle-level reconstruction needed for Paper 2 also lets us measure the gap between venue-reference coverage and consumer-experienced coverage near band edges.
+- **On-chain signal upgrades.** The xStocks / Pyth / Kamino tape is the missing dataset for validating an `F_tok` forecaster that consumes tokenized-stock prices directly rather than treating them as future work.
+- **Rolling rebuilds.** A grant-funded live window is the natural place to re-measure `BUFFER_BY_TARGET` on a schedule and test whether the current heuristic can be replaced by a more stable continuous correction.
+- **Mechanism-design leverage.** If band-edge events are where OEV concentrates, then the same statistical gaps that motivate better calibration also increase the value of a band-aware auction overlay.
+
+For a funder, this is the key point: the proposal does not ask Solana Foundation to underwrite open-ended research exploration. It asks the Foundation to fund a tightly linked package where the same deployment and data-collection work advances (i) a public OEV dataset, (ii) a mechanism-design output for a Solana-native auction surface, and (iii) the next empirical upgrade cycle of the underlying calibration-transparent oracle.
+
 ---
 
 ## 3. Why this is a Solana-specific public good
@@ -55,7 +78,7 @@ Full analysis: [`reports/band_edge_oev_oos_counterfactual.md`](../reports/band_e
 
 ## 4. Public-good output
 
-All four deliverables released under permissive licenses (MIT for code, CC-BY for dataset/paper).
+All four deliverables released under permissive licenses (MIT for code, CC-BY for dataset/paper). The project is structured so that every milestone leaves behind a reusable ecosystem artifact even if later milestones slip.
 
 1. **Open dataset: `solana-oev-band-edge-2026`.** xStocks-on-Kamino + MarginFi liquidations from 2025-07-14 (xStocks launch) through grant end. Every event labelled with: pre-update Pyth/Switchboard price, post-update price, realised liquidation price, reconstructed Soothsayer band at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$, in-band vs out-of-band classification, realised liquidator profit, builder/searcher identity, Jito bundle metadata.
 2. **Open-source liquidation reconstructor.** Solana program logs + Pyth update timestamps + Jito bundle data → liquidation events with bid stacks. Reusable for other Solana lending protocols (Drift, Save, Loopscale).
@@ -98,7 +121,7 @@ All four deliverables released under permissive licenses (MIT for code, CC-BY fo
 | 3 | H₀-vs-H₁ test result with bootstrap CIs | Result reported regardless of sign; publication-grade sensitivity grid |
 | 4 | Paper draft + open dataset + mechanism-design memo to Pyth/Kamino | arXiv submission ready; dataset on HuggingFace + Solana Foundation repository |
 
-Each milestone produces a public artifact released under permissive license; failure to reach a milestone does not block release of work-to-date.
+Each milestone produces a public artifact released under permissive license; failure to reach a milestone does not block release of work-to-date. This is deliberate de-risking for the funder: the grant does not hinge on a single all-or-nothing paper outcome.
 
 ---
 
@@ -108,7 +131,7 @@ Total ask: **$50,000** (4 months × $12,500/month). Range $25k (lower-bound) to 
 
 **Public-good justification.**
 - **First Solana OEV panel.** Andreoulis et al. (Springer, MARBLE 2025) is the leading academic OEV dataset for Aave V2/V3 across Ethereum and major rollups. There is no equivalent for Solana. The grant produces the cross-chain comparator the OEV-research conversation is actively waiting for, anchored on the chain where tokenized-RWA lending has the largest 2026 deployment surface.
-- **Deployable mechanism leverage.** The dataset is not the end-state — it grounds a concrete, deployable upgrade (band-conditional overlay) to Pyth Express Relay, the Solana-native OEV auction every major Solana lending protocol either uses or evaluates. Welfare improvement is measurable on the same panel the grant produces.
+- **Deployable mechanism leverage.** The dataset is not the end-state; it grounds a concrete, deployable upgrade (band-conditional overlay) to Pyth Express Relay, the Solana-native OEV auction every major Solana lending protocol either uses or evaluates. Welfare improvement is measurable on the same panel the grant produces.
 - **Researcher subsidy already paid.** Phase 0 (methodology pivot, calibration surface, two paper drafts, ablation suite) was completed self-funded on $0 by 2026-04-25. The grant accelerates work already in motion, not work being started cold. The retrospective §2 evidence ($283,745/yr/$1M notional band-aware advantage at τ=0.95, OOS) is the empirical motivation for the live test, not a profit projection for the funder.
 - **Lower-bound vs upper-bound.** $25k delivers the xStocks-only dataset, reconstructor, and paper. $50k adds the mechanism-design memo and the Pyth/Kamino briefing materials. $100k extends the dataset to Drift / Save / Loopscale, materially broadening Solana lending-stack coverage.
 
@@ -152,6 +175,15 @@ The success of the public-good deliverable is therefore aligned-by-construction 
 - **R2 — Sample size on xStocks is too small.** xStocks launched 2025-07-14; by grant start there will be ~9 months of liquidation data. Mitigated by: (a) extending the panel to BTC, SOL, and other liquid Kamino/MarginFi collateral for power, (b) reporting xStocks-specific results separately as the deployment-target analysis.
 - **R3 — Pyth Express Relay's auction specifics are partly opaque.** Mitigated by direct outreach to Pyth Data Association (open-source contributors are responsive); we will document any API uncertainty in the dataset README and in the paper.
 - **R4 — Solo-researcher bandwidth.** The Soothsayer Phase 1 work (devnet deploy + Paper 1 finish + Paper 3 first draft) is concurrent. Mitigated by: 4-month timeline includes ~50% FTE bandwidth, and Paper 2 mechanism-design (theoretical) work is sequenced after this grant rather than in parallel.
+
+### Funder read on risk
+
+The proposal is intentionally structured so that the downside cases still produce useful public goods:
+
+- If the effect is smaller than expected, the Foundation still gets the first Solana OEV panel.
+- If the mechanism overlay is not yet deployable, the Foundation still gets the measurement layer that future teams can build on.
+- If xStocks-specific power is limited, the panel still generalises to other Kamino / MarginFi collateral and keeps xStocks as the headline deployment case.
+- If the final output is "only" a strong paper plus open dataset, that is still a meaningful ecosystem artifact for a grant in the research/public-goods bucket.
 
 ---
 

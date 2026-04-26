@@ -4,15 +4,23 @@
 
 # soothsayer
 
-**A calibration-transparent fair-value oracle for tokenized RWAs on Solana.**
+> **Real-world assets don't sleep on the weekend.**
 
-Soothsayer publishes a fair-value estimate plus an **auditable empirical confidence band** for tokenized equities (xStocks) and other closed-market RWAs during weekend, overnight, and halt windows — the hours when Chainlink Data Streams carries stale values, Pyth's Blue Ocean coverage drops off, and RedStone Live relies on undisclosed methodology.
+The promise of tokenized equities is real 24/7, permissionless markets. The missing infrastructure is a defensible closed-market price. Soothsayer publishes a **calibration-transparent fair-value band** for tokenized RWAs on Solana — built for the weekend, overnight, and halt windows where Chainlink Data Streams holds stale fields, Pyth + Blue Ocean still hand back the weekend, and RedStone Live runs on undisclosed methodology.
 
-The product shape is different from every other oracle on Solana: **consumers specify the realized coverage level they need, and Soothsayer returns the band that empirically delivers it — with per-(symbol, regime) receipts backed by 12 years of public data.**
+The product shape is different from every other oracle on Solana: **consumers specify the realised coverage level they need, and Soothsayer returns the band that empirically delivers it** — with per-(symbol, regime) audit receipts backed by 12 years of public data. It is designed to be read **alongside** a primary price oracle, not to replace one. The moat is *calibration transparency*, not "our math is better."
 
-It is designed to be read **alongside** a primary price oracle, not to replace one. The moat is *calibration transparency*, not "our math is better."
+**Hard facts.** Held-out 2023+ slice (1,720 rows × 172 weekends × 10 tickers, temporally disjoint from the calibration window) delivers Kupiec + Christoffersen passes at three operating points:
 
-> **Status (2026-04-25):** Phase 0 validation complete; **full PASS**. On a held-out 2023+ slice (1,720 rows × 172 weekends, temporally disjoint from the surface's training window), the served Oracle delivers Kupiec + Christoffersen passes at three operating points — τ=0.95 → realised 0.950 ($p_{uc}$=1.000, $p_{ind}$=0.485); τ=0.85 → realised 0.855 ($p_{uc}$=0.541, $p_{ind}$=0.185); τ=0.68 → realised 0.678 ($p_{uc}$=0.893, $p_{ind}$=0.647). τ=0.99 hits a structural finite-sample tail ceiling and is disclosed as out-of-scope for v1. Phase 1 underway: devnet deploy + Paper 1 to arXiv + Paper 2 (OEV mechanism design) and Paper 3 (liquidation policy) plans being developed in parallel. Source-of-truth log: [`reports/methodology_history.md`](reports/methodology_history.md). Paper drafts: [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) (in flight), [`reports/paper2_oev_mechanism_design/`](reports/paper2_oev_mechanism_design/) (planning), [`reports/paper3_liquidation_policy/`](reports/paper3_liquidation_policy/) (planning). See also [`reports/v1b_decision.md`](reports/v1b_decision.md), [`reports/v1b_calibration.md`](reports/v1b_calibration.md), and [`reports/option_c_spec.md`](reports/option_c_spec.md).
+| τ | Realised | Half-width (bps) | Kupiec $p_{uc}$ | Christoffersen $p_{ind}$ |
+|---:|---:|---:|---:|---:|
+| 0.68 | **0.678** | 135.9 | 0.893 | 0.647 |
+| 0.85 | **0.855** | 251.1 | 0.541 | 0.185 |
+| 0.95 | **0.950** | 456.0 | 1.000 | 0.485 |
+
+τ=0.99 hits a structural finite-sample tail ceiling and is disclosed as out-of-scope for v1. Full receipt: [`reports/v1b_calibration.md`](reports/v1b_calibration.md). Living methodology log: [`reports/methodology_history.md`](reports/methodology_history.md).
+
+> **Status (2026-04-25):** Phase 0 validation complete; **full PASS**. Phase 1 underway in parallel — devnet deploy + Paper 1 to arXiv + Paper 2 (OEV mechanism design) and Paper 3 (liquidation policy) plans. Paper drafts: [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) (in flight), [`reports/paper2_oev_mechanism_design/`](reports/paper2_oev_mechanism_design/) (planning), [`reports/paper3_liquidation_policy/`](reports/paper3_liquidation_policy/) (planning). See also [`reports/v1b_decision.md`](reports/v1b_decision.md) and [`reports/option_c_spec.md`](reports/option_c_spec.md).
 
 ## Why this exists
 
