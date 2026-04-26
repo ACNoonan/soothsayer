@@ -60,6 +60,18 @@
   nav.top .links a { font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--ink-dim); }
   nav.top .links a:hover { color: var(--ink); }
   nav.top .links a.active { color: var(--ink); }
+  /* View toggle pills */
+  .view-toggle {
+    display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--rule-strong);
+    border-radius: 999px; overflow: hidden; padding: 0;
+  }
+  .view-toggle a {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 8px 14px; color: var(--ink-dim);
+    border-radius: 999px;
+  }
+  .view-toggle a.active { background: var(--green); color: var(--bg); }
+  .view-toggle a:not(.active):hover { color: var(--ink); }
 
   /* HERO */
   header.dash-hero {
@@ -193,8 +205,10 @@
     </a>
     <div class="links">
       <a href="/">home</a>
-      <a href="dashboard.html" class="active">dashboard</a>
-      <a href="pitch.html">pitch</a>
+      <span class="view-toggle">
+        <a href="dashboard-narrative.html">Receipts</a>
+        <a href="dashboard.html" class="active">Methodology</a>
+      </span>
       <a href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">github ↗</a>
     </div>
   </div>

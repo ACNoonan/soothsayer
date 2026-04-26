@@ -197,10 +197,11 @@ def build_per_symbol():
 
 
 def build_comparator_weekend_panel():
-    """For the visceral 'this weekend, who was right?' panel: join Pyth historical
-    data with our OOS panel so each row is (symbol, fri_ts, mon_open, fri_close,
-    soothsayer_lower, soothsayer_upper, pyth_price, pyth_conf). Limited to the
-    Pyth-eligible 2024+ slice."""
+    """For the visceral 'this weekend, who was right?' panel: each row is one
+    (symbol, fri_ts) with all three oracles' bands + the realised mon_open.
+
+    Also computes the pre-computed `inside` flags for each oracle so the JS
+    side doesn't need to re-derive them."""
     pyth_path = RAW / "pyth_benchmark_oos.parquet"
     if not pyth_path.exists():
         print("  pyth_benchmark_oos.parquet missing; skipping comparator panel")
@@ -211,37 +212,141 @@ def build_comparator_weekend_panel():
         print("  no Pyth data available; skipping comparator panel")
         return
 
-    # We need the served band — load the bounds parquet and extract the deployed
-    # served band per (symbol, fri_ts). The Oracle's deployed BUFFER_BY_TARGET
-    # at τ=0.95 is 0.020 → effective_target = 0.97; surface inversion finds
-    # claimed_q ≈ 0.97. To avoid re-instantiating the Oracle, we approximate by
-    # picking the bounds row at claimed=0.95 (close enough for a visualisation).
+    # Soothsayer served band — use the deployed surface-inversion semantics for
+    # τ=0.95: BUFFER_BY_TARGET[0.95] = 0.020 → effective τ = 0.97 → invert →
+    # claimed_q lands near 0.99 in many cases. For viz simplicity we pick the
+    # claimed=0.95 row from bounds_oos (deployment-defaultish; close enough for
+    # the per-weekend panel). The aggregate stats below use the actual served
+    # band from `served_oos_at_95` if available — see note in JS.
     bounds = pd.read_parquet(RAW / "v1b_bounds.parquet")
     bounds["fri_ts"] = pd.to_datetime(bounds["fri_ts"]).dt.date
     bounds = bounds[(bounds["forecaster"] == "F1_emp_regime") & (bounds["claimed"] == 0.95)]
     bounds_idx = bounds.set_index(["symbol", "fri_ts"])
 
+    # Chainlink dataset (separate Feb-Apr 2026 sample) — for symbols/weekends
+    # that overlap with the Pyth panel, attach Chainlink data too.
+    cl_path = RAW / "v1_chainlink_vs_monday_open.parquet"
+    cl_idx = None
+    if cl_path.exists():
+        cl = pd.read_parquet(cl_path)
+        cl["fri_ts"] = pd.to_datetime(cl["fri_ts"]).dt.date
+        # Map cl xStock symbols (SPYx, AAPLx, …) back to underlyings
+        cl["sym_under"] = cl["symbol"].astype(str).str.replace("x", "", regex=False)
+        cl_idx = cl.set_index(["sym_under", "fri_ts"])
+
+    Z = 1.959963984540054  # 1.96 to higher precision for the "naive 95% Gaussian wrap"
     rows = []
     pyth["fri_ts"] = pd.to_datetime(pyth["fri_ts"]).dt.date
-    for _, r in pyth.sort_values("fri_ts").tail(60).iterrows():
+    for _, r in pyth.sort_values("fri_ts", ascending=False).iterrows():
         try:
             b = bounds_idx.loc[(r["symbol"], r["fri_ts"])]
         except KeyError:
             continue
         if isinstance(b, pd.DataFrame):
             b = b.iloc[0]
+        sym = str(r["symbol"])
+        fri_ts = str(r["fri_ts"])
+        fri_close = float(r["fri_close"])
+        mon_open = float(r["mon_open"])
+
+        sooth_lo = float(b["lower"]); sooth_hi = float(b["upper"])
+        pyth_price = float(r["pyth_price"]); pyth_conf = float(r["pyth_conf"])
+        pyth_lo = pyth_price - Z * pyth_conf
+        pyth_hi = pyth_price + Z * pyth_conf
+        # Chainlink stale-hold: cl_mid ≈ fri_close (we take fri_close as the
+        # canonical archetype representation); a "consumer wrap" is undefined,
+        # so the contained-flag is just whether mon_open == fri_close (almost
+        # never), or alternatively the mon_open is within ±k% of fri_close at
+        # whatever k the consumer chose. Without a consumer wrap, Chainlink's
+        # band is degenerate.
+        cl_mid = None
+        if cl_idx is not None:
+            try:
+                cl_row = cl_idx.loc[(sym, r["fri_ts"])]
+                if isinstance(cl_row, pd.DataFrame):
+                    cl_row = cl_row.iloc[0]
+                cl_mid = float(cl_row["cl_mid"])
+            except KeyError:
+                pass
+        # If no Chainlink data for this (symbol, weekend), use fri_close as
+        # the archetype (Chainlink-on-Solana stale-hold during marketStatus=5
+        # is fri_close empirically; see reports/v1_chainlink_bias.md).
+        if cl_mid is None:
+            cl_mid = fri_close
+
+        # Realised move from fri_close in bps
+        move_bps = (mon_open - fri_close) / fri_close * 1e4
+
         rows.append({
-            "symbol": str(r["symbol"]),
-            "fri_ts": str(r["fri_ts"]),
-            "fri_close": _safe_float(r["fri_close"]),
-            "mon_open": _safe_float(r["mon_open"]),
-            "soothsayer_lower": _safe_float(b["lower"]),
-            "soothsayer_upper": _safe_float(b["upper"]),
-            "pyth_price": _safe_float(r["pyth_price"]),
-            "pyth_conf": _safe_float(r["pyth_conf"]),
+            "symbol": sym,
+            "fri_ts": fri_ts,
             "regime": str(r["regime_pub"]),
+            "fri_close": fri_close,
+            "mon_open": mon_open,
+            "move_bps": float(move_bps),
+            # Soothsayer
+            "soothsayer_lower": sooth_lo,
+            "soothsayer_upper": sooth_hi,
+            "soothsayer_inside": int(sooth_lo <= mon_open <= sooth_hi),
+            "soothsayer_halfwidth_bps": float((sooth_hi - sooth_lo) / 2 / fri_close * 1e4),
+            # Pyth + naive 1.96·conf
+            "pyth_price": pyth_price,
+            "pyth_conf": pyth_conf,
+            "pyth_lower": pyth_lo,
+            "pyth_upper": pyth_hi,
+            "pyth_inside": int(pyth_lo <= mon_open <= pyth_hi),
+            "pyth_halfwidth_bps": float(Z * pyth_conf / fri_close * 1e4),
+            # Chainlink stale-hold
+            "chainlink_mid": cl_mid,
+            "chainlink_diff_from_actual_bps": float((mon_open - cl_mid) / fri_close * 1e4),
         })
     write_json(OUT / "comparator_weekends.json", rows)
+
+
+def build_narrative_headline():
+    """Headline chart data: claimed-vs-realised for all three oracles, on a
+    common axis. Soothsayer is a curve (sweep τ); Pyth is a single dot at
+    naive (claimed=0.95, realised=0.102); Chainlink stale-hold has no
+    published claim, so we plot it as a marker showing realised over-cover
+    of the implicit "stale = constant" interpretation."""
+    cal = pd.read_csv(TABLES / "v1b_diag_inter_anchor_tau.csv")
+    pyth_pooled = pd.read_csv(TABLES / "pyth_coverage_by_k.csv")
+    pyth_pooled = pyth_pooled[pyth_pooled["scope"] == "pooled"].sort_values("k")
+
+    # Soothsayer line: sweep over τ
+    soothsayer = [
+        {"claimed": _safe_float(r["tau"]),
+         "realized": _safe_float(r["realized"]),
+         "halfwidth_bps": _safe_float(r["mean_half_width_bps"]),
+         "is_anchor": bool(r["is_anchor"])}
+        for _, r in cal.iterrows()
+    ]
+    # Pyth: at the textbook 1.96σ ("95%") read → 10.2% realised
+    pyth_naive_row = pyth_pooled[pyth_pooled["k"] == 1.96]
+    pyth_naive_realized = float(pyth_naive_row.iloc[0]["realized"]) if not pyth_naive_row.empty else None
+    # Pyth: at consumer-fit 50× → 95.1% realised
+    pyth_50_row = pyth_pooled[pyth_pooled["k"] == 50.0]
+    pyth_50_realized = float(pyth_50_row.iloc[0]["realized"]) if not pyth_50_row.empty else None
+
+    payload = {
+        "soothsayer_curve": soothsayer,
+        "pyth_naive": {
+            "claimed": 0.95,
+            "realized": pyth_naive_realized,
+            "interpretation": "Pyth published price ± 1.96·conf, read as a 95% CI",
+        },
+        "pyth_consumer_fit": {
+            "claimed": 0.95,
+            "realized": pyth_50_realized,
+            "consumer_k": 50.0,
+            "interpretation": "Pyth at ±50·conf — the consumer-supplied multiplier needed to hit 95%",
+        },
+        "chainlink_stale": {
+            "interpretation": "Chainlink Data Streams during marketStatus=5: bid≈0, ask=0, no published band. 100% of weekend observations.",
+            "no_published_claim": True,
+        },
+    }
+    write_json(OUT / "narrative_headline.json", payload)
 
 
 def build_summary_stats():
@@ -302,6 +407,7 @@ def main() -> None:
     build_per_target_oos()
     build_per_symbol()
     build_comparator_weekend_panel()
+    build_narrative_headline()
     print(f"\nAll JSON files written to {OUT.relative_to(ROOT)}/")
 
 

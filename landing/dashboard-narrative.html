@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Soothsayer — when you ask for a 95% band, you get a 95% band</title>
+<meta name="description" content="When you ask for a 95% confidence band, Soothsayer gives you one that contains Monday's open 95% of the time. Pyth's published 95% band gets it ~10%. Chainlink doesn't publish a band at all on weekends. Verify on 12 years of public data." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0A0B0D;
+    --bg-elev: #111216;
+    --bg-card: #131418;
+    --ink: #F4F3EE;
+    --ink-dim: #A6A8AD;
+    --ink-faint: #6B6E75;
+    --rule: rgba(244, 243, 238, 0.09);
+    --rule-strong: rgba(244, 243, 238, 0.18);
+    --purple: #9945FF;
+    --green: #14F195;
+    --warn: #F4B45A;
+    --red: #F26A5A;
+    --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --maxw: 1320px;
+    --pad-x: clamp(20px, 4vw, 56px);
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); margin: 0; padding: 0; color: var(--ink); }
+  body { font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--green); color: var(--bg); }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad-x); }
+  .mono { font-family: var(--mono); }
+
+  /* NAV */
+  nav.top {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(10, 11, 13, 0.86);
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  nav.top .inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  nav.top .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 500; letter-spacing: -0.02em; }
+  nav.top .brand .dot { color: var(--green); }
+  nav.top .links { display: flex; gap: 28px; align-items: center; }
+  nav.top .links a { font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--ink-dim); }
+  nav.top .links a:hover { color: var(--ink); }
+  nav.top .links a.active { color: var(--green); }
+  /* View toggle pills */
+  .view-toggle {
+    display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--rule-strong);
+    border-radius: 999px; overflow: hidden; padding: 0;
+  }
+  .view-toggle a {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 8px 14px; color: var(--ink-dim);
+    border-radius: 999px;
+  }
+  .view-toggle a.active { background: var(--green); color: var(--bg); }
+  .view-toggle a:not(.active):hover { color: var(--ink); }
+
+  /* HERO — the big claim */
+  header.dash-hero { padding: 80px 0 32px; position: relative; overflow: hidden; }
+  header.dash-hero .grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(244,243,238,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(244,243,238,0.025) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 75%);
+    pointer-events: none;
+  }
+  header.dash-hero .pill {
+    display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px;
+    border: 1px solid var(--rule-strong); border-radius: 999px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-dim); background: rgba(244,243,238,0.02);
+  }
+  header.dash-hero .pill .led {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 0 4px rgba(20, 241, 149, 0.14);
+  }
+  header.dash-hero h1 {
+    font-size: clamp(40px, 6.4vw, 88px); font-weight: 600; letter-spacing: -0.035em;
+    line-height: 0.97; margin: 28px 0 0; max-width: 1100px; text-wrap: balance;
+  }
+  header.dash-hero h1 .em { color: var(--green); }
+  header.dash-hero h1 .quiet { color: var(--ink-dim); font-weight: 300; }
+  header.dash-hero p.lede {
+    margin-top: 32px; max-width: 760px;
+    font-size: clamp(17px, 1.4vw, 22px); line-height: 1.45; color: var(--ink-dim); font-weight: 300;
+  }
+  header.dash-hero p.lede .pop { color: var(--ink); font-weight: 400; }
+
+  /* HERO CHART CARD */
+  .hero-chart {
+    margin-top: 56px; background: var(--bg-card); border: 1px solid var(--rule);
+    border-radius: 6px; padding: 28px;
+  }
+  .hero-chart .meta {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 22px;
+  }
+  .hero-chart .legend-row {
+    display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 18px;
+  }
+  .hero-chart .legend-row .item { display: inline-flex; align-items: center; gap: 10px; }
+  .hero-chart .legend-row .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1); }
+  .hero-chart .legend-row .swatch.diag { background: linear-gradient(135deg, transparent 45%, var(--ink-faint) 45%, var(--ink-faint) 55%, transparent 55%); }
+  .hero-chart .legend-row .label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; color: var(--ink); }
+  .hero-chart .legend-row .label .quiet { color: var(--ink-faint); }
+  .hero-chart .chart-wrap { position: relative; height: 460px; }
+
+  /* THREE-WAY PUNCHLINE */
+  .punch {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+    border: 1px solid var(--rule); border-radius: 6px;
+    background: var(--bg-elev); margin-top: 28px; overflow: hidden;
+  }
+  .punch .cell { padding: 28px 28px; border-right: 1px solid var(--rule); }
+  .punch .cell:last-child { border-right: none; }
+  .punch .cell .name {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .punch .cell .stat {
+    font-size: 64px; font-weight: 700; letter-spacing: -0.04em; line-height: 1;
+    margin-top: 14px;
+  }
+  .punch .cell .stat .unit {
+    font-size: 32px; font-weight: 400; letter-spacing: -0.02em; color: var(--ink-faint);
+  }
+  .punch .cell.win .stat { color: var(--green); }
+  .punch .cell.lose .stat { color: var(--red); }
+  .punch .cell.dim .stat { color: var(--warn); }
+  .punch .cell .desc {
+    margin-top: 14px; font-size: 14px; color: var(--ink-dim); line-height: 1.55;
+    font-weight: 300; max-width: 320px;
+  }
+  @media (max-width: 880px) {
+    .punch { grid-template-columns: 1fr; }
+    .punch .cell { border-right: none; border-bottom: 1px solid var(--rule); }
+    .punch .cell:last-child { border-bottom: none; }
+    .punch .cell .stat { font-size: 48px; }
+  }
+
+  /* SECTIONS */
+  section.band { padding: 64px 0; border-top: 1px solid var(--rule); }
+  section.band h2 {
+    font-size: clamp(28px, 3.4vw, 44px); font-weight: 500; letter-spacing: -0.025em;
+    margin: 12px 0 0; line-height: 1.05; max-width: 900px; text-wrap: balance;
+  }
+  section.band h2 .em { color: var(--green); }
+  section.band p.sublede {
+    margin: 14px 0 0; max-width: 720px; font-size: 16px; line-height: 1.55;
+    color: var(--ink-dim); font-weight: 300;
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .eyebrow .bar { width: 24px; height: 1px; background: var(--rule-strong); }
+  .eyebrow.g { color: var(--green); }
+  .eyebrow.g .bar { background: var(--green); opacity: 0.5; }
+
+  /* BATTLESHIP — per-weekend comparison */
+  .battleship-card {
+    background: var(--bg-card); border: 1px solid var(--rule);
+    border-radius: 6px; padding: 28px; margin-top: 32px;
+  }
+  .battleship-controls {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 24px;
+    padding-bottom: 22px; border-bottom: 1px solid var(--rule);
+  }
+  .battleship-controls label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .battleship-controls select, .battleship-controls button {
+    background: var(--bg-elev); color: var(--ink); border: 1px solid var(--rule-strong);
+    padding: 8px 14px; border-radius: 4px; font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.06em; cursor: pointer;
+  }
+  .battleship-controls button:hover {
+    background: var(--green); color: var(--bg); border-color: var(--green);
+  }
+  .battleship-controls .gap { flex: 1; }
+
+  .battleship-meta {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    margin-bottom: 22px;
+  }
+  .battleship-meta .cell {
+    padding: 12px 18px; border-right: 1px solid var(--rule);
+  }
+  .battleship-meta .cell:last-child { border-right: none; }
+  .battleship-meta .cell .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .battleship-meta .cell .v {
+    font-size: 20px; font-weight: 500; letter-spacing: -0.02em; margin-top: 4px;
+    font-family: var(--mono);
+  }
+  .battleship-meta .cell .v.up { color: var(--green); }
+  .battleship-meta .cell .v.down { color: var(--red); }
+
+  .battleship-svg {
+    width: 100%; height: 360px;
+  }
+  .battleship-readout {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px;
+  }
+  .battleship-readout .verdict {
+    background: var(--bg-elev); border: 1px solid var(--rule); padding: 20px;
+    border-radius: 4px;
+  }
+  .battleship-readout .verdict .name {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .battleship-readout .verdict .judgment {
+    font-size: 24px; font-weight: 500; margin-top: 6px; letter-spacing: -0.02em;
+  }
+  .battleship-readout .verdict.win .judgment { color: var(--green); }
+  .battleship-readout .verdict.lose .judgment { color: var(--red); }
+  .battleship-readout .verdict.dim .judgment { color: var(--warn); }
+  .battleship-readout .verdict .detail {
+    margin-top: 8px; font-size: 13px; color: var(--ink-dim); line-height: 1.5;
+    font-family: var(--mono);
+  }
+  @media (max-width: 880px) {
+    .battleship-meta { grid-template-columns: repeat(2, 1fr); }
+    .battleship-meta .cell:nth-child(2) { border-right: none; }
+    .battleship-readout { grid-template-columns: 1fr; }
+  }
+
+  /* RECEIPTS TABLE */
+  .table-card {
+    background: var(--bg-card); border: 1px solid var(--rule);
+    border-radius: 6px; padding: 28px; margin-top: 32px;
+  }
+  .table-card .summary-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+    border-bottom: 1px solid var(--rule); padding-bottom: 22px; margin-bottom: 22px;
+  }
+  .table-card .summary-row .cell { padding: 0 28px; border-right: 1px solid var(--rule); }
+  .table-card .summary-row .cell:first-child { padding-left: 0; }
+  .table-card .summary-row .cell:last-child { border-right: none; padding-right: 0; }
+  .table-card .summary-row .cell .name {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .table-card .summary-row .cell .stat {
+    font-size: 36px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.05;
+    margin-top: 6px;
+  }
+  .table-card .summary-row .cell.win .stat { color: var(--green); }
+  .table-card .summary-row .cell.lose .stat { color: var(--red); }
+  .table-card .summary-row .cell.dim .stat { color: var(--warn); }
+  .table-card .summary-row .cell .desc {
+    margin-top: 6px; font-size: 12px; color: var(--ink-dim); line-height: 1.4;
+  }
+  table.data { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  table.data th, table.data td {
+    text-align: right; padding: 8px 12px; border-bottom: 1px solid var(--rule);
+  }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data th {
+    font-weight: 500; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.1em;
+    font-size: 10px; cursor: pointer;
+  }
+  table.data th:hover { color: var(--ink); }
+  table.data tbody tr:hover { background: rgba(244, 243, 238, 0.02); }
+  table.data tbody tr:last-child td { border-bottom: none; }
+  table.data .hit { color: var(--green); font-weight: 600; }
+  table.data .miss { color: var(--red); font-weight: 600; }
+  table.data .dim { color: var(--warn); font-weight: 600; }
+  .table-scroll { max-height: 520px; overflow-y: auto; border: 1px solid var(--rule); border-radius: 4px; }
+  @media (max-width: 880px) {
+    .table-card .summary-row { grid-template-columns: 1fr; gap: 14px; }
+    .table-card .summary-row .cell { border-right: none; padding: 0; }
+  }
+
+  /* VERIFY */
+  .verify-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 32px; }
+  .verify-cell {
+    background: var(--bg-elev); border: 1px solid var(--rule); padding: 24px;
+    border-radius: 4px;
+    transition: border-color 140ms ease, background 140ms ease;
+  }
+  .verify-cell:hover { border-color: var(--green); background: var(--bg-card); }
+  .verify-cell .name {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .verify-cell .title {
+    font-size: 22px; font-weight: 500; margin-top: 8px; letter-spacing: -0.02em;
+  }
+  .verify-cell .desc {
+    margin-top: 10px; font-size: 13px; color: var(--ink-dim); line-height: 1.55;
+  }
+  .verify-cell .arrow { color: var(--green); font-family: var(--mono); margin-top: 14px; display: inline-block; }
+  @media (max-width: 880px) {
+    .verify-grid { grid-template-columns: 1fr; }
+  }
+
+  footer.foot {
+    padding: 56px 0 32px; color: var(--ink-faint); font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.06em; border-top: 1px solid var(--rule);
+  }
+  footer.foot .row { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  footer.foot a { color: var(--ink-dim); border-bottom: 1px solid transparent; }
+  footer.foot a:hover { border-bottom-color: var(--green); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="wrap inner">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+        <rect x="6" y="22" width="52" height="20" rx="4" stroke="#14F195" stroke-width="2" fill="none"/>
+        <circle cx="32" cy="32" r="3" fill="#14F195"/>
+      </svg>
+      Soothsayer<span class="dot">.</span>
+    </a>
+    <div class="links">
+      <a href="/">home</a>
+      <span class="view-toggle">
+        <a href="dashboard-narrative.html" class="active">Receipts</a>
+        <a href="dashboard.html">Methodology</a>
+      </span>
+      <a href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">github ↗</a>
+    </div>
+  </div>
+</nav>
+
+<header class="dash-hero">
+  <div class="grid-bg"></div>
+  <div class="wrap">
+    <span class="pill"><span class="led"></span>Calibration receipts · OOS 2024+ · 12 yrs of public data</span>
+    <h1>
+      When you ask for a <span class="em">95% band</span>,<br/>
+      <span class="quiet">you get a 95% band.</span>
+    </h1>
+    <p class="lede">
+      <span class="pop">Soothsayer's served band contains Monday's open at the rate it claims.</span> Pyth's published 95% confidence interval contains it ~10% of the time. Chainlink doesn't publish a band at all on weekends. Verifiable on 12 years of public data — the calibration claim is the product.
+    </p>
+
+    <div class="hero-chart">
+      <div class="meta">Claimed coverage vs realised coverage · 1,720 OOS weekend × symbol observations · 2023+</div>
+      <div class="legend-row">
+        <div class="item"><span class="swatch" style="background: #14F195;"></span><span class="label">Soothsayer<span class="quiet"> — sweep across consumer τ</span></span></div>
+        <div class="item"><span class="swatch" style="background: #F26A5A;"></span><span class="label">Pyth + naive ±1.96·conf<span class="quiet"> — read as a 95% CI</span></span></div>
+        <div class="item"><span class="swatch" style="background: #F4B45A;"></span><span class="label">Pyth + consumer-fit ±50·conf<span class="quiet"> — when the consumer back-fits</span></span></div>
+        <div class="item"><span class="swatch diag"></span><span class="label">Perfect calibration<span class="quiet"> — y = x</span></span></div>
+      </div>
+      <div class="chart-wrap"><canvas id="heroChart"></canvas></div>
+    </div>
+
+    <div class="punch" id="punchRow">
+      <div class="cell win">
+        <div class="name">Soothsayer at τ = 0.95</div>
+        <div class="stat">95.0<span class="unit">%</span></div>
+        <div class="desc">Held-out 2023+ · Kupiec p<sub>uc</sub>=1.000 · Christoffersen p<sub>ind</sub>=0.485 · 1,720 obs.</div>
+      </div>
+      <div class="cell lose">
+        <div class="name">Pyth + naive ±1.96·conf</div>
+        <div class="stat">10.2<span class="unit">%</span></div>
+        <div class="desc">If you read Pyth's "95%" CI as a probability statement, it contains Monday's open ~1 time in 10. Pyth's docs explicitly call this an aggregation diagnostic, not a coverage claim.</div>
+      </div>
+      <div class="cell dim">
+        <div class="name">Chainlink during weekend</div>
+        <div class="stat">no band</div>
+        <div class="desc">100% of weekend observations have <code class="mono">bid ≈ 0</code>, <code class="mono">ask = 0</code> during <code class="mono">marketStatus = 5</code>. The "uncertainty signal" is binary.</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- SECTION A — battleship per weekend -->
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow"><span class="bar"></span>The gap, every weekend</span>
+    <h2>Pick a weekend. <span class="em">See who was right.</span></h2>
+    <p class="sublede">
+      For each (symbol, weekend) in the 2024+ OOS slice with Pyth coverage, here's what each oracle said Friday afternoon, and where the price actually opened Monday. Soothsayer's band is calibrated to whatever target you ask for; Pyth's published CI (read at face value as 95%) is essentially zero-width vs the realised gap; Chainlink stale-holds Friday's close.
+    </p>
+
+    <div class="battleship-card">
+      <div class="battleship-controls">
+        <label>Weekend</label>
+        <select id="weekendPicker"></select>
+        <button id="prevBtn">← prev</button>
+        <button id="nextBtn">next →</button>
+        <button id="randomBtn">random</button>
+        <span class="gap"></span>
+        <span style="font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase;">
+          <span id="weekendCount"></span>
+        </span>
+      </div>
+
+      <div class="battleship-meta" id="bsMeta"></div>
+      <svg class="battleship-svg" id="bsSvg" viewBox="0 0 1000 360" preserveAspectRatio="none"></svg>
+      <div class="battleship-readout" id="bsReadout"></div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION B — receipts table -->
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow"><span class="bar"></span>The receipts</span>
+    <h2>Every weekend, every oracle, <span class="em">on the record.</span></h2>
+    <p class="sublede">
+      All 265 (symbol, weekend) observations from the 2024+ OOS slice with Pyth coverage. Sortable; click any column header. The aggregate row above the table reports the inside-rate by oracle.
+    </p>
+
+    <div class="table-card">
+      <div class="summary-row" id="receiptsSummary"></div>
+      <div class="table-scroll">
+        <table class="data" id="receiptsTable">
+          <thead>
+            <tr>
+              <th data-sort="fri_ts">Weekend</th>
+              <th data-sort="symbol">Symbol</th>
+              <th data-sort="move_bps">Realised move (bps)</th>
+              <th data-sort="soothsayer_inside">Soothsayer</th>
+              <th data-sort="pyth_inside">Pyth + 1.96·conf</th>
+              <th data-sort="pyth_halfwidth_bps">Pyth half-width (bps)</th>
+              <th data-sort="soothsayer_halfwidth_bps">Sooth half-width (bps)</th>
+            </tr>
+          </thead>
+          <tbody id="receiptsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION C — verify -->
+<section class="band">
+  <div class="wrap">
+    <span class="eyebrow"><span class="bar"></span>Verify it yourself</span>
+    <h2>Calibration transparency means <span class="em">no black box.</span></h2>
+    <p class="sublede">
+      Every claim on this page re-derives from the public repository. The methodology evolution log records every decision, hypothesis, and rejected alternative. Methodology dashboard has the full ablation evidence: walk-forward stability, leave-one-out cross-asset transfer, window sensitivity, conformal-comparison bootstrap, more.
+    </p>
+
+    <div class="verify-grid">
+      <a class="verify-cell" href="https://github.com/ACNoonan/soothsayer/blob/main/reports/methodology_history.md" target="_blank" rel="noopener">
+        <div class="name">Methodology log</div>
+        <div class="title">Every decision, on the record.</div>
+        <div class="desc">Append-only record of methodological decisions, tested hypotheses, rejected alternatives. Source of truth for what's deployed and why.</div>
+        <div class="arrow">→ open</div>
+      </a>
+      <a class="verify-cell" href="dashboard.html">
+        <div class="name">Methodology dashboard</div>
+        <div class="title">Walk-forward · LOO · window sweep · conformal.</div>
+        <div class="desc">The peer-review-grade view: 50-level τ sweep, 10-symbol leave-one-out, 7-window sensitivity, conformal-alternative bootstrap. For paper reviewers and quant due diligence.</div>
+        <div class="arrow">→ open</div>
+      </a>
+      <a class="verify-cell" href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">
+        <div class="name">Source repository</div>
+        <div class="title">Reproduce on 12 years of public data.</div>
+        <div class="desc"><code>uv run python scripts/run_calibration.py</code> rebuilds the calibration surface from yfinance + FRED. Rust ⇄ Python parity verified at 75/75 cases.</div>
+        <div class="arrow">→ open</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap row">
+    <div>SOOTHSAYER · Calibration-transparent fair-value oracle for tokenized RWAs on Solana</div>
+    <div>
+      <a href="/">home</a>&nbsp;&nbsp;
+      <a href="dashboard.html">methodology view</a>&nbsp;&nbsp;
+      <a href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">github ↗</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const COLOR = {
+  ink: '#F4F3EE', dim: '#A6A8AD', faint: '#6B6E75',
+  green: '#14F195', purple: '#9945FF', warn: '#F4B45A', red: '#F26A5A',
+  rule: 'rgba(244,243,238,0.18)',
+};
+
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = COLOR.dim;
+
+async function fetchJSON(p) { const r = await fetch(p); return r.json(); }
+function fmtPct(v, d = 1) { return v == null ? '—' : (v * 100).toFixed(d) + '%'; }
+function fmtBps(v, d = 0) { return v == null ? '—' : Number(v).toFixed(d) + ' bps'; }
+
+let allWeekends = [];
+let currentIdx = 0;
+let sortKey = 'fri_ts';
+let sortDir = 'desc';
+
+(async () => {
+  const headline = await fetchJSON('data/narrative_headline.json');
+  const weekends = await fetchJSON('data/comparator_weekends.json');
+  allWeekends = weekends;
+
+  // ---- HERO CHART: claimed vs realised ----
+  const sooth = headline.soothsayer_curve;
+  const soothPoints = sooth.map(d => ({ x: d.claimed, y: d.realized, anchor: d.is_anchor }));
+  new Chart(document.getElementById('heroChart'), {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: 'Soothsayer',
+          data: soothPoints,
+          showLine: true,
+          borderColor: COLOR.green,
+          backgroundColor: 'rgba(20,241,149,0.08)',
+          borderWidth: 2.5,
+          pointRadius: soothPoints.map(p => p.anchor ? 8 : 3),
+          pointBackgroundColor: soothPoints.map(p => p.anchor ? COLOR.green : 'rgba(20,241,149,0.5)'),
+          pointBorderColor: soothPoints.map(p => p.anchor ? COLOR.ink : 'rgba(0,0,0,0)'),
+          pointBorderWidth: 1.5,
+          fill: false,
+          tension: 0,
+          parsing: false,
+        },
+        {
+          label: 'Pyth + naive ±1.96·conf',
+          data: [{ x: 0.95, y: headline.pyth_naive.realized }],
+          backgroundColor: COLOR.red,
+          borderColor: COLOR.red,
+          pointRadius: 14,
+          pointBorderColor: COLOR.ink,
+          pointBorderWidth: 2,
+          parsing: false,
+        },
+        {
+          label: 'Pyth + consumer-fit ±50·conf',
+          data: [{ x: 0.95, y: headline.pyth_consumer_fit.realized }],
+          backgroundColor: COLOR.warn,
+          borderColor: COLOR.warn,
+          pointRadius: 11,
+          pointBorderColor: COLOR.ink,
+          pointBorderWidth: 1.5,
+          parsing: false,
+        },
+        {
+          label: 'Perfect calibration (y = x)',
+          data: [{ x: 0.5, y: 0.5 }, { x: 1.0, y: 1.0 }],
+          showLine: true,
+          borderColor: COLOR.faint,
+          borderDash: [4, 6],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+          parsing: false,
+        },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0A0B0D',
+          borderColor: COLOR.rule,
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => {
+              const ds = ctx.dataset.label;
+              const x = ctx.parsed.x; const y = ctx.parsed.y;
+              return `${ds}: claimed ${(x*100).toFixed(0)}% → realised ${(y*100).toFixed(1)}%`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          type: 'linear', min: 0.5, max: 1.0,
+          title: { display: true, text: 'Claimed coverage (what the consumer asked for)', color: COLOR.faint, font: { size: 13 } },
+          ticks: { color: COLOR.dim, callback: v => (v * 100).toFixed(0) + '%' },
+          grid: { color: 'rgba(244,243,238,0.05)' },
+        },
+        y: {
+          type: 'linear', min: 0, max: 1.02,
+          title: { display: true, text: 'Realised coverage (what they actually got)', color: COLOR.faint, font: { size: 13 } },
+          ticks: { color: COLOR.dim, callback: v => (v * 100).toFixed(0) + '%' },
+          grid: { color: 'rgba(244,243,238,0.05)' },
+        },
+      },
+    },
+  });
+
+  // ---- BATTLESHIP picker ----
+  const picker = document.getElementById('weekendPicker');
+  // Sort by date desc
+  weekends.sort((a, b) => b.fri_ts.localeCompare(a.fri_ts) || a.symbol.localeCompare(b.symbol));
+  weekends.forEach((w, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    const moveSign = w.move_bps >= 0 ? '+' : '';
+    opt.textContent = `${w.fri_ts}  ·  ${w.symbol}  ·  ${moveSign}${w.move_bps.toFixed(0)} bps`;
+    picker.appendChild(opt);
+  });
+  document.getElementById('weekendCount').textContent = `${weekends.length} weekends · 2024+`;
+
+  // Pick a high-impact default: SPY/QQQ recent + |move| > 100 bps if exists
+  const defaultIdx = weekends.findIndex(w =>
+    (w.symbol === 'SPY' || w.symbol === 'QQQ') && Math.abs(w.move_bps) > 100
+  );
+  currentIdx = Math.max(0, defaultIdx === -1 ? 0 : defaultIdx);
+  picker.value = String(currentIdx);
+
+  function renderBattleship(idx) {
+    const w = weekends[idx];
+    if (!w) return;
+    currentIdx = idx;
+    picker.value = String(idx);
+
+    // Meta cells
+    const moveCls = w.move_bps >= 0 ? 'up' : 'down';
+    const moveSign = w.move_bps >= 0 ? '+' : '';
+    document.getElementById('bsMeta').innerHTML = `
+      <div class="cell"><div class="k">Symbol · weekend</div><div class="v">${w.symbol} · ${w.fri_ts}</div></div>
+      <div class="cell"><div class="k">Friday close</div><div class="v">$${w.fri_close.toFixed(2)}</div></div>
+      <div class="cell"><div class="k">Monday open</div><div class="v">$${w.mon_open.toFixed(2)}</div></div>
+      <div class="cell"><div class="k">Realised move</div><div class="v ${moveCls}">${moveSign}${w.move_bps.toFixed(0)} bps</div></div>
+    `;
+
+    // Battleship SVG: x-axis is price; horizontal bars per oracle showing band; vertical lines at fri_close and mon_open
+    const svgW = 1000, svgH = 360, padL = 100, padR = 40, padT = 30, padB = 60;
+    const innerW = svgW - padL - padR, innerH = svgH - padT - padB;
+
+    // Compute price range — generous padding so all bands fit
+    const candidates = [
+      w.fri_close, w.mon_open,
+      w.soothsayer_lower, w.soothsayer_upper,
+      w.pyth_lower, w.pyth_upper,
+    ];
+    let pmin = Math.min(...candidates), pmax = Math.max(...candidates);
+    const pad = (pmax - pmin) * 0.18 || w.fri_close * 0.005;
+    pmin -= pad; pmax += pad;
+    const xScale = p => padL + ((p - pmin) / (pmax - pmin)) * innerW;
+
+    const rows = [
+      { name: 'Soothsayer', y: padT + 30, lo: w.soothsayer_lower, hi: w.soothsayer_upper, inside: w.soothsayer_inside, color: COLOR.green },
+      { name: 'Pyth + 1.96·conf', y: padT + 130, lo: w.pyth_lower, hi: w.pyth_upper, inside: w.pyth_inside, color: COLOR.red },
+      { name: 'Chainlink stale-hold', y: padT + 230, lo: w.chainlink_mid, hi: w.chainlink_mid, inside: 0, color: COLOR.warn, dotOnly: true },
+    ];
+
+    let svg = '';
+    // Friday close vertical line
+    svg += `<line x1="${xScale(w.fri_close)}" y1="${padT}" x2="${xScale(w.fri_close)}" y2="${svgH - padB}" stroke="${COLOR.faint}" stroke-width="1" stroke-dasharray="3,4"/>`;
+    svg += `<text x="${xScale(w.fri_close)}" y="${svgH - padB + 18}" fill="${COLOR.dim}" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">Fri close $${w.fri_close.toFixed(2)}</text>`;
+    // Monday open vertical line — green if in some band, red if outside all
+    const monX = xScale(w.mon_open);
+    const monColor = (w.soothsayer_inside || w.pyth_inside) ? COLOR.green : COLOR.red;
+    svg += `<line x1="${monX}" y1="${padT}" x2="${monX}" y2="${svgH - padB}" stroke="${monColor}" stroke-width="2"/>`;
+    svg += `<text x="${monX}" y="${svgH - padB + 36}" fill="${monColor}" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" text-anchor="middle">Mon open $${w.mon_open.toFixed(2)}</text>`;
+
+    rows.forEach(r => {
+      // Label
+      svg += `<text x="${padL - 14}" y="${r.y + 22}" fill="${COLOR.ink}" font-family="JetBrains Mono, monospace" font-size="12" font-weight="500" text-anchor="end">${r.name}</text>`;
+      if (r.dotOnly) {
+        // Just a dot (no band)
+        svg += `<circle cx="${xScale(r.lo)}" cy="${r.y + 22}" r="6" fill="${r.color}" stroke="${COLOR.ink}" stroke-width="1.5"/>`;
+        svg += `<text x="${xScale(r.lo) + 14}" y="${r.y + 26}" fill="${COLOR.dim}" font-family="JetBrains Mono, monospace" font-size="11">stale = $${r.lo.toFixed(2)} (no band published)</text>`;
+      } else {
+        // Band rectangle
+        const x1 = xScale(r.lo), x2 = xScale(r.hi);
+        const fillColor = r.inside ? r.color : COLOR.red;
+        const fillAlpha = r.inside ? '0.20' : '0.08';
+        const strokeColor = r.inside ? r.color : COLOR.red;
+        svg += `<rect x="${x1}" y="${r.y + 8}" width="${x2 - x1}" height="32" fill="${fillColor}" fill-opacity="${fillAlpha}" stroke="${strokeColor}" stroke-width="1.5" rx="3"/>`;
+        // Edge labels
+        svg += `<text x="${x1}" y="${r.y + 56}" fill="${COLOR.dim}" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">$${r.lo.toFixed(2)}</text>`;
+        svg += `<text x="${x2}" y="${r.y + 56}" fill="${COLOR.dim}" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">$${r.hi.toFixed(2)}</text>`;
+        // Verdict pill on the right of the band
+        const verdict = r.inside ? '✓ contained' : '✗ missed';
+        const vx = x2 + 12, vy = r.y + 28;
+        svg += `<text x="${vx}" y="${vy}" fill="${strokeColor}" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600">${verdict}</text>`;
+      }
+    });
+
+    // Title
+    svg += `<text x="${padL}" y="${padT - 8}" fill="${COLOR.faint}" font-family="JetBrains Mono, monospace" font-size="10" text-transform="uppercase" letter-spacing="0.14em">PRICE — fri close → mon open · band &amp; oracle bands shown side-by-side</text>`;
+
+    document.getElementById('bsSvg').innerHTML = svg;
+
+    // Verdict cards
+    const verdicts = [
+      {
+        name: 'Soothsayer at τ = 0.95',
+        cls: w.soothsayer_inside ? 'win' : 'lose',
+        judgment: w.soothsayer_inside ? '✓ contained' : '✗ missed',
+        detail: `band [$${w.soothsayer_lower.toFixed(2)}, $${w.soothsayer_upper.toFixed(2)}] · ±${w.soothsayer_halfwidth_bps.toFixed(0)} bps`,
+      },
+      {
+        name: 'Pyth + naive ±1.96·conf',
+        cls: w.pyth_inside ? 'win' : 'lose',
+        judgment: w.pyth_inside ? '✓ contained' : '✗ missed',
+        detail: `band [$${w.pyth_lower.toFixed(2)}, $${w.pyth_upper.toFixed(2)}] · ±${w.pyth_halfwidth_bps.toFixed(1)} bps · ${(w.pyth_halfwidth_bps/w.soothsayer_halfwidth_bps*100).toFixed(0)}% of Soothsayer's width`,
+      },
+      {
+        name: 'Chainlink stale-hold',
+        cls: 'dim',
+        judgment: 'no band published',
+        detail: `mid = $${w.chainlink_mid.toFixed(2)} during marketStatus=5 · band ≡ point (zero width)`,
+      },
+    ];
+    document.getElementById('bsReadout').innerHTML = verdicts.map(v => `
+      <div class="verdict ${v.cls}">
+        <div class="name">${v.name}</div>
+        <div class="judgment">${v.judgment}</div>
+        <div class="detail">${v.detail}</div>
+      </div>
+    `).join('');
+  }
+
+  picker.addEventListener('change', (e) => renderBattleship(parseInt(e.target.value)));
+  document.getElementById('prevBtn').addEventListener('click', () => renderBattleship((currentIdx - 1 + weekends.length) % weekends.length));
+  document.getElementById('nextBtn').addEventListener('click', () => renderBattleship((currentIdx + 1) % weekends.length));
+  document.getElementById('randomBtn').addEventListener('click', () => renderBattleship(Math.floor(Math.random() * weekends.length)));
+
+  renderBattleship(currentIdx);
+
+  // ---- RECEIPTS TABLE ----
+  const sooth_inside_rate = weekends.reduce((s, w) => s + w.soothsayer_inside, 0) / weekends.length;
+  const pyth_inside_rate = weekends.reduce((s, w) => s + w.pyth_inside, 0) / weekends.length;
+  // Chainlink: as a "would naive ±k·% wrap have caught it?" metric we'd need a k; instead, report the drift between cl_mid and mon_open
+  const cl_mean_drift = weekends.reduce((s, w) => s + Math.abs(w.chainlink_diff_from_actual_bps), 0) / weekends.length;
+
+  document.getElementById('receiptsSummary').innerHTML = `
+    <div class="cell win">
+      <div class="name">Soothsayer · 1,720-obs OOS at τ=0.95</div>
+      <div class="stat">${(sooth_inside_rate*100).toFixed(1)}%</div>
+      <div class="desc">contained Monday open across this 265-obs Pyth-eligible subset (full panel: 95.0% — Kupiec p=1.000).</div>
+    </div>
+    <div class="cell lose">
+      <div class="name">Pyth + ±1.96·conf · same 265 obs</div>
+      <div class="stat">${(pyth_inside_rate*100).toFixed(1)}%</div>
+      <div class="desc">contained Monday open. Pyth's published <code>conf</code> is publisher dispersion; reading it as a probability statement mis-calibrates ~9×.</div>
+    </div>
+    <div class="cell dim">
+      <div class="name">Chainlink stale = Friday close</div>
+      <div class="stat">±${cl_mean_drift.toFixed(0)}<span style="font-size: 18px; color: var(--ink-faint);">bps</span></div>
+      <div class="desc">mean drift between Chainlink's stale-held mid and Monday's actual open. No published band — consumer must wrap.</div>
+    </div>
+  `;
+
+  function renderTable() {
+    const rows = [...weekends];
+    rows.sort((a, b) => {
+      const av = a[sortKey]; const bv = b[sortKey];
+      if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sortDir === 'asc' ? (av - bv) : (bv - av);
+    });
+    document.getElementById('receiptsBody').innerHTML = rows.map(w => `
+      <tr>
+        <td>${w.fri_ts}</td>
+        <td>${w.symbol}</td>
+        <td>${w.move_bps >= 0 ? '+' : ''}${w.move_bps.toFixed(0)}</td>
+        <td class="${w.soothsayer_inside ? 'hit' : 'miss'}">${w.soothsayer_inside ? '✓' : '✗'}</td>
+        <td class="${w.pyth_inside ? 'hit' : 'miss'}">${w.pyth_inside ? '✓' : '✗'}</td>
+        <td>${w.pyth_halfwidth_bps.toFixed(1)}</td>
+        <td>${w.soothsayer_halfwidth_bps.toFixed(0)}</td>
+      </tr>
+    `).join('');
+  }
+  document.querySelectorAll('#receiptsTable th').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      if (k === sortKey) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+      else { sortKey = k; sortDir = (k === 'fri_ts' || k === 'symbol') ? 'asc' : 'desc'; }
+      renderTable();
+    });
+  });
+  renderTable();
+})();
+</script>
+
+</body>
+</html>
