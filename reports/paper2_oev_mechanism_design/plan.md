@@ -54,8 +54,19 @@ The conceptual gap is that **the entire OEV mechanism-design literature has been
 
 ## 4) Draft claims (what Paper 2 would aim to prove)
 
-### C1 — Calibration disclosure shrinks searcher information rents in equilibrium
-In a stylised auction model where searchers compete to win liquidation rights on a position whose health depends on a future oracle update, equilibrium searcher rents are weakly decreasing in the *sharpness* (narrowness) of the published calibration band. In the limit of a degenerate band ($L_t = U_t$), private information collapses and searcher rents go to the auction-format minimum.
+### C1 — Calibration disclosure changes equilibrium searcher rents (refined)
+**Original conjecture (theoretical):** in a stylised auction model where searchers compete to win liquidation rights on a position whose health depends on a future oracle update, equilibrium searcher rents are weakly decreasing in the *sharpness* (narrowness) of the published calibration band. In the limit of a degenerate band ($L_t = U_t$), private information collapses and searcher rents go to the auction-format minimum.
+
+**Empirical refinement (2026-04-25, OOS retrospective on the Paper 1 panel — see [`reports/band_edge_oev_tau_sweep.md`](../../reports/band_edge_oev_tau_sweep.md)):** the simple-monotonic statement is *contradicted* at the aggregate level and *partially supported with a U-shape* at the per-event level. Two distinct patterns emerge across τ ∈ {0.50, 0.60, 0.68, 0.75, 0.85, 0.90, 0.95, 0.99}:
+
+1. **Per-event multiplicative dominance ratio** (median band-exit deviation / median in-band deviation, OOS): U-shaped — 3.99× → 3.85× → 3.60× → 3.61× → **3.29× (min at τ=0.85)** → 3.34× → 3.56× → 3.83×. The minimum sits at the empirically well-calibrated mid-range τ.
+2. **Aggregate annual band-aware-vs-band-blind advantage** (panel-scale, OOS, $/yr/$1M notional): monotonically *decreasing* in τ — $2.27M → $1.97M → $1.71M → $1.39M → $815k → $584k → $284k → $148k. Frequency dominates: sharper bands have many more band-exit events even though the per-event edge magnitude is smaller.
+
+**Refined C1 statement.** Per-event rent has a U-shape in band sharpness with a minimum at the well-calibrated mid-range; *aggregate* annual rent decreases monotonically in band looseness because event-frequency dominates per-event-edge magnitude. The two effects can point in opposite directions when integrated over different time horizons. The theoretical work (§9.1) must reproduce both.
+
+**Methodological note for the paper.** In-sample dominance ratios are monotonically increasing in τ (3.60× → 6.49×) — the in-sample over-fit *masks* the OOS U-shape. Reviewers will rightly want the OOS series. Both are reported.
+
+**The auction-equilibrium statement (still to prove).** The empirical refinement does not invalidate the *theoretical* C1 — it constrains the form the proof must take. A correct equilibrium model must produce: (a) U-shaped per-event rent in band sharpness, (b) frequency-dominated aggregate rent decreasing in band looseness, and (c) the in-sample-vs-OOS gap as a calibration-quality artefact rather than a statement about the auction equilibrium itself.
 
 ### C2 — Band-conditional liquidation triggers can dominate point triggers in expected protocol welfare
 There exists a family of band-conditional trigger rules (e.g., $N$-of-$M$ exits from the served $\tau$ band) that strictly dominates the equivalent point-conditional rule in expected protocol welfare under stated assumptions about cost ratios, book composition, and the realised-price distribution. The dominance is mechanical at calm regimes (band is wide enough that a point trigger is too sensitive) and becomes interesting in transition regimes.
@@ -171,6 +182,7 @@ This is the big difference from Paper 3 — Paper 2 is more theoretical and has 
 ### Available now
 - **Soothsayer historical band serving** (Paper 1 deliverable). Reconstructable bands on 5,986 weekend windows × 10 symbols.
 - **`scripts/run_protocol_compare.py`** can be partially adapted to evaluate mechanism-level welfare in addition to policy-level welfare.
+- **First quantitative C1 + C4 results** (2026-04-25): retrospective band-edge OEV analysis on the Paper 1 panel. Three reports: [`reports/band_edge_oev_analysis.md`](../../reports/band_edge_oev_analysis.md) (in-sample retrospective, 5.34× C4 dominance at τ=0.95), [`reports/band_edge_oev_oos_counterfactual.md`](../../reports/band_edge_oev_oos_counterfactual.md) (OOS slice + §10.4 counterfactual aggregate, 3.56× C4 dominance, $283k/yr/$1M notional), [`reports/band_edge_oev_tau_sweep.md`](../../reports/band_edge_oev_tau_sweep.md) (refined C1 — U-shape per-event + monotonic aggregate). Per-event panel artifact: `reports/tables/band_edge_oev_per_event.parquet`.
 - **Historical liquidation data** for Aave V2/V3 (Andreoulis et al. published the 2023–2025 panel; secondary EVM cross-check).
 - **Kamino xStocks liquidations** since 2025-07-14 — small N but the deployment-target venue and the empirical-replay primary.
 - **MarginFi liquidations 2025** — Q1 2025 liquidation-fee figure ($88.5M) and active-liquidator count (~9) are public and corroborate Andreoulis-style coalition concentration on Solana.
