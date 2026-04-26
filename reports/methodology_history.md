@@ -66,6 +66,33 @@
 
 ## 1. Decision log
 
+### 2026-04-26 — Serving-layer ablation re-run under deployed BUFFER_BY_TARGET; hybrid framing softened from "load-bearing" to "joint argmin"
+
+**Trigger.** The §7.4 serving-layer matrix in the paper draft was generated under the legacy scalar `CALIBRATION_BUFFER_PCT = 0.025` buffer. The deployed schedule is `BUFFER_BY_TARGET[0.95] = 0.020` (per the 2026-04-25 morning per-target-tuning entry below). The mismatch surfaced in the paper coherence pass and was disclosed in §7.4 as a "buffer-value-agnostic" caveat. The user requested a re-run under the deployed buffer to retire the disclosure and report fresh numbers.
+
+**Hypotheses tested.**
+
+1. **H1: At the deployed buffer, the buffer-effect direction and magnitude reproduce.** *Accepted with smaller magnitude.* Buffer-effect Δcoverage at $\tau = 0.95$ (C0 → C3) is $+2.7$pp [+1.9, +3.7] under the deployed 0.020 buffer (was $+3.7$pp [+2.7, +4.7] under the legacy 0.025 buffer). The qualitative finding — buffer is the load-bearing serving-layer knob for OOS coverage — is preserved; the precise magnitude scales with buffer size. Total serving-layer effect (C0 → C4) is $+2.9$pp [+2.0, +3.8].
+
+2. **H2: At the deployed buffer, the F1-everywhere variant fails Christoffersen independence (the original §7.4 finding that motivated the hybrid).** *Rejected.* At the deployed buffer 0.020, F1-everywhere (C3) passes Christoffersen with $p_{ind} = 0.221$; the hybrid (C4) passes with $p_{ind} = 0.485$. Both pass at $\alpha = 0.05$. The "hybrid flips Christoffersen verdict" framing was load-bearing under the legacy 0.025 buffer (where C3 had $p_{ind} = 0.033$ and rejected); at the deployed buffer the hybrid is no longer a binary necessity for the conditional-coverage pass.
+
+3. **H3: The hybrid policy still wins on the joint argmin (sharpness, Christoffersen margin) at the deployed buffer.** *Accepted.* The hybrid simultaneously: tightens bands by $-2.6\%$ ($467.9 \to 456.0$ bps), lifts Kupiec margin from $p_{uc} = 0.826$ to $p_{uc} = 1.000$, and lifts Christoffersen margin from $p_{ind} = 0.221$ to $p_{ind} = 0.485$. No observable trade-off on either axis, supporting property P3 of §3.4 in the strict joint-argmin sense.
+
+4. **H4: Buffer and hybrid effects are additive at $n = 172$ OOS weekends.** *Accepted (cannot reject additivity).* Buffer-vs-no-buffer Δcoverage is $+2.7$pp without hybrid (C0 → C3) and $+3.0$pp with hybrid (C2 → C4); CIs overlap. Practically, buffer-tuning and hybrid-design are independent decisions, which simplifies V2.2 rolling-rebuild scheduling.
+
+**Cascading paper edits.** §7.4 rewritten with fresh table + bootstrap CIs and dropped legacy-buffer disclosure. §7.5 taxonomy table: "hybrid regime-to-forecaster policy" entry softened from "load-bearing for Christoffersen independence" to "joint-argmin choice over (sharpness, Christoffersen margin)". §1.3 buffer-effect updated $+3.8$pp → $+2.9$pp with new CI. §11.1 P3 narrative + §11.2 buffer-effect number updated to match. §9.6 reframed from "Christoffersen independence is the load-bearing OOS contribution" to "joint argmin, not binary necessity" with explicit historical note about the legacy-buffer regime where the binary flip held. §3.4 P3 updated to the strict joint-argmin framing.
+
+**Implication for §0.** No change to the deployed methodology. The `REGIME_FORECASTER` and `BUFFER_BY_TARGET` constants are unchanged. The §0 headline numbers (τ=0.95 realised 0.950, $p_{uc}$=1.000, $p_{ind}$=0.485) come from the C4 cell of this re-run and match exactly. §0 is consistent.
+
+**Net deployment change.** None. This is a paper-side re-derivation for narrative coherence under the deployed configuration, not a methodology revision.
+
+**Artefacts.**
+- `scripts/run_serving_ablation.py` — single-pass runner that re-serves OOS at $\tau = 0.95$ across the five (forecaster_policy, buffer) cells with block-bootstrap pairwise deltas
+- `reports/tables/v1b_serving_ablation.csv` — per-cell metrics
+- `reports/tables/v1b_serving_ablation_bootstrap.csv` — pairwise deltas with 95% CIs
+
+---
+
 ### 2026-04-25 (very late evening) — Reviewer-tier diagnostics: Berkowitz, DQ, CRPS, exceedance magnitude
 
 **Trigger.** Internal audit (see same-day entries above) raised "what other diagnostics would a peer reviewer expect?" Four standard tests in the modern density-forecast / VaR-backtesting kit were not yet in the paper: Berkowitz (2001) joint LR on inverse-normal-transformed PITs; Engle-Manganelli (2004) Dynamic Quantile (DQ) test; CRPS (Gneiting-Raftery 2007); and McNeil-Frey-style exceedance magnitude. None are *required* for the paper's per-anchor calibration claim, but each is a likely reviewer ask at q-fin.RM / ACM AFT / Journal of Risk venues. Implemented and run.
