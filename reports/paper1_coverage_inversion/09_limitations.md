@@ -68,9 +68,19 @@ Three structural facts further constrain what a RedStone Live comparison can cla
 
 The paper validates an oracle interface, not a lending policy. We do not report a decision-theoretic benchmark of "what target $\tau$ should a protocol choose?" or "does a regime-demoted liquidation threshold dominate a flat threshold once portfolio weights and protocol losses are specified?" Answering those questions requires at least three ingredients absent from the present evaluation: (i) an explicit distribution over borrower-book LTV weights rather than a pure coverage metric, (ii) a protocol-specific cost model distinguishing unnecessary liquidation, unnecessary caution, and missed liquidation / bad debt, and (iii) a declared semantics for what counts as the correct action under realised prices. Without those ingredients, a claim of optimal liquidation-policy default would be stronger than the evidence we present here.
 
-## 9.10 Single market-region coverage
+## 9.10 Scope of the methodology — what fits and what does not
 
-All ten tickers in the backtest are US-listed. The weekend we predict is the US weekend. The factor-switchboard mapping (ES/NQ/GC/ZN/BTC) privileges US session data. We make no claim about the generalisation of the coverage-inversion primitive to tokenized-JP equities, tokenized-EU equities, or commodities whose primary discovery venue is not a US exchange. A multi-region replication is future work.
+**Region scope.** All ten tickers in the backtest are US-listed. The weekend we predict is the US weekend. The factor-switchboard mapping (ES/NQ/GC/ZN/BTC) privileges US session data. We make no claim about the generalisation of the coverage-inversion primitive to tokenized-JP equities, tokenized-EU equities, or commodities whose primary discovery venue is not a US exchange. A multi-region replication is future work (§10.5).
+
+**Asset-class scope.** The methodology requires a *continuous off-hours information set* — a public, free, sub-daily price signal that is observably correlated with the closed-market underlier. Tokenized US equities have this (E-mini index futures + VIX), tokenized gold has it (gold futures + GVZ), tokenized US treasuries have it (10Y T-note futures + MOVE), and most major FX pairs have it (overseas-session prices). Tokenized credit has it through CDS spreads and index volatility, modulo data licensing. We claim the methodology generalises to any RWA class with such a signal.
+
+What the methodology does *not* fit, and we do not claim:
+
+- **Real estate.** No continuous off-hours information set exists; NAV updates are discrete and infrequent. The closed-market problem here is structurally different (no signal, not "stale signal") and requires a different methodology.
+- **Illiquid commodities.** Some agricultural and specialty commodities have futures markets but those markets are discontinuous or thinly traded. The factor regression's $\hat\beta$ would be unstable.
+- **Instruments with primarily NAV-based pricing.** Money-market-style tokens whose price is administratively set rather than market-observed have no "fair value" question to calibrate against.
+
+`docs/methodology_scope.md` in the artifact released with this paper carries the per-class fit/no-fit table that protocol integrators and risk teams can use as a quick filter. The broader claim of §1 — that calibration-transparent risk reporting is the missing infrastructure layer for responsible institutional-scale RWA onboarding — applies to the substantial subset of RWA classes within scope, and explicitly does *not* claim coverage for classes outside it.
 
 ## 9.11 On-chain tokenized-stock prices as an unused signal
 
