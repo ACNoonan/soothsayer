@@ -1,5 +1,5 @@
 # Kamino xStocks — weekend comparator: 2026-04-17 → 2026-04-20
-*Generated 2026-04-26T16:38:27.418806+00:00; reserve config snapshot from 2026-04-26.*
+*Generated 2026-04-26T18:39:41.061940+00:00; reserve config snapshot from 2026-04-26.*
 Forward-running comparator that scores Soothsayer bands and free-data baselines against the realized Monday open under Kamino's actually-deployed xStock reserve parameters. All 8 xStocks live in lending market `5wJeMrUYECGq41fxRESKALVcHnNX26TAWy4W98yULsua` and consume Scope as the primary oracle. The numbers below are reproducible from the on-chain klend program (`KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD`) via `scripts/snapshot_kamino_xstocks.py` + `scripts/score_weekend_comparison.py`.
 ## Section 1 — What was observed
 Per-symbol Friday close (yfinance underlier), Monday open (yfinance underlier), Kamino reserve config (LTV at origination / liquidation threshold / heuristic guard rail), and weekend tape coverage. Kamino's `PriceHeuristic` is a *validity guard rail* — Scope reads outside the range are rejected — not a coverage band, so it is reported here as a recorded incumbent parameter rather than scored against the realized move.
