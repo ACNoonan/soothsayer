@@ -94,7 +94,7 @@ No third option.
 | Phase | Product / Deploy | Research | Methodology (v2) |
 |---|---|---|---|
 | **Phase 0** ✅ | Backtest + serving API + smoke test | Paper 1 §1/§2/§3/§6/§9 drafted (28-ref survey, ablations, bootstrap CIs) | — (V1b shipping methodology locked) |
-| **Phase 1** (now, ~4 wks) | Devnet deploy: on-chain publish path + Kamino-fork consumer demo + x402-gated premium endpoint + xStock calibration overlay | **Paper 1 §4/§5/§7/§8 + coherence review → arXiv** • **Paper 3 outline + first draft** (existing protocol-compare scaffolding) • **Paper 2 plan refinement + auction-simulator design** | — (static V1b surface) |
+| **Phase 1** (now, ~4 wks) | Devnet deploy: on-chain publish path + Kamino-fork consumer demo + xStock calibration overlay | **Paper 1 §4/§5/§7/§8 + coherence review → arXiv** • **Paper 3 outline + first draft** (existing protocol-compare scaffolding) • **Paper 2 plan refinement + auction-simulator design** | — (static V1b surface) |
 | **Phase 2** (~2 wks after Phase 1) | Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) + first design-partner conversations | **Paper 1 arXiv live → SSRN cross-post → cold-email researchers** (Capponi, Imperial DeFi group, IC3) • **Paper 3 to arXiv** • **Paper 2 simulator build + theoretical results (C1, C3)** | V2.2 prep: rolling-rebuild cron + buffer drift alerting |
 | **Phase 3** (gated, post-Phase-2) | **Mainnet deploy** + B2B data-license conversations + Kamino BD deepening | **AFT / FC submission (Paper 1 + Paper 3)** + workshop talks (SBC, FC DeFi workshop) • **Paper 2 to arXiv → AFT or ACM EC** + journal track for Paper 3 (Capponi-style coauthor consideration) | V2.1 ship when V5 tape ≥ 150 weekends (Q3-Q4 2026); V2.3 (MEV-aware coverage) when Jito bundle data ≥ 3 months |
 
@@ -124,7 +124,6 @@ V1b decade-scale backtest → PASS-LITE → Option C product shape locked. Full 
 **Product/deploy** — see [`reports/option_c_spec.md`](../reports/option_c_spec.md) "Deferred to Phase 1" for the canonical list:
 - On-chain publish path (Solana program + Token-2022 account structure)
 - Live-mode serving (current-weekend fetch + online model)
-- x402 payment gating for premium endpoints
 - xStock-specific calibration overlay (DEX noise, mint/burn friction)
 - Devnet deployment across 8 Kamino-onboarded xStocks
 - Kamino-fork consumer demo
