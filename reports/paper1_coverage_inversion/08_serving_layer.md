@@ -8,19 +8,19 @@ We separate *training* (Python) from *serving* (Rust + Solana).
 
 ```
 Python (model + train)               Rust (serve)
-──────────────────────              ──────────────────
+----------------------              ------------------
 scripts/run_calibration.py            soothsayer-oracle (lib)
-  └─> v1b_bounds.parquet      ──>      └─> Oracle::fair_value()
-  └─> v1b_calibration_surface.csv         (hybrid + buffer + inversion)
-  └─> v1b_calibration_surface_pooled.csv
+  -> v1b_bounds.parquet      -->      -> Oracle::fair_value()
+  -> v1b_calibration_surface.csv         (hybrid + buffer + inversion)
+  -> v1b_calibration_surface_pooled.csv
                                       soothsayer-publisher (CLI)
-                                      └─> prepare-publish → on-chain payload
+                                      -> prepare-publish -> on-chain payload
                                       
                                       soothsayer-oracle-program (Anchor)
-                                      └─> publish() → PriceUpdate PDA
+                                      -> publish() -> PriceUpdate PDA
                                       
                                       soothsayer-consumer (no_std SDK)
-                                      └─> decode_price_update(&[u8])
+                                      -> decode_price_update(&[u8])
 ```
 
 The Python `Oracle` (`src/soothsayer/oracle.py`) is the canonical specification. It both (a) produces the calibration artefacts consumed by every downstream serving component and (b) is the executable reference for the inversion algorithm. A change to the methodology — a new buffer schedule, a new regime, a grid extension — is implemented in Python first, validated end-to-end against the §6 OOS panel, and then ported to Rust under the byte-for-byte parity contract of §8.5. No model logic is duplicated between the two implementations: the training pipeline materialises the surface and bounds table once offline; the serving stack reads them.
@@ -118,7 +118,7 @@ uv run python scripts/run_calibration.py
 cargo build --release -p soothsayer-publisher
 ./target/release/soothsayer fair-value --symbol SPY --as-of 2026-04-17 --target 0.85
 
-# Verify Rust ↔ Python parity (~30 s)
+# Verify Rust <-> Python parity (~30 s)
 PYTHONUNBUFFERED=1 uv run python scripts/verify_rust_oracle.py
 
 # Deploy to devnet (after a one-time Solana + Anchor toolchain install)

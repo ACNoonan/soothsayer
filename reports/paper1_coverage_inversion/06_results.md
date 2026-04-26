@@ -39,7 +39,7 @@ Pooled realised coverage at $\tau = 0.95$ is $0.976$ — a $+2.6$pp over-coverag
 
 ## 6.4 Served-band calibration — out-of-sample (2023+)
 
-Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_\text{test} = 1{,}720$ rows, 172 weekends). The per-target buffer schedule (§4.3) applies the empirical correction calibrated on this same OOS slice via the methodology of `reports/v1b_buffer_tune.md`. This is the institutional number.
+Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_\text{test} = 1{,}720$ rows, 172 weekends). The calibration surface is held-out — frozen on the 4{,}266 pre-2023 calibration rows; no parameter, threshold, or grid point is updated using OOS data. The per-anchor empirical buffer schedule of §4.3 is *deployment-tuned* on this same OOS slice via the methodology of `reports/v1b_buffer_tune.md`. The numbers below are therefore best read as a deployment-calibrated operating result on a held-out surface, not as a clean held-out validation end-to-end. The walk-forward stability evidence in the inset block below is the empirical mitigation of the buffer-OOS-tuning concern.
 
 | Regime ($n$)       | $\tau = 0.68$: realised / width | $\tau = 0.85$: realised / width | $\tau = 0.95$: realised / width | $\tau = 0.99$: realised / width |
 |---|---|---|---|---|
@@ -57,7 +57,9 @@ Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_
 | **0.950** | **86** | **0.050** | **0.000** | **1.000** | 9.500 | **0.485** |
 | 0.990 | 40 | 0.023 | 22.224 | 0.000 | 3.801 | 0.956 |
 
-**The $\tau = 0.95$ row is the headline oracle-validation result.** On held-out data, the Oracle delivers realised coverage of exactly $0.950$ — Kupiec $p_{uc} = 1.000$ (test statistic essentially zero, no evidence of mis-calibration) and Christoffersen $p_{ind} = 0.485$ (no clustering of violations). The conjunction passes by margin, not by inches.
+**The $\tau = 0.95$ row is the primary oracle-validation operating result on the deployed configuration.** On the held-out surface served at the deployment-tuned per-anchor buffer, the Oracle delivers realised coverage of exactly $0.950$ — Kupiec $p_{uc} = 1.000$ (test statistic essentially zero, no evidence of mis-calibration) and Christoffersen $p_{ind} = 0.485$ (no clustering of violations). The conjunction passes by margin, not by inches. The number is *deployment-calibrated* on the OOS slice rather than purely held-out end-to-end, and should be read in conjunction with the walk-forward stability evidence below and §9.4 (the wider disclosure of the buffer-tuning provenance).
+
+**Walk-forward stability of the deployed buffer.** Because the per-anchor buffer schedule of §4.3 is fit on the same OOS slice that this section evaluates, "deployment-calibrated" rather than "purely held-out" is the strongest defensible characterisation of the table above. The relevant empirical mitigation is the cross-split distribution of the buffer itself. We re-run the buffer-tuning sweep on six expanding-window train/test splits spanning 2019-01 through 2025-01 (`reports/v1b_walkforward.md`), each split fitting the surface and the per-anchor buffer on its own train side and reporting the buffer that satisfies the same realised-within-0.5pp + Kupiec $p_{uc} > 0.10$ + Christoffersen $p_{ind} > 0.05$ criterion that selected the deployed schedule. At $\tau = 0.95$, the cross-split mean is $0.019$ ($\sigma = 0.017$); the deployed value $0.020$ lands at the cross-split mean to within rounding. At $\tau = 0.85$, the cross-split mean is $0.025$ ($\sigma = 0.022$) and the deployed value $0.045$ is conservative ($\geq 1\sigma$ above the mean). The deployed buffers are therefore not idiosyncratic to the 2023+ slice in the sense that a multi-split rerun reproduces the same operating point at $\tau = 0.95$ and a tighter operating point at $\tau = 0.85$. This evidence is what allows the §6.4 number to be characterised as "deployment-calibrated and walk-forward-stable" rather than "potentially overfit to one slice"; it does not upgrade the result to a purely held-out end-to-end validation, which remains §10.1's V2.2 (rolling calibration-surface rebuild).
 
 This result should be read as validation of the oracle's coverage contract at $\tau = 0.95$, not as proof that $\tau = 0.95$ is the welfare-optimal operating point for a protocol that consumes the band for liquidations or collateral haircuts.
 
@@ -121,12 +123,15 @@ A dedicated point-forecasting benchmark against incumbent oracles, on a matched 
 
 ## 6.7 Summary
 
-On held-out 2023+ data at consumer target $\tau = 0.95$:
+On the deployed configuration evaluated on the 2023+ held-out slice at consumer target $\tau = 0.95$:
 
 - Realised coverage: **$95.0\%$**
 - Kupiec $p_{uc} = 1.000$ (pass)
 - Christoffersen $p_{ind} = 0.485$ (pass)
 - Mean served half-width: $456$ bps; per-regime widths: $417.7$ bps (normal), $416.6$ bps (long_weekend), $591.6$ bps (high_vol)
+- Walk-forward buffer stability (§6.4): six-split cross-split mean at $\tau = 0.95$ is $0.019$ ($\sigma = 0.017$); deployed value $0.020$ lands at the mean.
+
+The number is best read as *deployment-calibrated and walk-forward-stable* rather than purely held-out end-to-end: the calibration surface is held-out, the per-anchor buffer is deployment-tuned on the same slice, and a six-split walk-forward ratifies the deployed buffer at $\tau = 0.95$ as the cross-split mean.
 
 Extended diagnostics (§6.4.1): Berkowitz rejects (driven by buffer-induced over-coverage outside the deployment range — safe direction), DQ rejects at all four anchors (multi-lag conditional structure beyond Christoffersen's two-state independence test, disclosed), CRPS = 1.82 (baseline for future cross-oracle comparators), exceedance magnitude bounded by 800 bps max at τ = 0.99 with median 72 bps.
 
