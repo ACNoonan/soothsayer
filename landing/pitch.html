@@ -779,24 +779,24 @@
   <div class="slide">
     <p class="eyebrow"><span class="bar"></span> What we build</p>
     <h1 class="headline">
-      A transparent oracle program for Solana: methodology, OEV, and policy.
+      A calibration-transparent primitive, measurement layer, and decision stack for Solana.
     </h1>
 
     <div class="bullet-row" style="margin-top: 80px;">
       <div class="bullet">
         <div class="num">01</div>
-        <div class="h">Paper 1: define the calibration-transparent oracle primitive.</div>
-        <div class="p">Coverage inversion, audit receipts, and a public fair-value band for tokenized equities on Solana. The point is not just a price feed; it is a verifiable uncertainty contract.</div>
+        <div class="h">Primitive: publish the calibrated band and its receipt.</div>
+        <div class="p">Paper 1 formalizes coverage inversion, audit receipts, and a public fair-value band for tokenized equities on Solana. The product is a verifiable uncertainty contract, not just a point estimate.</div>
       </div>
       <div class="bullet">
         <div class="num">02</div>
-        <div class="h">Paper 2: measure Solana OEV where it actually matters.</div>
-        <div class="p">Build the xStocks-on-Kamino and MarginFi liquidation dataset, test whether OEV concentrates at oracle-band exits, and turn that into a mechanism-design proposal for Pyth Express Relay.</div>
+        <div class="h">Measurement: build the public liquidation and OEV evidence layer.</div>
+        <div class="p">Paper 2 turns the primitive into reusable public infrastructure: xStocks-on-Kamino and MarginFi liquidation datasets, band-edge labels, and the empirical base for mechanism-design work on Pyth Express Relay.</div>
       </div>
       <div class="bullet">
         <div class="num">03</div>
-        <div class="h">Paper 3: show consumers how to use the signal.</div>
-        <div class="p">Given a calibrated band, what should a protocol or liquidator do with it? Paper 3 is the deployable policy layer: defaults, triggers, and decision rules that reduce expected loss or increase edge in closed markets.</div>
+        <div class="h">Decision layer: show how downstream users act on the signal.</div>
+        <div class="p">Paper 3 asks how protocols, liquidators, and risk teams should map the same band and receipt into reserve buffers, triggers, and closed-market policy defaults.</div>
         <div class="citation">The trilogy is methodology → mechanism → policy. v1b already passes OOS at τ ∈ {0.68, 0.85, 0.95}; Rust and Python are at byte-for-byte parity (75/75 tests).</div>
       </div>
     </div>
@@ -832,7 +832,7 @@
         </div>
         <div class="row with">
           <div class="k">With</div>
-          <div class="v">Served band at the consumer's τ shows the print outside the empirically-calibrated range. Protocol pauses, with an audit receipt.</div>
+          <div class="v">Served band at the consumer's τ shows the print outside the empirically calibrated range. The protocol has a defensible basis to pause or tighten policy, with a receipt.</div>
         </div>
       </div>
 
@@ -856,7 +856,7 @@
         </div>
         <div class="row with">
           <div class="k">With</div>
-          <div class="v">Factor-adjusted point tracks ES futures over the weekend; band widens with the per-symbol vol index. Protocol tightens LTVs pre-emptively.</div>
+          <div class="v">Factor-adjusted point tracks ES futures over the weekend; band widens with the per-symbol vol index. Risk teams have evidence to tighten buffers before the open.</div>
         </div>
       </div>
 
@@ -920,7 +920,7 @@
         </div>
         <div class="row with">
           <div class="k">With</div>
-          <div class="v">Soothsayer as independent secondary. Live cross-check plus a fallback number.</div>
+          <div class="v">Soothsayer as an independent, calibration-aware cross-check. Live fallback reference plus explicit uncertainty.</div>
         </div>
       </div>
 
@@ -948,10 +948,10 @@
 
       <!-- Wedge block -->
       <div style="display: flex; flex-direction: column; gap: 0; border-left: 2px solid var(--green); padding-left: 32px;">
-        <div class="tag" style="align-self: flex-start; border-color: var(--green); color: var(--green); margin-bottom: 20px;">Current wedge</div>
+        <div class="tag" style="align-self: flex-start; border-color: var(--green); color: var(--green); margin-bottom: 20px;">Current proof point</div>
         <div style="font-size: 72px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; color: var(--ink);">$150–600<span style="color: var(--ink-faint); font-weight: 400;">k</span></div>
-        <div style="font-family: var(--mono); font-size: 24px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 10px;">annual · Kamino alone</div>
-        <div style="font-size: 24px; color: var(--ink-dim); font-weight: 300; line-height: 1.4; margin-top: 28px;">On $25M xStock supply (Q1 2026 snapshot). Kamino’s current liquidation-pause cost; supply caps doubled in March 2026 with further increases expected.</div>
+        <div style="font-family: var(--mono); font-size: 24px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 10px;">annualized wedge · first market</div>
+        <div style="font-size: 24px; color: var(--ink-dim); font-weight: 300; line-height: 1.4; margin-top: 28px;">Grounded in today's Kamino xStock market, but valuable because the same calibration, measurement, and policy stack can be reused across tokenized-equity lending and future RWA markets.</div>
 
         <div class="tag" style="align-self: flex-start; border-color: var(--purple); color: var(--purple); margin: 56px 0 20px;">2030 outcome</div>
         <div style="font-size: 72px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; color: var(--ink);">$150M<span style="color: var(--ink-faint); font-weight: 400;">–</span>$1.5B</div>
@@ -1011,20 +1011,20 @@
     <div class="vectors" style="margin-top: 20px;">
       <div class="vector">
         <div class="rank">01 · PRIMARY</div>
-        <div class="name">Data licensing · B2B</div>
-        <div class="desc">Historical fair-value dataset + model decomposition sold to quant funds, market makers, and other oracle operators.</div>
-        <div class="horizon">Ship now</div>
+        <div class="name">Design-partner risk work</div>
+        <div class="desc">Protocol-specific reserve-buffer analysis, liquidation-policy studies, and closed-market risk reviews built on top of the calibrated band and Paper 3 evaluation stack.</div>
+        <div class="horizon">After Paper 3</div>
       </div>
       <div class="vector">
         <div class="rank">02 · SECONDARY</div>
-        <div class="name">Design-partner risk work</div>
-        <div class="desc">Protocol-specific liquidation-policy analysis, risk-parameter studies, and integration work built on top of the calibrated band and the Paper 3 evaluation stack.</div>
-        <div class="horizon">After Paper 3</div>
+        <div class="name">Data + evidence licensing</div>
+        <div class="desc">Historical fair-value dataset, weekend comparator outputs, and model decomposition sold to quant funds, market makers, and other infrastructure teams.</div>
+        <div class="horizon">After dataset</div>
       </div>
       <div class="vector">
         <div class="rank">03 · TERTIARY</div>
         <div class="name">Consumer-protocol subscriptions</div>
-        <div class="desc">Per-read / per-subscription for lending and perp protocols — gated on the Kamino wedge closing first.</div>
+        <div class="desc">Per-read / per-subscription access to the band, receipts, and monitoring endpoints once the public measurement layer has enough live history behind it.</div>
         <div class="horizon">2027</div>
       </div>
       <div class="vector future">
@@ -1067,7 +1067,7 @@
       </div>
       <div class="risk">
         <div class="num">04</div>
-        <div class="txt"><b>Distribution is owned by Chainlink.</b> xStocks Alliance, Kamino, Ondo rollout. Our path is secondary observation, not primary replacement.</div>
+        <div class="txt"><b>Distribution is concentrated in incumbent stacks.</b> xStocks Alliance, Kamino, and Ondo already sit on established feeds. We have to win by becoming the calibration and evidence layer those systems learn from.</div>
       </div>
       <div class="risk">
         <div class="num">05</div>
@@ -1126,7 +1126,7 @@
         <div class="ask-list" style="margin-top: 0;">
           <div class="ask-item">
             <span class="letter">A</span>
-            <span class="txt">Feedback on <b>positioning</b> — secondary risk oracle vs. open RWA primitive.</span>
+            <span class="txt">Feedback on <b>positioning</b> — calibration-transparent measurement and decision layer for RWAs.</span>
           </div>
           <div class="ask-item">
             <span class="letter">B</span>

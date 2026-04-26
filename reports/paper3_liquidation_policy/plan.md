@@ -1,4 +1,4 @@
-# Paper 3 Plan — Optimal Liquidation Policy Defaults Under Calibrated Oracle Uncertainty
+# Paper 3 Plan — Liquidation Policy Defaults Under Calibrated Oracle Uncertainty and Real Reserve-Buffer Exhaustion
 
 **Status:** planning document (internal).  
 **Relationship to Paper 1 and Paper 2:**
@@ -12,16 +12,16 @@ The trilogy is methodology → mechanism → policy. Paper 3 can be read indepen
 
 ## 1) One-sentence thesis
 
-**Given an oracle that serves auditable, empirically calibrated price bands, a lending protocol can choose liquidation-policy defaults that minimize expected protocol loss out of sample—especially in closed-market regimes where incumbent point-price fallbacks are weakest—provided the protocol specifies (i) book weights, (ii) a cost model, and (iii) action semantics.**
+**Given an oracle that serves auditable, empirically calibrated price bands, a lending protocol can choose liquidation-policy defaults that minimize expected protocol loss out of sample by mapping uncertainty to the exhaustion risk of its actual reserve buffers—especially in closed-market regimes where incumbent point-price and validity-check stacks are weakest—provided the protocol specifies (i) book weights, (ii) a cost model, and (iii) action semantics.**
 
-This paper is about that mapping: **band → action**.
+This paper is about that mapping: **band → reserve-buffer exhaustion risk → action**.
 
 ---
 
 ## 2) Research question (what Paper 3 answers)
 
 ### Primary question
-**What liquidation-policy default minimizes expected protocol loss out of sample when the protocol consumes a calibrated, regime-aware oracle band?**
+**What liquidation-policy default minimizes expected protocol loss out of sample when the protocol consumes a calibrated, regime-aware oracle band and the economically relevant event is exhaustion of the protocol's actual liquidation buffer?**
 
 ### What this is *not*
 Paper 3 is not “is the oracle calibrated?” (that is Paper 1).  
@@ -51,6 +51,16 @@ The production landscape is now clearer than when this plan was first drafted:
 
 That gives the paper a sharper opening claim: the gap is not "protocols ignore liquidation risk." The gap is that **production systems already optimize liquidation policy, but do so with point-price or aggregation-diagnostic inputs that do not publish an auditable coverage SLA for closed-market uncertainty.**
 
+### Comparator correction after the 2026-04-26 on-chain Kamino snapshot
+
+The earlier Paper 3 scaffold leaned too heavily on a simplified Kamino-style flat `±300bps` benchmark. The direct on-chain read of the Backed/xStocks Kamino market changes the comparison shape:
+
+- the economically relevant object is the **reserve-specific gap** between max-LTV-at-origination and liquidation threshold;
+- Kamino's `PriceHeuristic` ranges are **price-validity guard rails**, not literal coverage bands;
+- on `SPYx` and `QQQx`, the reserve buffer is narrow enough that a small closed-market move can exhaust it even when the guard rail is very wide.
+
+The right question for Paper 3 is therefore not "which band beats a flat 300 bps incumbent?" It is: **which uncertainty-aware policy best predicts and prices reserve-buffer exhaustion under the actual production reserve configuration and oracle semantics?**
+
 ---
 
 ## 4) Draft claims (what Paper 3 would aim to prove)
@@ -61,14 +71,14 @@ Liquidation-policy defaults are not identifiable from calibration metrics alone.
 - a protocol loss function (missed liquidation vs unnecessary liquidation vs unnecessary caution)
 - semantics of what counts as “correct” under realized outcomes
 
-### C2 — Calibrated-band policies can dominate flat governance bands out of sample
-There exists a policy family using Soothsayer’s band (e.g., Case A) that lowers expected loss versus a Kamino-style flat band baseline on walk-forward OOS evaluation, under stated assumptions.
+### C2 — Calibrated-band policies can dominate production-style baselines out of sample
+There exists a policy family using Soothsayer's band (e.g. Case A) that lowers expected loss versus the observed Kamino xStocks production configuration and simple heuristic baselines on walk-forward OOS evaluation, under stated assumptions.
 
 ### C3 — Robust regions beat fragile point-optima
 The correct publishable output is a **stable region** (e.g. `τ ∈ [0.80, 0.85]` for a class of protocols/books), not a single fragile optimum.
 
-### C4 — The production gap is specifically a closed-market uncertainty problem
-The strongest deployment case is not "bands are always better than points everywhere." It is narrower and more defensible: when the reference market is closed, calibrated-band policies outperform flat point-price defaults and flat governance bands because they expose uncertainty precisely where incumbent infrastructure is least trustworthy.
+### C4 — The production gap is specifically a closed-market reserve-buffer-exhaustion problem
+The strongest deployment case is not "bands are always better than points everywhere." It is narrower and more defensible: when the reference market is closed, calibrated-band policies outperform production point-price plus validity-check stacks because they expose uncertainty precisely where incumbent infrastructure is least trustworthy and where real reserve buffers are narrow enough to matter.
 
 ---
 
@@ -114,10 +124,11 @@ For a policy \(\pi\), measure expected loss:
 ## 7) Policy families to compare (what “defaults” mean)
 
 At minimum:
-- **Baseline (Kamino-style):** flat governance band (e.g. `±300bps`), flat liquidation threshold.
-- **Soothsayer Case A:** regime-aware band, flat liquidation threshold.
-- **Soothsayer Case B:** regime-aware band + regime-demoted threshold (if included, must define evaluation semantics clearly).
-- **Sanity baselines:** stale-hold Gaussian, EWMA/realized-vol haircuts, asset-specific fixed bps if available.
+- **Observed production baseline (Kamino xStocks):** actual reserve parameters, actual origination-to-liquidation gap, actual oracle path, and recorded `PriceHeuristic` validity semantics. This is the primary comparable, not a stylized flat band.
+- **Soothsayer Case A:** regime-aware band, flat liquidation threshold, scored against reserve-buffer exhaustion.
+- **Soothsayer Case B:** regime-aware band + regime-demoted threshold (if included, must define evaluation semantics clearly and justify why threshold demotion is not double-counting uncertainty).
+- **Sanity baselines:** stale-hold Gaussian, EWMA/realized-vol haircuts, asset-specific fixed bps if available, and a simple futures/ATS- or xStock-tape-informed heuristic.
+- **Legacy strawman check:** flat `±300bps` only as a continuity baseline for prior internal artifacts, not as the production incumbent.
 
 All policies must share the same action semantics ladder `Safe / Caution / Liquidate` to be comparable.
 
@@ -127,8 +138,9 @@ All policies must share the same action semantics ladder `Safe / Caution / Liqui
 
 This is where the literature often cheats by leaving it implicit. Paper 3 should *name it* and treat it as an experimental dimension:
 
-- **Economic truth (flat):** realized Monday price + flat threshold (simple insolvency proxy).
-- **Policy-consistent truth:** realized price + the policy’s own threshold semantics.
+- **Primary truth (reserve-buffer exhaustion):** did the realized closed-market move exhaust the reserve's origination-to-liquidation gap for a position opened at max LTV?
+- **Endpoint truth:** realized Monday price relative to the reserve buffer (simple, publishable, but incomplete).
+- **Policy-consistent truth:** realized price path + the policy's own threshold semantics.
 - **Path-aware truth:** worst executable weekend path rather than a single endpoint.
 
 The goal is not to hide this choice but to show whether conclusions are robust to it.
@@ -182,7 +194,7 @@ Use weekend-block bootstrap on deltas and ranking stability:
 ### Protocol semantics reference
 - `crates/soothsayer-demo-kamino/src/lib.rs` — the canonical `Safe/Caution/Liquidate` ladder used in the demo.
 
-Paper 3 should treat these as the prototype implementation, then strengthen the evaluation design (walk-forward, richer baselines, path-aware truth, protocol-specific costs).
+Paper 3 should treat these as the prototype implementation, then strengthen the evaluation design (walk-forward, real reserve-buffer semantics, richer baselines, path-aware truth, protocol-specific costs).
 
 ### External anchors now secured and worth citing directly
 - **Kamino xStocks docs / launch materials** for the direct policy target: soft liquidations, dynamic penalty ladder, TWAP/EWMA protections, LTV + borrow factor semantics.
@@ -263,14 +275,15 @@ Replace purely stylized costs with at least a small set of plausible protocol co
 The current weight schemes are a good sensitivity scaffold, but Paper 3 should add at least one “Kamino-like” synthetic book and one “risk-on” skewed book (explicitly declared).
 
 ### 12.4 Broader baseline set
-At least one baseline beyond “flat ±300bps” to show we are not only beating one strawman:
-- asset-specific governance bands (if obtainable)
+The on-chain Kamino snapshot makes this section load-bearing rather than optional. At minimum:
+- the observed Kamino xStocks production configuration (reserve gaps + oracle/heuristic semantics)
 - EWMA/realized-vol haircuts
 - stale-hold + Gaussian
-- a simple futures-gap heuristic
+- a simple futures-gap or xStock-tape heuristic
+- flat `±300bps` only as a legacy continuity baseline
 
 ### 12.5 Path-aware truth is no longer optional
-Recent external research makes this upgrade mandatory before publication-quality claims. Monday open is still useful, but it is rhetorically too clean. A protocol cares about the worst executable off-hours price, not only the endpoint once the primary venue reopens.
+Recent external research makes this upgrade mandatory before publication-quality claims. Monday open is still useful, but it is rhetorically too clean. A protocol cares about the worst executable off-hours price and whether that path exhausted the reserve buffer, not only the endpoint once the primary venue reopens.
 
 Minimum credible upgrade:
 - build a **weekend path truth** using tokenized-stock DEX OHLC / executable prints
@@ -296,9 +309,9 @@ The goal of this section is not to claim novelty over every adjacent paper. It i
 ## 13) Success criteria (what would make the second paper a “yes”)
 
 I would consider Paper 3 ready to draft when we can show:
-- A Soothsayer-based policy family beats baselines in expected loss on walk-forward OOS.
+- A Soothsayer-based policy family beats the observed production baseline and heuristic comparables in expected loss on walk-forward OOS.
 - The win is robust across a reasonable grid of cost and weight assumptions.
-- We can explain the mechanism (narrow when calm, widen when risky, fewer expensive misses without too many unnecessary liquidations).
+- We can explain the mechanism in reserve-buffer terms (narrow when calm, widen when risky, fewer expensive buffer-exhaustion misses without too many unnecessary liquidations).
 - The result still holds when tested against **path-aware weekend truth**, not only Monday-open truth.
 - We can disclose where it does *not* win (assumption-sensitive regions) without undermining the core claim.
 
@@ -306,9 +319,9 @@ I would consider Paper 3 ready to draft when we can show:
 
 ## 14) Concrete next steps (research execution order)
 
-1. Extend `run_protocol_compare` into walk-forward evaluation.
+1. Extend `run_protocol_compare` from a flat-band prototype into walk-forward evaluation against real reserve-buffer semantics.
 2. Expand cost scenarios (parameter sweep) and record ranking stability.
-3. Add at least one additional baseline family beyond flat ±300bps, ideally including a futures/ATS-informed heuristic.
+3. Add the observed production baseline plus at least one additional heuristic baseline beyond flat ±300bps.
 4. Build path-aware weekend truth before treating the paper as draft-ready.
 5. Only after that decide how much explicit MEV / execution realism is needed for the claim we want to make.
 
@@ -324,7 +337,7 @@ The goal here is not polished prose. It is a draftable structure that preserves 
 
 Existing DeFi lending risk systems already frame liquidation-parameter selection as a constrained optimization problem, but the price inputs they consume during closed-market hours are weakly specified. In tokenized-equity markets, incumbent oracle and pricing stacks typically publish point prices, quote-dispersion diagnostics, or venue-specific fallback prices, without an auditable aggregate-level coverage statement for off-hours uncertainty. This matters because the largest reference-price gaps and the most policy-sensitive liquidation decisions occur precisely when the underlying venue is closed.
 
-We study the mapping from **calibrated price band to liquidation action**. Taking as given an oracle that serves empirically calibrated, regime-aware price bands with auditable receipts, we formulate liquidation-policy selection as an out-of-sample expected-loss minimization problem over explicit action semantics, cost models, and portfolio-weight assumptions. We compare policy families that consume calibrated bands against flat governance-band and flat-threshold baselines modeled on current tokenized-equity lending practice.
+We study the mapping from **calibrated price band to liquidation action**. Taking as given an oracle that serves empirically calibrated, regime-aware price bands with auditable receipts, we formulate liquidation-policy selection as an out-of-sample expected-loss minimization problem over explicit action semantics, cost models, and portfolio-weight assumptions. We compare policy families that consume calibrated bands against the observed Kamino xStocks reserve configuration and oracle semantics, together with simpler heuristic baselines, rather than treating a stylized flat governance band as the incumbent by default.
 
 Our central claim is not that one liquidation threshold is universally optimal. It is that, in closed-market regimes, calibrated-band policies can dominate flat point-price defaults in expected-loss terms over a robust region of cost and book assumptions, and that the publishable object is a **stable operating region** rather than a fragile single optimum. We evaluate these policies on weekend windows for tokenized US equities, report sensitivity to truth semantics and book composition, and require path-aware off-hours validation in addition to endpoint reopening prices.
 

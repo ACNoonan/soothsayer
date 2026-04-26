@@ -1,22 +1,22 @@
 """
-Matched-coverage A/B: Kamino flat ±300bps vs Soothsayer across its full coverage
-grid. Fixes the apples-to-oranges problem in `aggregate_ab_comparison.py`, which
-pitted Kamino (an uncalibrated ~99%-in-calm, <95%-in-shock heuristic) against
-Soothsayer at a single target=0.95 and called Soothsayer's tail-sensitive "FPs"
-a failure.
+Matched-coverage A/B: legacy flat ±300bps baseline vs Soothsayer across its full
+coverage grid. Fixes the apples-to-oranges problem in `aggregate_ab_comparison.py`,
+which pitted a one-number flat baseline against Soothsayer at a single target=0.95
+and called Soothsayer's tail-sensitive "FPs" a failure.
 
 Three outputs that answer the business question honestly:
 
   1. **ROC-style sweep.** Sweep Soothsayer across all 12 claimed grid levels
-     (0.50–0.995). Plot miss-rate vs FP-rate. Overlay Kamino's single point.
+     (0.50–0.995). Plot miss-rate vs the legacy flat-baseline point.
      This shows the *frontier* Soothsayer operates on.
 
   2. **Matched-width comparison.** Find the Soothsayer target that yields
      mean band half-width = 300bps (pooled). At that target, does Soothsayer
-     beat Kamino? This is the "same width budget, allocated smarter" test.
+     beat the legacy flat baseline? This is the "same width budget, allocated
+     smarter" test.
 
   3. **Matched-recall comparison.** Find the Soothsayer target that yields
-     miss-rate = Kamino's pooled miss rate. At that target, is Soothsayer's
+     miss-rate = the flat baseline's pooled miss rate. At that target, is Soothsayer's
      FP rate + width distribution better? This is the "same safety, fewer
      false alarms" test.
 
@@ -89,7 +89,8 @@ def evaluate_at_claim(
 ) -> pd.DataFrame:
     """Vectorized evaluation of a single LTV bucket across all weekends at one
     Soothsayer claimed level. Returns a DataFrame with per-weekend decisions and
-    realized decisions. Also includes Kamino for the same positions."""
+    realized decisions. Also includes the legacy flat-band baseline for the
+    same positions."""
     debt = ltv_target  # normalize collateral_value_at_origination = 1
     # collateral_qty = 1 / fri_close  (so collateral_qty × price = value)
     # current_ltv = debt / (collateral_qty × price) = debt × fri_close / price
@@ -223,7 +224,7 @@ def main() -> int:
         pooled_scope_claim_rows.append(row)
     pooled_sweep = pd.DataFrame(pooled_scope_claim_rows)
 
-    # Kamino's FP/miss don't depend on the Soothsayer claim — pick from any claim
+    # The legacy flat baseline's FP/miss don't depend on the Soothsayer claim.
     km_pooled = pooled_sweep[pooled_sweep["scope"] == "pooled"].iloc[0]
     km_fp = float(km_pooled["kamino_fp_rate"])
     km_miss = float(km_pooled["kamino_miss_rate"])
@@ -245,7 +246,7 @@ def main() -> int:
 
     summary_rows = [
         dict(
-            comparison="Kamino flat ±300bps",
+            comparison="Legacy flat ±300bps baseline",
             ss_claim=None,
             ss_mean_hw_bps=300.0,
             fp_rate=km_fp,
@@ -294,7 +295,7 @@ def main() -> int:
         )
     ax.scatter(
         [km_fp * 100], [km_miss * 100],
-        s=180, color="#d62728", marker="*", label="Kamino flat ±300bps",
+        s=180, color="#d62728", marker="*", label="Legacy flat ±300bps baseline",
         zorder=5, edgecolor="black", linewidth=0.8,
     )
     # Matched points
@@ -328,15 +329,15 @@ def main() -> int:
         pooled_sub["claimed"], pooled_sub["ss_mean_hw_bps"],
         "s--", color="#1f77b4", label="Soothsayer — pooled", linewidth=2,
     )
-    ax.axhline(300, color="#d62728", linestyle=":", label="Kamino flat ±300bps", linewidth=2)
+    ax.axhline(300, color="#d62728", linestyle=":", label="Legacy flat ±300bps baseline", linewidth=2)
     ax.set_xlabel("Claimed coverage (target)")
     ax.set_ylabel("Mean band half-width (bps)")
-    ax.set_title("Band width as a function of target coverage\n(Kamino's 300bps = a single operating point)")
+    ax.set_title("Band width as a function of target coverage\n(300bps legacy flat baseline = a single operating point)")
     ax.grid(True, alpha=0.25)
     ax.legend(loc="upper left", fontsize=9)
 
     fig.suptitle(
-        f"Matched-coverage A/B — Kamino vs Soothsayer across {km_pooled['n']:,} observations",
+        f"Matched-coverage A/B — legacy flat baseline vs Soothsayer across {km_pooled['n']:,} observations",
         fontsize=12, weight="bold",
     )
     fig.tight_layout(rect=[0, 0, 1, 0.97])
@@ -361,7 +362,7 @@ def main() -> int:
             f"{pct(r['ss_liq_rate']):>8s}   {pct(r['realized_liq_rate']):>12s}"
         )
     print()
-    print(f"  Kamino flat ±300bps →  FP={pct(km_fp)}   miss={pct(km_miss)}   liq={pct(km_liq)}")
+    print(f"  Legacy flat ±300bps baseline →  FP={pct(km_fp)}   miss={pct(km_miss)}   liq={pct(km_liq)}")
 
     print()
     print("=" * 92)

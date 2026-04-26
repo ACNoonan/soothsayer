@@ -10,7 +10,7 @@ Supersedes ad-hoc discussion; mirrors the per-category notes in the Obsidian vau
 
 ## Landscape shape
 
-**Bimodal.** Crypto, on-chain, and the new CeFi xStock venues (Kraken/Bybit) are free and excellent. US equity tick data is the one real cost center and has non-trivial licensing. Incumbent oracle observations (Pyth Hermes, Chainlink via chain reconstruction, Switchboard PDA reads) are free.
+**Bimodal.** Crypto, on-chain, and incumbent-oracle observations are mostly free and excellent. US equity tick data is the one real cost center and has non-trivial licensing. The free-market xStock venue picture is more uneven than first assumed: Kraken Perp is usable, Jupiter / on-chain DEX prints are usable, but Kraken spot and Bybit spot did not hold up as dependable observation paths in our April 2026 probes.
 
 ---
 
@@ -87,15 +87,21 @@ Recommendation: **Helius free/Yellowstone for real-time**, **Helius Enhanced Tra
 
 ---
 
-## 5. CeFi xStock venues (Kraken, Bybit) — all free, highest-value new signal
+## 5. CeFi xStock venues and free-market proxies
 
-xStocks trade on Kraken and Bybit spot. Kraken Perp (launched Feb 24 2026 via Bermuda-licensed Payward Digital Solutions) is the first regulated tokenized-equity perp venue.
+Empirical status as of 2026-04-26:
+
+- **Confirmed usable:** Kraken Perp funding / mark, Jupiter on-chain DEX quotes, Chainlink `tokenizedPrice`, Scope-served price.
+- **Not confirmed from public API probes:** Kraken spot xStock pairs.
+- **Operationally unavailable from this region:** Bybit spot (CloudFront geo-block on our US-origin probes).
+
+Kraken Perp (launched Feb 24 2026 via Bermuda-licensed Payward Digital Solutions) remains the cleanest CeFi off-hours signal we can verify from public endpoints today.
 
 | Venue | Products | API | Cost | Access | Priority |
 |---|---|---|---|---|---|
-| **Kraken spot** | All Alliance xStocks | Public REST + WebSocket | $0 | Open public | High |
+| **Kraken spot** | No confirmed xStock pairs from April 2026 public API probes | Public REST + WebSocket | $0 | Open public | Low / not in active tape |
 | **Kraken Perp** | 10 xStock perps + **8h funding rate** | Public REST + WebSocket | $0 | Open public | **High — NEW (H9)** |
-| **Bybit spot** | xStock spot | Public REST + WebSocket | $0 | Open public | Medium (redundancy) |
+| **Bybit spot** | xStock spot, but geo-blocked on our US-region probes | Public REST + WebSocket | $0 | Region-dependent | Contingency only |
 
 ### Kraken Perp markets (10)
 
@@ -105,13 +111,13 @@ SPYx, QQQx, GLDx, TSLAx, AAPLx, NVDAx, GOOGLx, HOODx, MSTRx, CRCLx. Up to 20× l
 
 | Signal | Endpoint | Cadence | Source variance priors |
 |---|---|---|---|
-| Kraken spot mid | `/0/public/Ticker` | seconds | Low in RTH, high off-hours |
-| Kraken spot OHLC | `/0/public/OHLC` | 1 min | Yang-Zhang realized vol |
 | Kraken Perp mark | `/derivatives/api/v3/tickers` | seconds | Medium; basis-to-spot is signal |
 | **Kraken Perp funding** | `/derivatives/api/v3/historical-funding-rates` | 8 h | **Low noise, high information** |
-| Bybit spot mid | `/v5/market/tickers` | seconds | Redundancy |
+| Jupiter xStock mid | On-chain quote APIs / router simulation | sub-minute | High value, execution-aware off-hours proxy |
+| Chainlink `tokenizedPrice` | V5 tape / on-chain reconstruction | minute | Closest continuous 24/7 mark among free public observations |
+| Scope-served price | Kamino Scope feed PDA | minute | Actual price consumed by Kamino reserves |
 
-Funding rate is a market-implied forecast of the weekend Monday-gap. V3 testing on Phase-0 data ([`reports/v3_funding_signal.md`](../reports/v3_funding_signal.md)) found no detectable signal at our sample size; the regressor is retained as a candidate for v2 re-evaluation once the V5 on-chain tape supplies sufficient history alongside Kraken's perp funding archive.
+Funding rate is a market-implied forecast of the weekend Monday-gap. V3 testing on Phase-0 data ([`reports/v3_funding_signal.md`](../reports/v3_funding_signal.md)) found no detectable signal at our sample size; the regressor is retained as a candidate for v2 re-evaluation once the V5 on-chain tape supplies sufficient history alongside Kraken's perp funding archive. For the active forward-running weekend stack, the highest-signal free observations are currently Chainlink `tokenizedPrice`, Jupiter mid, and Kamino's Scope-served price, with Kraken Perp funding as a supplementary signal rather than the main truth source.
 
 ---
 
@@ -221,7 +227,7 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 | US equity real-time | **$199/mo** | Polygon.io Stocks Advanced |
 | Helius (Solana gRPC) | $0–49/mo | Free tier usable |
 | Kraken xStock Perp funding | **$0** | Public REST |
-| Everything else | $0 | Dune free, Binance/OKX/Coinbase free, FRED, Nasdaq halts, Kraken/Bybit spot, Pyth Hermes, Chainlink on-chain reconstruction |
+| Everything else | $0 | Dune free, Binance/OKX/Coinbase free, FRED, Nasdaq halts, Jupiter on-chain quotes, Pyth Hermes, Chainlink on-chain reconstruction |
 
 **MVP total:** ~$200–500 one-time + ~$200–250/month.
 

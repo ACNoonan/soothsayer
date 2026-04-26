@@ -1,12 +1,12 @@
 """
-Aggregate A/B comparison — Kamino flat band vs Soothsayer (Case A: flat threshold
+Aggregate A/B comparison — legacy flat-band baseline vs Soothsayer (Case A: flat threshold
 + regime band) vs Soothsayer (Case B: regime-demoted threshold + regime band,
 CURRENTLY SHIPPING in crates/soothsayer-demo-kamino) — across all 5,986 weekends
 in the v1b bounds table.
 
 Answers two questions:
 
-  1. Does the shipping Soothsayer (Case B) actually beat Kamino in aggregate?
+  1. Does the shipping Soothsayer (Case B) actually beat the legacy flat-band baseline in aggregate?
      On which regimes, at which LTV levels? Where does Soothsayer LOSE?
 
   2. Does the double-demote (Case B) pay for itself vs single-demote (Case A)?
@@ -16,7 +16,7 @@ Answers two questions:
 
 Four bands per weekend, per position:
 
-    Kamino   — flat ±300bps band, flat 0.85 liquidation threshold
+    Legacy   — flat ±300bps band, flat 0.85 liquidation threshold
     SS_A     — Soothsayer regime-aware band, flat 0.85 threshold (no double-demote)
     SS_B     — Soothsayer regime-aware band, regime-demoted threshold (current shipping)
     Realized — uses mon_open as price; flat 0.85 threshold (god-view baseline)
@@ -57,7 +57,7 @@ MAX_LTV_AT_ORIGINATION = 0.75
 LIQUIDATION_THRESHOLD = 0.85
 REGIME_MULTIPLIERS = {"normal": 1.00, "long_weekend": 0.95, "high_vol": 0.85}
 
-# Kamino flat-band half-width (governance parameter in the current mainnet setup)
+# Legacy flat-band half-width retained from the original protocol-comparison scaffold
 KAMINO_BPS = 300
 
 # Soothsayer target coverage for this comparison
@@ -296,7 +296,7 @@ def main() -> int:
         if sub.empty:
             continue
         x = sub["ltv_target"].values
-        ax.plot(x, sub["kamino_fp_rate"] * 100, "o-", label="Kamino flat", color="#d62728", alpha=0.85)
+        ax.plot(x, sub["kamino_fp_rate"] * 100, "o-", label="Legacy flat baseline", color="#d62728", alpha=0.85)
         ax.plot(x, sub["ss_a_fp_rate"] * 100, "s--", label="Soothsayer Case A (flat threshold)", color="#2ca02c", alpha=0.85)
         ax.plot(x, sub["ss_b_fp_rate"] * 100, "d-", label="Soothsayer Case B (demote threshold — current)", color="#1f77b4", alpha=0.85)
         ax.set_xlabel("LTV at origination")
@@ -315,7 +315,7 @@ def main() -> int:
         }),
     )
     x = pooled_by_ltv.index.values
-    ax.plot(x, pooled_by_ltv["kamino"], "o-", label="Kamino flat", color="#d62728")
+    ax.plot(x, pooled_by_ltv["kamino"], "o-", label="Legacy flat baseline", color="#d62728")
     ax.plot(x, pooled_by_ltv["ss_a"], "s--", label="Soothsayer Case A", color="#2ca02c")
     ax.plot(x, pooled_by_ltv["ss_b"], "d-", label="Soothsayer Case B", color="#1f77b4")
     ax.set_xlabel("LTV at origination")
@@ -329,7 +329,7 @@ def main() -> int:
     regimes = widths_summary["regime"].values
     x_pos = np.arange(len(regimes))
     w = 0.35
-    ax.bar(x_pos - w/2, widths_summary["kamino_half_width_bps"], width=w, color="#d62728", label="Kamino ±300bps")
+    ax.bar(x_pos - w/2, widths_summary["kamino_half_width_bps"], width=w, color="#d62728", label="Legacy flat ±300bps")
     ax.bar(x_pos + w/2, widths_summary["soothsayer_half_width_bps"], width=w, color="#1f77b4", label="Soothsayer mean (at target=0.95)")
     ax.set_xticks(x_pos)
     ax.set_xticklabels(regimes)
@@ -339,7 +339,7 @@ def main() -> int:
     ax.legend(loc="upper left", fontsize=8)
 
     fig.suptitle(
-        f"Aggregate A/B — Kamino vs Soothsayer across {pooled_df['n_weekends'].iloc[0]:,} weekends × {len(LTV_BUCKETS)} LTV buckets",
+        f"Aggregate A/B — legacy flat baseline vs Soothsayer across {pooled_df['n_weekends'].iloc[0]:,} weekends × {len(LTV_BUCKETS)} LTV buckets",
         fontsize=12, weight="bold",
     )
     out_path = figures_dir / "aggregate_ab_comparison.png"
@@ -360,7 +360,7 @@ def main() -> int:
     print(f"  n = {p['n_positions']:,} position-weekend observations across {p['n_weekends']:,} weekends")
     print()
     print(f"  {'':16s}  {'false-pos liq':>15s}   {'missed liq':>15s}   {'liq rate':>15s}")
-    for band_label, band in [("Kamino flat", "kamino"), ("Soothsayer A (flat thresh)", "ss_a"), ("Soothsayer B (demote)", "ss_b")]:
+    for band_label, band in [("Legacy flat", "kamino"), ("Soothsayer A (flat thresh)", "ss_a"), ("Soothsayer B (demote)", "ss_b")]:
         print(f"  {band_label:16s}  {pct(p[f'{band}_fp_rate']):>15s}   {pct(p[f'{band}_miss_rate']):>15s}   {pct(p[f'{band}_liq_rate']):>15s}")
     print(f"  {'Realized god-view':16s}  {'—':>15s}   {'—':>15s}   {pct(p['realized_liq_rate']):>15s}")
     print()
@@ -371,7 +371,7 @@ def main() -> int:
         regime = r["regime"]
         print(f"\n  regime = {regime}  (n = {r['n_positions']:,} positions, {r['n_weekends']:,} weekends)")
         print(f"    {'':16s}  {'false-pos liq':>15s}   {'missed liq':>15s}   {'liq rate':>15s}")
-        for band_label, band in [("Kamino flat", "kamino"), ("Soothsayer A", "ss_a"), ("Soothsayer B", "ss_b")]:
+        for band_label, band in [("Legacy flat", "kamino"), ("Soothsayer A", "ss_a"), ("Soothsayer B", "ss_b")]:
             print(f"    {band_label:16s}  {pct(r[f'{band}_fp_rate']):>15s}   {pct(r[f'{band}_miss_rate']):>15s}   {pct(r[f'{band}_liq_rate']):>15s}")
         print(f"    {'Realized':16s}  {'—':>15s}   {'—':>15s}   {pct(r['realized_liq_rate']):>15s}")
 

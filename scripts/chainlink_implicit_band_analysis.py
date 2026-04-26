@@ -150,7 +150,7 @@ def main() -> None:
         "## Caveats",
         "",
         f"- Sample size is **{len(df)}** obs from a recent {df['weekend_mon'].nunique()}-weekend window — sufficient to demonstrate the structural finding (no Chainlink band) but small for a per-regime breakdown. A multi-year extension would require pulling Chainlink Data Streams reports from earlier 2025 / 2024 via Helius; the pull infrastructure exists in `src/soothsayer/chainlink/scraper.py` and is gated only on engineering time, not data access.",
-        "- The naive ±k% wrap is *not* what a sophisticated Chainlink consumer would actually deploy; this is the comparator a *naive* consumer would see. The realistic alternative (for a v2 deliverable) is to compare against Kamino's flat ±300bps band (already done in `reports/tables/protocol_compare_*.csv`), which is the deployed standard for Chainlink-consuming Solana protocols.",
+        "- The naive ±k% wrap is *not* what a sophisticated Chainlink consumer would actually deploy; this is the comparator a *naive* consumer would see. The stronger v2 comparison is against the observed Kamino xStocks reserve configuration and oracle semantics, plus simpler heuristic baselines; the earlier flat ±300bps benchmark in `reports/tables/protocol_compare_*.csv` is now retained only as a legacy stylized baseline.",
         "- We do not measure Chainlink's *bias* — that's the V1 finding (`reports/v1_chainlink_bias.md`): pooled bias is −8.77 bps with t = −0.52, p = 0.605 (undetectable). Chainlink's point estimate is unbiased; what's missing is the band.",
         "",
         "Per-symbol breakdown: `reports/tables/chainlink_implicit_band_by_symbol.csv`.",

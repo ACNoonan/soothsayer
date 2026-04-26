@@ -15,7 +15,7 @@
 **Product shape.** Soothsayer Oracle. Customer specifies target coverage τ ∈ (0, 1); Oracle returns a band that empirically delivered τ on a 12-year backtest stratified by (symbol, regime). Every read carries receipts: served claimed-quantile, forecaster used, regime observed, calibration buffer applied.
 
 **Deployment defaults.**
-- Default τ = **0.85** — picked on protocol-EL grounds vs Kamino flat-300bps benchmark.
+- Default τ = **0.85** — picked on protocol-policy grounds in the original Paper 3 scaffold; the earlier flat-300bps Kamino-style comparator is now retained only as a simplified baseline, with the production comparison reframed around real xStocks reserve-buffer exhaustion.
 - Hybrid forecaster: F1_emp_regime in `normal` and `long_weekend`; F0_stale in `high_vol`.
 - Per-target buffer schedule: `{0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}`, linearly interpolated off-grid (τ=0.99 bumped from 0.005 → 0.010 after 2026-04-25 grid extension).
 - Claimed-coverage grid: `{..., 0.95, 0.975, 0.99, 0.995, 0.997, 0.999}` (extended 2026-04-25 from prior top of 0.995); `MAX_SERVED_TARGET = 0.999`.
@@ -37,7 +37,7 @@
 - τ = 0.85: realised 0.855, Kupiec $p_{uc}$ = 0.541, Christoffersen $p_{ind}$ = 0.185 (PASS).
 - τ = 0.68: realised 0.678, Kupiec $p_{uc}$ = 0.893, Christoffersen $p_{ind}$ = 0.647 (PASS).
 - τ = 0.99: realised 0.977 (post-grid-extension; was 0.972 on the 0.995-capped grid) — Kupiec still rejects. Structural ceiling re-attributed: with the grid extended to 0.999, the deeper finite-sample limitation is now identified as the 156-weekend per-(symbol, regime) calibration window size, not grid spacing.
-- Protocol EL vs Kamino flat ±300bps at τ = 0.85: ΔEL ≈ −0.011 with bootstrap 95% CI [−0.014, −0.007] (favours Soothsayer).
+- Protocol EL vs the legacy flat ±300bps baseline at τ = 0.85: ΔEL ≈ −0.011 with bootstrap 95% CI [−0.014, −0.007] (favours Soothsayer). This result remains useful as a stylized benchmark, but it is no longer described as the literal deployed xStocks incumbent after the 2026-04-26 on-chain Kamino snapshot.
 - **Walk-forward stability (6 expanding-window splits 2019–2025):** at τ=0.95, mean buffer = 0.019 (σ = 0.017); deployed value 0.020 lands at the cross-split mean. At τ=0.85, mean buffer = 0.025 (σ = 0.022); deployed 0.045 is conservative (≥1σ above mean).
 - **Stationarity (D2):** 8 of 10 symbols stationary by joint ADF + KPSS; HOOD (n=245) and TLT trend-stationary.
 - **Christoffersen pooling sensitivity (D4):** sum-of-LRs / Bonferroni / Holm-Šidák agree on accept/reject at α=0.05 across all four targets — robust to pooling choice.

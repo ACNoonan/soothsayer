@@ -9,14 +9,17 @@ persisted to `data/processed/v1b_bounds.parquet`.
 
 **Default target_coverage = 0.85 (2026-04-25).** The shipping default moved
 from 0.95 to 0.85 after the OOS protocol-comparison bootstrap
-(`reports/tables/protocol_compare_*.csv`) showed t=0.85 yields a statistically
-significant expected-loss improvement vs a Kamino-style flat ±300bps band on
-the held-out 2023+ slice. Under the per-target buffer schedule and the default
-4:1 miss:FP cost matrix: t=0.85 ΔEL = −0.0107 with bootstrap CI [−0.014,
-−0.008] (~15% EL reduction; t=0.80 reaches ~27% but at higher miss rate);
-t=0.95 ΔEL = +0.0245 (~35% worse than Kamino) because the buffered band
-over-fires false-positive liquidations. The choice between t=0.80 and t=0.85
-as the welfare-optimal default is paper-2 territory; t=0.85 ships as a
+(`reports/tables/protocol_compare_*.csv`) showed t=0.85 performs best in the
+original protocol-policy scaffold under the default 4:1 miss:FP cost matrix.
+Against the legacy flat-band baseline used in that scaffold, t=0.85 yields
+ΔEL = −0.0107 with bootstrap CI [−0.014, −0.008] (~15% reduction; t=0.80
+reaches ~27% but at higher miss rate); t=0.95 yields ΔEL = +0.0245 because
+the buffered band over-fires false-positive liquidations. After the
+2026-04-26 on-chain Kamino snapshot, that flat-band comparator is treated as a
+simplified baseline rather than the literal xStocks production setup; Paper 3
+now reframes the deployment comparison around real reserve-buffer exhaustion
+under observed Kamino semantics. The choice between t=0.80 and t=0.85 as the
+welfare-optimal default is therefore paper-3 territory; t=0.85 ships as a
 moderately conservative Schelling point. Customer-selects-coverage (Option C)
 means consumers with extreme bad-debt aversion can still ask for 0.95 or 0.99;
 we just don't default there.

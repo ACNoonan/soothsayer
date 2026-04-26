@@ -8,7 +8,7 @@
 
 The promise of tokenized equities is real 24/7, permissionless markets. The missing infrastructure is a defensible closed-market price. Soothsayer publishes a **calibration-transparent fair-value band** for tokenized RWAs on Solana — built for the weekend, overnight, and halt windows where Chainlink Data Streams holds stale fields, Pyth + Blue Ocean still hand back the weekend, and RedStone Live runs on undisclosed methodology.
 
-The product shape is different from every other oracle on Solana: **consumers specify the realised coverage level they need, and Soothsayer returns the band that empirically delivers it** — with per-(symbol, regime) audit receipts backed by 12 years of public data. It is designed to be read **alongside** a primary price oracle, not to replace one. The moat is *calibration transparency*, not "our math is better."
+The product shape is different from every other oracle on Solana: **consumers specify the realised coverage level they need, and Soothsayer returns the band that empirically delivers it** — with per-(symbol, regime) audit receipts backed by 12 years of public data. The same receipt then supports three layers of output across the repo: the calibrated band primitive, public weekend / liquidation / OEV measurement artifacts, and downstream protocol-policy analysis. It is designed to be read **alongside** a primary price oracle, not to replace one. The moat is *calibration transparency*, not "our math is better."
 
 **Hard facts.** Held-out 2023+ slice (1,720 rows × 172 weekends × 10 tickers, temporally disjoint from the calibration window) delivers Kupiec + Christoffersen passes at three operating points:
 
@@ -20,7 +20,7 @@ The product shape is different from every other oracle on Solana: **consumers sp
 
 τ=0.99 hits a structural finite-sample tail ceiling and is disclosed as out-of-scope for v1. Full receipt: [`reports/v1b_calibration.md`](reports/v1b_calibration.md). Living methodology log: [`reports/methodology_history.md`](reports/methodology_history.md).
 
-> **Status (2026-04-25):** Phase 0 validation complete; **full PASS**. Phase 1 underway in parallel — devnet deploy + Paper 1 to arXiv + Paper 2 (OEV mechanism design) and Paper 3 (liquidation policy) plans. Paper drafts: [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) (in flight), [`reports/paper2_oev_mechanism_design/`](reports/paper2_oev_mechanism_design/) (planning), [`reports/paper3_liquidation_policy/`](reports/paper3_liquidation_policy/) (planning). See also [`reports/v1b_decision.md`](reports/v1b_decision.md) and [`reports/option_c_spec.md`](reports/option_c_spec.md).
+> **Status (2026-04-25):** Phase 0 validation complete; **full PASS**. Phase 1 is underway in parallel: devnet deploy, Paper 1 to arXiv, Paper 2's public OEV / liquidation measurement track, and Paper 3's reserve-buffer / liquidation-policy track. Paper drafts: [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) (in flight), [`reports/paper2_oev_mechanism_design/`](reports/paper2_oev_mechanism_design/) (planning), [`reports/paper3_liquidation_policy/`](reports/paper3_liquidation_policy/) (planning). See also [`reports/v1b_decision.md`](reports/v1b_decision.md) and [`reports/option_c_spec.md`](reports/option_c_spec.md).
 
 ## Why this exists
 
@@ -52,7 +52,7 @@ fv.diagnostics                 # full auditable receipt
 
 `target_coverage`, `calibration_buffer_applied`, `claimed_coverage_served`, `forecaster_used`, and `regime` together compose the trust primitive. They say: *"to deliver your requested 85% realised coverage on a (SPY, normal) bucket, we added a 4.5pp empirical buffer to your target, inverted our calibration surface at the buffered quantile, and served you the band from F1_emp_regime — because that combination has historically covered 85% of Mondays on held-out 2023+ data."* Any consumer can reconstruct the surface and verify that mapping against [`reports/v1b_calibration.md`](reports/v1b_calibration.md) and the persisted bounds at `data/processed/v1b_bounds.parquet`.
 
-The deployment default is **τ = 0.85**, picked on protocol-expected-loss grounds against a Kamino-style flat ±300bps benchmark (see [`reports/paper3_liquidation_policy/plan.md`](reports/paper3_liquidation_policy/plan.md)). Any τ ∈ (0, 1) is a valid request; τ = 0.95 is the paper's headline oracle-validation target.
+The deployment default is **τ = 0.85**, picked on protocol-policy grounds in the current Paper 3 scaffold; the earlier flat ±300bps Kamino-style benchmark is now treated as a simplified baseline rather than the literal xStocks production configuration (see [`reports/paper3_liquidation_policy/plan.md`](reports/paper3_liquidation_policy/plan.md)). Any τ ∈ (0, 1) is a valid request; τ = 0.95 is the paper's headline oracle-validation target.
 
 ## The methodology (one screen)
 
@@ -102,7 +102,7 @@ Per-regime breakdown at τ = 0.95 (OOS):
 | long_weekend | 190 | 0.953 | 416.6 | F1_emp_regime |
 | high_vol | 380 | 0.963 | 591.6 | F0_stale |
 
-τ = 0.95 is the paper's headline oracle-validation target. τ = 0.85 is the shipping default per protocol-EL evidence vs Kamino flat ±300bps (`reports/paper3_liquidation_policy/plan.md`). τ = 0.99 is structurally limited by the rolling 156-weekend per-(symbol, regime) calibration-window size — too few tail observations to resolve the 1% claim reliably, even with the grid extended to 0.999 (Kupiec still rejects post-extension; Christoffersen passes with $p_\text{ind} = 0.956$, so the failure is level-attribution, not violation-clustering). Disclosed in §9.1 of the paper.
+τ = 0.95 is the paper's headline oracle-validation target. τ = 0.85 is the shipping default in the current protocol-policy scaffold; Paper 3 now reframes the deployment comparison around real reserve-buffer exhaustion under Kamino xStocks semantics rather than a literal flat ±300bps incumbent. τ = 0.99 is structurally limited by the rolling 156-weekend per-(symbol, regime) calibration-window size — too few tail observations to resolve the 1% claim reliably, even with the grid extended to 0.999 (Kupiec still rejects post-extension; Christoffersen passes with $p_\text{ind} = 0.956$, so the failure is level-attribution, not violation-clustering). Disclosed in §9.1 of the paper.
 
 Full surface, per-symbol breakdown, calibration curves: [`reports/v1b_calibration.md`](reports/v1b_calibration.md), [`reports/paper1_coverage_inversion/06_results.md`](reports/paper1_coverage_inversion/06_results.md). Ablation with bootstrap CIs: [`reports/v1b_ablation.md`](reports/v1b_ablation.md). Reproducible end-to-end via `uv run python scripts/run_calibration.py` and `uv run python scripts/smoke_oracle.py`.
 

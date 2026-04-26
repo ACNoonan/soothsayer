@@ -11,7 +11,7 @@
 
 ## 1. One-sentence pitch
 
-Build the first public **xStocks-on-Kamino + MarginFi liquidation dataset** with reconstructed calibration-transparent oracle bands, publish empirical findings on whether oracle-extractable value (OEV) concentrates at oracle-band-edge events, and specify a band-conditional auction overlay on Pyth Express Relay that, if adopted, eliminates the very rent the dataset documents. Deliverables: an open dataset, an open-source reconstructor, a peer-reviewable paper, and a mechanism-design memo to Pyth and Kamino.
+Build the first public **xStocks-on-Kamino + MarginFi liquidation dataset** with reconstructed calibration-transparent oracle bands, publish empirical findings on whether oracle-extractable value (OEV) concentrates at oracle-band-edge events, and specify a band-conditional auction overlay on Pyth Express Relay that, if adopted, eliminates the very rent the dataset documents. Deliverables: an open dataset, an open-source reconstructor, a peer-reviewable paper, and a mechanism-design memo to Pyth and Kamino. The public dataset and reconstructor are the primary artifact; the mechanism memo is the deployable follow-through.
 
 ### Why this fits a Solana Foundation grant
 
@@ -152,10 +152,10 @@ If awarded the lower bound, the conference + working-capital buckets are first t
 The project is structured as a public-good ecosystem artifact with an explicit three-phase lifecycle:
 
 1. **Grant period (4 months).** Solana Foundation funds the dataset, reconstructor, paper, and mechanism-design memo. All four deliverables ship under permissive licenses (MIT for code, CC-BY for dataset and paper).
-2. **Post-grant maintenance.** Ongoing operating costs — RPC, dataset hosting, occasional reconstructor updates as Kamino / MarginFi / Pyth iterate — are targeted to be offset by surplus from the parallel xStocks-weekend-reopen liquidator instrument (Appendix A). Bot revenue is ringfenced to ecosystem operating costs and is not paid out as researcher compensation. If surplus is insufficient, dataset hosting falls back to the HuggingFace free tier and the reconstructor enters maintenance-only mode (event schema frozen; breaking-change patches at best-effort cadence).
-3. **Sunset by design.** The mechanism-design memo this grant produces specifies a band-conditional auction overlay on Pyth Express Relay. *If that overlay is adopted, the rent the bot harvests collapses* — and the bot with it. The dataset and reconstructor remain as the historical artifact of what OEV looked like before the fix.
+2. **Post-grant maintenance.** Ongoing operating costs — RPC, dataset hosting, occasional reconstructor updates as Kamino / MarginFi / Pyth iterate — are expected to be modest relative to the main build. Preferred path is low-cost maintenance of the public artifact itself; if parallel instrumentation work later produces surplus, that surplus is ringfenced to ecosystem operating costs rather than researcher compensation. If no such surplus exists, dataset hosting falls back to the HuggingFace free tier and the reconstructor enters maintenance-only mode (event schema frozen; breaking-change patches at best-effort cadence).
+3. **Sunset by design.** The mechanism-design memo this grant produces specifies a band-conditional auction overlay on Pyth Express Relay. If that overlay is adopted, the value of private band-edge extraction should compress. The dataset and reconstructor remain as the public historical artifact of what OEV looked like before the fix and as a baseline for future Solana mechanism work.
 
-The success of the public-good deliverable is therefore aligned-by-construction *against* the longevity of the rent-extracting instrument that funds its upkeep. This is the strongest incentive-alignment story available for a foundation-funded grant: the grant is not subsidizing infrastructure that perpetuates extraction, it is funding the mechanism that ends it.
+The success criterion for the public-good deliverable is therefore not the durability of any private strategy. It is whether the ecosystem ends up with a reusable dataset, a verified measurement layer, and a concrete mechanism proposal that compresses opaque band-edge rents.
 
 ---
 
@@ -207,13 +207,14 @@ The proposal is intentionally structured so that the downside cases still produc
 
 ---
 
-## Appendix A — The "make Paper 2 + grant undeniable" thesis
+## Appendix A — Optional parallel instrumentation
 
-The single highest-leverage move is **executing this proposal while running the narrow xStocks-weekend-reopen liquidator bot in parallel as the data-collection mechanism**. The bot is not the deliverable; the dataset is. But the bot:
+The highest-leverage optional extension is **running a narrow xStocks-weekend-reopen liquidator instrument in parallel as an auxiliary data-collection path**. This is explicitly secondary to the grant deliverables: the dataset is the artifact, not the bot.
 
-- (a) generates ground-truth bid stacks rather than reconstructed-from-logs estimates;
-- (b) covers infrastructure costs that would otherwise come out of the grant;
-- (c) demonstrates that the Soothsayer band is *deployable* as a liquidator's pricing input — the strongest possible deployment story for Paper 2;
-- (d) extracts a small but real fraction of the OEV the paper documents, which materially strengthens the "this matters" case in the introduction.
+If run, the instrument could:
 
-Pre-registration commitment: the bot's P&L is reported alongside the paper's empirical findings; if the bot fails to capture OEV at band-edge events, that null result is reported. If it succeeds, the proposal's economic thesis is empirically demonstrated by the same instrument that produced the dataset. Either way, the work is honest and the artifact is public.
+- (a) generate ground-truth bid-stack observations rather than reconstructed-from-logs estimates;
+- (b) provide an additional deployment-side check that the Soothsayer band is usable as a liquidator pricing input;
+- (c) offset a portion of operating costs that would otherwise come out of general project runway.
+
+Pre-registration commitment: if any such instrument is run, its P&L and empirical hit rate are reported alongside the paper's findings. If it fails to capture OEV at band-edge events, that null result is reported. If it succeeds, it strengthens the deployment story. Either way, it remains auxiliary to the public dataset and measurement layer the grant is funding.

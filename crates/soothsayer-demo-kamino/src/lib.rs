@@ -3,12 +3,12 @@
 //! **Purpose.** This crate is a teaching artifact, not production lending
 //! code. It demonstrates how a Kamino-style lending protocol's LTV and
 //! liquidation-threshold decisions change when the oracle input is a
-//! calibrated empirical band (Soothsayer) vs. a governance-set price haircut
-//! (Kamino gov post #792).
+//! calibrated empirical band (Soothsayer) vs. a stylized flat-haircut
+//! baseline inspired by earlier Kamino-comparison scaffolding.
 //!
-//! **Pitch one-liner:** *"Kamino's band is a governance parameter. Soothsayer's
-//! band is an empirical measurement."* See `reports/v1b_decision.md` and
-//! `07.1 - Deep Research Output v2.md` Topic 2.
+//! **Pitch one-liner:** *"The live reserve buffer is narrow; Soothsayer makes
+//! the weekend uncertainty around that buffer explicit."* See
+//! `reports/v1b_decision.md` and `07.1 - Deep Research Output v2.md` Topic 2.
 //!
 //! ## The decision model
 //!
@@ -245,13 +245,13 @@ pub fn evaluate(
     })
 }
 
-/// A "flat governance band" baseline — what Kamino actually does today per
-/// gov post #792 — for side-by-side comparison.
+/// A legacy flat-band baseline kept for side-by-side comparison with earlier
+/// protocol-policy scaffolding.
 ///
 /// Model: the protocol accepts the oracle's point and applies a flat
 /// `deviation_bps` haircut during closed-market windows. `lower = point *
 /// (1 - bps/10000)`, `upper = point * (1 + bps/10000)`. No regime awareness,
-/// no empirical calibration — just a single governance parameter per asset.
+/// no empirical calibration — just a single stylized parameter per asset.
 pub fn flat_gov_band_from_point(point: f64, deviation_bps: u16) -> (f64, f64) {
     let frac = deviation_bps as f64 / 10_000.0;
     (point * (1.0 - frac), point * (1.0 + frac))
@@ -424,7 +424,7 @@ mod tests {
     fn flat_gov_band_vs_empirical_side_by_side() {
         // A high-vol weekend comparison where both bands fire Liquidate but for
         // different reasons. Setup: point price $700 at Friday close.
-        // - Kamino flat band: ±300 bps = lower $679. Collateral $6790 → LTV 88%. LIQUIDATES.
+        // - Legacy flat-band baseline: ±300 bps = lower $679. Collateral $6790 → LTV 88%. LIQUIDATES.
         // - Soothsayer high-vol band: point $700, lower $665 (wider than flat), claim 0.99.
         //     Collateral $6650 → LTV 90%. LIQUIDATES at the flat 0.85 threshold.
         // The Soothsayer reading is more conservative because the wider lower
@@ -445,8 +445,8 @@ mod tests {
         // is different: wider band → lower collateral value → higher LTV.
         assert!(soothsayer_eval.current_ltv > kamino_eval.current_ltv);
 
-        // And Soothsayer's band in high_vol is materially wider than Kamino's fixed 300 bps,
-        // reflecting the genuine regime risk rather than a governance-set guess.
+        // And Soothsayer's band in high_vol is materially wider than the legacy fixed 300 bps
+        // baseline, reflecting the genuine regime risk rather than a one-number shortcut.
         assert!(soothsayer_eval.band_half_width_bps > kamino_eval.band_half_width_bps);
     }
 

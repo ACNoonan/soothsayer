@@ -1,6 +1,6 @@
 [package]
 name = "soothsayer-demo-kamino"
-description = "Reference Kamino-fork lending logic consuming a Soothsayer PriceBand. Demonstrates the Week 3 pitch one-liner: 'Kamino's band is a governance parameter — Soothsayer's band is an empirical measurement.' Not a production lending implementation; exists to show the integration surface and let a pitch reviewer trace what changes when the same LTV formula reads a calibrated band vs a flat haircut."
+description = "Reference Kamino-fork lending logic consuming a Soothsayer PriceBand. A teaching artifact that contrasts a calibrated band with a legacy flat-haircut baseline under a Kamino-like LTV ladder. Not a production lending implementation; exists to show the integration surface and let a reviewer trace what changes when the same LTV formula reads a calibrated band versus a stylized flat-band comparator."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

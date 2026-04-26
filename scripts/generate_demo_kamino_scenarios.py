@@ -6,8 +6,8 @@ band with a synthetic borrow position sized to sit near the threshold
 boundary, and serialises the panel to ``data/processed/demo_kamino_scenarios.json``.
 
 The Rust binary at ``crates/soothsayer-demo-kamino/src/bin/run_demo.rs``
-deserialises this file and emits the side-by-side Kamino-vs-Soothsayer
-decision comparison. The numbers in the resulting panel are real outputs
+deserialises this file and emits the side-by-side legacy-flat-baseline-vs-
+Soothsayer decision comparison. The numbers in the resulting panel are real outputs
 from the deployed methodology — the same surface that produces the on-chain
 PriceUpdate accounts.
 
@@ -91,7 +91,8 @@ def main() -> None:
                     "target_ltv": target_ltv,
                     "band": pp.to_dict(),
                     "position": position_for(pp.point, target_ltv, pos_size),
-                    # Kamino's deployed flat band is ±300 bps per gov post #792.
+                    # Legacy flat-band baseline retained for continuity with the
+                    # original Kamino comparison scaffold.
                     "kamino_deviation_bps": 300,
                 })
 

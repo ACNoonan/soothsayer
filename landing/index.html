@@ -706,11 +706,11 @@
       </h1>
 
       <p class="lede">
-        The promise of tokenized equities is real 24/7, permissionless markets. The missing infrastructure is a defensible closed-market price. Soothsayer helps bridge that gap with a calibration-transparent fair-value band grounded in decades of market microstructure, risk-model research, and 12 years of public data.
+        The promise of tokenized equities is real 24/7, permissionless markets. The missing infrastructure is a defensible closed-market reference with explicit uncertainty. Soothsayer publishes calibration-transparent fair-value bands, audit receipts, and downstream risk evidence grounded in market microstructure, protocol research, and 12 years of public data.
       </p>
 
       <div class="actions">
-        <a class="btn primary" href="#contact" data-open-contact>Request access <span class="arrow">→</span></a>
+        <a class="btn primary" href="#method">See the methodology <span class="arrow">→</span></a>
         <a class="btn ghost" href="pitch.html">Read the pitch <span class="arrow">→</span></a>
       </div>
 
@@ -831,16 +831,16 @@
       <div class="head-row">
         <div>
           <span class="eyebrow g"><span class="bar"></span>What we build</span>
-          <h2><span class="em">Methodology, OEV &amp; Policy.</span></h2>
+          <h2><span class="em">Primitive, measurement &amp; decisions.</span></h2>
         </div>
-        <p>The current proposal is a public fair-value feed plus three papers: how the methodology works, where OEV concentrates, and how downstream consumers can use the signal.</p>
+        <p>Soothsayer is one stack with three outputs: the calibrated band and receipt, the public measurement layer built from those receipts, and the decision support that turns uncertainty into protocol-relevant evidence.</p>
       </div>
 
       <div class="prod-grid">
         <div class="prod">
-          <span class="num">01 · PAPER 1 · METHODOLOGY</span>
-          <h3>Define the calibration-transparent oracle primitive.</h3>
-          <p>Paper 1 formalizes Soothsayer's coverage-inversion methodology: a public Solana fair-value feed that serves a price band, target coverage, and audit receipts instead of asking protocols to trust a black box.</p>
+          <span class="num">01 · PRIMITIVE · PAPER 1</span>
+          <h3>Publish a calibrated band and its receipt.</h3>
+          <p>Paper 1 formalizes the coverage-inversion primitive: a public Solana fair-value band with target coverage, claimed-served quantile, and replayable audit receipts instead of a black-box point estimate.</p>
           <div class="tag-row">
             <span class="tag">12 years</span>
             <span class="tag">5,986 weekends</span>
@@ -849,9 +849,9 @@
         </div>
 
         <div class="prod">
-          <span class="num">02 · PAPER 2 · SOLANA OEV</span>
-          <h3>Measure liquidation rent at the band edge.</h3>
-          <p>Paper 2 and the Solana OEV grant proposal focus on xStocks-on-Kamino and MarginFi: build the public liquidation dataset, test whether OEV concentrates at oracle-band exits, and specify a band-aware overlay for Pyth Express Relay.</p>
+          <span class="num">02 · MEASUREMENT · PAPER 2</span>
+          <h3>Build the public liquidation and OEV evidence layer.</h3>
+          <p>Paper 2 and the Solana OEV grant proposal turn the primitive into public infrastructure: liquidation datasets, weekend comparators, and event labels that test where rent concentrates in xStocks-on-Kamino and MarginFi.</p>
           <div class="tag-row">
             <span class="tag">Open dataset</span>
             <span class="tag">Mechanism design</span>
@@ -860,9 +860,9 @@
         </div>
 
         <div class="prod">
-          <span class="num">03 · PAPER 3 · CONSUMER POLICY</span>
-          <h3>Show consumers how the signal improves decisions.</h3>
-          <p>Paper 3 asks what a protocol, liquidator, or other downstream consumer should do with a calibrated band: which defaults, triggers, and policies reduce expected loss or increase edge when markets are closed.</p>
+          <span class="num">03 · DECISION SUPPORT · PAPER 3</span>
+          <h3>Show how downstream users act on the signal.</h3>
+          <p>Paper 3 asks how protocols, liquidators, and risk teams should use the same band and receipt: which reserve buffers, triggers, and policy defaults look defensible when markets are closed.</p>
           <div class="tag-row">
             <span class="tag">Expected loss</span>
             <span class="tag">Protocol policy</span>
@@ -1043,7 +1043,7 @@
           <span class="eyebrow"><span class="bar"></span>Compare</span>
           <h2>The gap is not just coverage. <span class="em">It is what gets priced, how, and with what evidence.</span></h2>
         </div>
-        <p>Chainlink largely leaves consumers with stale fields or token-implied circularity. Pyth + Blue Ocean extend into 24/5, not the weekend. RedStone is closer to the problem, but on the public surface it prices the underlier and does not publish a replayable method. The real gap is an auditable closed-market reference for the tokenized asset itself.</p>
+        <p>Closed-market risk is not just about who publishes a number. It is about whether the closed-market reference, uncertainty band, and calibration evidence are legible enough for downstream protocols and researchers to evaluate.</p>
       </div>
 
       <table class="mx">
@@ -1108,21 +1108,21 @@
           <span class="uc-num">01 · LIQUIDATION</span>
           <h3>Weekend flash crash on a thin book.</h3>
           <div class="ob without"><span class="tag-k">Without</span>Borrower liquidated on a thin-book print that reverts Monday.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Served band at the consumer's τ shows the print outside the empirically-calibrated range. Protocol pauses, with an audit receipt.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>The receipt shows the print outside the empirically calibrated range, giving the protocol a defensible basis to pause or tighten policy with an audit trail.</div>
         </div>
 
         <div class="uc">
           <span class="uc-num">02 · GAP RISK</span>
           <h3>Adverse Monday open.</h3>
           <div class="ob without"><span class="tag-k">Without</span>Stale hold says Friday close is fine. Monday opens –8%. Bad debt.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Factor-adjusted point tracks ES futures over the weekend; band widens with the per-symbol vol index. LTVs tightened pre-emptively.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>Factor-adjusted point and band widen with the weekend signal set, giving risk teams and policy engines evidence to tighten buffers before the open.</div>
         </div>
 
         <div class="uc">
           <span class="uc-num">03 · ORACLE OUTAGE</span>
           <h3>Primary oracle goes stale.</h3>
           <div class="ob without"><span class="tag-k">Without</span>Freeze the protocol and lose revenue, or trust stale and take bad debt.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>An independent secondary — live cross-check plus a fallback number.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>An independent calibration-aware cross-check and fallback reference, with uncertainty surfaced instead of implied.</div>
         </div>
 
       </div>
@@ -1134,8 +1134,8 @@
     <div class="glow"></div>
     <div class="wrap inner">
       <span class="eyebrow g"><span class="bar"></span>Design partners</span>
-      <h2>Build with the <span class="em">weekend-proof</span> oracle.</h2>
-      <p>Looking for a small number of lending, perp, and RWA teams that need a defensible closed-market reference price, explicit uncertainty, and a secondary oracle input for weekend risk.</p>
+      <h2>Build with <span class="em">calibration-transparent</span> closed-market risk infrastructure.</h2>
+      <p>Looking for a small number of lending, perp, and RWA teams that want defensible closed-market references, explicit uncertainty, and public evidence around liquidation and weekend risk.</p>
 
       <div class="actions">
         <a class="btn primary" href="#contact" data-open-contact>Request access <span class="arrow">→</span></a>

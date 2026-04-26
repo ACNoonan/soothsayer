@@ -166,33 +166,58 @@ Audit anything."*
 The product is not the point estimate. The product is the **calibration
 receipt** published alongside every read.
 
-## What a protocol integration looks like
+## How downstream consumers use the receipt
 
-A lending protocol wants to liquidate with 99% confidence the price won't
-revert Monday. They call:
+The core product artifact is the same in every setting:
 
 ```python
 fv = oracle.fair_value("SPYx", friday_timestamp, target_coverage=0.99)
 ```
 
-- Point estimate arrives; liquidation engine uses it as mark
-- Lower bound arrives; liquidation engine sets liquidation threshold = `lower - safety_buffer`
-- If `claimed_served > 0.99` (i.e., we needed deep-quantile to hit 99%), the
-  protocol knows the regime is challenging — can optionally tighten LTVs or
-  pause new borrows pre-emptively
-- `sharpness_bps` is the instantaneous "how much capital efficiency am I
-  losing" metric — the protocol can decide whether the loss is worth the
-  safety
+What changes is how the consumer maps that band + receipt into action. Three
+consumption modes matter.
 
-Compare to integrating Chainlink stale-hold:
-- Point estimate arrives; no uncertainty signal
-- Protocol must bake in its own blind widening to be safe
-- Over-wide widening → missed liquidations, lost fees
-- Under-wide widening → bad liquidations, user losses
+### 1) Monitoring and cross-checking
 
-Soothsayer replaces a fixed-width blind safety margin with a dynamic,
-regime-aware, empirically calibrated band. Protocol revenue/safety math
-becomes a direct function of the oracle's receipts.
+The lightest integration is observational:
+
+- Point estimate arrives as a closed-market reference
+- Lower / upper band show the uncertainty range around that reference
+- `claimed_served`, `forecaster_used`, and `regime` explain why the range is
+  the width it is
+- A protocol, risk desk, or market maker can compare this receipt against its
+  primary feed and ask whether the live mark is plausibly inside the calibrated
+  range
+
+This is the first product surface: a calibration-transparent cross-check and
+monitoring layer for closed-market pricing.
+
+### 2) Governance and parameter setting
+
+The same receipt can be aggregated over time to support policy choices:
+
+- How often did realized moves consume a reserve buffer of a given size?
+- How conservative was the served lower bound in stressed regimes?
+- How much sharpness was given up to achieve a target coverage level?
+
+This is where the public measurement layer lives: reserve-buffer studies,
+weekend comparators, liquidation-policy analysis, and grant-grade public
+datasets built from the same receipt structure.
+
+### 3) Policy-engine integration
+
+The strongest integration is direct policy consumption:
+
+- A lending protocol can use the point as a mark and the lower bound as a
+  conservative reference input
+- If `claimed_served` rises sharply or `regime="high_vol"`, the protocol can
+  tighten LTVs, pause new borrows, or require additional caution
+- `sharpness_bps` becomes the explicit "capital efficiency spent for safety"
+  metric, instead of an unobserved blind buffer
+
+In this mode, Soothsayer does not just hand back a number. It gives the
+consumer a dynamic, regime-aware, empirically calibrated uncertainty contract
+they can wire into decision logic.
 
 ## What ships now vs. what's still to build
 
