@@ -22,7 +22,7 @@ Data:
 Outputs:
   - reports/figures/v2_half_lives.png
   - reports/tables/v2_fit_params.csv
-  - reports/v2_ms_half_life.md
+  - reports/archived/v2_ms_half_life.md
 """
 
 from __future__ import annotations
@@ -224,7 +224,7 @@ def main() -> None:
     print(f"wrote {fig_path}", flush=True)
 
     writeup = render_writeup(df, data_days=days)
-    report_path = REPORTS / "v2_ms_half_life.md"
+    report_path = REPORTS / "archived" / "v2_ms_half_life.md"
     report_path.write_text(writeup)
     print(f"wrote {report_path}", flush=True)
 

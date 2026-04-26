@@ -117,7 +117,7 @@ SPYx, QQQx, GLDx, TSLAx, AAPLx, NVDAx, GOOGLx, HOODx, MSTRx, CRCLx. Up to 20× l
 | Chainlink `tokenizedPrice` | V5 tape / on-chain reconstruction | minute | Closest continuous 24/7 mark among free public observations |
 | Scope-served price | Kamino Scope feed PDA | minute | Actual price consumed by Kamino reserves |
 
-Funding rate is a market-implied forecast of the weekend Monday-gap. V3 testing on Phase-0 data ([`reports/v3_funding_signal.md`](../reports/v3_funding_signal.md)) found no detectable signal at our sample size; the regressor is retained as a candidate for v2 re-evaluation once the V5 on-chain tape supplies sufficient history alongside Kraken's perp funding archive. For the active forward-running weekend stack, the highest-signal free observations are currently Chainlink `tokenizedPrice`, Jupiter mid, and Kamino's Scope-served price, with Kraken Perp funding as a supplementary signal rather than the main truth source.
+Funding rate is a market-implied forecast of the weekend Monday-gap. V3 testing on Phase-0 data ([`reports/archived/v3_funding_signal.md`](../reports/archived/v3_funding_signal.md)) found no detectable signal at our sample size; the regressor is retained as a candidate for v2 re-evaluation once the V5 on-chain tape supplies sufficient history alongside Kraken's perp funding archive. For the active forward-running weekend stack, the highest-signal free observations are currently Chainlink `tokenizedPrice`, Jupiter mid, and Kamino's Scope-served price, with Kraken Perp funding as a supplementary signal rather than the main truth source.
 
 ---
 
@@ -168,6 +168,8 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
   - Aggregate $R$ = median of $3N$ votes.
   - Aggregate confidence $C = \max(|R - Q_{25}|, |R - Q_{75}|)$.
   - Plus slot-weighted, inverse-confidence-weighted EMA price + EMA conf (~1 h half-life).
+- **On-chain `PriceAccount` decode** (planned tape, see §8) — exposes per-publisher prices, EMA price, EMA conf, status (`Trading`/`Halted`/`Auction`/`Unknown`), min publisher count. Hermes only gives the aggregate; on-chain gives the *structure* needed to reason about publisher dispersion vs Soothsayer's calibrated band.
+- **Pyth Express Relay (PER)** — only Solana-native deployed OEV auction. Auction outcomes are on-chain. Planned tape (§9) for grant Milestone 2 + Paper 2.
 - **Pyth Pro X** (March 2026): 24/5 US equity via Blue Ocean ATS exclusive through end-2026, 50+ equities, vendor-reported 96%+ NBBO accuracy, sub-100ms.
 - **Treat as first-class observation day one** (free + most rigorous comparator).
 
@@ -179,6 +181,7 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 - **v11 RWA schema** is the active format for xStocks. Fields: `feedId, timestamp (ns), price, bid, ask, bidVolume, askVolume, lastTradedPrice, midPrice, lastUpdateTimestamp, marketStatus, expiresAt, ripcord`.
 - `marketStatus` codes: `0 Unknown, 1 Pre-market, 2 Regular, 3 Post-market, 4 Overnight, 5 Weekend`.
 - v11 publishes a price during `marketStatus = 5` — opaque methodology. **H8 is the validation test for whether it's biased.**
+- **24/5 cadence verification — pending (Paper 1 publication-risk gate).** ROADMAP "Must-fix-before-Paper-1-arXiv" item: confirm whether `mid` / `bid` / `ask` carry real values during pre-market / overnight / post-market windows or remain placeholder-derived outside regular hours, exactly as confirmed for the weekend window. Half-day investigation; runs `scripts/scan_chainlink_schemas.py` against a sample with `marketStatus ∈ {1, 3, 4}` and inspects whether the bookend values look real or synthetic. Once written up, closes the gate; if v11 turns out to be placeholder-derived 24/5 (not just on weekends), the §1 incumbent-archetype framing strengthens further.
 
 ### Switchboard
 
@@ -209,6 +212,108 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 
 - Band v3 (July 2025): DPoS BandChain, 53 validators. No CI, no closed-market model, no native Solana.
 - **API3 is EVM-only** — no Solana deployment. Not relevant on our venue.
+
+---
+
+## 8. Lending-protocol on-chain state (post-2026-04-26 Kamino reconnaissance)
+
+The 2026-04-26 on-chain Kamino snapshot retired the original "Soothsayer vs flat ±300 bps" framing and surfaced that *every* Solana-native lending protocol publishes its actual reserve config + oracle wiring on-chain via fetchable Anchor IDLs. This section catalogues those reads as a generalisable pattern, since Paper 3's protocol-policy work needs the same playbook applied across the lending stack.
+
+### Kamino klend (`KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD`) ✅ live
+
+- **IDL:** fetchable on-chain via `anchor idl fetch …`. Pinned at `idl/kamino/klend.json` (v1.19.0, 8542 lines).
+- **Reserve account decode:** `scripts/snapshot_kamino_xstocks.py` finds all 8 xStock reserves via `getProgramAccounts` + `memcmp` at offset 128 (`liquidity.mintPubkey`); decodes each via anchorpy. Output: `data/processed/kamino_xstocks_snapshot_YYYYMMDD.json`.
+- **What's captured:** `loanToValuePct`, `liquidationThresholdPct`, `borrowFactorPct`, `min/max/badDebtLiquidationBonusBps`, `tokenInfo.heuristic` (the on-chain price-validity guard rail `[lower, upper, exp]`), `tokenInfo.scopeConfiguration` (Scope feed PDA + chain), `tokenInfo.maxAgePriceSeconds`. All 8 xStocks live in market `5wJeMrUYECGq41fxRESKALVcHnNX26TAWy4W98yULsua`; all use Scope as primary oracle.
+- **Liquidation event scrape — 📋 planned (high priority).** klend logs `LiquidationEvent` Anchor events. `getSignaturesForAddress` + `getTransaction` paginates events from the 2025-07-14 xStocks launch onward; ~9 months of free, on-chain-readable labelled liquidation data sitting there. This is the literal Milestone 1 deliverable in the Solana Foundation grant doc — buildable now, before grant approval. Target script: `scripts/scrape_kamino_liquidations.py`.
+
+### Scope oracle (`HFn8GnPADiny6XqUoWE8uRPPxb29ikn4yTuPa9MF2fWJ`) ✅ live
+
+- **IDL:** fetchable on-chain. Pinned at `idl/kamino/scope.json` (v0.33.0, 2204 lines).
+- **OraclePrices account:** holds `[DatedPrice; 512]` array indexed by chain ID. All 8 xStocks share one feed PDA `3t4JZcueEzTbVP6kLxXrL3VpWx45jDer4eqysweBchNH`; differentiated by chain index (`SPYx=344`, `QQQx=347`, `TSLAx=338`, `GOOGLx=326`, `AAPLx=317`, `NVDAx=332`, `MSTRx=335`, `HOODx=320`). One `getAccountInfo` per minute reads all 8 prices via local slicing.
+- **Forward-running tape:** `scripts/collect_kamino_scope_tape.py` — 60s cadence, daily parquet at `data/raw/kamino_scope_tape_YYYYMMDD.parquet`. Live since 2026-04-26 16:05 UTC.
+
+### MarginFi 📋 planned (medium priority)
+
+- **Why:** grant doc names MarginFi alongside Kamino; ~$88.5M Q1 2025 fees captured by ~9 active liquidators per the grant retrospective. Larger book than Kamino on xStocks specifically.
+- **Same playbook:** fetch IDL, decode reserve config, snapshot xStock reserves, scrape historical liquidation events. Apply Kamino reconnaissance pattern verbatim.
+- **Target scripts:** `scripts/snapshot_marginfi_xstocks.py`, `scripts/scrape_marginfi_liquidations.py`.
+
+### Drift / Save / Loopscale 📋 planned (low priority, grant-stretch)
+
+- Grant doc Milestone 2 stretch goal ($100k upper-bound ask) extends panel coverage to these. Same Anchor-program-event scrape pattern; substrate broadens but the pipeline doesn't change.
+
+---
+
+## 9. Auction / MEV infrastructure (post-Kamino-discovery additions)
+
+### Pyth Express Relay (PER) 📋 planned (high priority for Paper 2 / grant)
+
+- **Only Solana-native deployed OEV auction** named in the grant. Auction outcomes are on-chain; bid stacks, builder identities, recovered OEV all observable.
+- **What to capture:** auction events via Anchor program logs; per-event bid stack; winning bid; tip distribution; latency between Pyth update and auction settle.
+- **Cross-reference target:** join PER auction events with Kamino liquidation events to identify which liquidations went through PER (vs spot mempool) and what the auction-recovered OEV was.
+- **Target script:** `scripts/collect_pyth_express_relay_tape.py`.
+
+### Jito bundle data 📋 planned (medium priority)
+
+- **Why:** bundle-level visibility into who's actually capturing OEV. For each Kamino liquidation that hit on-chain, was it bundled? What tip was paid (proxy for OEV)? Which validator included it?
+- **Source:** Jito Tipping API (free, public). Cross-reference Jito bundles with klend/marginfi liquidation events.
+- **Target script:** `scripts/collect_jito_bundle_tape.py` or extend the liquidation scraper with bundle-join logic.
+
+---
+
+## 10. Issuer-side on-chain data (broader-RWA-wave generalisation)
+
+These are exploratory tapes for the missing-layer-for-RWA framing. Not Paper-1-blocking; relevant for Paper 2 / 3 generalisation and grant Tier-3 stretch goals.
+
+### Backed Finance on-chain attestations 📋 planned (low priority, exploratory)
+
+- **What:** issuer-side proof-of-reserves and NAV updates. Backed publishes these on-chain (per their public docs); we haven't yet pulled them.
+- **Use case:** verify secondary-market xStock prices against issuer-attested NAV; detect any divergence as a leading indicator for redemption/issuance friction.
+
+### BUIDL / OUSG NAV tape 📋 planned (low priority, generalisation evidence)
+
+- **Why:** tokenized treasuries are the >$5B AUM slice of the broader RWA wave the grant doc cites. Their NAV is updated on-chain at discrete cadences (BlackRock daily; Ondo intra-day for OUSG via accrued-interest tick).
+- **What:** capture NAV updates + secondary-market prices on Solana / Ethereum. The methodology fits this class (continuous off-hours information set: ZN futures + MOVE for treasuries) per `docs/methodology_scope.md`.
+- **Use case:** prove the calibration-transparency primitive generalises to a non-equity asset class with publicly-verifiable empirical evidence — the literal claim of Paper 1 §10.5.
+
+### Tokenized commodities (PAXG, forthcoming) 📋 planned (low priority, generalisation)
+
+- Same pattern as BUIDL: capture issuer NAV + secondary price; methodology fits via gold futures + GVZ.
+
+---
+
+## 11. Engineering inventory — what we're pulling vs what we're not
+
+Living status table, as of 2026-04-26 post-Kamino-snapshot. Update on every new tape stand-up or retire.
+
+| Stream | Source | Cadence | Status | Tape location | Priority |
+|---|---|---|---|---|---|
+| Yahoo Finance underlier history (10 tickers, 2014→) | yfinance | daily, on-demand | ✅ live | `src/soothsayer/sources/yahoo.py` (cached parquet) | foundational |
+| Kraken xStock perp funding | Kraken public REST | hourly cron | ✅ live | `src/soothsayer/sources/kraken_perp.py` | foundational |
+| Chainlink v10 weekend tape (xStocks) | Helius RPC | 60s | ✅ live since 2026-04-24 | `data/raw/v5_tape_*.parquet` | foundational |
+| Jupiter on-chain DEX mid (xStocks) | Jupiter API | 60s | ✅ live since 2026-04-24 | `data/raw/v5_tape_*.parquet` (joined) | foundational |
+| RedStone Live REST tape | api.redstone.finance | Friday 15:55 ET + Monday 09:25 ET | ✅ live since 2026-04-26 | `data/processed/redstone_live_tape.parquet` | comparator |
+| Kamino klend reserve config snapshot | Helius RPC | weekly (cron via launchd) | ✅ live since 2026-04-26 | `data/processed/kamino_xstocks_snapshot_*.json` | foundational |
+| Kamino Scope-served price tape (xStocks) | Helius RPC | 60s | ✅ live since 2026-04-26 | `data/raw/kamino_scope_tape_*.parquet` | foundational |
+| **Pyth on-chain confidence-interval tape (xStock underliers)** | Helius RPC | 60s | 🚧 in-flight (this session) | target: `data/raw/pyth_xstock_tape_*.parquet` | **high (next)** |
+| **Chainlink v11 24/5 cadence verification** | Helius RPC | one-shot probe | 🚧 in-flight (this session) | target: `reports/v11_cadence_verification.md` | **high (next)** |
+| Kamino klend historical liquidations (2025-07-14→) | Helius `getSignaturesForAddress` + `getTransaction` paginated | one-shot scrape, then forward | 📋 planned (next session) | target: `data/processed/kamino_liquidations.parquet` | high (grant M1) |
+| MarginFi reserve config + historical liquidations | Helius RPC + IDL | snapshot + scrape | 📋 planned | target: `data/processed/marginfi_*` | medium (grant M2) |
+| Pyth Express Relay auction tape | Helius RPC + program logs | event-driven forward | 📋 planned | target: `data/raw/pyth_per_tape_*.parquet` | medium (Paper 2) |
+| Jito bundle tape (Kamino-correlated) | Jito Tipping API + chain join | event-driven forward | 📋 planned | target: `data/raw/jito_bundle_tape_*.parquet` | medium |
+| Drift / Save / Loopscale extensions | per-protocol IDL + Helius | snapshot + scrape | 📋 planned | target: per-protocol parquets | low (grant M2 stretch) |
+| Backed Finance on-chain attestations | Helius RPC | event-driven | 📋 planned | target: `data/raw/backed_attestations_*.parquet` | low (exploratory) |
+| BUIDL / OUSG NAV tape | Solana / Ethereum RPC | as-published | 📋 planned | target: `data/raw/treasury_nav_tape_*.parquet` | low (generalisation) |
+| FRED macro events | FRED API | daily | ⏸️ deferred | — | medium (gates regime ablation §9.2) |
+| Wall Street Horizon earnings calendar | paid API | daily | ⏸️ deferred (paid Tier-2) | — | medium (gates §9.5 ablation) |
+| Databento intraday tick history | paid one-time | one-shot | ⏸️ deferred (paid Tier-2) | — | medium (gates v2-paper) |
+| Polygon.io real-time | paid live | continuous | ⏸️ deferred (paid Tier-3) | — | gates production live mode |
+| Bybit xStock spot | Bybit REST | — | ❌ won't pull | — | geo-blocked from US (CloudFront 403) |
+| Kraken xStock spot | Kraken REST | — | ❌ won't pull | — | not listed (only HMSTR matched substring; spot xStocks don't exist on Kraken) |
+| Alpaca free IEX feed | Alpaca | — | ❌ won't pull | — | IEX is 2–3% of US volume; biases residual quantiles |
+| Flipside Crypto SQL | Flipside | — | ❌ won't pull | — | Apr 2026: signup now requires sales demo; ruled out |
+
+**How to read this table:** anything ✅ is in continuous collection or runs on the Monday rollup. Anything 🚧 is being built right now. 📋 are work items with rough priority. ⏸️ are blocked on a paid budget decision. ❌ are explicit decisions against — keep this row populated so we don't relitigate the same dead ends.
 
 ---
 

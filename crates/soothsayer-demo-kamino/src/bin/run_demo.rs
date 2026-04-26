@@ -253,6 +253,14 @@ fn write_markdown(rows: &[Row], path: &str) -> std::io::Result<()> {
          and flat ±300 bps comparator are synthetic teaching artifacts.*\n\n",
     );
     md.push_str(
+        "> **Stylized demo, not the production comparator.** The live \
+         Kamino-xStocks comparator runs against on-chain reserve config and \
+         lives in the rolling weekly rollups (e.g. \
+         `reports/kamino_xstocks_weekend_20260417.md`). Use that for any \
+         claim about the deployed Kamino comparison; this file exists for \
+         pedagogy and legacy-baseline continuity only.\n\n",
+    );
+    md.push_str(
         "**Setup.** Each row is one (symbol, weekend, target-LTV) scenario. \
          The same `LendingParams` (max-LTV-at-origination 0.75, liquidation \
          threshold 0.85, regime multipliers all 1.0) are applied to both \

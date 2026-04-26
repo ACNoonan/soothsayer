@@ -21,7 +21,7 @@ Gate: delta is significant at 5%, delta R² > 2% vs baseline.
 Outputs:
   reports/figures/v3_funding_signal.png
   reports/tables/v3_coefficients.csv
-  reports/v3_funding_signal.md
+  reports/archived/v3_funding_signal.md
 """
 
 from __future__ import annotations
@@ -276,7 +276,7 @@ def main() -> None:
         "",
         "![V3 per-ticker funding coefficient](figures/v3_funding_signal.png)",
     ]
-    report_path = REPORTS / "v3_funding_signal.md"
+    report_path = REPORTS / "archived" / "v3_funding_signal.md"
     report_path.write_text("\n".join(lines))
     print(f"wrote {report_path}")
 
