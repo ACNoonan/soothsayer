@@ -101,11 +101,41 @@ def bibtex_escape(s: str) -> str:
     return s.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_")
 
 
+def normalise_authors(raw: str) -> str:
+    """Convert references.md's comma-separated author list to BibTeX's ` and `.
+
+    references.md format:  "Breidenbach, L., Cachin, C., Chan, B., ..."
+    BibTeX expectation:    "Breidenbach, L. and Cachin, C. and Chan, B. and ..."
+
+    Split on commas, pair them into (Last, FirstInitials) tuples, rejoin
+    with ` and `. A single name with no comma (e.g. "Pyth Network") passes
+    through unchanged.
+    """
+    pieces = [p.strip() for p in raw.split(",") if p.strip()]
+    if len(pieces) <= 1:
+        return raw  # corporate/single-name author or already-normalised
+    # If there's an odd number of pieces and we can't cleanly pair, fall back
+    # to single-name handling — the entry probably is a corporate author with
+    # commas in the name and we'd be safer not mangling it.
+    if len(pieces) % 2 != 0:
+        return raw
+    pairs = []
+    for i in range(0, len(pieces), 2):
+        last, firsts = pieces[i], pieces[i + 1]
+        # Skip the pair if `firsts` doesn't look like initials/given names
+        # (e.g. starts with a lowercase letter — likely the name pieces don't
+        # actually fit the Last, First pattern).
+        if not firsts or not firsts[0].isupper():
+            return raw
+        pairs.append(f"{last}, {firsts}")
+    return " and ".join(pairs)
+
+
 def write_bibtex(entries: list[dict], out_path: Path) -> None:
     """Render entries as @misc{key, ...} BibTeX records."""
     out = []
     for e in entries:
-        fields = [f"  author = {{{bibtex_escape(e['author'])}}}"]
+        fields = [f"  author = {{{bibtex_escape(normalise_authors(e['author']))}}}"]
         if e["year"]:
             fields.append(f"  year = {{{e['year']}}}")
         if e["title"]:
@@ -139,6 +169,51 @@ def transform_inline_citations(text: str, defined_keys: set[str]) -> str:
     return rx.sub(replace, text)
 
 
+def clean_headings(body: str) -> str:
+    """Strip authorial conventions from headings that Pandoc would render literally.
+
+    The .md files use these conventions for human-readable navigation when
+    browsing sources; LaTeX numbering subsumes them in the rendered paper:
+
+      `# §1 — Introduction (draft)` → `# Introduction`
+      `## 1.1 How oracles answer ...` → `## How oracles answer ...`
+      `### 6.4.1 Extended diagnostics` → `### Extended diagnostics`
+      `# Abstract` → `# Abstract {-}`  (unnumbered)
+    """
+    lines = body.splitlines()
+    out: list[str] = []
+    for line in lines:
+        m = re.match(r"^(#+)\s+(.*?)\s*$", line)
+        if not m:
+            out.append(line)
+            continue
+        hashes, text = m.group(1), m.group(2)
+        # Strip "§N — " prefix
+        text = re.sub(r"^§\d+[A-Z]?\s*[—–-]\s*", "", text)
+        # Strip "N.M" or "N.M.K" prefix on subheadings
+        text = re.sub(r"^\d+(\.\d+)+\s+", "", text)
+        # Strip "(draft...)" suffix
+        text = re.sub(r"\s*\(draft[^)]*\)\s*$", "", text)
+        # Mark abstract as unnumbered
+        if hashes == "#" and text.strip().lower() == "abstract":
+            out.append(f"# Abstract {{-}}")
+        else:
+            out.append(f"{hashes} {text}")
+    return "\n".join(out)
+
+
+def fix_typographic_numbers(body: str) -> str:
+    """Convert LaTeX typographic-comma `5{,}986` to plain `5,986`.
+
+    Pandoc escapes `{`/`}` braces in prose contexts even with +raw_tex; wrapping
+    the number as inline math caused nested-math collisions where the markdown
+    already had `\\(N = 5{,}986\\)`. Plain commas are unambiguous, render
+    correctly in both prose and math mode (the math-mode comma kerning is
+    visually fine), and avoid the edge cases.
+    """
+    return re.sub(r"(\d+)\{,\}(\d+)", r"\1,\2", body)
+
+
 def concat_sections(defined_keys: set[str]) -> str:
     """Concatenate the body sections in canonical order, transforming citations."""
     parts: list[str] = []
@@ -148,7 +223,9 @@ def concat_sections(defined_keys: set[str]) -> str:
             print(f"WARN: missing section {fname}", file=sys.stderr)
             continue
         body = path.read_text()
+        body = clean_headings(body)
         body = transform_inline_citations(body, defined_keys)
+        body = fix_typographic_numbers(body)
         parts.append(body)
     return "\n\n".join(parts)
 
@@ -172,17 +249,32 @@ def run_pandoc(md_path: Path, tex_path: Path) -> None:
 
 
 def run_latex(tex_path: Path) -> None:
-    """Compile the .tex via pdflatex + biber + pdflatex × 2."""
+    """Compile the .tex via pdflatex + bibtex + pdflatex × 2.
+
+    Pandoc's `--natbib` mode emits BibTeX-style `\\citation{}` markers in the
+    .aux, so the right backend is bibtex, not biber. Use --biblatex on the
+    pandoc side if switching to biber later.
+
+    pdflatex returns non-zero exit when there are *any* unresolved references
+    (which is normal on the first pass — the .bbl doesn't exist yet — and on
+    the post-bibtex pass — labels haven't yet been read). We rely on the final
+    pdf existing as the success signal, not the per-pass exit code. bibtex,
+    by contrast, only fails on real errors (missing .bib entries, parse
+    failures); we keep `check=True` for it.
+    """
     cwd = tex_path.parent
     stem = tex_path.stem
-    for cmd in [
-        ["pdflatex", "-interaction=nonstopmode", tex_path.name],
-        ["biber", stem],
-        ["pdflatex", "-interaction=nonstopmode", tex_path.name],
-        ["pdflatex", "-interaction=nonstopmode", tex_path.name],
-    ]:
+    passes = [
+        (["pdflatex", "-interaction=nonstopmode", tex_path.name], False),
+        (["bibtex", stem], True),
+        (["pdflatex", "-interaction=nonstopmode", tex_path.name], False),
+        (["pdflatex", "-interaction=nonstopmode", tex_path.name], False),
+    ]
+    for cmd, must_succeed in passes:
         print("$", " ".join(cmd))
-        subprocess.run(cmd, cwd=cwd, check=True)
+        result = subprocess.run(cmd, cwd=cwd)
+        if must_succeed and result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, cmd)
 
 
 def main() -> None:
@@ -234,9 +326,10 @@ def main() -> None:
     run_pandoc(md_concat, tex_path)
 
     if args.pdf:
-        if shutil.which("pdflatex") is None or shutil.which("biber") is None:
-            print("\n✗ pdflatex/biber not found. Install: brew install --cask basictex")
-            print("  After install, also run: sudo tlmgr install biber natbib graphicx")
+        if shutil.which("pdflatex") is None or shutil.which("bibtex") is None:
+            print("\n✗ pdflatex/bibtex not found. Install: brew install --cask basictex")
+            print("  After install, also run: sudo /Library/TeX/texbin/tlmgr install"
+                  " collection-latexrecommended units multirow")
             sys.exit(1)
         print(f"\nCompiling {tex_path.name} → paper.pdf ...")
         run_latex(tex_path)

@@ -1,13 +1,14 @@
 % Pandoc template for the Soothsayer Paper 1 build pipeline.
 %
-% Wraps Pandoc's body output ($body$) in the arxiv-style preamble
-% (arxiv.sty, NIPS-derived single-column) plus a title/author block,
-% natbib bibliography, and the standard math + graphicx packages.
+% Wraps Pandoc's body output in the arxiv-style preamble (arxiv.sty,
+% NIPS-derived single-column) plus a title/author block, natbib
+% bibliography, and the standard math + graphicx packages.
 %
-% Pandoc fills $body$, $title$, $author$, $abstract$, $date$ from the
-% YAML-front-matter or from --metadata flags. We don't use Pandoc's
-% abstract handling because our 00_abstract.md is just a section heading
-% in the body stream — it renders as the first \section{Abstract}.
+% NOTE: Pandoc template variables (single-dollar-delimited) are
+% deliberately NOT referenced in these comments because Pandoc would
+% substitute them verbatim and corrupt the preamble. Body/title/author/
+% date come from the body markdown + the explicit \title{} \author{}
+% \date{} below.
 \documentclass[11pt]{article}
 
 \usepackage{arxiv}
