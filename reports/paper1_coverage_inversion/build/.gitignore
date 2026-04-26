@@ -1,0 +1,16 @@
+# Generated build artifacts
+references.bib
+paper.md
+paper.tex
+paper.pdf
+paper.aux
+paper.log
+paper.bbl
+paper.bcf
+paper.blg
+paper.run.xml
+paper.toc
+paper.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz

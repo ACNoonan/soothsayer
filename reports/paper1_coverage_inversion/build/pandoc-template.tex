@@ -1,0 +1,60 @@
+% Pandoc template for the Soothsayer Paper 1 build pipeline.
+%
+% Wraps Pandoc's body output ($body$) in the arxiv-style preamble
+% (arxiv.sty, NIPS-derived single-column) plus a title/author block,
+% natbib bibliography, and the standard math + graphicx packages.
+%
+% Pandoc fills $body$, $title$, $author$, $abstract$, $date$ from the
+% YAML-front-matter or from --metadata flags. We don't use Pandoc's
+% abstract handling because our 00_abstract.md is just a section heading
+% in the body stream — it renders as the first \section{Abstract}.
+\documentclass[11pt]{article}
+
+\usepackage{arxiv}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{lipsum}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{natbib}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{calc}
+
+% Pandoc's default tightlist macro
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% Pandoc generates pandoc-table tabular environments that need this
+\providecommand{\pandocbounded}[1]{#1}
+
+\title{Coverage-Inversion: A Calibration-Transparent Oracle Primitive for Tokenized RWAs}
+
+\author{
+  Adam Noonan \\
+  Independent Researcher \\
+  \texttt{adam@samachi.com}
+}
+
+% Suppress \today; arXiv recommends fixed dates over \date{\today}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+$body$
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
