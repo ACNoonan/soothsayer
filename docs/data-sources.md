@@ -186,7 +186,18 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 - **RedStone Live** (March 2026) markets "24/7 equity coverage" — methodology undisclosed. Co-founder publicly named the weekend-gap problem (CoinDesk, 23 Nov 2025).
 - Modes: Pull (Core), Push (Classic), X (deferred-execution for perps), Atom (atomic push).
 - RWA leader for BUIDL, ACRED, VBILL, SCOPE, Canton Network.
-- Secondary comparator only — methodology undisclosed = can't reason about independence.
+- Secondary comparator — methodology undisclosed = can't reason about independence on the public surface.
+
+**Empirical surface measured 2026-04-26:**
+- Public REST gateway: `https://api.redstone.finance/prices` — no auth, ~140 records/day at 10-min cadence.
+- **Hard 30-day retention cap** on the gateway (confirmed by direct probe at T-31d). No archival.
+- Per-record schema: `{ value, timestamp, source: {venue: price}, liteEvmSignature, providerPublicKey, minutes }` — **no confidence, no dispersion, no sample-count, no band**.
+- Equity coverage (probed): SPY ✓ (databento), QQQ ✓ (twelve-data), MSTR ✓ (twelve-data), IWM ✓, XAU ✓; TSLA / NVDA / HOOD / GOOGL → empty; AAPL → 33d stale, may be retired.
+- **No xStock SPL tokens.** RedStone Live prices the underlier tickers, not SPYx / QQQx / MSTRx etc.
+- Solana on-chain: `redstone-sol` program `3oHtb7BCqjqhZt8LyqSAZRAubbrYy8xvDRaYoRghHB1T` holds only 4 PDAs (AVAX, ETH, SOL, BTC), last writes Oct 2024. No equity feeds on-chain. Wormhole Queries path doesn't write on-chain (can't be replayed).
+- Paid Live WebSocket tier: not verified from public artifacts. May serve a CI field, longer history, or the missing equity tickers; outreach gated.
+
+**Forward-cursor tape:** `scripts/run_redstone_scrape.py` (Friday 15:55 ET + Monday 09:25 ET poll, plus a one-shot 30d backfill). Output: `data/processed/redstone_live_tape.parquet`. Cron config at `scripts/redstone_cron.example`. First poll 2026-04-26.
 
 ### Band v3 / API3
 

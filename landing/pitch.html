@@ -741,9 +741,9 @@
         </tr>
         <tr>
           <td class="provider">RedStone Live</td>
-          <td><span class="partial">~ 24/7 marketed</span></td>
+          <td><span class="partial">~ 24/7 marketed **</span></td>
           <td><span class="no">— undisclosed</span></td>
-          <td><span class="no">— none</span></td>
+          <td><span class="no">— none on public feed **</span></td>
           <td><span class="no">— closed</span></td>
         </tr>
         <tr class="sooth">
@@ -758,6 +758,9 @@
 
     <div style="margin-top: 40px; font-size: 18px; line-height: 1.55; color: var(--ink-faint); max-width: 1280px;">
       * Pyth's documentation recommends per-publisher self-attestation to ~95% coverage, but the aggregate served feed downstream protocols actually read does not publish a verifiable calibration receipt. Soothsayer publishes receipts at the aggregate-feed level — replayable against the persisted surface and 12 years of public data.
+    </div>
+    <div style="margin-top: 12px; font-size: 18px; line-height: 1.55; color: var(--ink-faint); max-width: 1280px;">
+      ** Measured against RedStone's public REST gateway (api.redstone.finance/prices, 2026-04-26): point-only schema with no confidence field, 30-day retention cap, partial equity coverage (SPY, QQQ, MSTR available; TSLA, NVDA, HOOD, GOOGL empty; underliers only — no SPL xStock tokens). RedStone's paid Live tier may serve a different stream; not verifiable from public artifacts.
     </div>
 
     <div style="margin-top: 36px; display: flex; gap: 20px; align-items: center;">

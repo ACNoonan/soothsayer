@@ -1,0 +1,60 @@
+# RedStone Live forward-cursor tape — cron config
+# Install with: crontab -e   (and paste the relevant block)
+# Verify with:  crontab -l
+#
+# The TZ env var is honoured by macOS/BSD vixie cron, so the schedule lines
+# below read in NY local time. Verify your platform with `man 5 crontab`.
+#
+# CAVEAT — laptop sleep: macOS cron does NOT catch up runs missed while the
+# Mac was asleep. For a multi-month polling job, run this on a server (the
+# same VPS planned for the Kamino bot per docs/bot_kamino_xstocks_liquidator.md
+# §8 covers the same infra). Until that's up, accept that some Friday/Monday
+# polls will be missed if the Mac happens to be lid-closed.
+#
+# Day-of-deploy: run --backfill ONCE manually to grab the last 30d of history
+# from the gateway before it ages out:
+#   uv run python scripts/run_redstone_scrape.py --backfill
+#
+# ─── crontab block ────────────────────────────────────────────────────────────
+
+TZ=America/New_York
+SOOTH=/Users/adamnoonan/Documents/soothsayer
+UV=/opt/homebrew/bin/uv
+
+# Friday 15:55 ET — pre-close snapshot
+55 15 * * 5  cd $SOOTH && $UV run python scripts/run_redstone_scrape.py --poll fri_close >> data/processed/redstone_scrape.log 2>&1
+
+# Monday 09:25 ET — pre-open control snapshot
+25 9  * * 1  cd $SOOTH && $UV run python scripts/run_redstone_scrape.py --poll mon_open  >> data/processed/redstone_scrape.log 2>&1
+
+# ─── alternative: launchd ─────────────────────────────────────────────────────
+# launchd is more macOS-idiomatic and has the same sleep limitation. Sample plist
+# for the Friday job (save as ~/Library/LaunchAgents/com.soothsayer.redstone.fri.plist
+# and `launchctl load` it; symmetric for Monday with day=1 hour=9 minute=25):
+#
+# <?xml version="1.0" encoding="UTF-8"?>
+# <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+# <plist version="1.0">
+# <dict>
+#   <key>Label</key><string>com.soothsayer.redstone.fri</string>
+#   <key>ProgramArguments</key>
+#   <array>
+#     <string>/opt/homebrew/bin/uv</string>
+#     <string>run</string>
+#     <string>python</string>
+#     <string>scripts/run_redstone_scrape.py</string>
+#     <string>--poll</string><string>fri_close</string>
+#   </array>
+#   <key>WorkingDirectory</key><string>/Users/adamnoonan/Documents/soothsayer</string>
+#   <key>StartCalendarInterval</key>
+#   <dict>
+#     <!-- launchd has no per-job TZ; these are SYSTEM-LOCAL times. Adjust if your -->
+#     <!-- system tz != America/New_York, and re-adjust on DST transitions. -->
+#     <key>Weekday</key><integer>5</integer>
+#     <key>Hour</key><integer>15</integer>
+#     <key>Minute</key><integer>55</integer>
+#   </dict>
+#   <key>StandardOutPath</key><string>/Users/adamnoonan/Documents/soothsayer/data/processed/redstone_scrape.log</string>
+#   <key>StandardErrorPath</key><string>/Users/adamnoonan/Documents/soothsayer/data/processed/redstone_scrape.log</string>
+# </dict>
+# </plist>
