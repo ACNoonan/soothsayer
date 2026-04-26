@@ -221,7 +221,7 @@ becomes a direct function of the oracle's receipts.
 - Design partners: Backed, Ondo
 - Publisher DAO + token fee-share (optional, evaluate after integrations)
 
-## Colosseum demo narrative
+## Live demo / interactive evidence walkthrough
 
 Live demo flow, ~2 minutes:
 
@@ -241,7 +241,7 @@ The pitch becomes: "every read this oracle serves is backed by an auditable
 empirical calibration table. We don't ask you to trust our math. We publish
 the receipts, and you can verify them yourself on public data."
 
-## The Colosseum submission shape
+## Project positioning summary
 
 Title: **Soothsayer — the calibrated-coverage oracle for tokenized RWAs on Solana**
 

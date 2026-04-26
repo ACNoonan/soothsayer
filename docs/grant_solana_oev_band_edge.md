@@ -11,7 +11,7 @@
 
 ## 1. One-sentence pitch
 
-Build the first public **xStocks-on-Kamino + MarginFi liquidation dataset** with reconstructed calibration-transparent oracle bands, and publish empirical findings on whether oracle-extractable value (OEV) concentrates at oracle-band-edge events — producing a peer-reviewable paper, an open dataset, and a deployable improvement to Pyth Express Relay's auction design.
+Build the first public **xStocks-on-Kamino + MarginFi liquidation dataset** with reconstructed calibration-transparent oracle bands, publish empirical findings on whether oracle-extractable value (OEV) concentrates at oracle-band-edge events, and specify a band-conditional auction overlay on Pyth Express Relay that — if adopted — eliminates the very rent the dataset documents. Deliverables: an open dataset, an open-source reconstructor, a peer-reviewable paper, and a mechanism-design memo to Pyth and Kamino.
 
 ---
 
@@ -106,7 +106,11 @@ Each milestone produces a public artifact released under permissive license; fai
 
 Total ask: **$50,000** (4 months × $12,500/month). Range $25k (lower-bound) to $100k (full-time equivalent at standard junior-quant-research rate).
 
-**Economic justification anchored in §2 retrospective evidence.** The OOS-validated annual band-aware liquidator advantage is $283,745 per $1M working notional at τ=0.95. The grant ask is therefore *less than 18%* of the panel-scale gross EV the deployed bot is expected to compete for at $1M notional — and the deliverable is a public dataset, an open-source reconstructor, a peer-reviewable paper, and a deployable mechanism-design proposal to Pyth and Kamino. The instrumentation work has positive expected NPV to the funder even at the lower-bound $25k ask; the upper-bound $100k buys additional protocol coverage (Drift / Save / Loopscale extensions).
+**Public-good justification.**
+- **First Solana OEV panel.** Andreoulis et al. (Springer, MARBLE 2025) is the leading academic OEV dataset for Aave V2/V3 across Ethereum and major rollups. There is no equivalent for Solana. The grant produces the cross-chain comparator the OEV-research conversation is actively waiting for, anchored on the chain where tokenized-RWA lending has the largest 2026 deployment surface.
+- **Deployable mechanism leverage.** The dataset is not the end-state — it grounds a concrete, deployable upgrade (band-conditional overlay) to Pyth Express Relay, the Solana-native OEV auction every major Solana lending protocol either uses or evaluates. Welfare improvement is measurable on the same panel the grant produces.
+- **Researcher subsidy already paid.** Phase 0 (methodology pivot, calibration surface, two paper drafts, ablation suite) was completed self-funded on $0 by 2026-04-25. The grant accelerates work already in motion, not work being started cold. The retrospective §2 evidence ($283,745/yr/$1M notional band-aware advantage at τ=0.95, OOS) is the empirical motivation for the live test, not a profit projection for the funder.
+- **Lower-bound vs upper-bound.** $25k delivers the xStocks-only dataset, reconstructor, and paper. $50k adds the mechanism-design memo and the Pyth/Kamino briefing materials. $100k extends the dataset to Drift / Save / Loopscale, materially broadening Solana lending-stack coverage.
 
 | Category | Amount | Justification |
 |---|---|---|
@@ -117,6 +121,18 @@ Total ask: **$50,000** (4 months × $12,500/month). Range $25k (lower-bound) to 
 | Conference / dissemination (AFT 2026 or FC 2027) | $2,000 | Publication-related travel or registration |
 
 If awarded the lower bound, the conference + working-capital buckets are first to scale down. If awarded the upper bound, additional researcher time goes into a Drift/Save/Loopscale extension of the dataset.
+
+---
+
+## 7a. Sustainability and sunset
+
+The project is structured as a public-good ecosystem artifact with an explicit three-phase lifecycle:
+
+1. **Grant period (4 months).** Solana Foundation funds the dataset, reconstructor, paper, and mechanism-design memo. All four deliverables ship under permissive licenses (MIT for code, CC-BY for dataset and paper).
+2. **Post-grant maintenance.** Ongoing operating costs — RPC, dataset hosting, occasional reconstructor updates as Kamino / MarginFi / Pyth iterate — are targeted to be offset by surplus from the parallel xStocks-weekend-reopen liquidator instrument (Appendix A). Bot revenue is ringfenced to ecosystem operating costs and is not paid out as researcher compensation. If surplus is insufficient, dataset hosting falls back to the HuggingFace free tier and the reconstructor enters maintenance-only mode (event schema frozen; breaking-change patches at best-effort cadence).
+3. **Sunset by design.** The mechanism-design memo this grant produces specifies a band-conditional auction overlay on Pyth Express Relay. *If that overlay is adopted, the rent the bot harvests collapses* — and the bot with it. The dataset and reconstructor remain as the historical artifact of what OEV looked like before the fix.
+
+The success of the public-good deliverable is therefore aligned-by-construction *against* the longevity of the rent-extracting instrument that funds its upkeep. This is the strongest incentive-alignment story available for a foundation-funded grant: the grant is not subsidizing infrastructure that perpetuates extraction, it is funding the mechanism that ends it.
 
 ---
 

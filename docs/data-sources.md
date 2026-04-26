@@ -28,7 +28,7 @@ The one real cost center. ~80% of the data budget lives here.
 | IBKR TWS API | ~$10/mo if already customer | 1 yr intraday | Company | Cheapest if already IBKR, ugly integration |
 | yfinance | Free | Daily EOD, 1-min ~60 days | Open library | **Phase 0 only** — used for V1/V2/V3 validation |
 
-**Licensing gotcha:** SIP/consolidated-tape (CTA/UTP) redistribution is restricted. Publishing derived prices on-chain at hackathon scale has no surfaced enforcement precedent, but confirm scope directly with Polygon/Databento sales before production.
+**Licensing gotcha:** SIP/consolidated-tape (CTA/UTP) redistribution is restricted. Publishing derived prices on-chain at MVP/Phase-1 scope has no surfaced enforcement precedent, but confirm scope directly with Polygon/Databento sales before production.
 
 ---
 
@@ -39,7 +39,7 @@ ES (E-mini S&P), NQ (Nasdaq-100), sector futures. Friendlier licensing than cash
 | Provider | Cost | Access | Notes |
 |---|---|---|---|
 | **Databento** | Pay-per-use, bundle with equity historical | Company, licensed | Recommended — piggyback on equity pull |
-| CME DataMine | Enterprise $$$ | Company | Skip for hackathon |
+| CME DataMine | Enterprise $$$ | Company | Skip for Phase 1 |
 | Polygon.io | $299+/mo higher tier | Company | Skip if Databento covers |
 | IBKR TWS | ~$10/mo CME real-time if customer | Company | Cheapest real-time path |
 
@@ -169,7 +169,7 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 
 - **Permissioned.** Direct access requires a report-server integration — not a public API.
 - **Apply day one** — latency-to-access is the bottleneck, not cost.
-- For hackathon: reconstruct from chain by observing consumer programs (Kamino's Scope oracle, Ondo v10 consumers, xBridge CCIP txs).
+- For Phase 1 / MVP: reconstruct from chain by observing consumer programs (Kamino's Scope oracle, Ondo v10 consumers, xBridge CCIP txs).
 - **v11 RWA schema** is the active format for xStocks. Fields: `feedId, timestamp (ns), price, bid, ask, bidVolume, askVolume, lastTradedPrice, midPrice, lastUpdateTimestamp, marketStatus, expiresAt, ripcord`.
 - `marketStatus` codes: `0 Unknown, 1 Pre-market, 2 Regular, 3 Post-market, 4 Overnight, 5 Weekend`.
 - v11 publishes a price during `marketStatus = 5` — opaque methodology. **H8 is the validation test for whether it's biased.**
@@ -202,7 +202,7 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 - **$0.** yfinance + Kraken public REST + Helius free tier only.
 - Paid signups deferred until a validation task is blocked by data gaps (raise with user before signing up anywhere new).
 
-### MVP (Phase 1, 4–6 week hackathon build)
+### MVP (Phase 1, 4–6 week research-deployment build)
 
 | Line | Cost | Notes |
 |---|---|---|
@@ -225,10 +225,10 @@ Counterintuitively, the hardest data to get cleanly is competitors' data. We obs
 
 ## Licensing watch-list
 
-- **CTA/UTP SIP redistribution** — publishing derived prices on-chain at hackathon scale is gray; no enforcement precedent surfaced. Status: known-risk, low-probability, small-magnitude-if-enforced. Not a blocker for MVP.
+- **CTA/UTP SIP redistribution** — publishing derived prices on-chain at MVP/Phase-1 scope is gray; no enforcement precedent surfaced. Status: known-risk, low-probability, small-magnitude-if-enforced. Not a blocker for MVP.
 - **SEC Rule 2a-5 (17 CFR 270.2a-5)** — applies to registered-fund NAV fair-valuation. xStocks are SPV-issued bearer bonds (not 40-Act funds), so direct applicability is low. Flagged anyway for US-distributed consumer protocols.
 - **Chainlink Data Streams access** — permissioned; apply day one; treat as observation input, not settlement source.
-- **Databento / Polygon** — confirm derived-data publication scope directly with sales before production launch (not required for hackathon).
+- **Databento / Polygon** — confirm derived-data publication scope directly with sales before production launch (not required for Phase 1).
 
 ---
 
