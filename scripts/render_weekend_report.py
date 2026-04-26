@@ -404,6 +404,79 @@ def render_html(data: dict) -> str:
         f'reserve parameters.'
         f'</p>\n'
     )
+
+    # --- LTV-gap breach sub-block (the actually-Kamino-shaped metric) ---
+    counts = {m: {"matched": 0, "preemptive": 0, "missed": 0, "silent_safe": 0, "n/a": 0}
+              for m in ("kamino_incumbent", "soothsayer_t085", "soothsayer_t095", "simple_heuristic")}
+    n_breached = 0
+    for r in rows:
+        b = r.get("ltv_gap_breach", {})
+        if b.get("realized_breach"):
+            n_breached += 1
+        for method, info in b.get("methods", {}).items():
+            cls = info.get("classification", "n/a")
+            if method in counts:
+                counts[method][cls] = counts[method].get(cls, 0) + 1
+
+    html.append('  <h3>LTV-gap breach analysis</h3>\n')
+    html.append(
+        '  <p class="kamino-weekend__caption">'
+        'For a borrower originated at the LTV ceiling, the trigger drop is '
+        '<code>(max_ltv / liq_threshold − 1) × Friday close</code>. Below that price '
+        'the new LTV exceeds the liquidation threshold. Each method <em>flags</em> if '
+        'its lower bound sits at or below the trigger price; the realized move '
+        '<em>breaches</em> if Monday open is at or below it. The 2×2 of (flagged, '
+        'realized): matched / preemptive / missed / silent_safe.'
+        '</p>\n'
+    )
+    html.append('  <table class="kamino-weekend__table kamino-weekend__breach"><thead><tr>')
+    for h in ["Symbol", "Trigger drop (bps)", "Realized (bps)", "Realized breach?",
+              "Kamino-incumbent", "Soothsayer τ=0.85", "Soothsayer τ=0.95", "Simple heuristic"]:
+        html.append(f'<th>{h}</th>')
+    html.append('</tr></thead>\n    <tbody>\n')
+    cls_label = {
+        "matched": "✓ matched", "preemptive": "⚠ preemptive",
+        "missed": "🔴 missed", "silent_safe": "✓ silent_safe", "n/a": "n/a",
+    }
+    for r in rows:
+        b = r.get("ltv_gap_breach", {})
+        breach_marker = "🔴 YES" if b.get("realized_breach") else "—"
+        row_class = " class=\"kamino-weekend__breach-row\"" if b.get("realized_breach") else ""
+
+        def cell(method: str) -> str:
+            info = b.get("methods", {}).get(method, {})
+            cls = info.get("classification", "n/a")
+            return cls_label.get(cls, cls)
+
+        html.append(
+            f'      <tr{row_class}>'
+            f'<td><strong>{r["symbol"]}</strong></td>'
+            f'<td>{b.get("trigger_drop_bps", 0):+.1f}</td>'
+            f'<td>{b.get("realized_gap_bps", 0):+.1f}</td>'
+            f'<td>{breach_marker}</td>'
+            f'<td>{cell("kamino_incumbent")}</td>'
+            f'<td>{cell("soothsayer_t085")}</td>'
+            f'<td>{cell("soothsayer_t095")}</td>'
+            f'<td>{cell("simple_heuristic")}</td>'
+            f'</tr>\n'
+        )
+    html.append('    </tbody></table>\n')
+    html.append(
+        f'  <p class="kamino-weekend__summary">'
+        f'<strong>{n_breached} of {n} xStocks</strong> realized a breach (Monday open '
+        f'below the LTV-gap trigger) this weekend. Per-method tally — Soothsayer τ=0.85: '
+        f'{counts["soothsayer_t085"]["matched"]} matched / '
+        f'{counts["soothsayer_t085"]["preemptive"]} preemptive / '
+        f'{counts["soothsayer_t085"]["missed"]} missed / '
+        f'{counts["soothsayer_t085"]["silent_safe"]} silent_safe; Soothsayer τ=0.95: '
+        f'{counts["soothsayer_t095"]["matched"]} matched / '
+        f'{counts["soothsayer_t095"]["preemptive"]} preemptive / '
+        f'{counts["soothsayer_t095"]["missed"]} missed / '
+        f'{counts["soothsayer_t095"]["silent_safe"]} silent_safe. Welfare-relevant ratios '
+        f'(recall, precision) emerge from the cross-week aggregate.'
+        f'</p>\n'
+    )
+
     html.append('</section>\n')
     return "".join(html)
 

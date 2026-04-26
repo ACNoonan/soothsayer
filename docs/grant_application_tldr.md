@@ -19,6 +19,7 @@
 - Produces open infrastructure and data that downstream protocols, risk teams, and researchers can reuse without vendor lock-in.
 - Connects the calibrated band primitive to public liquidation, OEV, and reserve-buffer evidence rather than leaving the methodology as a standalone paper artifact.
 - Gives the Foundation a fundable path from paper evidence to a real deployment, with explicit milestones and honest risk boundaries.
+- **Generalises across the broader RWA wave by construction.** xStocks-on-Kamino is the immediate empirical setting; the same primitive applies, without methodology change, to tokenized treasuries (BlackRock BUIDL, Ondo OUSG; > $5B AUM), tokenized commodities (Paxos PAXG, forthcoming silver and broader baskets), and the next wave of tokenized credit and FX — wherever a continuous off-hours information set exists. The structural play is *calibration-transparent risk reporting as missing public-good infrastructure for the next $10B of RWA tokenization*, instantiated first where the data is most tractable. Per-class fit/no-fit table at `docs/methodology_scope.md`; full justification in §3a of the long-form grant doc.
 
 **Repository.** Public. Code, calibration surface, backtest evidence, paper drafts, and methodology evolution log all reproducible from the repo. See `docs/data-sources.md` § Grant-impact addendum for the dollar-to-deliverable mapping.
 

@@ -74,6 +74,18 @@ For a funder, this is the key point: the proposal does not ask Solana Foundation
 - **MarginFi alone produced ~$88.5M in liquidation fees in Q1 2025** — captured by **only ~9 active liquidators**, an Andreoulis-style coalition concentration that is publicly observable on-chain. The economic rent at stake is not hypothetical.
 - **Kamino reduced its liquidation penalty to 0.1% in September 2025** — the median event is now unprofitable for solo bots. Whatever rent remains is concentrated in the tail (band-edge) regime, which is exactly the subset our analysis targets.
 
+### 3a. The broader public-good frame: missing infrastructure for the next $10B of RWA on Solana
+
+The dataset + reconstructor + mechanism memo above are the grant's deliverables. The reason they matter beyond xStocks specifically is that they instantiate a piece of public-good infrastructure the broader RWA wave on Solana needs: **a calibration-transparent risk-reporting layer that is auditable against public data, free at the point of consumption, and applicable across asset classes with continuous off-hours information sets**.
+
+The 2025–2026 RWA wave is not just xStocks. Tokenized treasuries (BlackRock BUIDL, Ondo OUSG; collectively > $5B AUM as of submission) are scaling on Solana and elsewhere. Tokenized commodities (Paxos PAXG and forthcoming silver / broader baskets) are following. Tokenized credit and FX are next. Each new class brings the same closed-market pricing question and would benefit from the same primitive — the Soothsayer methodology generalises by construction wherever a continuous off-hours information set exists (futures, vol indices, overseas-session prices, CDS spreads). The per-class fit/no-fit table is in `docs/methodology_scope.md`.
+
+The structural mental model: **Soothsayer is to RWA risk reporting what block explorers are to transaction visibility** — public infrastructure that the ecosystem depends on but that no single private actor produces under current incentives. Block explorers exist because the alternative (every protocol building its own indexer) is wasteful; calibration-transparent risk reporting exists for the same reason: every RWA-issuing or RWA-consuming protocol needs auditable risk evidence, and no incumbent oracle publishes it. Funding the public-good layer once unlocks the entire downstream ecosystem.
+
+This grant is therefore the *concrete first instantiation* (xStocks-on-Kamino + MarginFi, where the data and the empirical question are most tractable) of a broader public-good infrastructure thesis. The dataset and reconstructor architecture are designed to extend to additional asset classes — tokenized treasuries on the same Kamino market, tokenized gold via Paxos PAXG, etc. — without methodology change. Each future extension is a re-fit of the calibration surface on a new `(factor, vol_index)` pair (the switchboard architecture in Paper 1 §5.4 was built for this), not a new methodology.
+
+The honest scope boundary: the methodology does *not* claim universality. Real estate, illiquid agricultural commodities, and pure NAV-update instruments do not satisfy the continuous-off-hours-signal precondition. Those classes need different methodology and are explicitly out of scope for this grant. `docs/methodology_scope.md` carries the four-question structural test that any prospective adopter (Backed, Ondo, Paxos, future tokenized-credit issuers) can use to determine fit in 60 seconds.
+
 ---
 
 ## 4. Public-good output
