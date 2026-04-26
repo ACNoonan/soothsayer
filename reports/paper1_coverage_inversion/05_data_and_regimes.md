@@ -78,7 +78,7 @@ Sample sizes per regime on the $5{,}986$-weekend panel:
 
 A separate post-hoc tertile labeler tags each weekend by realised-move z-score (calm / normal / shock) using $|z| = |\log(P_t / P_{t^-})| / \hat\sigma^{\text{20d}}_t$. This `realized_bucket` is *not* a regime in the §3.1 sense — it depends on the realised target — and is used only for diagnostic stratification (the shock-tertile coverage ceiling reported in §9.2). It never enters $\rho$ or the calibration surface.
 
-We considered two refinements that were tested and dropped from the v1 deployment: a sub-regime split of `normal` into `post_shock` / `calm` / `range_bound`, and an FOMC/CPI/NFP macro-event regressor (`reports/v1b_macro_regressor.md`). Neither lifted shock-tertile coverage measurably; the implied-vol indices already absorb the macro-uncertainty signal those refinements were designed to capture. Sub-regime granularity is retained as a v2 candidate (`docs/v2.md`) on the basis of the §6.4.1 DQ-test rejection at multiple anchors, which suggests there may be additional within-`normal` conditional structure that finer regime granularity would catch.
+We considered two refinements that were tested and dropped from the v1 deployment: a sub-regime split of `normal` into `post_shock` / `calm` / `range_bound`, and an FOMC/CPI/NFP macro-event regressor (`reports/v1b_macro_regressor.md`). Neither lifted shock-tertile coverage measurably; the implied-vol indices already absorb the macro-uncertainty signal those refinements were designed to capture. Sub-regime granularity is retained as a v2 candidate; the empirical motivation for prioritising it is in §10.
 
 ## 5.6 Train/test split
 

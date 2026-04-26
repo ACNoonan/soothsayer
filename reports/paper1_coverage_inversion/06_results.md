@@ -57,7 +57,7 @@ Calibration surface fit on pre-2023 bounds; Oracle served on 2023+ weekends ($N_
 | **0.950** | **86** | **0.050** | **0.000** | **1.000** | 9.500 | **0.485** |
 | 0.990 | 40 | 0.023 | 22.224 | 0.000 | 3.801 | 0.956 |
 
-**The $\tau = 0.95$ row is the headline oracle-validation result.** On held-out data, the Oracle delivers realised coverage of exactly $0.950$ — Kupiec $p_{uc} = 1.000$ (test statistic essentially zero, no evidence of mis-calibration) and Christoffersen $p_{ind} = 0.485$ (no clustering of violations). The conjunction passes by margin, not by inches. We are not aware of a prior tokenized-RWA or closed-market-oracle fair-value band for which this conjunction of tests is reported on a temporally held-out slice.
+**The $\tau = 0.95$ row is the headline oracle-validation result.** On held-out data, the Oracle delivers realised coverage of exactly $0.950$ — Kupiec $p_{uc} = 1.000$ (test statistic essentially zero, no evidence of mis-calibration) and Christoffersen $p_{ind} = 0.485$ (no clustering of violations). The conjunction passes by margin, not by inches.
 
 This result should be read as validation of the oracle's coverage contract at $\tau = 0.95$, not as proof that $\tau = 0.95$ is the welfare-optimal operating point for a protocol that consumes the band for liquidations or collateral haircuts.
 
