@@ -26,6 +26,21 @@ If H₁ is supported empirically, then:
 - (b) **A band-conditional auction overlay on Pyth Express Relay** (the deployed Solana-native OEV recapture system) can recapture a measurable fraction of currently-extracted OEV and return it to protocols/borrowers.
 - (c) The result is the **first empirical confirmation of the oracle-transparency-as-mechanism-improvement thesis** on a deployed system, complementing Andreoulis et al. (2026) on Aave V2/V3 and providing the Solana cross-check that does not currently exist.
 
+### Retrospective evidence (2026-04-25)
+
+H₁ is not a conjecture — it has been measured retrospectively on the 12-year Soothsayer Paper 1 dataset (5,986 weekend windows × 10 symbols), with the headline numbers derived on the **post-2023 OOS slice** (1,720 rows × 172 weekends; calibration surface was *not* fit on this period):
+
+| Metric | Value (τ = 0.95, OOS) |
+|---|---|
+| Median per-event liquidator pricing edge — band-exit events | **$26,787 per $1M notional** |
+| Median per-event liquidator pricing edge — in-band events | $7,516 per $1M notional |
+| **Dominance ratio (band-exit / in-band median)** | **3.56×** |
+| Band-exit event frequency (panel-scale) | **~21 events/year** |
+| **Annual band-aware-vs-band-blind liquidator advantage at $1M working notional** | **$283,745** |
+| Realised coverage at τ = 0.95 (OOS) | 96.0% |
+
+Full analysis: [`reports/band_edge_oev_oos_counterfactual.md`](../reports/band_edge_oev_oos_counterfactual.md) and companion [`reports/band_edge_oev_analysis.md`](../reports/band_edge_oev_analysis.md). The grant funds a *deployed* test of this retrospective: instrumenting xStocks-on-Kamino + MarginFi liquidations against reconstructed Soothsayer bands to confirm whether the predicted ~3.5× dominance ratio holds on real liquidation events — and to specify the band-conditional auction overlay that captures it.
+
 ---
 
 ## 3. Why this is a Solana-specific public good
@@ -90,6 +105,8 @@ Each milestone produces a public artifact released under permissive license; fai
 ## 7. Budget
 
 Total ask: **$50,000** (4 months × $12,500/month). Range $25k (lower-bound) to $100k (full-time equivalent at standard junior-quant-research rate).
+
+**Economic justification anchored in §2 retrospective evidence.** The OOS-validated annual band-aware liquidator advantage is $283,745 per $1M working notional at τ=0.95. The grant ask is therefore *less than 18%* of the panel-scale gross EV the deployed bot is expected to compete for at $1M notional — and the deliverable is a public dataset, an open-source reconstructor, a peer-reviewable paper, and a deployable mechanism-design proposal to Pyth and Kamino. The instrumentation work has positive expected NPV to the funder even at the lower-bound $25k ask; the upper-bound $100k buys additional protocol coverage (Drift / Save / Loopscale extensions).
 
 | Category | Amount | Justification |
 |---|---|---|

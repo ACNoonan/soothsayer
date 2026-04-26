@@ -91,6 +91,12 @@ If neither holds: shut it down within 90 days; cite the null result honestly in 
   - **Approaching-edge:** position-implied price is within X bps of the band edge (X tunable; default 100 bps). Action: pre-warm, prepare bid.
   - **Band-exit:** position-implied price has crossed the band edge. Action: place bid via Pyth Express Relay if the bot's expected profit conditional on winning exceeds gas + tip + slippage.
 
+**Bid-floor and upside reference values (anchored in §10.1 + §10.2 + §10.4 retrospective):**
+- `min_margin` floor — set against the **OOS in-band p95** at τ=0.95: $37k per $1M position notional (an in-band event of this magnitude is the boundary between "ordinary" and "actionable" for the bot).
+- Realistic upside — **OOS band-exit median** at τ=0.95: $27k per $1M notional. Median is the right anchor (not mean — distribution is heavy-tailed; p95 is $53k, max $294k).
+- Annual EV the bot is competing for at the panel scale, OOS τ=0.95: **$283,745 per $1M working notional**. This is the upper bound assuming a rational band-blind competitor; realised P&L is a fraction of this depending on win rate.
+- Source: [`reports/band_edge_oev_oos_counterfactual.md`](../reports/band_edge_oev_oos_counterfactual.md).
+
 ### 4.3 Pyth Express Relay client
 - Register as a permissioned searcher with Pyth Express Relay (one-time onboarding).
 - Construct atomic bundle: Pyth price update + Kamino liquidation transaction + asset swap.
@@ -207,33 +213,34 @@ The tape schema is documented as part of the grant proposal's open-dataset deliv
 
 These are the questions the modeling phase (now beginning) should answer before v2 capital deployment.
 
-### 10.1 What does the per-event EV distribution look like, conditional on band-exit?
-**Modeling exercise:** Use the existing Paper 1 dataset (5,986 weekend windows × 10 symbols, 2014–2026) to compute, for each weekend, whether the realised Monday open exited the served band at $\tau \in \{0.85, 0.95, 0.99\}$. For exit events, compute the implied liquidation bonus a Kamino-style protocol would have paid out at the realised price. Output: distribution of implied OEV per band-exit event, by symbol and regime.
+### 10.1 What does the per-event EV distribution look like, conditional on band-exit? ✅ Done (2026-04-25)
+**Result.** OOS τ=0.95: in-band median $7,516/M; band-exit median $26,787/M; **dominance ratio 3.56×**. In-sample dominance is 5.34× at the same τ. Tail at OOS τ=0.95 band-exit: p95 $53,259/M, max $293,750/M. Full distribution by τ and regime: [`reports/band_edge_oev_analysis.md`](../reports/band_edge_oev_analysis.md), [`reports/band_edge_oev_oos_counterfactual.md`](../reports/band_edge_oev_oos_counterfactual.md), `reports/tables/band_edge_oev_distribution.csv`.
 
-This produces the **first concrete number for "expected per-event gross EV at band-exit"** — the input to the grant's $25k–$100k justification and the bot's bid floor logic.
+### 10.2 What is the band-exit event frequency? ✅ Done (2026-04-25)
+**Result.** OOS τ=0.95: P(band-exit) = 4.0%, **~21 events/year panel-wide** (10 symbols × ~52 weekends); higher at τ=0.85 (66/yr); lower at τ=0.99 (11/yr). Per-symbol-per-regime breakdown: `reports/tables/band_edge_oev_frequency.csv`. Notably, the **OOS rate is ~2× the in-sample rate** — post-2023 regimes are more bot-favourable.
 
-### 10.2 What is the band-exit event frequency?
-**Modeling exercise:** From the same dataset, compute the rate of band-exit events per symbol-weekend at each $\tau$. This sets expectations on event frequency for the bot (and for the dataset's expected sample size after 4 months).
+### 10.3 What is the minimum capital required for the bot to clear the average winning bundle? — TODO
+**Status:** non-trivial; needs external data (Kamino TVL/position-size distribution scrape + Jito Explorer tip-rate sample). Defer to Phase 1 v1-mainnet-observe-only build, where the data is collected naturally as part of instrumentation.
 
-### 10.3 What is the minimum capital required for the bot to clear the average winning bundle?
-**Modeling exercise:** Given the per-event EV distribution + Kamino's 0.1% penalty + observed Jito tip rates, compute the minimum working capital that lets the bot clear ≥80% of bundles within the latency window. Inputs: position-size distribution (from public Kamino data), tip-rate distribution (from Jito Explorer), bot's own latency estimate (from RPC characterisation).
+### 10.4 What is the EV gap between band-aware and band-blind liquidators? ✅ Done (2026-04-25)
+**Result.** Aggregate counterfactual: at τ=0.95 OOS, the panel-scale **annual band-aware-vs-band-blind advantage is $283,745 per $1M working notional**. At $50k working capital → ~$14k/yr (covers 9.5 months of $1.5k/mo infra). At $250k → ~$71k/yr; at $500k → ~$142k/yr; at $1M → $284k/yr. This is the upper bound (rational band-blind bidder priced to band edge); realised P&L is a fraction depending on auction win rate. Full table: [`reports/band_edge_oev_oos_counterfactual.md`](../reports/band_edge_oev_oos_counterfactual.md) §3.
 
-### 10.4 What is the EV gap between band-aware and band-blind liquidators?
-**Modeling exercise:** Counterfactual replay on the Paper 1 dataset: simulate two liquidators competing for each band-exit event. Liquidator A bids based on Pyth's published price only (status quo). Liquidator B bids based on Pyth + Soothsayer band (this bot). Under reasonable bid-pricing assumptions, what fraction of OEV does B capture from A? This is the **theoretical-prediction-vs-deployment-reality** comparison Paper 2 §C4 is built to publish.
+### 10.5 How sensitive is the result to band-tightness? ✅ Done (2026-04-25)
+**Result.** Finer-grid τ sweep ({0.50, 0.60, 0.68, 0.75, 0.85, 0.90, 0.95, 0.99}) reveals **two patterns pointing in different directions**:
 
-### 10.5 How sensitive is the result to band-tightness?
-**Modeling exercise:** Repeat 10.4 under different served $\tau$ values. Tighter bands (higher $\tau$) → more band-exit events (more frequent bot wins) but smaller per-event edge over the band-blind competitor. Looser bands ($\tau = 0.85$) → fewer events but larger edge per event. This identifies the *protocol-welfare-optimal* $\tau$ — which is itself a Paper 2 result.
+- **OOS multiplicative dominance ratio is U-shaped**, not monotonic. Series: 3.99× → 3.85× → 3.60× → 3.61× → **3.29× (minimum at τ=0.85)** → 3.34× → 3.56× → 3.83×. The minimum sits at the empirically well-calibrated mid-range τ.
+- **OOS aggregate annual band-aware advantage in $ is monotonically *decreasing* in τ.** $2.27M → $1.97M → $1.71M → $1.39M → $815k → $584k → $284k → $148k per $1M notional per year. Frequency dominates — sharper bands have many more band-exit events.
+
+This is a **richer empirical finding than Paper 2's original C1 conjecture** (which predicts simple monotonic decline in rent with sharpness). The U-shape on the per-event ratio + frequency-dominated monotonicity on aggregate $ points to a refined C1 statement worth publishing in its own right. Full analysis: [`reports/band_edge_oev_tau_sweep.md`](../reports/band_edge_oev_tau_sweep.md).
+
+**Operational implication for the bot.** There is a real tradeoff: lower τ = larger annual EV but ~10× more events to handle (237/yr at τ=0.50 vs 21/yr at τ=0.95). MVP serves at τ=0.95 (capital-efficient). v3 scaling can argue for τ=0.85 or below once the throughput layer matures.
 
 ---
 
-## 11. First concrete next step
+## 11. First concrete next step ✅ Done — and the modeling cascade behind it
 
-The cheapest, fastest, and most valuable first modeling exercise is **§10.1 + §10.2** on the existing Paper 1 dataset. No new infrastructure, no new RPC quota, no on-chain risk. Output: a single notebook + table that estimates per-event gross EV and event frequency, with bootstrap CIs. This is:
+§10.1 + §10.2 + §10.4 ran 2026-04-25 against the Paper 1 dataset. Headline OOS numbers (τ=0.95): 3.56× dominance ratio, 21 events/year, $283,745 annual band-aware-vs-band-blind advantage per $1M working notional.
 
-- the basis for the grant's economic argument (Section 7 of [`grant_solana_oev_band_edge.md`](grant_solana_oev_band_edge.md)),
-- the input to the bot's MVP bid floor,
-- and the first quantitative C4 datapoint for Paper 2 — derivable today, before any bot is deployed.
+The grant's "if we can extract value" argument is therefore upgraded to **"here is the OOS-validated per-event distribution and panel-scale annual advantage on a 3-year holdout slice; the bot's job is to verify these numbers in production on the Solana xStocks-Kamino subset."** Section 2 of [`grant_solana_oev_band_edge.md`](grant_solana_oev_band_edge.md) carries the empirical anchors; Section 4.2 of this scoping doc carries the bid-floor implications; Paper 2 §C4 carries the retrospective baseline.
 
-Once §10.1 + §10.2 are computed, the grant's "if we can extract value" argument becomes "here's the per-event EV distribution and event frequency on 12 years of historical data — the bot's job is to verify these numbers in production."
-
-That is the work that makes the trilogy + grant + bot pitch undeniable.
+**Status of modeling phase:** §10.1 + §10.2 + §10.4 + §10.5 done. §10.3 (capital analysis) deferred to v1-mainnet-observe-only build where the underlying data is collected naturally. **Next concrete step:** Phase 1 v0/v1 implementation — MVP devnet observe-only build per Section 7. The modeling has produced everything needed to design the bid logic, set the bid floor, and justify the grant ask.
