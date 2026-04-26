@@ -48,7 +48,7 @@ exposing $q_\mathrm{served}$ and $f$ as calibration *receipts* alongside the ban
 
 $$\Pr\!\bigl[\,P_t \in [L^f_t(s; q_\mathrm{served}),\ U^f_t(s; q_\mathrm{served})]\ \big|\ \rho(\mathcal{F}_t)=r,\ s\,\bigr] \;\longrightarrow\; \tau$$
 
-as $|\mathcal{T}_{s,r}| \to \infty$. Finite-sample deviations are measurable, tested (§6), and disclosed as a per-regime *calibration buffer* applied pre-inversion.
+as $|\mathcal{T}_{s,r}| \to \infty$. Finite-sample deviations are measurable, tested (§6), and disclosed as a per-target *calibration buffer* applied pre-inversion (§4.3 specifies the deployed schedule).
 
 **(P3) Per-regime serving efficiency.** For each regime $r$, the oracle selects $f^\star(r)$ from a candidate set $\mathcal{F}$. The selection is a joint argmin over two criteria observable post-hoc on historical data: (i) mean bandwidth at matched realised coverage, and (ii) the Christoffersen independence $p$-value. In our evaluation $\mathcal{F} = \{\texttt{F0\_stale},\ \texttt{F1\_emp\_regime}\}$; §7 reports the ablation matrix that justifies the hybrid regime-to-forecaster assignment. We emphasise that on held-out data the *primary* justification for switching to $\texttt{F0\_stale}$ in the \texttt{high\_vol} regime shifts from mean-bandwidth dominance (the in-sample finding) to violation de-clustering (the out-of-sample finding). Both framings are disclosed and tested. This property is an oracle-serving claim about width allocation at matched realised coverage; it is not a claim that the resulting band is already the optimal liquidation-policy threshold for a lending protocol.
 
