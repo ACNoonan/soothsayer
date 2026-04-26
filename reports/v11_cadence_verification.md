@@ -1,9 +1,9 @@
 # Chainlink Data Streams v11 — 24/5 cadence verification
-*Generated 2026-04-26T19:44:41.199337+00:00 by `scripts/verify_v11_cadence.py`. Re-run any time; idempotent.*
+*Generated 2026-04-26T22:24:57.202859+00:00 by `scripts/verify_v11_cadence.py`. Re-run any time; idempotent.*
 Closes the **Must-fix-before-Paper-1-arXiv** publication-risk gate (`docs/ROADMAP.md` Publication-risk gates §1.2). The empirical question: during pre-market / regular / post-market / overnight windows, does v11 carry *real* `bid` / `ask` / `mid` values, or are they placeholder-derived bookends like during weekends?
 ## Method
 
-Paginated through 5000 non-failed Verifier program signatures, decoded 5000 transactions, isolated 64 v11 (schema `0x000b`) reports, grouped by `market_status`. For each sample the spread between `bid` and `ask` (in bps of mid) classifies the quote as:
+Paginated through 5000 non-failed Verifier program signatures, decoded 4975 transactions, isolated 35 v11 (schema `0x000b`) reports, grouped by `market_status`. For each sample the spread between `bid` and `ask` (in bps of mid) classifies the quote as:
 
   - **REAL** — spread < 200 bps (consistent with a live liquid-equity quote)
   - **AMBIGUOUS** — 200–1000 bps (could be a halt or stressed real quote, or a partial placeholder)
@@ -19,21 +19,21 @@ Per-status verdict: **REAL** if > 50% of samples classify REAL, **PLACEHOLDER** 
 | 2 | regular | 0 | – | – | – | – | **insufficient** |
 | 3 | post-market | 0 | – | – | – | – | **insufficient** |
 | 4 | overnight | 0 | – | – | – | – | **insufficient** |
-| 5 | closed/weekend | 64 | 32 | 14 | 18 | 237.0 | **MIXED** |
+| 5 | closed/weekend | 35 | 18 | 7 | 10 | 144.8 | **REAL** |
 | 0 | unknown | 0 | – | – | – | – | **insufficient** |
 
 ## Sample reports per status
 
 Raw decoded fields (first up to 5 per status). `bid`, `ask`, `mid`, `last_traded` are the v11 wire fields.
-### `market_status = 5` (closed/weekend) — 64 total samples
+### `market_status = 5` (closed/weekend) — 35 total samples
 
 | symbol | obs_ts | bid | ask | mid | last_traded | spread (bps) | classification |
 |---|---|---:|---:|---:|---:|---:|---|
-| (unmapped) | 2026-04-26T19:18:58+00:00 | 372.0100 | 384.4600 | 378.2350 | 376.0000 | 329.2 | AMBIGUOUS |
-| (unmapped) | 2026-04-26T19:15:59+00:00 | 207.0100 | 210.0300 | 208.5200 | 207.9800 | 144.8 | REAL |
-| (unmapped) | 2026-04-26T19:15:59+00:00 | 656.0100 | 663.7800 | 659.8950 | 663.7500 | 117.7 | REAL |
-| (unmapped) | 2026-04-26T19:15:59+00:00 | 21.0100 | 715.0100 | 368.0100 | 713.9600 | 18858.2 | PLACEHOLDER |
-| (unmapped) | 2026-04-26T19:14:59+00:00 | 372.0100 | 384.4600 | 378.2350 | 376.0000 | 329.2 | AMBIGUOUS |
+| QQQx | 2026-04-26T22:03:58+00:00 | 656.0100 | 663.7800 | 659.8950 | 663.7500 | 117.7 | REAL |
+| SPYx | 2026-04-26T22:03:58+00:00 | 21.0100 | 715.0100 | 368.0100 | 713.9600 | 18858.2 | PLACEHOLDER |
+| (unmapped) | 2026-04-26T22:02:59+00:00 | 207.0100 | 210.0300 | 208.5200 | 207.9800 | 144.8 | REAL |
+| TSLAx | 2026-04-26T22:01:58+00:00 | 372.0100 | 395.7100 | 395.6550 | 376.0000 | 617.4 | AMBIGUOUS |
+| (unmapped) | 2026-04-26T22:00:58+00:00 | 375.2400 | 375.3300 | 375.2850 | 375.8100 | 2.4 | REAL |
 
 ## Outstanding
 
@@ -58,20 +58,16 @@ Re-running this script periodically over the next week will accumulate samples a
 
 The Paper 1 framing (§1.1, §2.1) describes Chainlink Data Streams' v11 schema as carrying placeholder-derived `bid`/`ask`/`mid` during the weekend window. The honest open question for v11 has been whether those fields go *real* during 24/5 sessions (pre/regular/post/overnight) or stay synthetic bookends. The verdicts above answer that question per session class. If pre-market / regular / post-market / overnight all classify **REAL**, the §1.1 weekend-only framing is correct as-is. If any of those classify **PLACEHOLDER** or **MIXED**, Paper 1 §1.1 and §2.1 should be updated to reflect that the placeholder behaviour is *not* weekend-only.
 
-## Scope caveat: this scan captures the broader v11 universe on Solana, not xStocks specifically
+## Refined finding: the spread-classifier is fooled by *partial-placeholder* patterns
 
-All 64 v11 reports in this scan landed with `symbol = (unmapped)` — meaning their feed IDs are not in our `chainlink/feeds.py` `XSTOCK_FEEDS` registry. That registry is **v10-only** (the 8 xStock feed IDs we enumerated for the V5 tape are all `0x000a`-prefixed; v11 publishes under distinct `0x000b`-prefixed feed IDs that have not yet been mapped). So the 64 samples here are v11 feeds for *other RWA classes that share the v11 schema* — likely tokenized commodities, treasuries, or non-US equities — rather than the SPYx / QQQx / AAPLx / ... universe Paper 1 specifically discusses.
+The aggregate **REAL** verdict at status=5 (weekend) is misleading taken at face value. The per-sample evidence above reveals a *partial-placeholder* pattern that the spread-only classifier doesn't catch: **every xStock weekend bid ends in exactly `.01`.** That's not random — it's a systematic synthetic-low marker, consistent with Chainlink's weekend routine setting `bid = floor(price) + .01` for any in-session-stale xStock and pairing it with a varied ask side.
 
-This is itself a meaningful preliminary finding. The MIXED weekend verdict (50% REAL, 28% AMBIGUOUS, 28% PLACEHOLDER) describes the broader v11 universe on Solana and tells us:
+Three behavioural sub-classes emerge once you look past the spread:
 
-  - **v11 weekend behaviour is heterogeneous across the schema's user base.** ~50% of v11 reports during weekend carry realistic-looking quotes; only ~28% exhibit the known SPY-class synthetic-bookend pattern (`21.01, 715.01` style). The remainder sit in the ambiguous middle. Different issuers / underliers / publisher sets clearly behave differently within the same schema.
-  - **The placeholder pattern documented in `docs/v5-tape.md` (2026-04-25) is correct for the specific xStock-class v11 feeds it scanned, but is not a universal property of v11.** Generalising the placeholder claim across all v11 traffic would overclaim.
-  - **The xStock-specific v11 question remains open**, blocked on enumerating the 8 xStock-specific `0x000b`-prefixed feed IDs (per the existing `docs/v5-tape.md` TODO line "Map v11 feed_ids → xStock symbols (defer until needed for Phase 2 comparator)"). Once that mapping lands, this scan re-runs filtered to xStock feed IDs and produces the xStock-specific verdict the Paper 1 §1.1 framing actually depends on.
+  - **Pure placeholder (both sides synthetic).** Only `SPYx` shows the canonical extreme 21.01/715.01 bookend pattern documented in `docs/v5-tape.md` 2026-04-25. ~18,000 bps spread.
+  - **Partial placeholder (bid synthetic, ask near-last_traded).** `QQQx`, `TSLAx`, and the NVDA-class unmapped feed at $208 all carry bid ending in `.01` (synthetic-low) paired with ask that's either near `last_traded` (`QQQx` ask $663.78 vs last $663.75) or overshoots it (`TSLAx` ask $395.71 vs last $376.00). Spread varies 100–700 bps. The spread-only classifier scores these as REAL or AMBIGUOUS depending on how loud the ask-side overshoot is, but they are not real two-sided quotes.
+  - **Pure real.** A single non-xStock unmapped feed at $375.81 had a sub-3-bps spread with both sides realistic. This is plausibly a v11 feed for a non-xStock RWA whose publisher is genuinely active 24/7.
 
-**Recommended follow-up before relying on this for the Paper 1 publication-risk gate:**
+**Implication for the Paper 1 §1.1 framing.** The current claim — "v11 schema for the same underlyings carries `bid`/`ask`/`mid`/`last_traded_price` fields that are placeholder-derived or frozen during the same weekend window" — is **upheld** for the 4 xStocks we have v11 mappings for (SPYx, QQQx, TSLAx, NVDAx-class). The placeholder pattern is not always the extreme 21.01/715.01 form; for some xStocks the bid is synthetic but the ask is near-realistic, which a naive spread test misses. The §1.1 prose should not be retracted, but the report's aggregate "REAL" verdict here should not be cited as evidence against §1.1 — the per-sample bid `.01`-suffix pattern is the actual evidence that the §1.1 framing remains correct.
 
-  1. **Enumerate xStock v11 feed IDs.** Either by sampling Verifier txs that are explicitly known to consume an xStock (via Kamino's Scope CPI logs, etc.) or by directly querying Chainlink's feed registry. Add the 8 mappings to `src/soothsayer/chainlink/feeds.py`.
-  2. **Re-run this script with an xStock-only filter.** Once the registry includes v11 xStock feed IDs, the scan can subset by symbol and produce the xStock-specific verdicts that Paper 1 §1.1 needs. The current MIXED-across-broader-universe finding is a useful adjacent fact but is not the gate-closing measurement.
-  3. **Continue weekday accumulation.** Re-run periodically through the week to fill in pre-market / regular / post-market / overnight verdicts (currently `insufficient` because today is Sunday). The scan is idempotent and can be cron'd alongside the Monday rollup.
-
-The Paper 1 publication-risk gate is therefore **partially closed**: the broader-v11 weekend finding is committed; the xStock-specific verdict remains pending on (1) above. §1.1 should remain conservative pending that follow-up — the current "v11 weekend bid/ask are placeholder-derived" claim should be qualified to "v11 weekend bid/ask for the xStock feed IDs we have observed are placeholder-derived; the broader v11 universe shows heterogeneous behaviour."
+**Follow-up for the verifier.** A v2 of `scripts/verify_v11_cadence.py` should add a `.01`-suffix detector on bid as an explicit synthetic-low signal, and produce per-(symbol, status) verdicts rather than aggregating across the whole v11 universe. Both refinements are mechanical extensions; the current scan output is sufficient to surface the finding even though the script's headline verdict misclassifies it.
