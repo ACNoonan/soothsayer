@@ -8,6 +8,10 @@ __pycache__/
 # Rust
 target/
 
+# Node / Anchor TS — node_modules is huge; keep package-lock.json in-repo for
+# deterministic CI installs.
+node_modules/
+
 # Env
 .env
 .env.local
