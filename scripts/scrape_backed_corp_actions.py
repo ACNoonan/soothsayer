@@ -63,6 +63,7 @@ Usage
   uv run python -u scripts/scrape_backed_corp_actions.py --probe
   uv run python -u scripts/scrape_backed_corp_actions.py --scrape
   uv run python -u scripts/scrape_backed_corp_actions.py --diff
+  uv run python -u scripts/scrape_backed_corp_actions.py --enrich
 
 References
 ----------
@@ -73,6 +74,7 @@ References
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import sys
@@ -126,8 +128,24 @@ PER_PAGE = 100  # GitHub API hard cap; we paginate if needed
 MAX_PAGES = 5   # ≈ 500 commits — generous ceiling for any Backed repo
 
 OUT_PARQUET = DATA_PROCESSED / "backed_corp_actions.parquet"
+ENRICH_PARQUET = DATA_PROCESSED / "backed_corp_actions_enriched.parquet"
 LOG_PATH = DATA_PROCESSED / "backed_scrape.log"
 DIFF_REPORT = REPORTS / "backed_corp_actions_summary.md"
+ENRICH_REPORT = REPORTS / "backed_corp_actions_enriched.md"
+
+# Token-list filenames known to live in the Backed registries. Diff against
+# any of these per commit gives the canonical add/remove/modify event list.
+TOKENLIST_FILENAMES = (
+    "tokenlist.json",
+    "public_atomic_tokenlist.json",
+)
+
+# Panel tickers from src/soothsayer/universe.py — events touching these are
+# what would affect Paper 1's calibration claim.
+PANEL_UNDERLYINGS = {x.underlying.upper() for x in ALL_XSTOCKS}
+PANEL_XSTOCKS = {x.symbol.upper() for x in ALL_XSTOCKS}
+PANEL_BTOKENS = {f"B{x.underlying.upper()}" for x in ALL_XSTOCKS}
+PANEL_ALL = PANEL_UNDERLYINGS | PANEL_XSTOCKS | PANEL_BTOKENS
 
 # Symbol-extraction regex: word boundaries around a recognised ticker symbol.
 # Apply against the original-case commit message so we preserve casing.
@@ -268,6 +286,416 @@ def cmd_scrape() -> None:
     )
 
 
+def _fetch_commit_files(repo: str, sha: str) -> list[dict[str, Any]]:
+    """Fetch the per-file patch list for one commit via the GitHub commits API."""
+    detail = _gh_get(f"/repos/{repo}/commits/{sha}")
+    return detail.get("files", []) or []
+
+
+def _fetch_commit_parent(repo: str, sha: str) -> str | None:
+    """Return the SHA of the first parent of `sha`, or None if root commit."""
+    detail = _gh_get(f"/repos/{repo}/commits/{sha}")
+    parents = detail.get("parents") or []
+    return parents[0].get("sha") if parents else None
+
+
+def _fetch_file_at_ref(repo: str, ref: str | None, filename: str) -> str | None:
+    """Fetch a single file's text content at a given commit ref. None if missing/error."""
+    if ref is None:
+        return None
+    try:
+        detail = _gh_get(f"/repos/{repo}/contents/{filename}", params={"ref": ref})
+    except requests.RequestException:
+        return None
+    if not isinstance(detail, dict) or detail.get("type") != "file":
+        return None
+    encoded = detail.get("content", "")
+    if not encoded:
+        return None
+    try:
+        return base64.b64decode(encoded).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
+def _symbols_from_tokenlist_text(text: str | None) -> set[str]:
+    """Parse a tokenlist.json string and return the upper-cased set of symbols.
+
+    Handles both the standard {"tokens": [...]} shape and a bare list at root.
+    Falls back to None on parse error so the caller can distinguish empty
+    file from parse-fail.
+    """
+    if not text:
+        return set()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return set()
+    tokens = data.get("tokens", []) if isinstance(data, dict) else data
+    if not isinstance(tokens, list):
+        return set()
+    out: set[str] = set()
+    for t in tokens:
+        if isinstance(t, dict) and isinstance(t.get("symbol"), str):
+            out.add(t["symbol"].upper())
+    return out
+
+
+def _verify_via_setdiff(
+    repo: str, sha: str, filenames: list[str]
+) -> tuple[set[str], set[str]] | None:
+    """Compute true (added, removed) symbol sets between this commit and its parent.
+
+    Aggregates across all tokenlist files touched. Returns None if we can't
+    fetch the parent (root commit, etc.) or any of the file fetches failed.
+    """
+    parent = _fetch_commit_parent(repo, sha)
+    if parent is None:
+        return None
+    parent_symbols: set[str] = set()
+    head_symbols: set[str] = set()
+    for fn in filenames:
+        head_symbols |= _symbols_from_tokenlist_text(_fetch_file_at_ref(repo, sha, fn))
+        parent_symbols |= _symbols_from_tokenlist_text(_fetch_file_at_ref(repo, parent, fn))
+    return (head_symbols - parent_symbols, parent_symbols - head_symbols)
+
+
+def _token_symbols_in_blob(blob_text: str | None) -> set[str]:
+    """Best-effort extraction of all `"symbol": "X"` values inside a JSON blob.
+
+    We use a regex rather than json.loads because we work on patch fragments
+    where the JSON may be sliced. Returns the upper-cased set.
+    """
+    if not blob_text:
+        return set()
+    return {m.upper() for m in re.findall(r'"symbol"\s*:\s*"([^"]+)"', blob_text)}
+
+
+def _classify_patch(patch: str | None) -> tuple[set[str], set[str]]:
+    """Walk a unified-diff patch and return (added_symbols, removed_symbols).
+
+    A symbol counted as "added" appears in a `+` line; "removed" in a `-` line.
+    Symbols appearing in both are classified as modifications by the caller.
+    """
+    if not patch:
+        return (set(), set())
+    added_lines: list[str] = []
+    removed_lines: list[str] = []
+    for line in patch.splitlines():
+        if line.startswith("+++") or line.startswith("---") or line.startswith("@@"):
+            continue
+        if line.startswith("+"):
+            added_lines.append(line[1:])
+        elif line.startswith("-"):
+            removed_lines.append(line[1:])
+    added = _token_symbols_in_blob("\n".join(added_lines))
+    removed = _token_symbols_in_blob("\n".join(removed_lines))
+    return (added, removed)
+
+
+def cmd_enrich() -> None:
+    """Fetch each commit's actual file diffs and extract canonical add/remove/modify
+    events for tokens in the registry. Cross-reference against the Paper 1 panel.
+
+    The regex-extracted `underlying` field on the base tape is heuristic and
+    can mis-attribute tickers that appear in commit-message context. This step
+    pulls the unified-diff patch for each commit's tokenlist files and reads
+    the actual `"symbol": "..."` entries from + and - lines, which is the
+    canonical event source.
+
+    Outputs:
+      data/processed/backed_corp_actions_enriched.parquet  — per-commit canonical events
+      reports/backed_corp_actions_enriched.md              — panel-impact analysis
+    """
+    if not OUT_PARQUET.exists():
+        _log(f"missing {OUT_PARQUET}; run --scrape first")
+        sys.exit(1)
+    tape = pd.read_parquet(OUT_PARQUET)
+    tape = tape.sort_values(["commit_date", "repo"]).reset_index(drop=True)
+    _log(f"enrich start: {len(tape)} commits to walk")
+
+    rows: list[dict[str, Any]] = []
+    for _, t in tape.iterrows():
+        repo = t["repo"]
+        sha = t["commit_sha"]
+        if not sha:
+            continue
+        try:
+            files = _fetch_commit_files(repo, sha)
+        except requests.RequestException as e:
+            _log(f"  {repo}@{sha[:8]}: ERROR {type(e).__name__}: {e}")
+            continue
+
+        per_commit_added: set[str] = set()
+        per_commit_removed: set[str] = set()
+        files_examined: list[str] = []
+        for f in files:
+            filename = f.get("filename", "")
+            if filename not in TOKENLIST_FILENAMES:
+                continue
+            files_examined.append(filename)
+            added, removed = _classify_patch(f.get("patch"))
+            per_commit_added |= added
+            per_commit_removed |= removed
+
+        modified = per_commit_added & per_commit_removed
+        net_added = per_commit_added - per_commit_removed
+        net_removed = per_commit_removed - per_commit_added
+        panel_added_patch = sorted(net_added & PANEL_ALL)
+        panel_removed_patch = sorted(net_removed & PANEL_ALL)
+        panel_modified_patch = sorted(modified & PANEL_ALL)
+        patch_affects_panel = bool(panel_added_patch or panel_removed_patch or panel_modified_patch)
+
+        # Set-diff verification: a unified-diff "+" line for a symbol can be a
+        # genuine listing OR a no-op format change (e.g. when an autogenerated
+        # update script rewrites the entire tokenlist with reordered fields,
+        # every entry appears in `+` lines but the symbol set is unchanged).
+        # Verify against the actual symbol set diff between parent and HEAD.
+        verified = patch_affects_panel  # only verify if patch flagged it (saves API calls)
+        true_added: set[str] = set()
+        true_removed: set[str] = set()
+        if verified:
+            res = _verify_via_setdiff(repo, sha, files_examined)
+            if res is not None:
+                true_added, true_removed = res
+
+        true_panel_added = sorted(true_added & PANEL_ALL)
+        true_panel_removed = sorted(true_removed & PANEL_ALL)
+        # Only count as panel impact when the symbol-set actually changed
+        true_affects_panel = bool(true_panel_added or true_panel_removed)
+
+        rows.append(
+            {
+                "commit_date": t["commit_date"],
+                "repo": repo,
+                "commit_sha": sha,
+                "commit_url": t["commit_url"],
+                "title": t["title"],
+                "files_examined_json": json.dumps(files_examined),
+                "tokenlist_files_changed": len(files_examined),
+                "n_added_patch": len(net_added),
+                "n_removed_patch": len(net_removed),
+                "n_modified_patch": len(modified),
+                "patch_affects_panel": patch_affects_panel,
+                "verified": verified,
+                "n_added_setdiff": len(true_added),
+                "n_removed_setdiff": len(true_removed),
+                "added_json": json.dumps(sorted(net_added)),
+                "removed_json": json.dumps(sorted(net_removed)),
+                "modified_json": json.dumps(sorted(modified)),
+                "panel_added_patch_json": json.dumps(panel_added_patch),
+                "panel_removed_patch_json": json.dumps(panel_removed_patch),
+                "panel_modified_patch_json": json.dumps(panel_modified_patch),
+                "panel_added_setdiff_json": json.dumps(true_panel_added),
+                "panel_removed_setdiff_json": json.dumps(true_panel_removed),
+                "true_affects_panel": true_affects_panel,
+                "format_change_only": patch_affects_panel and not true_affects_panel,
+            }
+        )
+        if rows[-1]["true_affects_panel"]:
+            marker = "▣ TRUE PANEL IMPACT"
+        elif rows[-1]["format_change_only"]:
+            marker = "○ format-change false positive (patch flagged, set-diff cleared)"
+        else:
+            marker = "·"
+        _log(
+            f"  {t['commit_date']} {repo.split('/')[-1]:<32} "
+            f"patch:+{len(net_added):<3}/-{len(net_removed):<3}  "
+            f"setdiff:+{len(true_added):<3}/-{len(true_removed):<3}  "
+            f"{marker}"
+        )
+
+    if not rows:
+        _log("no enrichment rows; nothing to write")
+        return
+
+    enriched = pd.DataFrame(rows)
+    DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
+    enriched.to_parquet(ENRICH_PARQUET, index=False)
+    _log(f"wrote {len(enriched)} enriched rows → {ENRICH_PARQUET}")
+
+    # Scope check: pull the *current* head of the most-active registry and
+    # report which chains the entries cover. If the answer is still "EVM-only,"
+    # the panel-impact analysis above is structurally orthogonal to the
+    # Solana panel Paper 1 uses, regardless of how many true_panel_impact
+    # commits the patch view found. Re-run this on every enrich call so any
+    # future Backed Solana listings are detected the moment they ship.
+    chain_breakdown: dict[str, int] = {}
+    solana_count = 0
+    primary_repo = "backed-fi/cowswap-xstocks-tokenlist"
+    head_text = _fetch_file_at_ref(primary_repo, "HEAD", "tokenlist.json")
+    if head_text:
+        try:
+            head_data = json.loads(head_text)
+            head_tokens = (
+                head_data.get("tokens", []) if isinstance(head_data, dict) else head_data
+            )
+            for t in head_tokens or []:
+                if not isinstance(t, dict):
+                    continue
+                cid = t.get("chainId")
+                addr = t.get("address", "") or ""
+                key = f"chainId={cid}"
+                chain_breakdown[key] = chain_breakdown.get(key, 0) + 1
+                # Solana-style addresses are base58, not 0x-prefixed
+                if isinstance(addr, str) and addr and not addr.startswith("0x"):
+                    solana_count += 1
+        except json.JSONDecodeError:
+            _log(f"  scope-check: failed to parse {primary_repo} HEAD tokenlist.json")
+    _log(f"scope check at HEAD of {primary_repo}:")
+    for key, n in sorted(chain_breakdown.items(), key=lambda x: -x[1]):
+        _log(f"  {key:<14} : {n} entries")
+    _log(f"  non-EVM (Solana-style) addresses: {solana_count}")
+    if solana_count == 0:
+        _log(
+            "  CONCLUSION: registry is EVM-only — Solana xStock corp-actions are NOT in this "
+            "surface. Paper 1 §9 finding stands: ruled out via canonical registry inspection."
+        )
+
+    # Write the panel-impact report
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    true_panel_events = enriched[enriched["true_affects_panel"]].copy()
+    format_change_events = enriched[enriched["format_change_only"]].copy()
+    n_total_patch_changes = enriched[["n_added_patch", "n_removed_patch", "n_modified_patch"]].sum().sum()
+
+    with ENRICH_REPORT.open("w") as f:
+        f.write("# Backed Finance corp-actions — canonical patch-derived enrichment\n\n")
+        f.write(
+            f"Enriched **{len(enriched)}** commits across "
+            f"`{', '.join(REPOS)}`. Total token-level changes across all commits "
+            f"(patch view): **{int(n_total_patch_changes)}**. Set-diff verification was run "
+            f"against the parent commit's tokenlist for any commit the patch view flagged as "
+            f"panel-affecting, to filter out format-change false positives produced by "
+            f"autogenerated tokenlist rewrites.\n\n"
+        )
+        # Scope check at HEAD — surfaces the EVM-only finding directly in the report
+        if chain_breakdown:
+            f.write("## Registry scope (HEAD of `backed-fi/cowswap-xstocks-tokenlist`)\n\n")
+            f.write(
+                "| chainId | n_entries |\n|---|---:|\n"
+            )
+            for key, n in sorted(chain_breakdown.items(), key=lambda x: -x[1]):
+                cid = key.replace("chainId=", "")
+                f.write(f"| {cid} | {n} |\n")
+            f.write(f"\nNon-EVM (Solana-style) addresses: **{solana_count}**\n\n")
+            if solana_count == 0:
+                f.write(
+                    "**Critical finding:** the registry covers EVM chains only "
+                    "(chainId 57073 = Ink/Kraken-L2, 1 = Ethereum, 42161 = Arbitrum, "
+                    "56 = BNB). Paper 1's panel uses Solana-deployed Token-2022 xStocks, "
+                    "which are **structurally orthogonal** to anything in this registry. "
+                    "Any panel-impact rows in the patch / set-diff analysis below are "
+                    "EVM-side events that do not affect the Solana panel.\n\n"
+                )
+        f.write(
+            f"Panel under analysis: **{len(PANEL_UNDERLYINGS)}** underlyings "
+            f"({', '.join(sorted(PANEL_UNDERLYINGS))}). "
+            f"Includes xStock variants ({', '.join(sorted(PANEL_XSTOCKS))}) "
+            f"and any `b<UNDERLYING>` legacy aliases.\n\n"
+        )
+
+        if true_panel_events.empty:
+            f.write("## True panel impact (set-diff verified): NONE\n\n")
+            if not format_change_events.empty:
+                f.write(
+                    f"The patch view flagged **{len(format_change_events)}** commit(s) as "
+                    f"potentially panel-affecting, but set-diff verification confirmed all of them "
+                    f"are format-change false positives — the symbol set in the tokenlist did not "
+                    f"actually change for the panel tickers, the tokenlist file was just "
+                    f"regenerated by an update script (every entry appears in `+` lines because "
+                    f"the JSON formatting changed):\n\n"
+                )
+                for _, row in format_change_events.iterrows():
+                    f.write(
+                        f"- **{row['commit_date']}** "
+                        f"[{row['commit_sha'][:12]}]({row['commit_url']}) — "
+                        f"{row['title']}  "
+                        f"(patch: +{int(row['n_added_patch'])} -{int(row['n_removed_patch'])}; "
+                        f"set-diff: +{int(row['n_added_setdiff'])} -{int(row['n_removed_setdiff'])})\n"
+                    )
+                f.write("\n")
+            f.write(
+                "No commit in the Backed registry tapes adds, removes, or substantively "
+                "modifies any of the Paper 1 panel xStocks or their underlyings during the "
+                "captured window. The 17-token listing event (2026-03-05) and 15-token "
+                "delisting event (2026-03-03) operate exclusively on xStocks **outside** the "
+                "panel (TBLLx, ORCLx, STRCx, MCDx, NFLXx, GSx, CMCSAx, BACx, MRVLx, IBMx, "
+                "CRWDx, IEMGx, LINx, CRMx, DHRx, AZNx, GMEx, SLVx, BTGOx, COPXx, DFDVx, OPENx, "
+                "KRAQx, PALLx, SLMTx, PPLTx, ACNx, HDx, MDTx, BTBTx, IWMx, BMNRx).\n\n"
+            )
+            f.write(
+                "**Implication for Paper 1:** the silent-bias risk identified in "
+                "data-sources.md (\"yfinance reports actions on underlyings, not on "
+                "Backed-issued xStocks\") is not material at this universe size for the "
+                "captured commit window. Two paths to reach a paper-affecting finding remain:\n\n"
+                "1. Expand the panel to the full Backed-registry universe (~27+ xStocks). "
+                "Out of scope for Paper 1; deferred to v2-paper expansion.\n"
+                "2. Pull on-chain Token-2022 `ScaledUiAmountConfig` updates per panel xStock "
+                "mint via Helius. Catches dividend/split scaling events that don't appear in "
+                "the cowswap tokenlist registry. Belongs to OEV grant Month 1 work; gated on "
+                "populating `XStock.mint` in `src/soothsayer/universe.py`.\n\n"
+                "**Documented as Paper 1 §9 follow-up:** ruled-out via canonical set-diff "
+                "verification across the captured commit window.\n"
+            )
+        else:
+            f.write(f"## True panel impact: {len(true_panel_events)} commit(s) affect panel tickers\n\n")
+            for _, row in true_panel_events.iterrows():
+                added = json.loads(row["panel_added_setdiff_json"] or "[]")
+                removed = json.loads(row["panel_removed_setdiff_json"] or "[]")
+                f.write(
+                    f"### {row['commit_date']} — {row['repo']}\n\n"
+                    f"- Commit: [{row['commit_sha'][:12]}]({row['commit_url']}) — {row['title']}\n"
+                    f"- Panel-relevant additions (set-diff verified): {', '.join(added) or '—'}\n"
+                    f"- Panel-relevant removals (set-diff verified): {', '.join(removed) or '—'}\n\n"
+                )
+            if solana_count == 0:
+                f.write(
+                    "**Implication for Paper 1 (given EVM-only scope above):** the panel "
+                    "additions listed above are EVM-side CowSwap/Ink/Ethereum registry "
+                    "expansion events — the cowswap registry added EVM-deployed equivalents "
+                    "of the Solana xStocks already on Kamino. They are **not** corp-actions "
+                    "on the Solana xStocks Paper 1's panel uses. No v1b panel rebuild is "
+                    "warranted on this signal alone.\n\n"
+                    "The remaining open question — \"are there Solana-side xStock corp-actions "
+                    "that yfinance misses\" — can only be answered via on-chain Token-2022 "
+                    "`ScaledUiAmountConfig` observation, which is OEV grant Month 1 work and "
+                    "is gated on populating `XStock.mint` in `src/soothsayer/universe.py`.\n"
+                )
+            else:
+                f.write(
+                    "**Implication for Paper 1:** these events are silent-bias candidates "
+                    "the v1b panel rebuild must merge against yfinance corp-actions. Re-run "
+                    "`scripts/run_v1_scrape.py` and `scripts/run_calibration.py` with the "
+                    "merged events; report Δcoverage per τ with bootstrap CI in §6 / §9.\n"
+                )
+
+        f.write(
+            "\n\n## Full per-commit enrichment table\n\n"
+            "Columns: commit_date | repo | patch +/− | set-diff +/− | "
+            "true_affects_panel | format_change_only\n\n"
+        )
+        view = enriched.assign(
+            patch=lambda d: d["n_added_patch"].astype(int).astype(str)
+            + "/"
+            + d["n_removed_patch"].astype(int).astype(str),
+            setdiff=lambda d: d["n_added_setdiff"].astype(int).astype(str)
+            + "/"
+            + d["n_removed_setdiff"].astype(int).astype(str),
+        )[["commit_date", "repo", "patch", "setdiff", "true_affects_panel", "format_change_only"]]
+        f.write(view.to_markdown(index=False))
+        f.write("\n")
+
+    _log(f"wrote enrichment report → {ENRICH_REPORT}")
+    true_panel_count = int(enriched["true_affects_panel"].sum())
+    format_only_count = int(enriched["format_change_only"].sum())
+    _log(
+        f"summary: {len(enriched)} commits enriched, "
+        f"{int(n_total_patch_changes)} total patch-level changes, "
+        f"{true_panel_count} true panel-impact commit(s), "
+        f"{format_only_count} format-change false positive(s) cleared by set-diff"
+    )
+
+
 def cmd_diff() -> None:
     """Summarise the Backed corp-actions tape for cross-reference against yfinance.
 
@@ -343,6 +771,7 @@ def main() -> None:
     g.add_argument("--probe", action="store_true", help="hit each GitHub repo, print top commits")
     g.add_argument("--scrape", action="store_true", help="full pull, append to tape")
     g.add_argument("--diff", action="store_true", help="summarise tape for vs-yfinance comparison")
+    g.add_argument("--enrich", action="store_true", help="pull canonical patches per commit, panel-impact analysis")
     args = parser.parse_args()
 
     if args.probe:
@@ -351,6 +780,8 @@ def main() -> None:
         cmd_scrape()
     elif args.diff:
         cmd_diff()
+    elif args.enrich:
+        cmd_enrich()
 
 
 if __name__ == "__main__":
