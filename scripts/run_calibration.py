@@ -418,7 +418,7 @@ def _build_product_artifacts(panel: pd.DataFrame) -> dict:
 
 
 def main() -> None:
-    spec = PanelSpec(start=date(2014, 1, 1), end=date(2026, 4, 23))
+    spec = PanelSpec(start=date(2014, 1, 1), end=date(2026, 4, 30))
     panel = build(spec)
     panel = rg.tag(panel)
 

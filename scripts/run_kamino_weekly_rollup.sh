@@ -25,6 +25,13 @@ set -euo pipefail
 REPO_ROOT="/Users/adamnoonan/Documents/soothsayer"
 LOG="/tmp/kamino_rollup.log"
 
+# Route RPC traffic through RPC Fast by default. The local minute-cadence
+# daemons (V5 tape, Scope tape, Pyth tape) saturate the Helius free-tier
+# rate budget; running the rollup's snapshot step on Helius produces a
+# 429 storm that fails the rollup. RPC Fast has its own rate budget and
+# isn't contended by the daemons. Override per-invocation if needed.
+export PRIMARY_RPC="${PRIMARY_RPC:-rpcfast}"
+
 cd "$REPO_ROOT"
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG"; }
