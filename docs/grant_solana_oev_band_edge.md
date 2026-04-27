@@ -2,7 +2,7 @@
 
 **Working title:** *Empirical Oracle-Extractable-Value Concentration at Band-Edge Events in Solana Tokenized-Stock Lending — A Public Dataset and Mechanism-Design Analysis.*
 
-**Submitter:** Adam Noonan (Soothsayer / Samachi).
+**Submitter:** Adam Noonan (Soothsayer).
 **Status:** internal one-pager draft, 2026-04-25.
 **Target program:** Solana Foundation grants — research / public-good infrastructure track.
 **Ask:** $50k for a 4-month deliverable (range $25k–$100k justifiable).
@@ -151,7 +151,7 @@ Total ask: **$50,000** (4 months × $12,500/month). Range $25k (lower-bound) to 
 |---|---|---|
 | Researcher time (~50% FTE × 4 months) | $32,000 | Solo researcher; covers methodology, paper, and open-source release |
 | Solana RPC infrastructure (Helius/Triton paid tier) | $8,000 | $2k/mo × 4 months; required for V5 tape and reconstructor |
-| Working capital for liquidator instrumentation | $5,000 | Test capital for ground-truth liquidation event capture; net P&L flows to runway |
+| Working capital for optional later-stage liquidator instrumentation | $5,000 | Reserved only if the observe-first phase validates bidding; otherwise deferred |
 | Compute (data processing, simulation) | $3,000 | Cloud GPU/CPU for backtest and reconstruction at scale |
 | Conference / dissemination (AFT 2026 or FC 2027) | $2,000 | Publication-related travel or registration |
 
@@ -221,12 +221,12 @@ The proposal is intentionally structured so that the downside cases still produc
 
 ## Appendix A — Optional parallel instrumentation
 
-The highest-leverage optional extension is **running a narrow xStocks-weekend-reopen liquidator instrument in parallel as an auxiliary data-collection path**. This is explicitly secondary to the grant deliverables: the dataset is the artifact, not the bot.
+The highest-leverage optional extension is **running a narrow observe-first xStocks-weekend-reopen instrument in parallel as an auxiliary data-collection path**. This is explicitly secondary to the grant deliverables: the dataset is the artifact, not the bot.
 
 If run, the instrument could:
 
 - (a) generate ground-truth bid-stack observations rather than reconstructed-from-logs estimates;
-- (b) provide an additional deployment-side check that the Soothsayer band is usable as a liquidator pricing input;
+- (b) provide an additional deployment-side check that Soothsayer uncertainty is informative about the real liquidation surface under Kamino xStocks semantics;
 - (c) offset a portion of operating costs that would otherwise come out of general project runway.
 
 Pre-registration commitment: if any such instrument is run, its P&L and empirical hit rate are reported alongside the paper's findings. If it fails to capture OEV at band-edge events, that null result is reported. If it succeeds, it strengthens the deployment story. Either way, it remains auxiliary to the public dataset and measurement layer the grant is funding.

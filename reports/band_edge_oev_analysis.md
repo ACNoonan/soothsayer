@@ -1,8 +1,8 @@
 # Band-edge OEV analysis — Paper 2 §C4 first modeling exercise
 
-**Date:** 2026-04-25. **Source:** `data/processed/v1b_panel.parquet` (5,986 weekend windows × 10 symbols, 2014-01-17 → 2026-04-17), served via `Oracle.load()` with deployed hybrid forecaster + per-target buffer. Reference: [`docs/bot_kamino_xstocks_liquidator.md`](../docs/bot_kamino_xstocks_liquidator.md) §10.1 + §10.2 + §11.
+**Date:** 2026-04-25. **Source:** `data/processed/v1b_panel.parquet` (5,986 weekend windows × 10 symbols, 2014-01-17 → 2026-04-17), served via `Oracle.load()` with deployed hybrid forecaster + per-target buffer. Reference: [`docs/bot_kamino_xstocks_liquidator.md`](../docs/bot_kamino_xstocks_liquidator.md) §10 + §11.
 
-**Purpose.** Quantify (a) the rate at which realized Monday-open prices exit the served Soothsayer band at $\tau \in \{0.85, 0.95, 0.99\}$, and (b) the per-event liquidator pricing edge for in-band vs band-exit events. Inputs to the Solana Foundation OEV grant proposal ([`docs/grant_solana_oev_band_edge.md`](../docs/grant_solana_oev_band_edge.md)) and to the Kamino xStocks weekend-reopen liquidator's MVP bid floor.
+**Purpose.** Quantify (a) the rate at which realized Monday-open prices exit the served Soothsayer band at $\tau \in \{0.85, 0.95, 0.99\}$, and (b) the per-event liquidator pricing edge for in-band vs band-exit events. Inputs to the Solana Foundation OEV grant proposal ([`docs/grant_solana_oev_band_edge.md`](../docs/grant_solana_oev_band_edge.md)) and to the observe-first Kamino xStocks instrumentation plan as **legacy retrospective priors**, not bidding-ready economics.
 
 ---
 
@@ -108,7 +108,7 @@ The grant proposal hypothesises (H₁) that OEV concentrates at oracle-band-edge
 
 **Three concrete inputs this provides to downstream work:**
 
-1. **Bot MVP bid floor (`docs/bot_kamino_xstocks_liquidator.md` §4.2).** The bot's `min_margin` parameter should be set against the in-band median + safety margin; the upside is the band-exit distribution above.
+1. **Observe-first instrumentation prior (`docs/bot_kamino_xstocks_liquidator.md` §10).** These numbers motivate what to watch for on the production tape, but they are no longer treated as enough to set a live bid floor by themselves.
 2. **Grant economic justification (`docs/grant_solana_oev_band_edge.md` §7).** The per-$1M EV table at τ = 0.95 is the grounding for the budget ask: the instrumented dataset is expected to capture events whose per-event edge is an order of magnitude larger than the in-band baseline, even before the Kamino 0.1% liquidation bonus is added on top.
 3. **Paper 2 §C4 retrospective baseline.** The dominance ratio (band-exit / in-band median EV) is the first quantitative C4 datapoint. Any future live-deployed bot's realized EV distribution should be compared against this historical baseline; a deployed bot that fails to reach this dominance ratio is evidence the C4 mechanism is not active in production (a publishable null result).
 

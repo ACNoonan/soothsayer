@@ -192,7 +192,7 @@ This is the big difference from Paper 3 — Paper 2 is more theoretical and has 
 - **Auction simulator.** New tool: parameterised agent-based simulator for M0–M4 with builder/searcher coalition modelling. Validate against Andreoulis OURW M2 numerical results.
 - **Solana liquidation reconstructor.** V5 forward-cursor tape → Kamino + MarginFi program logs + Pyth Express Relay update timestamps + Jito bundles → liquidation events with bid stacks.
 - **Counterfactual welfare engine.** Replay historical liquidations under each mechanism (M0 / M1-SOL / M2 / M3 / M4) using the simulator and observed bid stacks.
-- **Live instrumentation hook.** A narrow xStocks-weekend-reopen liquidator on Kamino is being scoped (separate planning doc); whether or not it executes liquidations, the same instrumentation produces ground-truth data for the empirical replay. See `docs/grant_solana_oev_band_edge.md` for the proposal framing.
+- **Live instrumentation hook.** A narrow observe-first xStocks-weekend-reopen instrument on Kamino is being scoped (separate planning doc); whether or not it ever executes liquidations, the same instrumentation produces the ground-truth data for the empirical replay. See `docs/grant_solana_oev_band_edge.md` for the proposal framing.
 
 The auction simulator is the load-bearing build for the *theoretical* contribution. The Solana liquidation reconstructor + V5 tape integration is the load-bearing build for the *empirical* contribution (C4). Without one of these the paper has either no theory or no empirics; with both, the paper is a complete mechanism-design contribution that demonstrably moves the deployed Solana-OEV stack forward.
 

@@ -1,5 +1,5 @@
 """Score one weekend's xStock prediction across four methods, on the same
-real reserve parameters.
+real reserve parameters — endpoint and path-aware.
 
 Phase 1 Week 3 / Step 3 of the real-data Kamino comparator. For each
 (symbol, weekend), assembles:
@@ -20,20 +20,41 @@ Phase 1 Week 3 / Step 3 of the real-data Kamino comparator. For each
   over the weekend on V5 tape]``. Free-data baseline. If V5 tape doesn't
   cover the weekend, falls back to ``±2 * stdev(daily_log_returns_30d)``.
 
-Then scores each of the four bands on:
+Then scores each of the four bands on TWO levels:
 
+**Endpoint scoring** (Monday open vs band):
 - ``coverage`` — did the realized Monday open land inside [lower, upper]?
 - ``half_width_bps`` — half-width as basis points of Friday close.
 - ``excess_width_bps`` — half-width minus |realized gap| (positive = over-
   protected; negative = under-protected, missed the move).
 - ``decision_at_near_origination`` — under the same reserve params (LTV at
   origination, liquidation threshold), with debt sized to ``LTV =
-  liq_threshold − 0.5pp`` (a borrower right above the origination ceiling
-  but below liquidation), what does each method's lower bound classify them
+  liq_threshold − 0.5pp``, what does each method's lower bound classify them
   as on Monday?
 - ``decision_at_near_liquidation`` — same but with debt sized to ``LTV =
-  liq_threshold − 0.05pp`` (a borrower one tick from liquidation under Friday
-  pricing).
+  liq_threshold − 0.05pp``.
+
+**Path-aware scoring** (whole-weekend tape vs band, vs reserve buffer):
+Paper 3's load-bearing question is reserve-buffer exhaustion *during* the
+window, not just at the Monday endpoint. Three on-chain/CEX paths are
+available: Chainlink tokenized (continuous CEX-aggregated mark), Jupiter
+on-chain DEX mid (the actual SPL venue), and Scope (Kamino's actually-served
+price). For each, we compute:
+- ``path_min`` / ``path_max`` / ``path_min_ts`` — worst observed off-hours
+  price and when it occurred.
+- ``buffer_breached`` — did the path go below the
+  ``breach_price = fri_ref * max_ltv / liq_threshold`` for a max-LTV
+  borrower? This is the actual buffer-exhaustion event Paper 3 asks about.
+- ``min_drawdown_to_breach_pp`` — how close the worst observed price came to
+  exhausting the buffer, even if it didn't.
+And per method:
+- ``path_coverage`` — was every Chainlink-tokenized observation across the
+  weekend inside the band [lower, upper]?
+- ``path_lower_breach_bps`` — how far below the lower bound the worst
+  observation went (negative if breached).
+- ``path_2x2`` — same matched/preemptive/missed/silent_safe classification
+  as ``ltv_gap_breach``, but resolved against the path-min instead of
+  Monday open.
 
 Output: ``data/processed/weekend_comparison_YYYYMMDD.json`` keyed by Friday
 date. Idempotent on re-run.
@@ -296,6 +317,280 @@ def ltv_gap_breach(reserve_cfg: dict, fri_close: float, mon_open: Optional[float
     return out
 
 
+def compute_path_summary(sym_v5: pd.DataFrame, sym_scope: pd.DataFrame,
+                         window: WeekendWindow) -> dict:
+    """Per-source weekend path summary.
+
+    Each source is reported separately because they answer different
+    questions:
+    - ``cl_tokenized``: Chainlink's CEX-aggregated tokenized mark, continuous
+      24/7 across the weekend window. Closest to the underlier's "what would
+      it have traded at" off-hours.
+    - ``jup_mid``: Jupiter on-chain DEX mid for the actual SPL xStock token.
+      The actually-executable on-chain venue; sparse during low-liquidity
+      hours.
+    - ``scope``: Kamino's actually-served price (decoded from the
+      ``OraclePrices`` PDA). This is what Klend's ``Reserve.tokenInfo`` reads
+      for LTV — the only path whose intra-window crossing of a breach price
+      *actually* would have triggered a Kamino liquidation.
+
+    Returns ``None`` for any source with zero observations in the window.
+    """
+    out: dict[str, Optional[dict]] = {}
+
+    def _one(series: pd.Series, ts_series: pd.Series, label: str) -> Optional[dict]:
+        s = pd.to_numeric(series, errors="coerce").dropna()
+        if s.empty:
+            return None
+        # Align timestamps to the cleaned series.
+        ts = pd.to_numeric(ts_series.loc[s.index], errors="coerce")
+        idx_min = s.idxmin()
+        idx_max = s.idxmax()
+        # Order by timestamp so `first` and `last` are temporally meaningful.
+        order = ts.argsort()
+        s_sorted = s.iloc[order]
+        ts_sorted = ts.iloc[order]
+        return {
+            "n_obs": int(len(s)),
+            "min": float(s.min()),
+            "max": float(s.max()),
+            "mean": float(s.mean()),
+            "first_value": float(s_sorted.iloc[0]),
+            "last_value": float(s_sorted.iloc[-1]),
+            "min_ts": int(ts.loc[idx_min]) if pd.notna(ts.loc[idx_min]) else None,
+            "max_ts": int(ts.loc[idx_max]) if pd.notna(ts.loc[idx_max]) else None,
+            "first_ts": int(ts_sorted.iloc[0]) if pd.notna(ts_sorted.iloc[0]) else None,
+            "last_ts": int(ts_sorted.iloc[-1]) if pd.notna(ts_sorted.iloc[-1]) else None,
+            "label": label,
+        }
+
+    if not sym_v5.empty:
+        if "cl_tokenized_px" in sym_v5.columns:
+            out["cl_tokenized"] = _one(
+                sym_v5["cl_tokenized_px"], sym_v5["poll_ts"], "chainlink_v10_tokenized_price"
+            )
+        if "jup_mid" in sym_v5.columns:
+            out["jup_mid"] = _one(
+                sym_v5["jup_mid"], sym_v5["poll_ts"], "jupiter_dex_mid"
+            )
+    if not sym_scope.empty and "scope_price" in sym_scope.columns:
+        out["scope"] = _one(
+            sym_scope["scope_price"], sym_scope["poll_unix"], "kamino_scope_served_price"
+        )
+
+    # Window metadata so a downstream consumer can sanity-check coverage
+    # without reloading the tape.
+    out["_window"] = {
+        "fri_close_ts": window.fri_close_ts,
+        "mon_open_ts": window.mon_open_ts,
+        "duration_secs": window.mon_open_ts - window.fri_close_ts,
+    }
+    return out
+
+
+def path_buffer_exhaustion(reserve_cfg: dict, path_summary: dict,
+                           fri_close: float) -> dict:
+    """Did the off-hours path exhaust the reserve buffer?
+
+    For a borrower originated at max-LTV, the buffer exhausts when the
+    collateral mark drops to ``breach_price = fri_ref * max_ltv / liq``. The
+    endpoint version (``ltv_gap_breach``) tests this at Monday open. The
+    path-aware version tests it against the worst observation seen during
+    the weekend on each available source.
+
+    Each source uses its own internal Friday-close reference (the first
+    in-window observation on that tape), so the breach-price is denominated
+    in the same units as the path. ``fri_close`` (yfinance underlier) is
+    retained as a fall-back reference for sources whose first observation is
+    missing, and as the cross-source reporting frame.
+
+    Output structure:
+      {
+        "max_ltv_pct": ..., "liq_threshold_pct": ..., "ltv_gap_pp": ...,
+        "trigger_drop_bps": ...,             # endpoint trigger drop
+        "yfinance_breach_price": ...,        # for cross-method comparison
+        "by_source": {
+          "cl_tokenized": {fri_ref, breach_price, path_min,
+                           min_drawdown_bps, buffer_breached, breach_count,
+                           first_breach_ts},
+          "jup_mid":      {...},
+          "scope":        {...},
+        },
+        "any_source_breached": bool,
+      }
+    """
+    max_ltv = reserve_cfg["loan_to_value_pct"] / 100.0
+    liq = reserve_cfg["liquidation_threshold_pct"] / 100.0
+    yf_breach = fri_close * max_ltv / liq
+
+    out: dict = {
+        "max_ltv_pct": reserve_cfg["loan_to_value_pct"],
+        "liq_threshold_pct": reserve_cfg["liquidation_threshold_pct"],
+        "ltv_gap_pp": reserve_cfg["liquidation_threshold_pct"] - reserve_cfg["loan_to_value_pct"],
+        "trigger_drop_bps": (yf_breach - fri_close) / fri_close * 1e4,
+        "yfinance_breach_price": yf_breach,
+        "by_source": {},
+        "any_source_breached": False,
+    }
+
+    for src in ("cl_tokenized", "jup_mid", "scope"):
+        s = path_summary.get(src)
+        if s is None:
+            out["by_source"][src] = None
+            continue
+
+        # Source's own first in-window observation = its "Friday close
+        # reference" in the same units as the rest of its path. Falls back
+        # to yfinance fri_close only when the source has no first-obs
+        # recorded (defensive — should not happen since `compute_path_summary`
+        # always emits one when n_obs > 0).
+        fri_ref = s.get("first_value")
+        if fri_ref is None or fri_ref <= 0:
+            fri_ref = fri_close
+
+        breach_px = fri_ref * max_ltv / liq
+        path_min = s["min"]
+        # min_drawdown_bps: how far the worst path observation moved relative
+        # to fri_ref, in bps. Negative = drawdown.
+        min_drawdown_bps = (path_min - fri_ref) / fri_ref * 1e4
+        breached = path_min <= breach_px
+        # min_distance_to_breach_pp: positive if path stayed above breach,
+        # negative if it crossed. Useful to rank "how close did we get?" even
+        # without an actual breach.
+        min_distance_to_breach_pp = (path_min - breach_px) / fri_ref * 100
+
+        out["by_source"][src] = {
+            "fri_ref": fri_ref,
+            "breach_price": breach_px,
+            "path_min": path_min,
+            "path_max": s["max"],
+            "path_mean": s["mean"],
+            "n_obs": s["n_obs"],
+            "min_ts": s.get("min_ts"),
+            "min_drawdown_bps": min_drawdown_bps,
+            "min_distance_to_breach_pp": min_distance_to_breach_pp,
+            "buffer_breached": bool(breached),
+            "label": s["label"],
+        }
+        if breached:
+            out["any_source_breached"] = True
+
+    return out
+
+
+def path_aware_methods_2x2(reserve_cfg: dict, fri_close: float,
+                           path_summary: dict,
+                           lower_per_method: dict[str, Optional[float]]) -> dict:
+    """Path-aware mirror of ``ltv_gap_breach``: 2x2 classification per method
+    against the worst observed off-hours price across all sources.
+
+    Decision rules:
+    - "Path breached": at least one source's intra-window minimum fell below
+      the yfinance-anchored breach price (so a max-LTV borrower would have
+      had collateral marked at sub-breach during the weekend on at least one
+      observable venue).
+    - "Method flagged": the method's lower bound is at or below the
+      yfinance-anchored breach price. Same denomination as the endpoint
+      classification, so endpoint and path-aware results are directly
+      comparable.
+
+    Combined:
+      flagged & path_breached  → matched_path
+      flagged & ¬path_breached → preemptive_path
+      ¬flagged & path_breached → missed_path
+      ¬flagged & ¬path_breached → silent_safe_path
+    """
+    max_ltv = reserve_cfg["loan_to_value_pct"] / 100.0
+    liq = reserve_cfg["liquidation_threshold_pct"] / 100.0
+    breach_price = fri_close * max_ltv / liq
+
+    # Path-side answer: did any source breach intra-window?
+    sources_breached: list[str] = []
+    sources_with_data: list[str] = []
+    for src in ("cl_tokenized", "jup_mid", "scope"):
+        s = path_summary.get(src)
+        if s is None:
+            continue
+        sources_with_data.append(src)
+        if s["min"] <= breach_price:
+            sources_breached.append(src)
+    path_breached = len(sources_breached) > 0
+
+    out: dict = {
+        "breach_price": breach_price,
+        "path_breached": path_breached,
+        "sources_with_data": sources_with_data,
+        "sources_breached": sources_breached,
+        "methods": {},
+    }
+    if not sources_with_data:
+        out["note"] = "no path data — every method classification is n/a"
+        for method in lower_per_method:
+            out["methods"][method] = {"classification": "n/a"}
+        return out
+
+    for method, lower in lower_per_method.items():
+        if lower is None or lower <= 0:
+            out["methods"][method] = {"classification": "n/a"}
+            continue
+        flagged = lower <= breach_price
+        if flagged and path_breached:
+            cls = "matched_path"
+        elif flagged and not path_breached:
+            cls = "preemptive_path"
+        elif (not flagged) and path_breached:
+            cls = "missed_path"
+        else:
+            cls = "silent_safe_path"
+        out["methods"][method] = {
+            "lower": lower,
+            "flagged_breach": flagged,
+            "classification": cls,
+        }
+    return out
+
+
+def path_band_coverage(lower: float, upper: float, sym_v5: pd.DataFrame,
+                       price_col: str = "cl_tokenized_px") -> dict:
+    """How a band [lower, upper] held up against every observation across the
+    weekend, not just Monday open. Uses Chainlink tokenized as the canonical
+    continuous path (most observations, 24/7 coverage).
+
+    Returns:
+      n_obs: number of in-window observations from the chosen source
+      breach_count_lower: # observations strictly below ``lower``
+      breach_count_upper: # observations strictly above ``upper``
+      worst_breach_lower_bps: min(price - lower) / lower * 1e4 (negative if
+                              the path went below the band)
+      worst_breach_upper_bps: max(price - upper) / upper * 1e4 (positive if
+                              the path went above)
+      path_coverage: True iff every observation lies in [lower, upper]
+    """
+    if sym_v5.empty or price_col not in sym_v5.columns:
+        return {"n_obs": 0, "path_coverage": None}
+    s = pd.to_numeric(sym_v5[price_col], errors="coerce").dropna()
+    if s.empty:
+        return {"n_obs": 0, "path_coverage": None}
+
+    below = s[s < lower]
+    above = s[s > upper]
+    worst_lower_bps = (
+        float((below.min() - lower) / lower * 1e4) if not below.empty else None
+    )
+    worst_upper_bps = (
+        float((above.max() - upper) / upper * 1e4) if not above.empty else None
+    )
+    return {
+        "n_obs": int(len(s)),
+        "breach_count_lower": int(len(below)),
+        "breach_count_upper": int(len(above)),
+        "worst_breach_lower_bps": worst_lower_bps,
+        "worst_breach_upper_bps": worst_upper_bps,
+        "path_coverage": bool(below.empty and above.empty),
+        "source": price_col,
+    }
+
+
 def compute_simple_heuristic(fri_close: float, v5: pd.DataFrame) -> dict:
     """±max(|cl_tokenized_px - Fri_close|) observed over the weekend.
     Falls back to ±0.0 if V5 tape didn't cover."""
@@ -426,6 +721,39 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
             lower_per_method=method_lowers,
         )
 
+        # Path-aware section. Three on-chain/CEX paths are considered:
+        # Chainlink tokenized (continuous CEX-aggregated mark), Jupiter
+        # on-chain DEX mid (the actual SPL venue), and Scope (Kamino's
+        # actually-served price). For each, did the worst observation
+        # exhaust the reserve buffer? Plus per-method 2x2 vs the path-min,
+        # and per-method full-tape coverage on the Chainlink-tokenized path.
+        path_summary = compute_path_summary(sym_v5, sym_scope, window)
+        path_breach = path_buffer_exhaustion(
+            reserve_cfg=r["config"],
+            path_summary=path_summary,
+            fri_close=fri_close,
+        )
+        path_2x2 = path_aware_methods_2x2(
+            reserve_cfg=r["config"],
+            fri_close=fri_close,
+            path_summary=path_summary,
+            lower_per_method=method_lowers,
+        )
+        path_coverage_per_method = {
+            method: path_band_coverage(
+                lower=method_band["lower"],
+                upper=method_band["upper"],
+                sym_v5=sym_v5,
+                price_col="cl_tokenized_px",
+            )
+            for method, method_band in {
+                "kamino_incumbent": {"lower": incumbent["lower"], "upper": incumbent["upper"]},
+                "soothsayer_t085": s85,
+                "soothsayer_t095": s95,
+                "simple_heuristic": {"lower": heuristic["lower"], "upper": heuristic["upper"]},
+            }.items()
+        }
+
         rows.append({
             "symbol": x_sym,
             "underlier": underlier,
@@ -447,17 +775,40 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
             "bands": bands,
             "decisions": decisions,
             "ltv_gap_breach": breach,
+            "path_summary": path_summary,
+            "path_buffer_exhaustion": path_breach,
+            "path_methods_2x2": path_2x2,
+            "path_band_coverage_per_method": path_coverage_per_method,
         })
-        # Compact stdout summary.
+        # Compact stdout summary: endpoint coverage + path-aware breach summary.
         rgap = ((mon_open - fri_close) / fri_close) * 1e4
         cov_summary = " ".join(
             f"{m[:8]}={'✓' if b.get('coverage') else '✗' if b.get('coverage') is False else '?'}"
             for m, b in bands.items()
         )
-        breach_marker = "🔴 BREACH" if breach["realized_breach"] else "—"
+        endpoint_marker = "🔴 BREACH" if breach["realized_breach"] else "—"
+        # Path-aware compact: which sources breached, and the worst drawdown
+        # to breach across available sources (negative = breached, positive
+        # = how many pp the path stayed above the trigger).
+        if path_breach["any_source_breached"]:
+            srcs_b = ",".join(
+                k for k, v in path_breach["by_source"].items()
+                if v is not None and v["buffer_breached"]
+            )
+            path_marker = f"🔴 PATH({srcs_b})"
+        elif any(v is not None for v in path_breach["by_source"].values()):
+            # Closest approach across all sources with data.
+            mins = [
+                v["min_distance_to_breach_pp"]
+                for v in path_breach["by_source"].values()
+                if v is not None
+            ]
+            path_marker = f"path Δ={min(mins):+.2f}pp"
+        else:
+            path_marker = "no path"
         print(f"  [{x_sym:7s}] Fri ${fri_close:>7.2f}  Mon ${mon_open:>7.2f}  "
               f"realized {rgap:+7.1f} bps  trigger {breach['trigger_drop_bps']:+7.1f} bps  "
-              f"{breach_marker}   {cov_summary}")
+              f"{endpoint_marker:>10s}  {path_marker:<24s}  {cov_summary}")
 
     out = {
         "friday": friday.isoformat(),

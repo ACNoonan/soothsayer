@@ -295,10 +295,11 @@ def write_report(
                  "the empirical anchors for the budget ask. The argument upgrades from "
                  "*conjecture* to *retrospective measurement on a 3-year out-of-sample panel*.")
     lines.append("")
-    lines.append("**Bot scoping.** Section 4.2 of "
+    lines.append("**Bot scoping.** Section 10 of "
                  "[`docs/bot_kamino_xstocks_liquidator.md`](../docs/bot_kamino_xstocks_liquidator.md) "
-                 "should set `min_margin` against the OOS p95 in-band figure as the floor "
-                 "and use the OOS band-exit median as the realistic upside reference.")
+                 "now treats these numbers as legacy retrospective priors for the observe-first "
+                 "instrument, not as sufficient grounds to set a live bid floor before production "
+                 "semantics are verified.")
     lines.append("")
     lines.append("**Paper 2 §C4.** The OOS dominance ratio is the **headline retrospective C4 "
                  "result** the paper cites before introducing the deployed-bot empirical "

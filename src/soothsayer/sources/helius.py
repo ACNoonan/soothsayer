@@ -76,9 +76,22 @@ class _RateLimiter:
 
 
 class _Provider:
-    def __init__(self, url: str, min_interval: float) -> None:
+    def __init__(self, url: str, min_interval: float, pool_size: int = 64) -> None:
         self.url = url
         self.limiter = _RateLimiter(min_interval)
+        # Connection-pooled Session: reuses TCP+TLS across rpc() calls.
+        # Without this each `requests.post()` does a fresh handshake, which
+        # measured at ~300-500ms overhead on cold cache — dominating the
+        # wall time for a 200-300ms getTransaction round-trip and capping
+        # observed throughput far below the rate-limit ceiling.
+        self.session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=pool_size,
+            pool_maxsize=pool_size,
+            max_retries=0,  # we own retries via _with_retry
+        )
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
 
 
 _PROVIDERS: dict[str, _Provider] = {}
@@ -141,7 +154,7 @@ def rpc(
 
     def _call() -> Any:
         prov.limiter.reserve()
-        r = requests.post(
+        r = prov.session.post(
             prov.url,
             json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or []},
             timeout=30,

@@ -1,12 +1,12 @@
-"""Soothsayer xStocks-on-Kamino weekend-reopen liquidator bot.
+"""Soothsayer xStocks-on-Kamino weekend-reopen observe-first instrument.
 
 MVP / devnet scope: position monitor + band evaluator + tape logger.
 No bidding. Synthetic positions. Validates the instrumentation contract
 documented in `docs/bot_kamino_xstocks_liquidator.md`.
 
-The bot's primary deliverable is the V5 forward-cursor *tape* — a research-
-grade record of every band-classified observation. Net liquidation revenue
-is secondary; instrumentation comes first.
+The primary deliverable is the V5 forward-cursor *tape* — a research-grade
+record of every observed event under real Kamino reserve semantics. Net
+liquidation revenue, if any, is secondary; instrumentation comes first.
 """
 from soothsayer.bot.types import (
     BandClassification,

@@ -40,7 +40,9 @@ reports/tables/
 ~$*
 
 # Claude Code — keep shared settings.json, ignore per-user local overrides
+# and per-machine runtime state (scheduled task lock, harness ephemera).
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Local-only working docs (outreach targets, draft messages, private notes)
 *.local.md
