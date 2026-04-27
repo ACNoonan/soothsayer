@@ -1,5 +1,5 @@
 # Kamino xStocks — weekend comparator: 2026-04-17 → 2026-04-20
-*Generated 2026-04-26T18:39:41.061940+00:00; reserve config snapshot from 2026-04-26.*
+*Generated 2026-04-27T12:36:08.874362+00:00; reserve config snapshot from 2026-04-26.*
 Forward-running comparator that scores Soothsayer bands and free-data baselines against the realized Monday open under Kamino's actually-deployed xStock reserve parameters. All 8 xStocks live in lending market `5wJeMrUYECGq41fxRESKALVcHnNX26TAWy4W98yULsua` and consume Scope as the primary oracle. The numbers below are reproducible from the on-chain klend program (`KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD`) via `scripts/snapshot_kamino_xstocks.py` + `scripts/score_weekend_comparison.py`.
 ## Section 1 — What was observed
 Per-symbol Friday close (yfinance underlier), Monday open (yfinance underlier), Kamino reserve config (LTV at origination / liquidation threshold / heuristic guard rail), and weekend tape coverage. Kamino's `PriceHeuristic` is a *validity guard rail* — Scope reads outside the range are rejected — not a coverage band, so it is reported here as a recorded incumbent parameter rather than scored against the realized move.
@@ -16,18 +16,20 @@ Per-symbol Friday close (yfinance underlier), Monday open (yfinance underlier), 
 
 ## Section 2 — Coverage context for the same weekend
 Coverage and half-width comparison across the three methods that publish a coverage band: Soothsayer at τ=0.85 (deployment default), Soothsayer at τ=0.95 (stricter oracle-validation comparator), and a simple free-data heuristic (`Friday close ± max(|Chainlink tokenizedPrice − Friday close|)` over the V5 tape). This section is descriptive rather than load-bearing: the more important question for Kamino-shaped protocols is how the same weekend interacts with the real reserve buffer and near-threshold borrower states. Excess width is half-width minus the realized absolute move; positive values indicate over-protection, negative values indicate the band missed the move.
-| Symbol | Realized (bps) | Soothsayer τ=0.85 cov / hw / excess | Soothsayer τ=0.95 cov / hw / excess | Simple heuristic cov / hw / excess |
-|---|---:|---|---|---|
-| **SPYx** | -19.2 | ✓ in / 114.7 / +95.5 | ✓ in / 181.2 / +162.0 | ✗ out / 0.0 / -19.2 |
-| **QQQx** | -12.5 | ✓ in / 120.7 / +108.3 | ✓ in / 244.2 / +231.7 | ✗ out / 0.0 / -12.5 |
-| **TSLAx** | +48.9 | ✓ in / 374.7 / +325.7 | ✓ in / 786.4 / +737.5 | ✗ out / 0.0 / -48.9 |
-| **GOOGLx** | -26.9 | ✓ in / 202.7 / +175.7 | ✓ in / 296.4 / +269.4 | ✗ out / 0.0 / -26.9 |
-| **AAPLx** | +3.7 | ✓ in / 193.5 / +189.8 | ✓ in / 403.5 / +399.8 | ✗ out / 0.0 / -3.7 |
-| **NVDAx** | -84.3 | ✓ in / 309.3 / +225.1 | ✓ in / 754.7 / +670.4 | ✗ out / 0.0 / -84.3 |
-| **MSTRx** | -253.4 | ✓ in / 510.0 / +256.5 | ✓ in / 1244.9 / +991.5 | ✗ out / 0.0 / -253.4 |
-| **HOODx** | -115.7 | ✓ in / 704.2 / +588.5 | ✓ in / 956.2 / +840.5 | ✗ out / 0.0 / -115.7 |
+| Symbol | Realized (bps) | Soothsayer τ=0.85 cov / hw / excess | Soothsayer τ=0.95 cov / hw / excess | Pyth (regular) cov / hw / excess | Simple heuristic cov / hw / excess |
+|---|---:|---|---|---|---|
+| **SPYx** | -19.2 | ✓ in / 114.7 / +95.5 | ✓ in / 181.2 / +162.0 | ✗ out / 0.0 / -19.2 | ✗ out / 0.0 / -19.2 |
+| **QQQx** | -12.5 | ✓ in / 120.7 / +108.3 | ✓ in / 244.2 / +231.7 | ✗ out / 0.0 / -12.5 | ✗ out / 0.0 / -12.5 |
+| **TSLAx** | +48.9 | ✓ in / 374.7 / +325.7 | ✓ in / 786.4 / +737.5 | ✗ out / 0.0 / -48.9 | ✗ out / 0.0 / -48.9 |
+| **GOOGLx** | -26.9 | ✓ in / 202.7 / +175.7 | ✓ in / 296.4 / +269.4 | ✗ out / 0.0 / -26.9 | ✗ out / 0.0 / -26.9 |
+| **AAPLx** | +3.7 | ✓ in / 193.5 / +189.8 | ✓ in / 403.5 / +399.8 | ✗ out / 0.0 / -3.7 | ✗ out / 0.0 / -3.7 |
+| **NVDAx** | -84.3 | ✓ in / 309.3 / +225.1 | ✓ in / 754.7 / +670.4 | ✗ out / 0.0 / -84.3 | ✗ out / 0.0 / -84.3 |
+| **MSTRx** | -253.4 | ✓ in / 510.0 / +256.5 | ✓ in / 1244.9 / +991.5 | ✗ out / 0.0 / -253.4 | ✗ out / 0.0 / -253.4 |
+| **HOODx** | -115.7 | ✓ in / 704.2 / +588.5 | ✓ in / 956.2 / +840.5 | ✗ out / 0.0 / -115.7 | ✗ out / 0.0 / -115.7 |
 
-**Aggregate coverage on this weekend** (method ✓ / total scorable rows): Soothsayer τ=0.85 = 8/8; Soothsayer τ=0.95 = 8/8; simple heuristic = 0/8.
+**Aggregate coverage on this weekend** (method ✓ / total scorable rows): Soothsayer τ=0.85 = 8/8; Soothsayer τ=0.95 = 8/8; Pyth regular = 0/8; simple heuristic = 0/8.
+
+*Pyth regular* is the publisher-dispersion confidence band from Pyth's regular-session feed at Friday close — the closest existing on-Solana analog to a published "band". It widens during off-hours via Pyth's aggregation rule (publishers thinning out → wider $\sigma$). The comparator's intellectual question is *publisher-dispersion-based confidence vs calibration-transparent coverage*; Pyth regular is the publisher-dispersion side of that comparison.
 *One weekend is a tiny sample by design — this report is a forward-running tape; the cross-week aggregate becomes the meaningful comparison after several weekends.*
 
 ## Section 3 — Primary comparison: lending consequence under real reserve params
@@ -38,34 +40,42 @@ For each method's lower bound, what does the same reserve config classify a near
 | **SPYx** | 73 / 75 / 2pp | `soothsayer_t085` | Caution | Liquidate | 0.742 / 0.767 |
 | **SPYx** | 73 / 75 / 2pp | `soothsayer_t095` | Caution | Liquidate | 0.749 / 0.774 |
 | **SPYx** | 73 / 75 / 2pp | `simple_heuristic` | Safe | Caution | 0.725 / 0.750 |
+| **SPYx** | 73 / 75 / 2pp | `pyth_regular` | Safe | Caution | 0.725 / 0.750 |
 | **QQQx** | 70 / 72 / 2pp | `kamino_incumbent` | Safe | Caution | 0.695 / 0.720 |
 | **QQQx** | 70 / 72 / 2pp | `soothsayer_t085` | Caution | Liquidate | 0.711 / 0.736 |
 | **QQQx** | 70 / 72 / 2pp | `soothsayer_t095` | Liquidate | Liquidate | 0.725 / 0.751 |
 | **QQQx** | 70 / 72 / 2pp | `simple_heuristic` | Safe | Caution | 0.695 / 0.720 |
+| **QQQx** | 70 / 72 / 2pp | `pyth_regular` | Safe | Caution | 0.695 / 0.720 |
 | **TSLAx** | 55 / 65 / 10pp | `kamino_incumbent` | Safe | Caution | 0.545 / 0.649 |
 | **TSLAx** | 55 / 65 / 10pp | `soothsayer_t085` | Caution | Liquidate | 0.567 / 0.676 |
 | **TSLAx** | 55 / 65 / 10pp | `soothsayer_t095` | Caution | Liquidate | 0.587 / 0.699 |
 | **TSLAx** | 55 / 65 / 10pp | `simple_heuristic` | Safe | Caution | 0.545 / 0.649 |
+| **TSLAx** | 55 / 65 / 10pp | `pyth_regular` | Safe | Caution | 0.545 / 0.649 |
 | **GOOGLx** | 60 / 70 / 10pp | `kamino_incumbent` | Safe | Caution | 0.595 / 0.700 |
 | **GOOGLx** | 60 / 70 / 10pp | `soothsayer_t085` | Caution | Liquidate | 0.613 / 0.721 |
 | **GOOGLx** | 60 / 70 / 10pp | `soothsayer_t095` | Caution | Liquidate | 0.622 / 0.731 |
 | **GOOGLx** | 60 / 70 / 10pp | `simple_heuristic` | Safe | Caution | 0.595 / 0.700 |
+| **GOOGLx** | 60 / 70 / 10pp | `pyth_regular` | Safe | Caution | 0.595 / 0.700 |
 | **AAPLx** | 40 / 50 / 10pp | `kamino_incumbent` | Safe | Caution | 0.395 / 0.499 |
 | **AAPLx** | 40 / 50 / 10pp | `soothsayer_t085` | Caution | Liquidate | 0.407 / 0.515 |
 | **AAPLx** | 40 / 50 / 10pp | `soothsayer_t095` | Caution | Liquidate | 0.416 / 0.526 |
 | **AAPLx** | 40 / 50 / 10pp | `simple_heuristic` | Safe | Caution | 0.395 / 0.499 |
+| **AAPLx** | 40 / 50 / 10pp | `pyth_regular` | Safe | Caution | 0.395 / 0.499 |
 | **NVDAx** | 55 / 65 / 10pp | `kamino_incumbent` | Safe | Caution | 0.545 / 0.649 |
 | **NVDAx** | 55 / 65 / 10pp | `soothsayer_t085` | Caution | Liquidate | 0.569 / 0.678 |
 | **NVDAx** | 55 / 65 / 10pp | `soothsayer_t095` | Caution | Liquidate | 0.615 / 0.733 |
 | **NVDAx** | 55 / 65 / 10pp | `simple_heuristic` | Safe | Caution | 0.545 / 0.649 |
+| **NVDAx** | 55 / 65 / 10pp | `pyth_regular` | Safe | Caution | 0.545 / 0.649 |
 | **MSTRx** | 30 / 40 / 10pp | `kamino_incumbent` | Safe | Caution | 0.295 / 0.400 |
 | **MSTRx** | 30 / 40 / 10pp | `soothsayer_t085` | Caution | Liquidate | 0.324 / 0.438 |
 | **MSTRx** | 30 / 40 / 10pp | `soothsayer_t095` | Caution | Liquidate | 0.366 / 0.495 |
 | **MSTRx** | 30 / 40 / 10pp | `simple_heuristic` | Safe | Caution | 0.295 / 0.400 |
+| **MSTRx** | 30 / 40 / 10pp | `pyth_regular` | Safe | Caution | 0.295 / 0.400 |
 | **HOODx** | 30 / 40 / 10pp | `kamino_incumbent` | Safe | Caution | 0.295 / 0.400 |
 | **HOODx** | 30 / 40 / 10pp | `soothsayer_t085` | Caution | Liquidate | 0.316 / 0.428 |
 | **HOODx** | 30 / 40 / 10pp | `soothsayer_t095` | Caution | Liquidate | 0.323 / 0.437 |
 | **HOODx** | 30 / 40 / 10pp | `simple_heuristic` | Safe | Caution | 0.295 / 0.400 |
+| **HOODx** | 30 / 40 / 10pp | `pyth_regular` | Safe | Caution | 0.295 / 0.400 |
 
 ### Decision divergence summary
 Cases where Soothsayer (τ=0.85) and Kamino-incumbent reach a *different* classification for the near-liquidation borrower. Treat this as a one-week illustration of the decision surface, not a welfare conclusion by itself:
@@ -93,16 +103,16 @@ For a borrower originated at the LTV ceiling on Friday, the **trigger drop** is 
   - `missed` — not flagged but realized → dangerous false negative
   - `silent_safe` — not flagged AND not realized → correct silence
 
-| Symbol | Trigger drop (bps) | Realized (bps) | Realized breach? | Kamino-incumbent | Soothsayer τ=0.85 | Soothsayer τ=0.95 | Simple heuristic |
-|---|---:|---:|---|---|---|---|---|
-| **SPYx** | -266.7 | -19.2 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-230bps) | ⚠️ preemptive (-323bps) | ✓ silent_safe (+0bps) |
-| **QQQx** | -277.8 | -12.5 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-222bps) | ⚠️ preemptive (-418bps) | ✓ silent_safe (+0bps) |
-| **TSLAx** | -1538.5 | +48.9 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-387bps) | ✓ silent_safe (-710bps) | ✓ silent_safe (+0bps) |
-| **GOOGLx** | -1428.6 | -26.9 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-297bps) | ✓ silent_safe (-432bps) | ✓ silent_safe (+0bps) |
-| **AAPLx** | -2000.0 | +3.7 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-294bps) | ✓ silent_safe (-511bps) | ✓ silent_safe (+0bps) |
-| **NVDAx** | -1538.5 | -84.3 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-415bps) | ✓ silent_safe (-1143bps) | ✓ silent_safe (+0bps) |
-| **MSTRx** | -2500.0 | -253.4 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-886bps) | ✓ silent_safe (-1933bps) | ✓ silent_safe (+0bps) |
-| **HOODx** | -2500.0 | -115.7 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-664bps) | ✓ silent_safe (-851bps) | ✓ silent_safe (+0bps) |
+| Symbol | Trigger drop (bps) | Realized (bps) | Realized breach? | Kamino-incumbent | Soothsayer τ=0.85 | Soothsayer τ=0.95 | Pyth regular | Simple heuristic |
+|---|---:|---:|---|---|---|---|---|---|
+| **SPYx** | -266.7 | -19.2 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-230bps) | ⚠️ preemptive (-323bps) | ✓ silent_safe (+0bps) | ✓ silent_safe (+0bps) |
+| **QQQx** | -277.8 | -12.5 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-222bps) | ⚠️ preemptive (-418bps) | ✓ silent_safe (+0bps) | ✓ silent_safe (+0bps) |
+| **TSLAx** | -1538.5 | +48.9 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-387bps) | ✓ silent_safe (-710bps) | ✓ silent_safe (+0bps) | ✓ silent_safe (+0bps) |
+| **GOOGLx** | -1428.6 | -26.9 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-297bps) | ✓ silent_safe (-432bps) | ✓ silent_safe (+0bps) | ✓ silent_safe (+0bps) |
+| **AAPLx** | -2000.0 | +3.7 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-294bps) | ✓ silent_safe (-511bps) | ✓ silent_safe (+0bps) | ✓ silent_safe (+0bps) |
+| **NVDAx** | -1538.5 | -84.3 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-415bps) | ✓ silent_safe (-1143bps) | ✓ silent_safe (+0bps) | ✓ silent_safe (+0bps) |
+| **MSTRx** | -2500.0 | -253.4 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-886bps) | ✓ silent_safe (-1933bps) | ✓ silent_safe (+0bps) | ✓ silent_safe (+0bps) |
+| **HOODx** | -2500.0 | -115.7 | — | ✓ silent_safe (+0bps) | ✓ silent_safe (-664bps) | ✓ silent_safe (-851bps) | ✓ silent_safe (+0bps) | ✓ silent_safe (+0bps) |
 
 **Aggregate this weekend:** 0 of 8 symbols realized a breach (Monday open below the LTV-gap trigger). Per-method tallies:
 
@@ -111,6 +121,7 @@ For a borrower originated at the LTV ceiling on Friday, the **trigger drop** is 
 | `kamino_incumbent` | 0 | 0 | 0 | 8 |
 | `soothsayer_t085` | 0 | 0 | 0 | 8 |
 | `soothsayer_t095` | 0 | 2 | 0 | 6 |
+| `pyth_regular` | 0 | 0 | 0 | 8 |
 | `simple_heuristic` | 0 | 0 | 0 | 8 |
 
 *Welfare-relevant ratios over time:* the cross-week ratio of `matched / (matched + missed)` is the *recall* on actual breaches, and `matched / (matched + preemptive)` is the *precision* on flagged breaches. A single weekend with no breaches doesn't distinguish the methods on this axis; the comparison emerges over multiple weekends.

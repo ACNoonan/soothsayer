@@ -153,6 +153,83 @@ def load_scope_tape(window: WeekendWindow) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True)
 
 
+def load_pyth_tape(window: WeekendWindow) -> pd.DataFrame:
+    """Concat all pyth_xstock_tape parquets covering the weekend window.
+
+    Schema (from ``scripts/collect_pyth_xstock_tape.py``):
+      poll_ts (iso str), poll_unix (int), symbol (UNDERLIER, e.g. "SPY"),
+      session (regular/on/pre/post), pyth_price, pyth_conf,
+      pyth_publish_time, pyth_age_s, pyth_half_width_bps, ...
+
+    Note: Pyth tape symbols are *underlier* tickers (SPY, QQQ, AAPL, ...)
+    not xStock symbols (SPYx, QQQx, ...). The score_weekend caller maps
+    xStock → underlier before filtering.
+    """
+    frames = []
+    for fp in sorted(glob(str(DATA_RAW / "pyth_xstock_tape_*.parquet"))):
+        df = pd.read_parquet(fp)
+        # poll_unix is already an int column in this tape (verified via the
+        # daemon's expand_row()). No conversion needed.
+        in_window = (df["poll_unix"] >= window.fri_close_ts) & (df["poll_unix"] <= window.mon_open_ts)
+        if in_window.any():
+            frames.append(df[in_window])
+    if not frames:
+        return pd.DataFrame(columns=[
+            "poll_ts", "poll_unix", "symbol", "session",
+            "pyth_price", "pyth_conf", "pyth_half_width_bps",
+        ])
+    return pd.concat(frames, ignore_index=True)
+
+
+def pyth_band(sym_pyth: pd.DataFrame, fri_close_ts: int, fri_close_ref: float,
+              session: str = "regular") -> dict:
+    """Build the Pyth comparator band for a single (symbol, weekend).
+
+    Picks the row from ``sym_pyth`` whose ``poll_unix`` is closest to
+    ``fri_close_ts`` and whose ``session`` matches the requested session
+    (default ``regular`` — the canonical aggregate Pyth feed that widens
+    its confidence during off-hours, which is the apples-to-apples
+    comparison against Soothsayer's calibrated band on the same window).
+
+    Returns a dict with the same shape as the score-script's other band
+    constructors: ``{lower, upper, point, ...}``. If the requested session
+    has no observations in the window, returns a degenerate band centred
+    on the yfinance Friday-close reference with zero width and a
+    ``pyth_unavailable`` label.
+
+    The Pyth band is *static* across the weekend by construction — Pyth
+    publishes one (price, conf) pair at a moment in time and we anchor
+    on Friday close. That means path-coverage of the Pyth band is
+    "did every weekend observation fall inside Pyth's static
+    [price - conf, price + conf]" rather than tracking a time-varying
+    target.
+    """
+    if sym_pyth.empty or "session" not in sym_pyth.columns:
+        return {"lower": fri_close_ref, "upper": fri_close_ref, "point": fri_close_ref,
+                "pyth_session": session, "pyth_label": "pyth_unavailable",
+                "pyth_publish_time": None, "pyth_conf": None}
+    sub = sym_pyth[sym_pyth["session"] == session]
+    if sub.empty:
+        return {"lower": fri_close_ref, "upper": fri_close_ref, "point": fri_close_ref,
+                "pyth_session": session, "pyth_label": "pyth_session_missing",
+                "pyth_publish_time": None, "pyth_conf": None}
+    # Closest poll_unix to the Friday-close anchor.
+    deltas = (sub["poll_unix"] - fri_close_ts).abs()
+    idx = deltas.idxmin()
+    row = sub.loc[idx]
+    price = float(row["pyth_price"])
+    conf = float(row["pyth_conf"])
+    return {
+        "lower": price - conf,
+        "upper": price + conf,
+        "point": price,
+        "pyth_session": session,
+        "pyth_label": "pyth_regular_widened" if session == "regular" else f"pyth_{session}",
+        "pyth_publish_time": int(row["pyth_publish_time"]) if "pyth_publish_time" in row else None,
+        "pyth_conf": conf,
+    }
+
+
 def yfinance_close_open(symbols: list[str], friday: date, monday: date) -> dict[str, dict]:
     """Pull Friday close + Monday open per underlier ticker via yfinance.
     Bulk-fetch a 2-week window so the call is single-shot."""
@@ -644,7 +721,9 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
 
     v5_tape = load_v5_tape(window)
     scope_tape = load_scope_tape(window)
-    print(f"  V5 tape rows in window: {len(v5_tape)}; Scope tape rows: {len(scope_tape)}")
+    pyth_tape = load_pyth_tape(window)
+    print(f"  V5 tape rows: {len(v5_tape)}; Scope tape rows: {len(scope_tape)}; "
+          f"Pyth tape rows: {len(pyth_tape)}")
 
     underlier_symbols = list(XSTOCK_TO_UNDERLIER.values())
     yf = yfinance_close_open(underlier_symbols, friday, monday)
@@ -666,6 +745,8 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
 
         sym_v5 = v5_tape[v5_tape["symbol"] == x_sym] if not v5_tape.empty else v5_tape
         sym_scope = scope_tape[scope_tape["symbol"] == x_sym] if not scope_tape.empty else scope_tape
+        # Pyth tape is keyed by underlier (SPY/QQQ/...), not xStock (SPYx/QQQx/...)
+        sym_pyth = pyth_tape[pyth_tape["symbol"] == underlier] if not pyth_tape.empty else pyth_tape
 
         scope_fri = find_nearest_in_tape(sym_scope, window.fri_close_ts, "poll_unix")
         scope_mon = find_nearest_in_tape(sym_scope, window.mon_open_ts, "poll_unix")
@@ -681,6 +762,13 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
 
         incumbent = kamino_incumbent_band(r, fri_close, scope_fri_px, scope_mon_px)
         heuristic = compute_simple_heuristic(fri_close, sym_v5)
+        # Pyth's regular-session feed is the closest existing on-Solana
+        # analog to a published "band" — its publisher-dispersion-based
+        # confidence interval widens during off-hours, exactly the
+        # apples-to-apples comparison the comparator's intellectual core
+        # (publisher-dispersion vs calibration-transparent coverage)
+        # requires.
+        pyth = pyth_band(sym_pyth, window.fri_close_ts, fri_close, session="regular")
         s85 = {"lower": soothsayer_85.lower, "upper": soothsayer_85.upper}
         s95 = {"lower": soothsayer_95.lower, "upper": soothsayer_95.upper}
 
@@ -689,11 +777,16 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
             "soothsayer_t085": score_band(s85["lower"], s85["upper"], fri_close, mon_open),
             "soothsayer_t095": score_band(s95["lower"], s95["upper"], fri_close, mon_open),
             "simple_heuristic": score_band(heuristic["lower"], heuristic["upper"], fri_close, mon_open),
+            "pyth_regular": score_band(pyth["lower"], pyth["upper"], fri_close, mon_open),
         }
         bands["kamino_incumbent"]["band_label"] = incumbent["label"]
         bands["kamino_incumbent"]["scope_friday_price"] = incumbent["scope_friday_price"]
         bands["kamino_incumbent"]["scope_monday_price"] = incumbent["scope_monday_price"]
         bands["simple_heuristic"]["method"] = heuristic.get("method")
+        bands["pyth_regular"]["pyth_label"] = pyth["pyth_label"]
+        bands["pyth_regular"]["pyth_session"] = pyth["pyth_session"]
+        bands["pyth_regular"]["pyth_publish_time"] = pyth["pyth_publish_time"]
+        bands["pyth_regular"]["pyth_conf"] = pyth["pyth_conf"]
 
         # Decision classification: use each method's *lower bound* as the conservative collateral price.
         # For incumbent, the conservative-protocol view is the Scope-served price at Monday open (NOT
@@ -704,6 +797,7 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
             "soothsayer_t085": s85["lower"],
             "soothsayer_t095": s95["lower"],
             "simple_heuristic": heuristic["lower"],
+            "pyth_regular": pyth["lower"],
         }
         decisions = decisions_under_reserve(
             lower_per_method=method_lowers,
@@ -751,6 +845,7 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
                 "soothsayer_t085": s85,
                 "soothsayer_t095": s95,
                 "simple_heuristic": {"lower": heuristic["lower"], "upper": heuristic["upper"]},
+                "pyth_regular": {"lower": pyth["lower"], "upper": pyth["upper"]},
             }.items()
         }
 
@@ -770,6 +865,7 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
             "realized_gap_bps": ((mon_open - fri_close) / fri_close) * 1e4,
             "v5_tape_n_obs": int(len(sym_v5)),
             "scope_tape_n_obs": int(len(sym_scope)),
+            "pyth_tape_n_obs": int(len(sym_pyth)),
             "scope_friday_price": scope_fri_px,
             "scope_monday_price": scope_mon_px,
             "bands": bands,

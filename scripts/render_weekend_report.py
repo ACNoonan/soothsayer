@@ -144,23 +144,27 @@ def render_markdown(data: dict) -> str:
         "| Symbol | Realized (bps) | "
         "Soothsayer τ=0.85 cov / hw / excess | "
         "Soothsayer τ=0.95 cov / hw / excess | "
+        "Pyth (regular) cov / hw / excess | "
         "Simple heuristic cov / hw / excess |\n"
     )
-    md.append("|---|---:|---|---|---|\n")
+    md.append("|---|---:|---|---|---|---|\n")
     for r in rows:
         b85 = r["bands"]["soothsayer_t085"]
         b95 = r["bands"]["soothsayer_t095"]
+        bp = r["bands"].get("pyth_regular", {})
         bh = r["bands"]["simple_heuristic"]
         md.append(
             f"| **{r['symbol']}** | {r['realized_gap_bps']:+.1f} | "
             f"{fmt_cov(b85)} / {fmt_hw(b85)} / {fmt_excess(b85)} | "
             f"{fmt_cov(b95)} / {fmt_hw(b95)} / {fmt_excess(b95)} | "
+            f"{fmt_cov(bp)} / {fmt_hw(bp)} / {fmt_excess(bp)} | "
             f"{fmt_cov(bh)} / {fmt_hw(bh)} / {fmt_excess(bh)} |\n"
         )
 
     # Aggregate coverage rates.
     cov_85 = [b["bands"]["soothsayer_t085"]["coverage"] for b in rows]
     cov_95 = [b["bands"]["soothsayer_t095"]["coverage"] for b in rows]
+    cov_p = [b["bands"].get("pyth_regular", {}).get("coverage") for b in rows]
     cov_h = [b["bands"]["simple_heuristic"]["coverage"] for b in rows]
 
     def rate(arr: list) -> str:
@@ -173,7 +177,17 @@ def render_markdown(data: dict) -> str:
         f"(method ✓ / total scorable rows): "
         f"Soothsayer τ=0.85 = {rate(cov_85)}; "
         f"Soothsayer τ=0.95 = {rate(cov_95)}; "
+        f"Pyth regular = {rate(cov_p)}; "
         f"simple heuristic = {rate(cov_h)}.\n"
+    )
+    md.append(
+        "\n*Pyth regular* is the publisher-dispersion confidence band from Pyth's "
+        "regular-session feed at Friday close — the closest existing on-Solana "
+        "analog to a published \"band\". It widens during off-hours via Pyth's "
+        "aggregation rule (publishers thinning out → wider $\\sigma$). The "
+        "comparator's intellectual question is *publisher-dispersion-based "
+        "confidence vs calibration-transparent coverage*; Pyth regular is the "
+        "publisher-dispersion side of that comparison.\n"
     )
     md.append(
         "*One weekend is a tiny sample by design — this report is a forward-running tape; "
@@ -262,9 +276,9 @@ def render_markdown(data: dict) -> str:
     )
     md.append(
         "\n| Symbol | Trigger drop (bps) | Realized (bps) | Realized breach? | "
-        "Kamino-incumbent | Soothsayer τ=0.85 | Soothsayer τ=0.95 | Simple heuristic |\n"
+        "Kamino-incumbent | Soothsayer τ=0.85 | Soothsayer τ=0.95 | Pyth regular | Simple heuristic |\n"
     )
-    md.append("|---|---:|---:|---|---|---|---|---|\n")
+    md.append("|---|---:|---:|---|---|---|---|---|---|\n")
     for r in rows:
         b = r["ltv_gap_breach"]
         breach_marker = "🔴 **YES**" if b["realized_breach"] else "—"
@@ -288,12 +302,14 @@ def render_markdown(data: dict) -> str:
             f"| **{r['symbol']}** | {b['trigger_drop_bps']:+.1f} | "
             f"{b['realized_gap_bps']:+.1f} | {breach_marker} | "
             f"{cell('kamino_incumbent')} | {cell('soothsayer_t085')} | "
-            f"{cell('soothsayer_t095')} | {cell('simple_heuristic')} |\n"
+            f"{cell('soothsayer_t095')} | {cell('pyth_regular')} | "
+            f"{cell('simple_heuristic')} |\n"
         )
 
     # Aggregate per-method breach counts.
     counts = {m: {"matched": 0, "preemptive": 0, "missed": 0, "silent_safe": 0, "n/a": 0}
-              for m in ("kamino_incumbent", "soothsayer_t085", "soothsayer_t095", "simple_heuristic")}
+              for m in ("kamino_incumbent", "soothsayer_t085", "soothsayer_t095",
+                        "pyth_regular", "simple_heuristic")}
     n_breached = 0
     for r in rows:
         b = r["ltv_gap_breach"]
@@ -407,7 +423,8 @@ def render_html(data: dict) -> str:
 
     # --- LTV-gap breach sub-block (the actually-Kamino-shaped metric) ---
     counts = {m: {"matched": 0, "preemptive": 0, "missed": 0, "silent_safe": 0, "n/a": 0}
-              for m in ("kamino_incumbent", "soothsayer_t085", "soothsayer_t095", "simple_heuristic")}
+              for m in ("kamino_incumbent", "soothsayer_t085", "soothsayer_t095",
+                        "pyth_regular", "simple_heuristic")}
     n_breached = 0
     for r in rows:
         b = r.get("ltv_gap_breach", {})
@@ -431,7 +448,8 @@ def render_html(data: dict) -> str:
     )
     html.append('  <table class="kamino-weekend__table kamino-weekend__breach"><thead><tr>')
     for h in ["Symbol", "Trigger drop (bps)", "Realized (bps)", "Realized breach?",
-              "Kamino-incumbent", "Soothsayer τ=0.85", "Soothsayer τ=0.95", "Simple heuristic"]:
+              "Kamino-incumbent", "Soothsayer τ=0.85", "Soothsayer τ=0.95",
+              "Pyth regular", "Simple heuristic"]:
         html.append(f'<th>{h}</th>')
     html.append('</tr></thead>\n    <tbody>\n')
     cls_label = {
@@ -457,6 +475,7 @@ def render_html(data: dict) -> str:
             f'<td>{cell("kamino_incumbent")}</td>'
             f'<td>{cell("soothsayer_t085")}</td>'
             f'<td>{cell("soothsayer_t095")}</td>'
+            f'<td>{cell("pyth_regular")}</td>'
             f'<td>{cell("simple_heuristic")}</td>'
             f'</tr>\n'
         )
@@ -472,7 +491,11 @@ def render_html(data: dict) -> str:
         f'{counts["soothsayer_t095"]["matched"]} matched / '
         f'{counts["soothsayer_t095"]["preemptive"]} preemptive / '
         f'{counts["soothsayer_t095"]["missed"]} missed / '
-        f'{counts["soothsayer_t095"]["silent_safe"]} silent_safe. Welfare-relevant ratios '
+        f'{counts["soothsayer_t095"]["silent_safe"]} silent_safe; Pyth regular: '
+        f'{counts["pyth_regular"]["matched"]} matched / '
+        f'{counts["pyth_regular"]["preemptive"]} preemptive / '
+        f'{counts["pyth_regular"]["missed"]} missed / '
+        f'{counts["pyth_regular"]["silent_safe"]} silent_safe. Welfare-relevant ratios '
         f'(recall, precision) emerge from the cross-week aggregate.'
         f'</p>\n'
     )
