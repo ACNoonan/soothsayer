@@ -39,6 +39,7 @@ def main(weekend_json: str) -> None:
         ("soothsayer_t085",  "Soothsayer τ=0.85"),
         ("soothsayer_t095",  "Soothsayer τ=0.95"),
         ("kamino_incumbent", "Kamino-incumbent"),
+        ("pyth_regular",     "Pyth regular"),
         ("simple_heuristic", "simple heuristic"),
     )
     for key, label in methods:
@@ -57,7 +58,8 @@ def main(weekend_json: str) -> None:
     # Tape coverage and snapshot date.
     v5 = sum(int(r.get("v5_tape_n_obs", 0)) for r in rows)
     scope = sum(int(r.get("scope_tape_n_obs", 0)) for r in rows)
-    lines.append(f"Tape coverage: v5={v5} rows, scope={scope} rows.")
+    pyth = sum(int(r.get("pyth_tape_n_obs", 0)) for r in rows)
+    lines.append(f"Tape coverage: v5={v5} rows, scope={scope} rows, pyth={pyth} rows.")
     lines.append(f"Reserve config snapshot: {data['snapshot_used']}.")
     lines.append("")
 

@@ -48,7 +48,7 @@ from pathlib import Path
 from statistics import median
 from typing import Optional
 
-from soothsayer.chainlink.feeds import feed_id_to_xstock
+from soothsayer.chainlink.feeds import feed_id_to_xstock_label as feed_id_to_xstock
 from soothsayer.chainlink.v11 import decode as v11_decode
 from soothsayer.chainlink.verifier import VERIFIER_PROGRAM_ID, parse_verify_return_data
 from soothsayer.config import REPORTS
