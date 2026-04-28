@@ -10,9 +10,22 @@
 
 ## 0. State of the world (current)
 
-*Last updated 2026-04-25.*
+*Last updated 2026-04-29.*
 
 **Product shape.** Soothsayer Oracle. Customer specifies target coverage τ ∈ (0, 1); Oracle returns a band that empirically delivered τ on a 12-year backtest stratified by (symbol, regime). Every read carries receipts: served claimed-quantile, forecaster used, regime observed, calibration buffer applied.
+
+**Product progression (locked 2026-04-29).**
+- **v0 — calibration-transparent band primitive.** The `soothsayer-router` Anchor program (in build); regime-routes between an open-hours multi-upstream aggregator (Layer 0: Pyth + Chainlink v11 + Switchboard On-Demand + RedStone Live, with Mango-style filters) and the closed-hours soothsayer band primitive. Returns `unified_feed_receipt.v1`. Methodology backing: Paper 1.
+- **v1 — calibration-transparent event stream** (gated on Paper 3). On-chain events fired when consumer-configured band thresholds are crossed; each event carries a calibration receipt + historical-frequency context. Consumer-driven action policy; account state stays consumer-private. The product layer that closes the integration-friction gap with action-publishing protocols (Mango v4) without abandoning the methodology-public + action-private architecture. Methodology backing: Paper 3.
+- **v2 — parameterized decision SDK** (2027). Rust + TS library that takes consumer cost weights + portfolio shape and returns binary recommendations with calibration receipts. Library runs client-side; soothsayer never reads borrower positions. Methodology backing: Paper 2 + Paper 3.
+
+The v0 → v1 → v2 progression preserves the methodology-public + action-private invariant at every layer and is non-substitutable with action-publishing protocols (Mango v4 et al.). See the 2026-04-29 §1 entry for the trigger (Mango premise verification) and the strategic framing.
+
+**Unified-feed router v0 status (locked 2026-04-28; deployed devnet 2026-04-29).** Single Anchor program in front of the existing publish-path stack, deployed at devnet program ID `AZE8HixpkLpqmuuZbCku5NbjWqoQLWhPRTHp8aMY9xNU`, exercised end-to-end against a real Pyth Pull receiver SOL/USD feed (`7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE`). Layer 0 (open-hours, deterministic multi-upstream aggregator with robust median + dispersion-based band) ships with these upstream-decoder paths: **Pyth aggregate** (real, tested on devnet via SOL/USD; equity coverage on mainnet requires a soothsayer-operated Pyth poster daemon — Pyth doesn't sponsor SPY/QQQ Solana feeds — per the 2026-04-29 (evening) entry), **Switchboard On-Demand** (real, unit-tested), **Chainlink Streams Relay** (decoder reads a soothsayer-controlled relay PDA per the 2026-04-29 (afternoon) Option C lock — relay program + daemon are separate work, scryer wishlist items track them), **RedStone Live** (stubbed pending a Solana PDA from RedStone). Mango v4 reclassified as methodology-only per the 2026-04-29 (morning) amendment. Layer 1 (calibration-weighted aggregator with open-hours calibration claim) is gated on ~3 months of upstream forward-tape data per scryer wishlist items 21-23. Router ships upgradeable in v0 (multisig-controlled `RouterConfig`); migration to immutable + versioned-replacement is gated on a signed institutional-partner LOI + partner methodology buy-in.
+
+**Relay fleet (locked 2026-04-29 (evening)).** The "Option C" relay pattern from the afternoon entry generalises beyond Chainlink: any off-chain price source soothsayer needs on-chain that doesn't already have a passive-PDA path uses the same shape (off-chain daemon fetches signed data → submits on-chain → cryptographic verification at post time → router reads passively). v0 fleet: **Chainlink Streams** (own relay program + daemon — items 42 + 43), **Pyth equity** (daemon only — uses Pyth's existing receiver — item 44). Five operator commitments lock the trust model: Verifier-CPI mandatory in production, open-source daemons, multi-writer migration in v1, public posting cadence + uptime alerting, no-position policy enforced via on-chain attestation account. See the 2026-04-29 (evening) §1 entry for the full lock + the trust-model rationale.
+
+See §1 entries dated 2026-04-28 (afternoon / midday / morning) for the design, the deviation-guard adoption, and the receipt-schema lock respectively; 2026-04-29 (morning / afternoon / evening) for the v0/v1/v2 product roadmap, the Chainlink architectural correction, and the relay-fleet generalisation.
 
 **Deployment defaults.**
 - Default τ = **0.85** — picked on protocol-policy grounds in the original Paper 3 scaffold; the earlier flat-300bps Kamino-style comparator is now retained only as a simplified baseline, with the production comparison reframed around real xStocks reserve-buffer exhaustion.
@@ -44,7 +57,7 @@
 - **Inter-anchor τ validation (D5):** sweep τ ∈ [0.50, 0.99] step 0.01 (50 levels). Kupiec $p_{uc} > 0.05$ at **47 of 50** targets; max deviation $|\text{realised} - \tau|$ = 0.030. The three failures are τ=0.50/0.51 (over-cover by 2.6–3pp; safe direction; flat extrapolation below the lowest anchor) and τ=0.99 (the documented §9.1 structural ceiling). **Deployment range τ ∈ [0.52, 0.98] passes uniformly.** This is a stronger claim than the four-anchor calibration: realised(τ) = τ + ε with sup|ε| < 0.025 across the whole deployment range. Closes the linear-interpolation faith claim raised in the bibliography review.
 - **Served-band PIT uniformity (D6):** the naive KS-on-PIT test fails (KS=0.500) because the τ grid floor at 0.50 floors all natural PITs in $[0, 0.50)$ — a measurement artefact, not a calibration failure. The right test is D5 (per-τ realised vs target), which passes on the deployment range. Disclosed methodologically in `reports/v1b_diagnostics_extended.md`.
 - **Cross-asset leave-one-out (D7):** for each of the 10 symbols, refit the calibration surface on the other 9 and serve the held-out ticker through the pooled-fallback path on its 2023+ OOS slice. **Pooled coverage transfers near-perfectly:** in-sample → LOO pooled at (τ=0.68, 0.85, 0.95) = (0.678→0.681, 0.855→0.852, 0.950→0.967). 26 of 30 (symbol × τ) cells pass Kupiec at α=0.05; the 4 failures are 3 over-covers (safe direction; GLD/MSTR/TLT) and 1 under-cover at SPY τ=0.68 (lowest-grid edge). Largest realized-coverage drop in-sample → LOO is −0.047 at MSTR τ=0.68. **The calibration mechanism transfers to unseen tickers**, supporting a paper claim that the methodology generalises beyond our 10-symbol universe — a §6.5 strengthening, not a §9.9 disclosure. Artefact: `reports/v1b_leave_one_out.md`, `reports/tables/v1b_leave_one_out.csv`.
-- **Reviewer-tier diagnostics (D8 — Berkowitz, DQ, CRPS, exceedance magnitude):** Berkowitz joint LR on inverse-normal-transformed continuous PITs **rejects** ($p \approx 0$, $\widehat{\text{var}}\,z = 0.84$); rejection is buffer-induced safe-direction over-coverage outside the deployment range τ ∈ [0.68, 0.99] and confirms that the served-band claim is *per-anchor calibrated*, not full-distribution calibrated. Engle-Manganelli DQ test (per-symbol, 4 lags, pooled $\chi^2(50)$) **rejects** at all four anchors ($p_\text{DQ}$: 0.033 / 0.014 / 0.032 / ~0 at τ = 0.68 / 0.85 / 0.95 / 0.99) — multi-lag conditional structure beyond Christoffersen's two-state Markov independence test; per-symbol pooling caveat noted. **Exceedance magnitude** (McNeil-Frey simplified): max breach shrinks monotonically in τ (2,339 → 2,150 → 1,415 → 796 bps); at τ = 0.99 the 40 missed violations have median 72 bps, max 796 bps — *materially defangs the §9.1 structural-ceiling story* by bounding worst-case protocol impact. CRPS = 1.82 (reported as baseline for future cross-oracle comparators). Reliability diagram: `reports/figures/v1b_reliability_diagram.png`. Artefacts: `reports/tables/v1b_oos_reviewer_diagnostics.csv`, `v1b_oos_berkowitz_crps.csv`, `v1b_oos_pit_continuous.csv`.
+- **Reviewer-tier diagnostics (D8 — Berkowitz, DQ, CRPS, exceedance magnitude; updated 2026-04-28 evening):** Berkowitz joint LR on inverse-normal-transformed continuous PITs **rejects** ($p \approx 0$, $\widehat{\text{var}}\,z = 0.84$); rejection is buffer-induced safe-direction over-coverage outside the deployment range τ ∈ [0.68, 0.99] and confirms that the served-band claim is *per-anchor calibrated*, not full-distribution calibrated. Engle-Manganelli DQ test (per-symbol, 4 lags, pooled $\chi^2(50)$) **rejects** at all four anchors ($p_\text{DQ}$: 0.032 / 0.014 / 0.032 / ~0 at τ = 0.68 / 0.85 / 0.95 / 0.99) — but the **per-symbol-median p-value sensitivity passes at all four** (0.211 / 0.384 / 0.289 / 0.261), demonstrating that the pooled-χ² aggregation inflates rejection as $K$ grows. The honest reading uses *both*: the per-symbol reject-count at α=0.05 is 1/10, 2/10, 2/10, 5/10 — the τ ≤ 0.95 counts are consistent with type-I rate, but the τ = 0.99 count of 5/10 indicates real per-symbol tail miscalibration in half the universe that does not vanish under any defensible aggregation. The §10.2 halt/corp-action filter would isolate which of the five rejecting symbols are picking up structural exceptions; gated on scryer wishlist items 15a + 15b. **Exceedance magnitude** (McNeil-Frey simplified, 1,730-row rerun): max breach shrinks monotonically in τ (2,339 → 2,150 → 1,415 → 1,081 bps); at τ = 0.99 the 49 missed violations have median 71 bps, max 1,081 bps — bounds worst-case protocol impact at ~11% on a missed event, ~0.7% at the median. CRPS = 1.82 (reported as baseline for future cross-oracle comparators). Reliability diagram: `reports/figures/v1b_reliability_diagram.png`. Artefacts: `reports/tables/v1b_oos_reviewer_diagnostics.csv`, `v1b_oos_dq_per_symbol.csv`, `v1b_oos_dq_per_symbol_summary.csv`, `v1b_oos_berkowitz_crps.csv`, `v1b_oos_pit_continuous.csv`.
 - **Window-size sensitivity sweep (D8):** sweep F1_emp_regime rolling window ∈ {52, 78, 104, 156, 208, 260, 312} weekends; for each, recompute bounds, build calibration surface, serve OOS 2023+ at τ ∈ {0.68, 0.85, 0.95} using deployed BUFFER_BY_TARGET. **Window-robust within ±3pp realised at every τ across the full range.** Window=156 is the *only* choice that passes Kupiec at α=0.05 on all three targets simultaneously; window 208 also passes at τ=0.68 + 0.95 with τ=0.85 marginal. Deployed 156 is empirically defensible (not arbitrary) and sits inside a stable region [156, 260] where coverage tracks target within tolerance and sharpness is comparable. Artefact: `reports/v1b_window_sensitivity.md`, `reports/tables/v1b_window_sensitivity.csv`.
 
 **Code source-of-truth.**
@@ -65,6 +78,469 @@
 ---
 
 ## 1. Decision log
+
+### 2026-04-29 (evening) — Relay-fleet generalization: trust-model commitments + Pyth-poster scope correction
+
+**Trigger.** A data-spine audit (this date) found two issues that scope the relay layer larger than the 2026-04-29 (afternoon) entry assumed, and a strategic conversation about institutional skepticism around relay-operated price feeds surfaced commitments that should be locked into the methodology now (in-design lock window) rather than retrofitted later.
+
+The data-spine findings:
+
+1. **Pyth equity sponsored feeds are not posted on Solana mainnet.** The 2026-04-28 (afternoon) router design implicitly assumed mainnet would unlock equity coverage via Pyth's existing sponsored-feed posting service. Direct query of the mainnet receiver program found `SPY/USD shard 0`, `QQQ/USD shard 0`, and other equity-feed PriceUpdateV2 PDAs do not exist (`AccountNotFound`). Hermes' equity catalog confirms the feed_ids exist for off-chain consumption but the popular tickers are not in Pyth's continuously-posted Solana set. SOL/USD on devnet was verified at `7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE` (someone is running a poster for it); the equivalent does not exist for SPY/etc on mainnet.
+2. **The relay pattern generalises.** Option C (locked this date afternoon for Chainlink Streams) is the same architectural shape needed for Pyth equities — fetch off-chain → bring on-chain. RedStone Live (REST-only on the public gateway) eventually needs the same treatment if RedStone doesn't ship a Solana product. The "Chainlink-only relay" framing under-counted the broader infrastructure lift.
+
+The strategic finding from the trust-model conversation:
+
+3. **Relay infrastructure is well-understood by institutional buyers** — Pyth's receiver, Wormhole's Token Bridge, and Chainlink's Verifier all use this pattern at scale. **What gets scrutinised is the operational layer, not the architectural one.** The cryptographic floor (signed VAAs / DON-signed reports verified on-chain) excludes value falsification. What soothsayer must commit to defending against is the operational layer: selective posting, timing manipulation, coverage manipulation, conflict-of-interest. Five concrete commitments cover this.
+
+**Decisions.**
+
+**D1. Generalise the relay layer beyond Chainlink.** The 2026-04-29 (afternoon) entry locked Option C as a Chainlink-specific relay; this entry extends that lock to a "relay fleet" concept covering all upstream sources soothsayer wants to consume on-chain that don't already have a passive-PDA path. The relay fleet's shape is uniform: off-chain daemon fetches signed data from the upstream → submits on-chain → cryptographic verification at post time → router reads passively. Source-specific work is in the daemon and the verification path, not in the architectural pattern.
+
+**D2. Pyth scope correction: no new program needed.** The 2026-04-29 (afternoon) entry's relay-program design (item 42, `soothsayer-streams-relay-program`) is needed for Chainlink because Chainlink's Verifier program only returns decoded data via per-tx return_data — there is no Chainlink-controlled PDA to read passively. **Pyth is structurally different**: Pyth's receiver program already implements the relay pattern, and posts are permissionless (anyone can fetch a Hermes VAA and call `update_price_feeds` on the receiver). For Pyth equity coverage, soothsayer needs **only an off-chain daemon** — no new on-chain program. The daemon fetches Hermes VAAs for the configured equity feed_ids and CPIs into Pyth's existing receiver program. The PriceUpdateV2 PDA the receiver writes is exactly what `read_pyth_aggregate` already decodes; no router changes needed. This collapses a substantial scope item to a daemon-only build.
+
+**D3. Five trust commitments locked.** These commit soothsayer to operational discipline that turns the relay layer from "trust us" into "trust the cryptographic floor + audit our policy." Each is part of soothsayer's institutional pitch and is reviewable in the methodology log.
+
+1. **Verifier-CPI is mandatory in production.** The Chainlink relay program's `post_relay_update` instruction must successfully CPI into the Chainlink Verifier program before persisting a `streams_relay_update.v1` PDA. No "trust-mode" path on mainnet (per O11; v0 ships always-CPI on devnet). Pyth posting goes through Pyth's receiver, which performs Wormhole-guardian signature verification natively. Soothsayer's posting code cannot persist a value not signed by the upstream — this is enforced by the on-chain programs, not by promise.
+2. **Open-source daemon code.** All relay daemons (Chainlink, Pyth, future RedStone if needed) ship as part of scryer or as open-sourced soothsayer-side crates. Anyone with the upstream credentials (Hermes API access for Pyth, Chainlink Streams subscription for the Streams relay) can run their own poster. There is no proprietary fetching logic that locks consumers to soothsayer-operated infrastructure.
+3. **Multi-writer migration in v1.** v0 ships with a single soothsayer-controlled writer keypair (per O10) for operational simplicity. v1 of the relay infrastructure transitions to either a multi-writer set (N independent operators, each posts; freshest valid post wins) or fully permissionless writes (anyone with a valid signed report can post). Migration is gated on either a design-partner request or 6 months of stable operation, whichever comes first. Tracked as an O10 follow-up.
+4. **Public posting cadence + uptime alerting.** Per-feed posting cadence target is published in the operator dashboard (default ≤60s per feed for all relayed equity sources). The dashboard surfaces miss / staleness events publicly so consumers can independently detect operational issues. The router already exposes `relay_post_ts` per upstream contribution in `unified_feed_receipt.v1`; consumers reading the receipt can detect stale relays without trusting the operator's dashboard.
+5. **No-position policy.** Soothsayer (the legal entity / signing authority) commits to **not holding on-chain positions in assets it relays for**. The commitment is enforced via a published wallet allowlist disclosed in the operator dashboard; the on-chain audit trail (writer keypair + soothsayer's other on-chain wallets) is observable indefinitely. Conflict-of-interest is the residual concern after the cryptographic floor; this commitment is the operator's response. Tracked as new open question O12 for the enforcement mechanism — methodology entry will lock the specific allowlist publication path before mainnet relay deploy.
+
+**D4. Wishlist additions.** Add scryer wishlist item 44: `soothsayer-pyth-poster` (off-chain daemon only; no on-chain program). Item 42's scope is unchanged (Chainlink-specific relay program + daemon). Items 21 (`chainlink_streams_tape.v1`) remain retracted per the afternoon entry. RedStone's eventual relay deferred to a future methodology entry when RedStone's Solana product story firms up.
+
+**What this commits soothsayer to.**
+- Operating two relay daemons in v0 (one for Chainlink, one for Pyth equities). Both feed the router with cryptographically-verified upstream prices via passive PDAs.
+- Publishing wallet allowlist + cadence dashboard before mainnet deployment of either relay.
+- Open-sourcing the daemon code (scryer + soothsayer crates).
+- Reviewing the multi-writer migration condition at 6 months post-v0-mainnet.
+
+**What this does not commit soothsayer to.**
+- Sustainability model for the relay layer in v1+. Today's commitment is operational integrity; how the relay infrastructure is funded long-term (paid integrations, sponsorship, grant, or token-funded similar to Pyth/Chainlink) is a separate strategic decision deferred until at least one design partner is signed.
+- Decentralisation timeline beyond v1's multi-writer step. Full permissionlessness is a v2+ consideration if/when the relay infrastructure becomes load-bearing for many consumers.
+- Specific governance for the wallet allowlist (who can change it, what notice period). v0: soothsayer-controlled multisig; v1+ may require a partner-witnessed change process.
+
+**Open methodology question added to §2.**
+- O12. Enforcement mechanism for the no-position policy. Options: (a) on-chain attestation (soothsayer publishes a list of allowed wallets via a versioned attestation account; auditors verify these are the only soothsayer-controlled wallets touching relayed assets), (b) periodic audit by an independent third party reviewing soothsayer's full wallet set, (c) governance-witnessed multisig holding the canonical wallet list. v0 default: attestation-account approach (option a). Lock the specific implementation before mainnet relay deploy.
+
+**Forward path.**
+1. Apply scryer wishlist update in this session (add item 44; cross-reference D2's program-not-needed clarification on item 42).
+2. Scaffold `programs/soothsayer-streams-relay-program/` (item 42 Phase 42a) — Anchor program with stubbed Verifier CPI. Continues this session.
+3. Off-chain daemons (items 43 + 44) implemented in scryer; methodology entries needed there per scryer hard rule #1. Calendar-time-gated by Chainlink Streams API access (subscription required) and Pyth Hermes endpoint access (free; can start now).
+4. Publish operator dashboard scaffold + wallet allowlist before mainnet relay deploy.
+5. v0 mainnet relay deploys are gated on the same conditions as the router's mainnet deploy: audit clean + design-partner LOI + the operator dashboard published.
+
+---
+
+### 2026-04-29 (afternoon) — Chainlink Streams integration: Option C selected (soothsayer-built relay program), schema lock, in-window receipt rename
+
+**Trigger.** Devnet smoke testing of the router program (this date) surfaced an architectural mismatch between the router's design (passive PDA reads of upstream feeds) and Chainlink Data Streams' product model on Solana (per-tx report-blob submission via CPI to a Verifier program; no continuously-published account). Verified via primary sources:
+
+- Chainlink **Data Streams** (Solana product carrying US equity feeds): per-tx pull architecture; consumers fetch DON-signed reports off-chain and submit them per-tx via Verifier CPI. No persistent on-chain account holding the latest decoded report.
+- Chainlink **Data Feeds** (a separate, legacy product): IS passive-PDA on Solana, but covers crypto only — no equity coverage on either mainnet or devnet.
+- Same architecture on mainnet ↔ devnet; the difference is which feeds are continuously active, not how consumption works.
+- Schema for RWA / equities is **V8** (not the v10/v11 names from the EVM Data Streams product); the local `chainlink_v11.rs` decoder is for the wrong wire format.
+
+The 2026-04-28 (afternoon) router design entry implicitly assumed direct passive PDA reads for Chainlink. That assumption is incorrect for the equity-coverage product. Three remediation options were evaluated:
+
+- **Option A** — drop Chainlink Data Streams as a router upstream entirely; keep only as off-chain incumbent benchmark for paper 1.
+- **Option B** — per-tx report blob via instruction data + Verifier CPI inside the router. Couples consumer integrations to fetching reports off-chain per refresh; bloats tx size; operationally awkward.
+- **Option C** — soothsayer-built relay daemon + relay program. Off-chain daemon fetches signed Chainlink reports and posts decoded results to a soothsayer-controlled PDA; the router reads the relay PDA passively. Preserves the router's clean passive-PDA architecture; adds infrastructure surface area soothsayer is already operating (cf. scryer's existing daemon fleet).
+
+**Decision.** Option C. Rationale:
+
+1. Preserves router-program simplicity. Only one architectural model in the router (passive PDA reads); upstream-kind code paths stay uniform.
+2. Decouples soothsayer from Chainlink wire-format changes. The relay PDA's schema is soothsayer-controlled and stable. The relay daemon translates whatever Chainlink schema is current (V8 today; future Vn) into the stable relay format. Schema drift between Chainlink products doesn't propagate into the router.
+3. Symmetric with the existing Pyth-poster pattern. Pyth runs a continuously-active "poster service" that writes `PriceUpdateV2` accounts on Solana for sponsored feeds; soothsayer running the equivalent service for Chainlink Data Streams is the same architectural shape.
+4. Extensible. The same relay infrastructure can carry any future report-submission-only data source (e.g., RedStone's eventual Solana product, custom benchmarks).
+
+The cost is real — soothsayer takes operational responsibility for keeping the relay live, and adds another point of failure to monitor. This is acknowledged; the relay daemon goes into scryer's launchd schedule alongside its existing tape daemons (Scope, Pyth Hermes, RedStone Live, V5).
+
+**Schema lock — `streams_relay_update.v1`** (the relay PDA wire format, soothsayer-controlled). Locked here; future schema bumps follow the same versioning policy as `unified_feed_receipt.v1` (additive non-breaking permitted within v1; breakage requires v2 + 90-day coexistence).
+
+```
+streams_relay_update.v1 (Anchor account, 8-byte discriminator + body):
+
+version                       u8       (1 for now)
+market_status_code            u8       0=unknown, 1=pre_market, 2=regular,
+                                       3=post_market, 4=overnight, 5=closed
+schema_decoded_from           u8       Audit: which Chainlink schema was
+                                       decoded (8=V8 RWA, 11=V11 EVM, etc.)
+signature_verified            u8       1 if relay program CPI'd into the
+                                       Chainlink Verifier and validation
+                                       succeeded; 0 if the relay accepted
+                                       off-chain (daemon-side) validation
+                                       only — consumers can downgrade trust
+                                       on `signature_verified == 0` reads.
+_pad0                         [u8; 4]
+feed_id                       [u8; 32] Chainlink feed_id verbatim
+underlier_symbol              [u8; 16] ASCII null-padded; cross-reference
+                                       between feed_id and human symbol
+price                         i64      Fixed-point at `exponent`; defaults
+                                       to mid; falls back to last_traded
+                                       when mid is a placeholder (per the
+                                       paper-1 §1.1 observation).
+confidence                    i64      Fixed-point at `exponent`; sentinel
+                                       i64::MIN if no CI is derivable.
+                                       v0 derivation: (ask - bid) / 2 when
+                                       both are real; sentinel otherwise.
+bid                           i64
+ask                           i64
+last_traded_price             i64
+chainlink_observations_ts     i64      Unix seconds; from the Chainlink
+                                       report's `observations_timestamp`.
+chainlink_last_seen_ts_ns     i64      From `last_seen_timestamp_ns`.
+relay_post_ts                 i64      Unix seconds; when the relay daemon
+                                       called `post_relay_update`.
+relay_post_slot               u64      Solana slot of the relay write.
+exponent                      i8       Fixed-point exponent; default −8.
+_pad1                         [u8; 7]
+```
+
+PDA derivation: `[b"streams_relay", feed_id]` (32-byte feed_id seed). One PDA per feed.
+
+**Architecture lock.** A separate Anchor program at `programs/soothsayer-streams-relay-program/` holds the relay PDAs. The router CPI-reads relay PDAs; it does not write to them. The relay program exposes:
+
+- `initialize` — one-time setup of `RelayConfig` PDA (authority + writer signer set).
+- `post_relay_update(feed_id, signed_report_blob, decoded_fields)` — only callable by an authorised writer keypair. Attempts a Verifier CPI to validate the signed report; falls back to `signature_verified=0` if the Verifier program is unavailable or the daemon is operating in trust-the-fetcher mode for development. Writes the resulting `streams_relay_update` to the per-feed PDA.
+- `add_feed` / `update_feed_config` — authority-gated registration of new feed_ids (with their underlier symbols) and configuration changes.
+- `set_paused` / `rotate_authority` / `rotate_writer_set` — operational controls mirroring the router's governance pattern.
+
+The relay program ships **upgradeable** in v0, controlled by the same multisig that controls the router (per 2026-04-28 (afternoon) governance lock). Migration to immutable is gated on the same condition: signed institutional-partner LOI + partner methodology buy-in. The writer signer set is rotated independently of the authority — the daemon's hot key is one of N signer keypairs; rotating the daemon doesn't require rotating the multisig.
+
+**Router-side changes (in-window correction).** The receipt schema lock at `unified_feed_receipt.v1` (2026-04-28 morning) included an `UpstreamKind::ChainlinkV11` variant. This entry corrects:
+
+- Rename `UpstreamKind::ChainlinkV11` → `UpstreamKind::ChainlinkStreamsRelay` (host crate `crates/soothsayer-router/src/receipt.rs`).
+- Wire format string follows: `"chainlink_v11"` → `"chainlink_streams_relay"` (set explicitly via `#[serde(rename)]`).
+- Program-side: `UPSTREAM_CHAINLINK_V11` → `UPSTREAM_CHAINLINK_STREAMS_RELAY`. Discriminant value remains `1` (no on-disk renumbering; the rename is text-only).
+- Decoder rename: `read_chainlink_v11` → `read_chainlink_streams_relay`. The decoder now expects the `streams_relay_update.v1` wire format described above, NOT the raw v11 Chainlink Data Streams report layout.
+
+These changes are in-window corrections (24 hours since the schema lock; zero deployed integrations against `ChainlinkV11`; no production receipt has emitted with that variant). Same correction shape as the 2026-04-29 (morning) Mango v4 removal. No `unified_feed_receipt.v2` schema bump required.
+
+**Status of the existing `chainlink_v11.rs` decoder.** The pure-Rust 14-word v11 decoder lives at `programs/soothsayer-router-program/src/chainlink_v11.rs` and was tested against synthetic v11 reports earlier this session. It targets the EVM v11 schema, not Solana's V8 RWA schema. Disposition:
+
+- The router program no longer references it directly (the new `read_chainlink_streams_relay` decodes the relay PDA, not raw Chainlink reports).
+- It is retained as a reference implementation for the relay daemon's report-decoding logic — the daemon needs to decode incoming Chainlink reports, and even though V8 is the production schema for equities, the v11 decoder is a near-template for V8 (similar word-aligned ABI structure with different field counts).
+- The relay daemon's actual decoder is its own work item; it will live in scryer (or a soothsayer-side helper crate) and follow scryer's hard-rule-1 conventions.
+
+**Forward path.**
+1. Apply this entry's code changes in this session: receipt rename + program decoder rename + tests + scryer wishlist.
+2. Scaffold `programs/soothsayer-streams-relay-program/` (separate Anchor program; same multisig-controlled upgradeable model). Methodology entry + Phase 1 build-sequence covers this.
+3. Implement the Verifier CPI inside `post_relay_update`. This needs the Chainlink `chainlink-data-streams-solana` SDK (Rust crate) as a dependency; verify dep-graph compatibility with anchor-lang 0.31 (similar diligence to the Pyth + Switchboard SDK adds we did this session).
+4. Implement the off-chain relay daemon (scryer-side fetcher + signer key management + `post_relay_update` CPI client).
+5. Deploy relay program to devnet; run daemon; integration-test against the router by adding an asset configured with a relay-PDA upstream.
+6. Mainnet relay deploy follows the same audit + LOI gates as the router.
+
+**Open methodology questions added to §2.**
+- O10. The relay daemon's signing model: dedicated hot keypair held by soothsayer infra, OR per-feed keypair, OR multisig-of-publishers (decentralisation of the relay layer)? v0 default: single dedicated hot keypair, with rotation via `rotate_writer_set`. Decentralisation deferred to a later methodology entry.
+- O11. Verifier-CPI policy at `post_relay_update`: always-CPI (full verification, higher CU cost), opportunistic (CPI when feasible, fall back to off-chain validation when not), or trust-mode (off-chain only)? v0 ships always-CPI on devnet; mainnet may need opportunistic to amortise CU cost across many feeds. Tracked.
+
+---
+
+### 2026-04-29 — v1/v2 product roadmap lock + Mango v4 contribution reclassification
+
+**Trigger.** Two findings during Layer 0 decoder implementation:
+
+1. **Verification of the 2026-04-28 (midday) entry's premise found a methodology error.** That entry asserted that Mango v4's `PerpMarket.oracle_price` is a readable post-deviation-guard field that the router could consume as a fifth upstream for crypto-correlated assets. Inspection of Mango v4's source (blockworks-foundation/mango-v4 `programs/mango-v4/src/state/perp_market.rs`) shows the field is a *runtime function*, not a stored field. Mango reads its underlying oracle (Pyth/Switchboard) dynamically via CPI inside its own instructions, applies the deviation guard ephemerally, and uses the result for liquidation health computation. The post-guard price is never persisted to account state. The PerpMarket account stores `stable_price_model` (a TWAP-smoothed reference used for liquidation thresholds) but no current-oracle field externally readable.
+
+2. **A strategic observation surfaced from the same investigation: Mango's pipeline is the *inverse* of soothsayer's on the (methodology, action) trust axes.**
+   - Mango: methodology-private + action-public. Consumers trust Mango's team and integrate against actions (liquidations, health margins).
+   - Soothsayer: methodology-public + action-private. Consumers verify the methodology and integrate against bands; they own the action.
+
+   These are non-substitute products with different buyer profiles (crypto-native protocols want Mango's shape; institutional / TradFi-tokenization issuers want soothsayer's shape). Mimicking Mango's "publish a binary action" model would move soothsayer into a quadrant where Mango has years of head start, abandons soothsayer's structural advantage on calibration-transparency, and disqualifies the buyer profile most likely to pay a premium for it.
+
+   But Mango's higher product altitude — operating at the *action* layer rather than the *interpretable signal* layer — is a real integration-friction asymmetry worth closing. The right way to close it is **not** to publish actions; it is to publish a higher-abstraction *event stream* that is still consumer-driven but does more of the interpretive work, with calibration receipts attached.
+
+**Decisions.**
+
+**D1. Reclassify Mango v4's contribution to soothsayer as *methodology only*.** The deviation-guard logic adopted by the 2026-04-28 (midday) entry remains in Layer 0; that decision stands. The "Mango as a fifth literal upstream" portion of that entry is retracted by AMENDMENT (added in-line to the 2026-04-28 (midday) entry below). `MangoV4PostGuard` is removed from `UpstreamKind` (host crate `crates/soothsayer-router/src/receipt.rs`) and `UPSTREAM_MANGO_V4_POST_GUARD` is removed from the program (`programs/soothsayer-router-program/src/state.rs`). The `read_mango_v4_post_guard` stub is deleted. Schema-version implications: the receipt schema lock at `unified_feed_receipt.v1` was 2026-04-28 (morning); the variant removal is within the same in-design lock window with zero deployed consumers and is treated as an in-window correction rather than a v2 schema bump. A methodology-log AMENDMENT documents the reasoning so the 90-day v1↔v2 coexistence rule that applies to *deployed* breaking changes is not invoked here.
+
+**D2. Lock v1 product scope as a calibration-transparent event stream.** The router program's v0 surface (band primitive) gets a higher-abstraction sibling at v1: an on-chain event stream that fires when consumer-configured band thresholds are crossed. Each event carries the full `unified_feed_receipt.v1` reference plus four event-specific fields:
+
+- `asset_id` and an opaque `account_id` hash (account state stays private to the consumer; soothsayer never reads borrower positions).
+- The crossed `τ_threshold` and breach `direction` (up / down).
+- A reference snapshot `(point, lower, upper, regime)` at the moment of the crossing.
+- A `historical_frequency` field: empirical rate at which crossings of the same magnitude in the same regime have occurred over the calibration window — calibration context the consumer can use to interpret the event severity.
+
+The product is **not** a binary "liquidate this account" signal. It is a calibrated alert. The consumer's policy (warn-only, raise-haircut, partial-liquidate, full-liquidate) sits on top, parameterized by the consumer. This preserves the methodology-public + action-private architecture while operating at Mango's value altitude.
+
+Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 lands, v1 is unimplementable as specified — the "this τ corresponds to which action" semantic is exactly what Paper 3 develops. v1 product timing is therefore gated on Paper 3 publication (planned Q3-Q4 2026).
+
+**D3. Lock v2 product scope as a parameterized decision SDK.** A Rust + TypeScript library that takes consumer-supplied cost weights, portfolio shape, and action semantics, and returns a binary recommendation with a calibration receipt. Soothsayer never sees the consumer's accounts; the library runs client-side. This is the most distant product layer from Mango's pattern: still methodology-public, still action-private (the recommendation is computed *from* the consumer's parameterization, not imposed). Methodology backing: **Paper 2** (OEV mechanism design under calibration-transparent oracles) + Paper 3. v2 timing is 2027.
+
+**D4. v0 router build proceeds unchanged.** The v0 work landed in this session (Anchor program scaffold + Chainlink v11 + Pyth + Switchboard On-Demand decoders + Layer 0 filter pipeline + regime gate + soothsayer-band closed-regime read) is the v0 product surface. Adding event-stream logic to the current program is explicitly **out of scope** until Paper 3 lands. The router program ships to mainnet on the v0 contract (band primitive only); v1's event stream is a separate program (or a separate set of instructions on the same program) deployed once Paper 3 is published.
+
+**What this commits soothsayer to.**
+- Receipt schema correction is a one-time within-window action; future schema changes follow the locked versioning policy (additive non-breaking within v1; breakage requires v2 + 90-day coexistence).
+- Paper 3 becomes a load-bearing dependency for v1 product. Paper 3's timeline is now coupled to the v1 product timeline; delays on either side propagate.
+- The v1 event-stream design must preserve the methodology-public + action-private invariants. Specifically: event payloads cite calibration receipts (no opaque action emission), account state is never read on-chain by soothsayer, the consumer parameterizes thresholds rather than soothsayer prescribing them.
+- v2 SDK preserves the same invariants client-side.
+
+**What this does *not* commit soothsayer to.**
+- Mimicking Mango's binary liquidation signal. Soothsayer's product is calibrated alerts, not actions.
+- Reading borrower positions. Account state is consumer-private at every product layer.
+- Productizing Paper 3's specific liquidation-policy recommendations as defaults. Paper 3 is a methodology paper; v1's product is the event stream that reflects the methodology's threshold semantics, not a specific protocol's policy.
+- Replacing Mango or any other lending-protocol pricing primitive. Mango remains the right product for buyers in the methodology-private + action-public quadrant; soothsayer addresses the inverse quadrant.
+
+**Forward path.**
+1. Apply D1's code changes in this session (receipt + state + upstreams + tests + scryer wishlist item 39).
+2. Continue v0 router build (Phase 1 step 2c+ per the 2026-04-28 (afternoon) sequence): soothsayer-band parity canary (done this session), remaining decoder follow-ups (Mango v4 dropped per D1; RedStone deferred until they publish a Solana PDA layout), holiday-aware NYSE calendar, feed-id verification, TS/Rust SDK.
+3. v0 mainnet (gated on audit clean + design-partner LOI per the 2026-04-28 (afternoon) entry).
+4. Paper 3 publication.
+5. v1 event-stream program design + methodology entry, gated on Paper 3.
+6. v1 mainnet deploy.
+
+**Open questions added to §2.**
+- O8. What is the on-chain event format for v1's calibration-transparent event stream? Anchor `emit!`, or a custom event-log PDA with a versioned schema parallel to `unified_feed_receipt.v1`? Decision deferred to v1 design lock; revisited when Paper 3's threshold semantics firm up.
+- O9. How does v2's parameterized decision SDK handle multi-asset portfolios where calibration is per-(symbol, regime) but the consumer's risk model aggregates? Methodology question for Paper 3 §10 / Paper 2.
+
+---
+
+### 2026-04-28 (evening) — Paper 1 §6.7 incumbent-comparator integration + DQ per-symbol-median sensitivity
+
+**Trigger.** User-driven Paper 1 status check vs the post-cutover scryer dataset surface and the 2026-04-25 deferred Berkowitz / Engle-Manganelli DQ rejections. Two questions: are the standalone Pyth + Chainlink comparison reports (2026-04-25 §0 incumbent block) integrated into Paper 1 yet, and can the DQ rejection be revisited with the data we now have?
+
+**Decision (paper-side; no methodology change).** Integrate the two existing comparison reports as Paper 1 §6.7 with explicit caveats. Run the §6.4.1-promised per-symbol-DQ-median-p sensitivity that was previously left as TBD in appendix. Defer the halt/corp-action filter test to a future §6.4.1 sensitivity update once scryer ships the gating wishlist items. Defer the Berkowitz fix entirely (potential future-paper material per user).
+
+**Hypotheses tested.**
+
+1. **H1: The standalone v1b_pyth_comparison.md (265 obs, 2024+) and v1b_chainlink_comparison.md (87 obs, Feb–Apr 2026) reports can be folded into Paper 1 §6 as a new comparator subsection with no new computation.** *Accepted.* Both parquet artefacts (`pyth_benchmark_oos.parquet`, `v1_chainlink_vs_monday_open.parquet`) verified loadable with current schema; numbers reproducible from the reports. Folded as new §6.7 with three caveats (sample-size CI, large-cap *normal*-regime sample composition, consumer-supplied wrap calibration). Renumbered §6.7 Summary → §6.8. Updated §9.8 ("we do not report" → "we report a partial-only comparison with these caveats"), §10.3 (the comparator dashboard is now framed as an *upgrade* of §6.7, not a from-scratch deliverable).
+
+2. **H2: Per-symbol-median DQ p-value softens the §6.4.1 Engle-Manganelli rejection across all four anchors.** *Partly accepted.* Extended `scripts/run_reviewer_diagnostics.py` to compute per-symbol DQ p-values and the median-aggregation sensitivity. Per-symbol-median p: **0.211 / 0.384 / 0.289 / 0.261 at τ = 0.68 / 0.85 / 0.95 / 0.99 — all four pass at α = 0.05**, in contrast to the pooled-χ²(50) rejections at all four (0.032 / 0.014 / 0.032 / ~0). However, the per-symbol *reject-count* tells a more nuanced story: 1/10, 2/10, 2/10, 5/10 symbols reject individually at α = 0.05. The τ ≤ 0.95 reject-counts are consistent with type-I rate near α; the τ = 0.99 reject-count of 5/10 indicates real per-symbol tail miscalibration in half the universe that does not vanish under any defensible aggregation. Honest framing: pooled rejection at τ ≤ 0.95 over-stated by aggregation; pooled rejection at τ = 0.99 partly aggregation-inflation, partly real.
+
+3. **H3: New scryer datasets enable filtering OOS weekends for halt-confounded or corp-action-confounded events to isolate which τ = 0.99 per-symbol rejections are structural exceptions vs persistent calibration gaps.** *Rejected.* Local `backed_corp_actions.parquet` (13 rows) is mis-labeled — tracks Backed.fi GitHub-repo commit metadata (`action_type ∈ {list, metadata_update}`), not equity-side corporate actions on the underlying tickers. Local `nasdaq_halts_live.parquet` (27 rows) is forward-only since 2026-04-24; zero overlap with the 2023-01 → 2026-04 OOS panel. Filter test gated on scryer wishlist additions: items 15a (`yahoo.corp_actions` venue, ~3-4h, clean) and 15b (`nasdaq_halts.v1` historical backfill, ~4-6h, partial-coverage-only — public NASDAQ archive covers ~18 months back, full coverage requires a paid SIP feed). Both flagged `[soothsayer-paper-1-blocker]` in `../scryer/wishlist.md`.
+
+4. **H4: Berkowitz rejection can be addressed without methodology change given the new data.** *Rejected (deterministic).* The rejection mechanism is mechanically caused by the per-target buffer schedule's flat extrapolation outside the [0.68, 0.99] anchor range (variance contraction in inverse-normal PITs to var(z) = 0.84 vs unit under H₀). No data accumulation fixes this — it requires either extending the anchor schedule (e.g., add τ = 0.30, 0.50 anchors) or replacing flat-extrapolation with smooth interpolation outside anchors. Both are methodology changes that re-open Christoffersen + Kupiec validation at the new anchors. Per user, deferred entirely as potential future-paper material; the Paper 1 §6.4.1 disclosure framing (per-anchor calibrated, deviation in safe direction) holds.
+
+**Side effects from the rerun.** Re-running `run_reviewer_diagnostics.py` on the bounds parquet picked up the latest panel state — 1,730 rows, 173 weekends (1 weekend more than the paper's 2026-04-17 cutoff). τ = 0.99 violations grew 40 → 49; max breach 796 → 1,081 bps; mean 131 → 137; median 72 → 71; p₉₅ 469 → 515. Berkowitz LR drifted 36.10 → 37.60 (same conclusion: rejects). Pooled DQ p-values essentially unchanged. The exceedance-magnitude row at τ = 0.99 was propagated to §6.8 summary, §9.1 structural-ceiling disclosure, and §11 conclusion (worst-case mismatch ~8% → ~11%). The §6.4 Kupiec/Christoffersen headline numbers were *not* re-run; §6.4 remains anchored at the paper's documented 1,720-row snapshot, with the §6.4.1 panel-size mismatch noted in-section.
+
+**No methodology change.** Deployed buffer schedule, regime labeler, hybrid forecaster assignment, and claimed-quantile grid all unchanged. All edits are paper-side disclosure refinement and follow-up scoping.
+
+**Deliverables (paper).**
+- §6.7 added (Comparison to incumbent oracles — Pyth k-sweep + Chainlink weekend-degenerate-band, three caveats, RedStone exclusion).
+- §6.8 (was §6.7) Summary updated to reference §6.7 + new DQ sensitivity.
+- §6.4.1 DQ block rewritten with per-symbol-median + per-symbol-min + reject-count table; "TBD in appendix" replaced with the actual sensitivity numbers.
+- §6.4.1 exceedance-magnitude table updated with 1,730-row rerun.
+- §9.1 structural-ceiling disclosure updated (max breach 796 → 1,081 bps, ~11% worst-case mismatch).
+- §9.8 limitations rewritten ("we do not report" → "we report a partial-only comparison with these caveats").
+- §10.2 future-work block expanded (sub-regime granularity now references the per-symbol DQ finding; new "Halt / corp-action filter on the OOS panel" item gated on scryer wishlist 15a + 15b).
+- §10.3 future-work block (was "comparator dashboard from scratch") reframed as upgrade of §6.7.
+- §11.2 conclusion updated for new max-breach figures.
+- Build: `paper.pdf` 412 KB (was 396 KB pre-Phase-1), all 40 citations resolved, no orphans.
+
+**Deliverables (artefacts).**
+- `reports/tables/v1b_oos_dq_per_symbol.csv` — new, per-(symbol, τ) DQ p-values + dq statistic.
+- `reports/tables/v1b_oos_dq_per_symbol_summary.csv` — new, per-τ p-value distribution (count, median, mean, min, max, n_reject_05).
+- `reports/tables/v1b_oos_reviewer_diagnostics.csv` — re-run, per-τ pooled DQ + magnitude (now also carries per-symbol sensitivity columns).
+- `scripts/run_reviewer_diagnostics.py` — extended to compute and persist per-symbol DQ.
+- `../scryer/wishlist.md` — items 15a (`yahoo.corp_actions`) and 15b (`nasdaq_halts.v1` historical backfill) added with `[soothsayer-paper-1-blocker]` tag.
+
+**Open follow-ups.**
+1. Trim pass on Paper 1 (paper is ~165 KB markdown / 412 KB PDF; redundancy between §6.4.1 / §6.7 / §9.x / §10 is a target). Surgical not aggressive — §9 disclosures are load-bearing for q-fin.RM / ACM AFT reviewer audience.
+2. Reconcile v1b_pyth_comparison.md ↔ §6.7 number drift (standalone report cites Soothsayer pooled OOS half-width 442.7 / normal-regime 401; paper now cites 456 / 417.7 after the 2026-04-25 grid extension). Standalone report is the older snapshot; either re-run it against current bounds or add a note pointing readers to the paper for the authoritative comparator.
+3. When scryer ships items 15a + 15b, run the §10.2 halt/corp-action filter sensitivity. Deliverable shape pre-specified: one table in §6.4.1 showing per-symbol DQ on filtered-vs-unfiltered panel; if filtered τ = 0.99 reject-count drops below 3/10, refine §9.1 attribution.
+
+---
+
+### 2026-04-28 (afternoon) — Unified-feed router design lock: regime gate + Layer 0 multi-upstream aggregator + governance plan
+
+**Trigger.** The strategic discussion across 2026-04-27 → 2026-04-28 evolved soothsayer's product positioning from "calibration-transparent supplementary band primitive" to "calibration-transparent unified reference feed for tokenized RWAs, primary in closed-market regimes and aggregated multi-source during open hours." The motivating product is a router program that consumers read as a single PDA per asset, with internal regime-routing between an open-hours multi-upstream aggregator (Layer 0, deterministic; Layer 1 future, calibration-weighted) and the existing closed-hours soothsayer band primitive. This entry locks the design.
+
+**Decision (architectural).**
+- One Anchor program — `soothsayer-router` — sits in front of the existing publish-path stack. Consumers read a single PDA per asset; the router CPI-reads upstream feeds and either (i) aggregates them during open-market hours or (ii) reads the soothsayer band PDA during closed-market hours. The unified-feed read returns a `unified_feed_receipt.v1` tuple (locked separately, this date morning).
+- The regime gate is read from a configurable `market_status_source` PDA (default for equities: Chainlink v11 `marketStatus`) cross-checked against a calendar-based detection (NYSE / CME GLOBEX trading calendar embedded in the program). Disagreement between the two emits `regime = 'unknown'` and `quality_flag = 'regime_ambiguous'`; the consumer chooses whether to trust the read.
+- Layer 0 (open-hours, shippable now) is a *deterministic multi-upstream aggregator*: read N upstreams, apply staleness + confidence + Mango-style deviation-guard filters (this date midday), serve the post-filter robust median + a dispersion-based band. *No calibration claim during open hours under Layer 0* — only attribution + outlier-resilient aggregation. Layer 1 (future, gated on ~3 months of upstream forward tape per scryer wishlist items 21-23) replaces the dispersion-based band with a calibration-weighted aggregate that has its own per-anchor calibration claim against intraday lookahead ground truth, supported by a forthcoming paper 1.5 / paper-2-extension.
+- Layer 0's upstream set is, per asset, configurable in the `RouterConfig` PDA. Initial v0 default for equities: Pyth aggregate, Chainlink Data Streams (v11 preferred, v10 fallback), Switchboard On-Demand, RedStone Live. For BTC-correlated tokens (currently MSTR; future ETH-correlated tokens): same four plus Mango v4 post-guard mark price (gated on scryer wishlist item 39 forward tape).
+
+**Decision (governance / upgradeability — explicit reversal of an earlier "ship immutable" working position).**
+- `soothsayer-router` ships **upgradeable** in v0, controlled by a 2-of-3 multisig held by the soothsayer team (initial signers: founder + 2 to-be-named). Deliberate departure from the institutional-grade default of "ship immutable", justified by the product being pre-LOI: parameter tuning, filter behaviour adjustments, receipt-field additions, and bug-fixes are all expected during the design-partner conversation phase, and a hard-immutable v0 would force a v0 → v1 → v2 cascade of redeployments + consumer migrations during a period when the product is still being shaped by external feedback.
+- Migration to immutable + versioned-replacement is **gated on two conditions, both required**: (i) at least one signed institutional-partner LOI (lender or tokenization-issuer; either side qualifies), and (ii) methodology buy-in from those partners on the parameter-value defaults + the filter pipeline as locked. Migration mechanic: mainnet `soothsayer-router-v1` deployed at a new program ID, immutable, with a parameter set explicitly endorsed by the partners' risk teams. Consumers migrate from the upgradeable v0 program ID to the immutable v1 over a 90-day window.
+- The `RouterConfig` update process during the upgradeable v0 phase is multisig-controlled, with every parameter change recorded as a methodology entry in this log (at minimum: new value, old value, justification, partner consultation if any). Once a partner LOI is signed, the partner is invited to participate in the change-process design — for example a proposal-review-execution flow with a published delay, an off-chain disclosure board, or a partner-witnessed multisig. The exact form of the post-LOI change process is *negotiated with the partner*, not pre-locked here.
+- Upgradeability arrangement is itself reviewed in a methodology entry no later than the first signed LOI. If no LOI is signed within 12 months of v0 mainnet deployment, the arrangement is re-evaluated (possible outcomes: extension with revised signer set; migration to immutable without partner; project pivot).
+
+**What ships in v0.**
+- `crates/soothsayer-router/` Rust crate + Anchor program — receipt construction, regime gate, multi-upstream CPI reads, Mango-style filters, robust median aggregation.
+- A consumer-facing TypeScript SDK + Rust SDK exposing the unified-feed read.
+- A public dashboard at the soothsayer landing surfacing the live router output across all 10 paper-1 underliers (after devnet deploy; the dashboard *is* the credibility artefact for both lender and TradFi conversations).
+- Methodology entries (this date — three) locking receipt schema + filter pipeline + design.
+
+**What does not ship in v0.**
+- Calibration-weighted aggregator (Layer 1) — gated on forward-tape data accumulation.
+- Open-hours band calibration claim — gated on Layer 1.
+- Decentralised publisher set (multi-publisher Layer 0) — gated on design-partner request and a separate methodology decision.
+- Switchboard-style PullFeed wrapping — explicitly *not* the chosen path; soothsayer-router is brand-independent of Switchboard.
+
+**Asset-coverage scope.**
+- v0 supports the 10 paper-1 underliers (SPY, QQQ, AAPL, GOOGL, NVDA, TSLA, HOOD, MSTR, GLD, TLT) for which paper 1's closed-hours methodology is empirically validated. Layer 0 open-hours aggregation works for any asset with the four upstream feeds publishing, but the router only routes-to-soothsayer-band in regimes where the band is available.
+- Asset additions are methodologically gated: each new asset requires a factor-switchboard mapping + per-symbol vol-index lookup + 156-weekend rolling calibration window before a closed-hours band claim can be made for it. Asset additions are tracked as separate methodology entries.
+
+**Tracked artefacts.**
+- Receipt schema: this date (morning) entry; locks `unified_feed_receipt.v1`.
+- Filter pipeline: this date (midday) entry; locks Mango-style deviation-guard adoption + v0 parameter defaults.
+- Architecture: this entry.
+- Implementation crate: `crates/soothsayer-router/` (to be created during Phase 1 build).
+- Public dashboard: TBD URL (added as an amendment to this entry when launched).
+
+**Forward path / Phase 1 build sequence.**
+1. Receipt schema + Rust types in `crates/soothsayer-router/src/receipt.rs`. (~1 day.)
+2. Anchor program scaffold with regime gate + Pyth + Chainlink CPI reads. (~1-2 weeks.)
+3. Add Switchboard On-Demand + RedStone upstream support. (~1 week.)
+4. Implement Mango-style filter pipeline (staleness + confidence + deviation guard). (~1 week.)
+5. Devnet deploy + end-to-end test harness. (~2 weeks.)
+6. Public dashboard surfacing live unified-feed reads + receipt history across all 10 underliers. (~2-3 weeks.)
+7. Audit prep + design-partner outreach in parallel. (~2-3 weeks for prep; outreach is a separate track that runs throughout.)
+8. Audit (~6-8 weeks calendar). Gated on a design-partner LOI worth the audit spend.
+9. Mainnet upgradeable v0 deployment. Gated on audit clean + LOI in hand.
+10. Eventually: immutable v1 redeployment per the upgradeability gate above.
+
+**Open methodology questions created by this entry** (added to §2):
+- O5. What is the `min_quorum` value for Layer 0? Candidates: 2 (lenient — serve as long as any two upstreams agree), 3 (default candidate — deviation guard plus majority), 4 (strict — all upstreams must agree). Trade-off: availability vs aggregate confidence. Decision deferred to first integration of Layer 0 with one of the design-partner conversations + the empirical disagreement frequency observed in scryer wishlist items 21-22 forward tape.
+- O6. How does Layer 0 handle assets where one or more upstreams don't list the feed? Soft-skip with documented `min_quorum` recalculation, or hard-fail-config? v0 design assumes config-time enumeration of available upstreams per asset; consumer-side this means the receipt's `upstream_contributions` array length depends on the asset and is documented per-asset in `RouterConfig`.
+- O7. Calendar-based regime-detection fallback for non-NYSE-tracking assets? Equities use NYSE; gold uses CME GLOBEX; treasuries use CME GLOBEX with a different schedule; future commodity/FX assets each need their own calendar. v0 ships with NYSE + CME GLOBEX hard-coded; new asset classes add a calendar via methodology entry.
+
+---
+
+### 2026-04-28 (midday) — Mango v4 deviation-guard methodology adoption as a Layer 0 filter
+
+> **AMENDMENT 2026-04-29** — The "for BTC-correlated tokens, Mango's post-guard mark price IS a literal upstream" claim in this entry is **retracted**. Inspection of Mango v4 source confirmed that `PerpMarket` does not persist a post-guard `oracle_price` field; the deviation guard is applied ephemerally during Mango's own instructions and the result is never written to account state. Mango v4 contributes deviation-guard *methodology only* — never as a literal data source. The `MangoV4PostGuard` upstream variant has been removed from `UpstreamKind` per the 2026-04-29 entry. The rest of this entry — the filter pipeline (staleness → confidence → Mango-style deviation guard) and v0 parameter defaults (60s / 200 bps / 75 bps) — remains valid; only the cross-reference to a Mango forward tape is corrected. See the 2026-04-29 entry above for the strategic context (Mango ≠ substitute oracle; v1 product reframe).
+
+**Trigger.** The Layer 0 multi-upstream aggregator design (this date afternoon) requires an outlier-rejection filter. Mango v4 publishes the closest production analog to soothsayer's intended Layer 0 behaviour: a per-market deviation guard that clamps oracle reads exceeding a configured threshold from consensus. Adopting Mango's deviation-guard logic as one of Layer 0's filters serves two purposes: (i) inherits a production-tested mechanism with reference parameter values that have been live in mainnet conditions, and (ii) pre-empts the "Mango v4 already does this" objection by making Mango's logic a documented subset of soothsayer's Layer 0 pipeline rather than a competing approach.
+
+**Decision.** Layer 0's outlier-rejection filter is methodologically a *Mango-style deviation guard*. Cite Mango v4 explicitly. Use Mango's reference parameter values as the v0 starting point. Add calibration-weighting (Layer 1, future entry) and receipt-stamping (this date morning) on top — those are soothsayer-specific additions; the deviation guard itself is not novel and is not claimed to be.
+
+**Filter pipeline (v0).**
+1. **Staleness filter.** Drop any upstream whose `last_update_slot` is older than `max_staleness_seconds` (translated to slots at the asset's slot-per-second rate). Mango v4 reference: 60s for liquid majors. Soothsayer v0 default: 60s for open hours, configurable per asset in `RouterConfig`.
+2. **Confidence filter.** Drop any upstream whose published confidence interval exceeds `max_confidence_bps` of the published price. Mango v4 reference: ~2% (200 bps) for major equities. Soothsayer v0 default: 200 bps, configurable per asset.
+3. **Deviation guard (Mango-style).** Compute provisional median over surviving upstreams. Drop any upstream whose price differs from the provisional median by more than `max_deviation_bps`. Recompute median over the post-filter set. If the post-filter quorum drops below `min_quorum`, emit `quality_flag = 'low_quorum'` and the receipt records which upstreams failed the guard. Mango v4 reference: ~50 bps for majors. Soothsayer v0 default: 75 bps for equities (slightly looser to accommodate the wider quote spreads characteristic of tokenized-equity feeds during market hours), configurable per asset.
+
+**Why these v0 defaults.**
+- Mango's published parameter values were chosen for crypto-asset markets (BTC, ETH, SOL) with their characteristic quote dispersion. Equity markets have different microstructure: tighter quotes during market hours, wider during pre/post, and potentially wider per-publisher dispersion across Pyth/Chainlink/Switchboard/RedStone given they read different upstream venues.
+- The looser deviation threshold (75 bps vs Mango's 50) is a deliberate methodological choice for asset-class-appropriate calibration. The empirical justification is forecasted, not yet measured: the upstream forward-tape capture (scryer wishlist items 21-23) will surface the actual cross-source dispersion distribution once ~3 months of data accumulates. The v0 default is provisional and revisited in a future methodology entry once the dispersion data exists.
+- All three filter parameters are *config*, not *code*. This methodology entry locks the v0 default; the `RouterConfig` PDA carries the active values at read time; updates are governance actions tracked in this log.
+
+**What this commits soothsayer to.**
+- The deviation-guard filter is documented as adopting Mango v4's logic. Citations in the Layer 0 design entry, in any forthcoming paper that references the open-hours product, and in the `RouterConfig` documentation.
+- The provisional 75 bps deviation threshold is *re-evaluated* once the upstream forward tapes accumulate, with a methodology entry documenting the updated value (or confirming the v0 value).
+- If Mango v4 changes its deviation-guard methodology (parameter values, filter structure), soothsayer is *not* automatically tracking — soothsayer's filter is a snapshot of Mango's 2026-04-28 logic, not a live mirror. Any future Mango methodology change is evaluated independently.
+
+**What this does not commit to.**
+- Mango v4's complete methodology is not adopted — only the deviation-guard filter. Mango additionally applies funding-rate-based mark adjustments, perpetual-specific spread logic, and account-level health margins. Those are protocol-internal mechanisms, not oracle-layer filters, and are not relevant to soothsayer's product surface.
+- Mango does not currently price equities. For paper 1's primary asset set Mango contributes methodology only, not data. For BTC-correlated tokens, Mango's post-guard mark price IS a literal upstream — see scryer wishlist item 39 (`mango_v4_market_tape.v1`) for the data ingestion path.
+
+**Tracked artefacts.**
+- Filter implementation: `crates/soothsayer-router/src/filters.rs` (to be created during Layer 0 development).
+- Reference for Mango's logic: Mango v4 IDL + on-chain `OracleConfig` account layouts; scryer wishlist item 28 (`mango_v4_oracle_config.v1`) captures the reference values longitudinally.
+- Soothsayer v0 parameter defaults: stored in this entry; active values tracked in the `RouterConfig` PDA per asset; live values mirrored to a soothsayer-derived dataset at `soothsayer_v{N}/router_config_history/v1/...` (per CLAUDE.md hard rule #5) once the router crate ships.
+
+---
+
+### 2026-04-28 (morning) — `unified_feed_receipt.v1` schema lock as a versioned product surface
+
+**Trigger.** The 2026-04-28 strategic discussion locked a regime-routed unified-feed router product (this date afternoon entry): a single PDA consumers read where the receipt fields populated by the router depend on which regime is serving (open vs closed market). Before any consumer integrates, the receipt tuple needs to be fixed as a versioned product surface; once external consumers integrate against a tuple shape, breaking changes require a v2 PDA and a consumer migration. This entry locks v1.
+
+**Decision.** Receipt schema is `unified_feed_receipt.v1`, with field-population semantics conditional on the served regime. Always-populated fields define the consumer-facing minimum surface; regime-conditional fields populate only when their methodology is load-bearing for the read.
+
+**Schema (locked).**
+```
+schema_version            string  ('unified_feed_receipt.v1')
+asset_id                  string                ('SPY', 'QQQ', ...)
+slot                      u64
+unix_ts                   i64
+regime                    string  ('open' | 'closed' | 'halted' | 'unknown')
+
+# Always populated (consumer-facing minimum)
+point                     f64                   band midpoint
+lower                     f64                   band lower edge
+upper                     f64                   band upper edge
+soothsayer_methodology    string                ('router.v0.1' | 'v1b' | composed)
+quality_flag              string                ('ok' | 'low_quorum' | 'all_stale' |
+                                                  'soothsayer_band_unavailable' |
+                                                  'regime_ambiguous')
+
+# Open-regime fields (populated when regime == 'open')
+aggregate_method          string nullable       ('robust_median_v1' | 'calibration_weighted_v1')
+upstream_contributions    array<UpstreamReceipt> nullable
+deviation_guard_hits      array<DeviationHit> nullable
+quorum_size               u8 nullable           number of surviving upstreams
+quorum_required           u8 nullable           min_quorum config value at read time
+
+# Closed-regime fields (populated when regime in {'closed', 'halted'})
+tau                       f64 nullable          consumer-requested target coverage
+q_served                  f64 nullable          claimed quantile actually served
+forecaster                string nullable       ('F1_emp_regime' | 'F0_stale')
+closed_market_regime      string nullable       ('normal' | 'long_weekend' | 'high_vol')
+buffer_applied            f64 nullable          BUFFER_BY_TARGET lookup
+calibration_basis         string nullable       ('soothsayer_v1b' | future versions)
+
+UpstreamReceipt {
+    kind                  string                ('pyth_aggregate' | 'chainlink_v11' |
+                                                  'switchboard_ondemand' | 'redstone_live' |
+                                                  'mango_v4_post_guard')
+    pda                   string
+    raw_price             f64
+    raw_confidence        f64 nullable
+    last_update_slot      u64
+    included_in_aggregate bool
+    exclusion_reason      string nullable       ('stale' | 'low_confidence' | 'deviation_outlier')
+}
+
+DeviationHit {
+    upstream              string
+    deviation_bps_from_median f64
+}
+```
+
+**What this commits soothsayer to.**
+- The receipt is the *trust primitive*, not just diagnostic noise. Every consumer integration is built against this tuple. Field-name renames, type narrowings, semantic redefinitions are breaking changes that require a v2 program PDA — not a v1 amendment.
+- The regime-conditional population pattern means a single read is interpretable regardless of which methodology layer served it. Consumers do not branch on regime to find their fields; they branch on `quality_flag` for failure handling and on `regime` for which calibration methodology applies.
+- `quality_flag = 'ok'` is the only flag a typical consumer should accept without further inspection; the four non-`ok` values are advisory disclosures the product is *required* to emit when the underlying conditions are met. Suppressing them is a methodology violation.
+- `soothsayer_methodology` is the cross-version identifier that lets a consumer know which version of the underlying methodology produced the read. `router.v0.1` is the open-regime aggregator; `v1b` is the closed-regime band primitive. When Layer 1 ships, the open-regime methodology identifier becomes `router.v0.2` (calibration-weighted aggregator) without changing the receipt schema.
+
+**Versioning policy.**
+- Additive non-breaking changes (new optional field, new enum value with documented semantics) are permitted within `unified_feed_receipt.v1` provided every existing field's semantics are preserved.
+- Field removals, type narrowings, and semantic redefinitions require `unified_feed_receipt.v2` deployed at a fresh PDA. v1 and v2 coexist for a consumer-migration window of at least 90 days; v1 is deprecated only after every consumer of record has migrated.
+- Receipt-schema versions are tracked in this methodology log and in the soothsayer Rust crate `crates/soothsayer-router/src/receipt.rs` (to be created during Layer 0 development).
+
+**Tracked artefacts.**
+- This methodology entry locks the schema.
+- Implementation: `crates/soothsayer-router/` (new crate, to be added during Layer 0 development per the 2026-04-28 (afternoon) entry).
+- Consumer-facing documentation: `docs/router_consumer_guide.md` (to be drafted alongside the crate; mirrors `docs/scryer_consumer_guide.md`'s shape).
+
+**Acknowledged limitations.**
+- The receipt schema is locked but the *parameter values* (max_staleness, max_confidence, max_deviation_bps, min_quorum) populate at read time from the `RouterConfig` PDA, not from the schema. Methodology entries documenting parameter values are written separately as parameters are tuned.
+- `aggregate_method = 'calibration_weighted_v1'` is a forward reference to Layer 1; the methodology lock for Layer 0 is `aggregate_method = 'robust_median_v1'` only. Adding `calibration_weighted_v1` as a permitted enum value when Layer 1 ships is non-breaking and will be done with a separate methodology entry.
+
+---
+
+### 2026-04-27 — Data-fetching cutover: scryer is the source of truth; soothsayer's ingest infra hard-deleted
+
+**Trigger.** Across this repo, the sibling `scryer` repo, and the upstream `relay-sol` proxy fork, three different implementations of retry-and-backoff existed for what is functionally the same problem (provider rate-limits + transient failures + quota exhaustion). Schemas for the same logical data (oracle tape rows, swap rows, funding rows) were silently diverging between repos. Scryer v0.1 phases 1–15 + 17–19 (April 26–28, 2026) consolidated all of soothsayer's raw-data fetch surface into scryer crates with versioned schemas + the `dataset/{venue}/{data_type}/v{N}/...` parquet contract. With 14 schemas now live in scryer (`yahoo.v1`, `earnings.v1`, `kraken_funding.v1`, `kamino_scope.v1`, `pyth.v1`, `redstone.v1`, `v5_tape.v1`, `backed.v1`, `nasdaq_halts.v1`, `swap.v1`, `trade.v1`, `kamino_liquidation.v1`, `jupiter_lend_liquidation.v1`, `fluid_vault_config.v1`) the soothsayer-side ingest code was a duplication risk, not a hedge.
+
+**Decision.** Hard-delete the soothsayer-side ingest infrastructure and lock the architectural boundary in agent-harness instructions. Soothsayer is the analysis + serving + on-chain-publish project; it does not pull data from the network. New data sources go in scryer first (per `scryer/methodology_log.md` hard rule #1); soothsayer reads scryer parquet via `polars.read_parquet` against the canonical layout.
+
+**What was deleted.**
+- `crates/soothsayer-ingest/` — the entire Rust ingest crate (Helius RPC client, Chainlink decoder, retry/limiter modules). The Chainlink *decoders* survive in `src/soothsayer/chainlink/` (Python); only the *fetcher* portion was removed.
+- `src/soothsayer/sources/{helius,jupiter,kraken_perp,yahoo}.py` — the four Python fetchers.
+- `src/soothsayer/cache.py` — orphaned without the Python fetchers it served.
+- `src/soothsayer/chainlink/scraper.py` — the historical xStock Chainlink scraper. Decoders (`v10.py`, `v11.py`, `verifier.py`, `feeds.py`) retained.
+- 22 scripts under `scripts/`: every `scan_*`, `scrape_*`, `collect_*`, `snapshot_kamino_*`, `run_v{1,2,3,5}_*`, `verify_v11_cadence`, `dump_v11_feed_inventory`, `enumerate_v11_xstock_feeds`, `debug_v10_layout`, `scan_chainlink_schemas`, `build_fred_macro_calendar`, `run_redstone_scrape`, `smoke_rpcfast`, `smoke_v5_jupiter`. Each script's scryer replacement is enumerated in `docs/scryer_consumer_guide.md` § Migration cheat-sheet.
+
+**What was preserved.** `XSTOCK_MINTS` + `USDC_MINT` constants migrated from `sources/jupiter.py` to `src/soothsayer/universe.py` (where they belong — they're a static on-chain registry, not fetched data). The one remaining script that imported the registry but no fetcher (`score_weekend_comparison.py`) was redirected to the new import path.
+
+**Agent-harness changes.** Three new files at the repo root codify the policy:
+- `CLAUDE.md` — long-form hard rules (no fetching in soothsayer; new sources go in scryer first; analysis reads parquet; preserve `_schema_version` / `_fetched_at` / `_source` on read; soothsayer-side derived datasets use venue `soothsayer_v{N}`; reproducibility).
+- `AGENTS.md` — same five hard rules, AGENTS.md convention for non-Claude tools (Codex, Cursor, Aider, etc.).
+- `.cursorrules` — Cursor-flavored summary.
+
+Plus `docs/scryer_consumer_guide.md` — the canonical read pattern with code examples for all 14 currently-shipped scryer schemas, the migration cheat-sheet from each deleted script, and gotchas (`u128` decimal-string columns, mixed-precision `ts` types, UTC timezone discipline). `docs/data-sources.md` got a cutover preface; the catalog itself remains valid as the canonical provider inventory.
+
+**Acknowledged breakage.** This is intentional. After the deletion, scripts that called the old fetchers (`run_calibration.py` via `yahoo.fetch_daily`; `chainlink_implicit_band_analysis.py` and `check_chainlink_weekend.py` via `chainlink.scraper`) now ImportError at module load. This is the forcing function: the next agent that touches those scripts will read CLAUDE.md, follow the consumer guide, and rewrite the data-load to read scryer parquet. The user explicitly chose this over a soft-deprecation banner because previous "we'll migrate later" cycles never closed.
+
+**Verification.** `cargo check` on the soothsayer workspace passes after `soothsayer-ingest` is removed from `Cargo.toml`'s workspace members; no other crate depended on it. The Anchor program in `programs/` was not workspace-included to begin with and is unaffected.
+
+**Forward path.**
+- Scripts that currently ImportError: rewrite their data-loads against `../scryer/dataset/...` per `docs/scryer_consumer_guide.md`. The canonical entry `run_calibration.py` swaps `yahoo.fetch_daily(symbol)` → `pl.read_parquet(SCRYER_ROOT / "yahoo" / "bars" / "v1" / f"symbol={symbol}" / "year=*.parquet")`; everything else follows the same shape.
+- `data/raw/` is retained for the in-flight Phase 1 papers but is no longer the canonical input. New analysis should not read from it.
+- For data classes scryer doesn't yet have a fetcher for (e.g., Chainlink schema/cadence verification, FRED macro calendar, Kamino reserve/obligation snapshots), the queue lives in `../scryer/wishlist.md`. Open an item + a methodology entry in scryer; do not restore the deleted soothsayer fetcher.
 
 ### 2026-04-26 — Serving-layer ablation re-run under deployed BUFFER_BY_TARGET; hybrid framing softened from "load-bearing" to "joint argmin"
 
@@ -319,6 +795,14 @@ Items the team explicitly knows about and has chosen to defer rather than ignore
 | Is the calibration surface empirically uniform across the full PIT distribution, or only at our three / four sampled τ? | One-shot diagnostic; ~10 LoC in metrics.py | docs/v2.md §V2.4 |
 | Does the methodology generalise to non-US equities (tokenised JP / EU shares)? | Multi-region replication run with the same panel-build pipeline | reports/paper1_coverage_inversion/09_limitations.md §9.9 |
 | Does a finer earnings-calendar dataset (date + estimated move size) make the earnings regressor detectable? | Acquisition of a vendor-grade earnings calendar | reports/paper1_coverage_inversion/09_limitations.md §9.5 |
+| O5. What is the `min_quorum` value for Layer 0 of the unified-feed router? | First design-partner integration + ≥3 months of upstream forward tape (scryer wishlist 21-23) showing empirical disagreement frequency | This log 2026-04-28 (afternoon); decision deferred to a follow-up methodology entry |
+| O6. How does Layer 0 handle assets where one or more upstreams don't list the feed? Soft-skip with `min_quorum` recalculation, or hard-fail-config? | First non-paper-1-underlier asset added to `RouterConfig` | This log 2026-04-28 (afternoon); v0 design assumes config-time enumeration per asset |
+| O7. Calendar-based regime-detection fallback for non-NYSE/CME-GLOBEX-tracking assets? | First asset class outside US equities + commodities + treasuries (e.g., tokenised JP / EU equity, FX) | This log 2026-04-28 (afternoon); v0 ships with NYSE + CME GLOBEX hard-coded |
+| O8. v1 event-stream on-chain format: Anchor `emit!` log, or a custom event-log PDA with a versioned schema parallel to `unified_feed_receipt.v1`? | Paper 3 publication + v1 design lock | This log 2026-04-29 |
+| O9. v2 SDK behaviour for multi-asset portfolios where calibration is per-(symbol, regime) but the consumer's risk model aggregates across assets — does the receipt aggregate too, or stay per-asset and let the consumer compose? | Paper 2 + Paper 3 §10 | This log 2026-04-29 |
+| O10. Relay daemon signing model: dedicated hot keypair, per-feed keypair, or multisig-of-publishers (decentralisation of the relay layer)? | First production relay deploy + design-partner conversations | This log 2026-04-29 (afternoon); v0 default is single dedicated hot keypair |
+| O11. Relay program's Verifier-CPI policy at `post_relay_update`: always-CPI, opportunistic, or trust-mode? | First mainnet relay deploy; CU-cost measurement on devnet first | This log 2026-04-29 (afternoon); v0 ships always-CPI on devnet |
+| O12. Enforcement mechanism for the relay-operator no-position policy: on-chain attestation account (default), periodic third-party audit, or partner-witnessed multisig governing the wallet list? | Before mainnet relay deploy | This log 2026-04-29 (evening); v0 default = attestation-account |
 
 ---
 

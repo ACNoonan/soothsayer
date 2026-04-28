@@ -16,6 +16,8 @@ sweep + D6 discrete served-band PIT). This script:
 
 Outputs:
   reports/tables/v1b_oos_reviewer_diagnostics.csv     per-τ DQ + magnitude
+  reports/tables/v1b_oos_dq_per_symbol.csv            per-(symbol, τ) DQ p-values
+  reports/tables/v1b_oos_dq_per_symbol_summary.csv    median + min p-value per τ
   reports/tables/v1b_oos_berkowitz_crps.csv           pooled Berkowitz + CRPS
   reports/tables/v1b_oos_pit_continuous.csv           per-row continuous PITs + CRPS
   reports/figures/v1b_reliability_diagram.png         reliability + PIT histogram
@@ -135,11 +137,17 @@ def main() -> None:
     print(f"\nServe complete in {time.time()-t0:.1f}s", flush=True)
 
     # === Per-τ DQ + magnitude ===
+    # The per-symbol-pooled DQ statistic inflates with the number of symbols
+    # K (sum of K independent χ²). The median per-symbol p-value is the
+    # standard sensitivity check that doesn't suffer this inflation; we
+    # compute both and surface them side-by-side in §6.4.1.
     diag_rows = []
+    per_symbol_rows = []
     for t in HEADLINE_TAUS:
         sub = served[served["target"] == t].sort_values(["symbol", "fri_ts"])
         # DQ pooled across symbols (sum of independent χ² statistics).
         dq_total, dq_df_total = 0.0, 0
+        per_symbol_p = []
         for sym, g in sub.groupby("symbol"):
             v_g = (~g["inside"].astype(bool)).astype(int).values
             if len(v_g) < 10:
@@ -147,8 +155,19 @@ def main() -> None:
             res = met.dynamic_quantile_test(v_g, t, n_lags=4)
             if np.isfinite(res["dq"]):
                 dq_total += res["dq"]; dq_df_total += res["df"]
+                per_symbol_rows.append({
+                    "target": t, "symbol": sym,
+                    "n": int(res["n"]), "df": int(res["df"]),
+                    "dq": float(res["dq"]), "p_value": float(res["p_value"]),
+                })
+                per_symbol_p.append(float(res["p_value"]))
         p_dq = (float(1.0 - _chi2.cdf(max(dq_total, 0.0), df=max(dq_df_total, 1)))
                 if dq_df_total > 0 else float("nan"))
+        # Per-symbol-aggregation sensitivities (the §6.4.1-promised checks)
+        per_sym_arr = np.array(per_symbol_p) if per_symbol_p else np.array([float("nan")])
+        median_p = float(np.median(per_sym_arr)) if per_symbol_p else float("nan")
+        min_p = float(np.min(per_sym_arr)) if per_symbol_p else float("nan")
+        n_reject_05 = int((per_sym_arr < 0.05).sum()) if per_symbol_p else 0
         mag = met.exceedance_magnitude(
             sub["mon_open"].values, sub["lower"].values,
             sub["upper"].values, sub["fri_close"].values,
@@ -156,9 +175,19 @@ def main() -> None:
         diag_rows.append({
             "target": t, "n": int(len(sub)),
             "dq_pooled": dq_total, "dq_df": dq_df_total, "p_dq": p_dq,
+            "n_symbols_tested": len(per_symbol_p),
+            "p_dq_per_symbol_median": median_p,
+            "p_dq_per_symbol_min": min_p,
+            "n_symbols_reject_05": n_reject_05,
             **mag,
         })
     diag = pd.DataFrame(diag_rows)
+    per_symbol_df = pd.DataFrame(per_symbol_rows)
+    per_symbol_summary = (per_symbol_df.groupby("target")["p_value"]
+                          .agg(["count", "median", "mean", "min", "max",
+                                lambda s: int((s < 0.05).sum())])
+                          .rename(columns={"<lambda_0>": "n_reject_05"})
+                          .reset_index())
 
     # === Pooled Berkowitz + CRPS summary ===
     bz = met.berkowitz_test(pits["pit"].dropna().values)
@@ -176,6 +205,8 @@ def main() -> None:
     out_dir = REPORTS / "tables"
     out_dir.mkdir(parents=True, exist_ok=True)
     diag.to_csv(out_dir / "v1b_oos_reviewer_diagnostics.csv", index=False)
+    per_symbol_df.to_csv(out_dir / "v1b_oos_dq_per_symbol.csv", index=False)
+    per_symbol_summary.to_csv(out_dir / "v1b_oos_dq_per_symbol_summary.csv", index=False)
     pit_summary.to_csv(out_dir / "v1b_oos_berkowitz_crps.csv", index=False)
     pits.to_csv(out_dir / "v1b_oos_pit_continuous.csv", index=False)
 
@@ -236,9 +267,14 @@ def main() -> None:
 
     print()
     print("=" * 80)
-    print("Per-τ DQ + exceedance magnitude")
+    print("Per-τ DQ + exceedance magnitude (with per-symbol-aggregation sensitivities)")
     print("=" * 80)
     print(diag.to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+    print()
+    print("=" * 80)
+    print("Per-symbol DQ p-value distribution (the §6.4.1-promised sensitivity)")
+    print("=" * 80)
+    print(per_symbol_summary.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
     print()
     print("=" * 80)
     print("Pooled Berkowitz + CRPS")
@@ -246,6 +282,8 @@ def main() -> None:
     print(pit_summary.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
     print()
     print(f"Wrote {out_dir / 'v1b_oos_reviewer_diagnostics.csv'}")
+    print(f"Wrote {out_dir / 'v1b_oos_dq_per_symbol.csv'}")
+    print(f"Wrote {out_dir / 'v1b_oos_dq_per_symbol_summary.csv'}")
     print(f"Wrote {out_dir / 'v1b_oos_berkowitz_crps.csv'}")
     print(f"Wrote {out_dir / 'v1b_oos_pit_continuous.csv'}")
     print(f"Wrote {fig_path}")
