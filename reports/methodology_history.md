@@ -408,10 +408,21 @@ Effort for any of these: ~1-2 weeks of focused selection-methodology work. The s
 
 **Updated five-family status.**
 - Family D (HAR-RV): complete, fail.
-- Family A (CAViaR): **complete, oracle PASS / defensible PARTIAL** — selection methodology is the bottleneck.
-- Family B (Hawkes-POT): queued; targets HOOD specifically (self-exciting tail clustering for the IPO-era + meme-stock-era event cycle).
-- Family C (vine copula): queued; targets cross-asset tail correlation (now informationally less critical since Family A oracle proves AAPL/SPY are directly addressable).
-- Family E (NGBoost): queued; lower priority given Family A's diagnosed signal.
+- Family A (CAViaR) — pure substitution + oracle hybrid: **complete, oracle PASS / pure-substitution FAIL.** Diagnosed signal: AAPL ← AS, SPY ← SAV. HOOD invariant.
+- Family A continuation — defensible per-symbol selection: **complete, PASSES all four thresholds at 1 / 10 reject (matches oracle).** Headline result: 3-fold rolling time-series CV on the pre-2023 calibration set picks the same per-symbol methods as the OOS-oracle (SPY ← SAV, AAPL ← AS via alphabetical tiebreak, rest ← baseline, HOOD ← baseline-fallback), and applying them to the full 2023+ OOS slice produces realised 0.981, Christoffersen $p_\text{ind}$ 0.257, bandwidth 503 bps, and per-symbol DQ reject-count of 1 / 10 (only HOOD). **Deployable v1.5 candidate.** Paper-1 §6.4.1 update: τ = 0.99 reject-count drops from 5 / 10 (current production) to 1 / 10 (CV-defensible CAViaR hybrid). HOOD is now isolated as a fundamental small-sample / structural-exception case, addressed only by §10.2 halt / corp-action filter (scryer-blocked) or by collecting more HOOD-specific calibration history. *Caveat:* AAPL's CV-DQ p-values are tied at 0.000 across all three methods; the alphabetical tiebreak picked AS, which happened to be the correct method on OOS. A more rigorous tiebreak rule (bandwidth-aware, pin-test secondary criterion, or Bayesian model averaging) would harden this — design work for production polish.
+- Family B (Hawkes-POT): queued after Family A continuation; targets HOOD specifically.
+- Family C (vine copula): queued; lower priority given Family A oracle.
+- Family E (NGBoost): queued; lower priority.
+
+**Cross-validation design for the defensible selection trial (Family A continuation).** Single-script standalone experiment, similar shape to `exp_caviar_tail.py`. Three rolling-window folds on the pre-2023 calibration set:
+
+- Fold 1: fit CAViaR-{SAV, AS} on 2014-2018 calibration data; evaluate per-symbol per-method DQ on 2019 held-out fold.
+- Fold 2: fit on 2014-2019; evaluate on 2020 (COVID-shock fold — important regime stress test).
+- Fold 3: fit on 2014-2020; evaluate on 2021-2022.
+
+For each (symbol, method) pair, aggregate the held-out DQ p-value across the three folds (median is robust to single-fold flukes; mean is more efficient). Select per-symbol the method with the highest aggregated p-value (= lowest aggregated rejection probability). Apply selected per-symbol methods to the full 2023+ OOS slice. The full OOS panel is **untouched** by the selection process — the comparison to the oracle hybrid (1 / 10 reject) tells us how much of the oracle's performance the defensible scheme recovers.
+
+Decision rule: if the defensible scheme achieves per-symbol DQ reject-count ≤ 3 / 10 at τ = 0.99 on the OOS slice, AND HOOD is the only invariant rejector, this is the v1.5 deployment candidate. If it achieves ≤ 2 / 10, this becomes the headline Paper 1 §6.4.1 update. If it achieves ≥ 4 / 10 (worse than baseline), the defensible-selection methodology needs a different scheme (Bayesian model averaging or stacking, per the four candidates surfaced in the Family A result block above).
 
 Artefacts: `scripts/exp_caviar_tail.py`; `reports/tables/v1b_oos_caviar_summary.csv`, `v1b_oos_dq_per_symbol_caviar.csv`.
 
