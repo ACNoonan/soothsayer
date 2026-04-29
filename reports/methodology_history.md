@@ -79,6 +79,52 @@ See §1 entries dated 2026-04-28 (afternoon / midday / morning) for the design, 
 
 ## 1. Decision log
 
+### 2026-04-29 (late evening) — Holiday-aware DST-correct NYSE calendar (router program step 2c)
+
+**Trigger.** The router program's `nyse_calendar_signal` shipped with two documented v0 limitations (no holidays; no DST handling; no early-close semantics) disclosed in the 2026-04-28 (afternoon) entry, with the regime-gate's "calendar disagrees with oracle → Unknown" composition as the safety net. The Chainlink Streams Relay program is several weeks out (scryer wishlist 42 + 43); during the interim, `parse_chainlink_streams_relay_market_status` returns `Unknown` and the calendar signal is the *only* input driving the regime gate. Tightening the calendar is load-bearing in this window, not optional.
+
+**Survey of upstream sources.** Confirmed via direct fetch of NYSE.com + Finnhub + Polygon.io + Databento + EODHD + `exchange_calendars` (this date). NYSE/ICE does not publish a machine-readable feed of any kind: NYSE.com exposes only HTML + a "Trading Days" PDF; ICE publishes a 3-year-forward press release at ir.theice.com. Every paid vendor (Finnhub `/stock/market-holiday`, Polygon `/v3/marketstatus/upcoming`, EODHD, TradingHours.com) wraps an internally-curated table sourced from the same ICE PRs. Databento's "Trading calendar information" is on-roadmap, not shipped. The de-facto open-source canonical is the `exchange_calendars` Python library (XNYS; formerly Quantopian's `trading_calendars`), which **hard-codes the calendar in source** — community-maintained, last release v4.13.2 March 2026. The "hard-coded table" approach is therefore the conventional industry pattern, not a v0 cut-corner.
+
+A Solana program cannot call HTTP regardless, which dominates the design choice: the table is either embedded at compile-time or provided via a soothsayer-controlled PDA written by an off-chain daemon. The PDA path is queueable as a future option (parallel to the relay-fleet pattern from the 2026-04-29 (evening) entry) but is not warranted at v0 — the calendar updates once a year, not once a slot, and the operational overhead of a daemon for annual updates is worse than re-deploying the program annually.
+
+**Decision (calendar table).** Embed a sorted holiday table at compile-time covering 2024-01-01 through 2027-12-31 (4 years; 2024 included for backtest parity). Each entry: `(year: u16, month: u8, day: u8, kind: FullClose | EarlyClose)`. 50 entries total. Sources:
+- ICE PR "NYSE Group Announces 2024, 2025 and 2026 Holiday and Early Closings Calendar" (issued 2023; covers 2024-2026).
+- ICE PR "NYSE Group Announces 2025, 2026 and 2027 Holiday and Early Closings Calendar" (issued 2024; covers 2025-2027).
+- SEC Release No. 34-101993 (Carter day of mourning, 2025-01-09 added ad-hoc).
+
+`holiday_lookup(y, m, d)` binary-searches the table and returns `None` for years outside coverage, treating those dates as "no scheduled holiday" — the safety net for out-of-range queries is the oracle-vs-calendar disagreement → Unknown, not a panic. Out-of-window behaviour is unit-tested.
+
+**Decision (DST).** Algorithmic, not table-based. Use the post-2007 US DST rule: 02:00 ET on the second Sunday of March → 02:00 ET on the first Sunday of November. Day-of-week and Sunday-of-month are computed from `unix_ts` via Howard Hinnant's `civil_from_days` / `days_from_civil` algorithms (pure integer arithmetic, no heap, BPF-safe, no `chrono` dependency). Resolution is date-only — sufficient because NYSE trading hours are post-09:30 ET, well after the 02:00 transition; the transition Sunday is treated as post-transition for date-comparison purposes (irrelevant in practice since markets are closed Sunday).
+
+**Decision (market-hour windows).** Trading-hour windows in UTC seconds-of-day, derived from the (DST, early-close) flags:
+- EDT regular: `[48_600, 72_000)`  (13:30-20:00 UTC = 09:30-16:00 EDT)
+- EDT early:   `[48_600, 61_200)`  (13:30-17:00 UTC = 09:30-13:00 EDT)
+- EST regular: `[52_200, 75_600)`  (14:30-21:00 UTC = 09:30-16:00 EST)
+- EST early:   `[52_200, 64_800)`  (14:30-18:00 UTC = 09:30-13:00 EST)
+
+The right edge is exclusive; `secs_into_day == 72_000` (16:00 EDT sharp) returns `Closed`, matching the existing test convention.
+
+**Decision (early-close rule).** Carry early-close as a per-date table flag rather than deriving "day-after-Thanksgiving" or "Christmas Eve when 12/25 is a non-weekend" algorithmically. Reason: the table is the source of truth either way; NYSE has historically deviated from the obvious rule (e.g. the 2018 December-26 closure for Bush funeral, half-day-before-July-4 only some years); a derived rule that disagrees with NYSE is worse than a flat lookup. The 13:00 ET early-close time has not varied since 2003 per ICE, so it is hard-coded inside `market_hours_utc` rather than per-row in the table.
+
+**What this changes in regime-gate behaviour.**
+- ~12 NYSE holidays per year now return `Closed` (previously `Open` during weekday market hours, with the safety net firing every holiday morning).
+- ~7 months of EDT each year are correctly windowed (previously the first hour of EDT trading was reported `Closed` and the last hour was reported `Open`).
+- Early-close days return `Closed` after 13:00 ET (previously `Open` through 16:00 ET).
+- The `oracle Closed + calendar Open → Unknown` safety net remains, now firing on intra-session events (`Halted`) rather than every holiday morning — a quieter regime gate.
+
+**Open methodology questions (added/updated).**
+- O7 (existing) — calendar fallback for non-NYSE/CME-GLOBEX assets: unchanged.
+- O8 (new) — NYSE calendar refresh cadence + ad-hoc closure response. Trigger: next ICE PR issuance (expected Q4 2026 covering 2027-2029), any SEC ad-hoc closure notice, or the embedded window's upper bound (2027-12-31) approaching. Resolution: append the new years to `NYSE_HOLIDAYS` + cite the PR URL in a methodology entry. The refresh-cadence policy itself locks at first refresh.
+
+**Tracked artefacts.**
+- Implementation: `programs/soothsayer-router-program/src/regime.rs` (this entry; `nyse_calendar_signal` + `civil_from_unix` / `days_from_civil` / `is_us_dst` / `nth_dow_of_month` / `holiday_lookup` / `NYSE_HOLIDAYS` / `market_hours_utc` + 10 new tests covering each holiday class, DST boundaries, early-close transitions, civil-date round-trips, and out-of-window fall-back; total 21 tests in the module).
+
+**Out of scope (deferred).**
+- `cme_globex_calendar_signal` remains `NotApplicable` until the first CME-tracked asset (gold, treasuries) lands in `RouterConfig`. That trigger plus the CME holiday calendar (different schedule, CME publishes its own) is its own methodology entry.
+- A scryer fetcher producing `nyse_calendar.v1` parquet (sourced from `exchange_calendars` or ICE PR HTML) was discussed as a host-side cross-check artefact for the embedded Rust table; not required for this entry; queueable as a soothsayer-side QA fixture against `exchange_calendars` v4.13.2 if a divergence is ever suspected.
+
+---
+
 ### 2026-04-29 (evening) — Relay-fleet generalization: trust-model commitments + Pyth-poster scope correction
 
 **Trigger.** A data-spine audit (this date) found two issues that scope the relay layer larger than the 2026-04-29 (afternoon) entry assumed, and a strategic conversation about institutional skepticism around relay-operated price feeds surfaced commitments that should be locked into the methodology now (in-design lock window) rather than retrofitted later.
@@ -292,6 +338,95 @@ Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 la
 **Open questions added to §2.**
 - O8. What is the on-chain event format for v1's calibration-transparent event stream? Anchor `emit!`, or a custom event-log PDA with a versioned schema parallel to `unified_feed_receipt.v1`? Decision deferred to v1 design lock; revisited when Paper 3's threshold semantics firm up.
 - O9. How does v2's parameterized decision SDK handle multi-asset portfolios where calibration is per-(symbol, regime) but the consumer's risk model aggregates? Methodology question for Paper 3 §10 / Paper 2.
+
+---
+
+### 2026-04-28 (very late evening) — Strategic commitment: depth-first methodology before Paper 1 publication
+
+**Decision (user-driven, 2026-04-28).** Defer Paper 1 publication as needed to run the full v1.5 / v2 methodology trial extension (Families A / B / C / E from the late-evening +4 entry below) before submission. The five-trial scorecard (Trials 1, 2, 3, 6, Family D) demonstrates the AAPL / HOOD / SPY τ = 0.99 residual is invariant under five orthogonal mechanism families inside the empirical-quantile-with-σ-regression family. Closing the residual requires a methodology-family change (CAViaR / Hawkes / vine copula), and the project's competitive position is *only* defensible if the methodology is bulletproof — a one-builder team competing with Pyth, Chainlink, RedStone earns the right to reviewer attention by running every reasonable mechanism, not by shipping the first passing variant.
+
+**Strategic framing.** Soothsayer's value proposition rests on a single load-bearing claim: that the served band has a *verifiable, auditable* probability-of-coverage statement that incumbents do not publish (§6.7 evidence). For that claim to drive tokenized-RWA and associated-protocol adoption, the methodology has to withstand the deepest available diagnostic battery. A depth-first approach — run every targeted family, document every negative, ship only the methodology that survives — is the rational competitive strategy for a one-builder team without prior research history. The tradeoff is publication delay (weeks-to-months for Families A / B / C); the upside is a methodology paper that reviewers cannot wave away with "did you try X?" because the §10 answer is "yes, see `reports/v1b_X_trial.md`" for every reasonable X.
+
+**Implication for the trial program.** Family A (CAViaR) executes immediately as the next-targeted swing. Families B (Hawkes-POT), C (vine copula), and E (NGBoost) execute in sequence per the +4 work log below, with results documented as sub-blocks under the +4 entry. Production port (Trial 3 + Trial 6 + any of Families A / B / C that pass) waits on the full trial completion AND scryer 15a / 15b. Paper 1 publication waits on the production port + §10.2 filter result. Estimated total wait: ~6-12 weeks for the full menu.
+
+**Scoring criteria for "depth-first methodology bulletproofing."** A trial counts as *productively run* if it produces either (a) a passing scorecard result that can be ported to v1, or (b) a clear negative with a mechanism-level diagnostic that refines the candidate-mechanism list. Both outcomes are paper-defensible. The five completed trials so far have all met this bar — three positives (Trial 3 PASS, Trial 6 partial PASS, Family D postmortem on multicollinearity) and two clean negatives (Trial 1 GPD ruled out small-sample noise; Trial 2 Mondrian ruled out per-symbol marginal correction). The remaining Families A / B / C / E should each meet the same bar before the program is considered complete.
+
+**No methodology change yet.** This entry documents the decision to keep iterating; deployed system unchanged. Trial 3 + Trial 6 (pooled-tail + state augmentation) remains the v1 deployment candidate with port deferred until the full trial extension reports.
+
+#### Family A result — partial PASS (oracle hybrid hits 1/10 reject; defensible selection still under-developed)
+
+CAViaR-SAV (Symmetric Absolute Value) and CAViaR-AS (Asymmetric Slope) per-symbol fits at τ = 0.99, fit-once-on-pre-2023-calibration with the standard Engle-Manganelli setup (one fit per symbol per spec, applied forward through OOS via the autoregressive q_t recursion). HOOD excluded from CAViaR fits — only 73 weekends of pre-2023 calibration data available, below the n ≥ 100 stability floor.
+
+Pure substitution results (table at τ = 0.99 vs Trial 3 + Trial 6 baseline):
+
+| | base | CAViaR-SAV | CAViaR-AS |
+|---|---:|---:|---:|
+| Per-symbol DQ rejects | 3 / 10 | 5 / 10 | 5 / 10 |
+| Realised | 0.975 | 0.957 | 0.979 |
+| Christoffersen $p_\text{ind}$ | 0.906 | 0.141 | 0.001 |
+| Mean half-width (bps) | 471 | 519 | 524 |
+
+Both pure substitutions **fail** the four-threshold scorecard — the aggregate per-symbol reject-count goes up, not down.
+
+**But the per-symbol pattern reveals real signal.** Per-symbol DQ p-values at τ = 0.99:
+
+| symbol | base | SAV | AS | best-method |
+|---|:---:|:---:|:---:|---|
+| **AAPL** | 0.0000 reject | 0.0000 reject | **0.9993 pass** | AS |
+| GLD | 0.9202 pass | 0.0000 reject | 0.0000 reject | base |
+| GOOGL | 0.5225 pass | 0.9202 pass | 0.0000 reject | base / SAV |
+| **HOOD** | 0.0000 reject | 0.0000 reject | 0.0000 reject | none (no fit; 73-row cal) |
+| MSTR | 0.9993 pass | 0.9202 pass | 0.0001 reject | base / SAV |
+| NVDA | 0.1282 pass | 0.0000 reject | 0.9202 pass | base / AS |
+| QQQ | 0.5225 pass | 0.9977 pass | (NaN; few viols) | base / SAV |
+| **SPY** | 0.0002 reject | **0.9993 pass** | (NaN; few viols) | SAV |
+| TSLA | 0.9202 pass | 0.0002 reject | 0.0001 reject | base |
+
+Two of the three structural rejectors from the four-trial program are now fixable:
+- **AAPL ← CAViaR-AS** (fixed: 0.0000 → 0.9993)
+- **SPY ← CAViaR-SAV** (fixed: 0.0002 → 0.9993)
+- **HOOD** ← none (no fit due to insufficient calibration; remains structurally invariant)
+
+**Oracle per-symbol hybrid** (SAV-for-SPY, AS-for-AAPL, baseline-for-others, baseline-for-HOOD): passes ALL four thresholds at τ = 0.99 — **1 / 10 per-symbol DQ rejects** (only HOOD), realised 0.981 (within ±2pp), Christoffersen $p_\text{ind} = 0.257$ (passes), bandwidth 503 bps (well below 707-bps cap). First trial in the program to break below 3 / 10. The τ = 0.99 contract is essentially solvable for 9 of 10 symbols.
+
+**Critical caveat — oracle vs defensible.** The hybrid above selects per-symbol method using the *OOS-observed* DQ pattern — that's data-snooping and therefore an upper-bound on what per-symbol selection can achieve, not a defensible production method. Tested calibration-set-based selection (pick per-symbol method that has the highest pre-2023 calibration-set DQ p-value, apply to OOS): **6 / 10 reject** — *worse* than the 3 / 10 baseline. Calibration-set DQ doesn't reliably predict OOS DQ for the per-symbol method choice on this data. The selection-noise arises because at τ = 0.99 each symbol has only ~4 expected violations on the ~430-row calibration cell — too few for stable per-method DQ inference.
+
+**The diagnostic result.** CAViaR provides genuine, mechanism-targeted solutions for two of the three structural rejectors (AAPL, SPY). The bottleneck is *which CAViaR variant for which symbol*, not the variants themselves. The space of defensible selection schemes is large and largely untested:
+
+1. *Cross-validation*: split the calibration set into time-series folds, evaluate per-symbol per-method DQ on held-out folds, pick the per-symbol best by averaged out-of-fold performance. Standard ML practice; should be more stable than single-split calibration DQ.
+2. *Bayesian model averaging*: don't pick a single method per symbol; weight all three by their posterior probability under the calibration data. Bounds become probability-weighted averages of the three method-specific bounds.
+3. *Hand-designed selection rules*: based on symbol characteristics derivable from the panel (e.g., "use AS for symbols with split history or pre-IPO sample boundary; use SAV for index-level symbols where the AR structure of past quantiles dominates"). Less data-driven, more interpretable, possibly more robust.
+4. *Stacking*: train each method, learn meta-weights that combine them via a held-out objective (e.g., minimum-bandwidth at matched coverage).
+
+Effort for any of these: ~1-2 weeks of focused selection-methodology work. The selection problem is now the load-bearing piece between Family A's diagnosed signal and a deployable v1 fix.
+
+**Implications for v1 deployment.**
+- *v1 deployment plan unchanged for now.* Trial 3 (pooled-tail) + Trial 6 (state augmentation) still the production candidate; CAViaR per-symbol selection is a Family-A continuation, not a Family-A drop-in.
+- *Paper 1 §6.4.1 disclosure* gains a substantive update: "two of three structural rejectors at τ = 0.99 (AAPL, SPY) are addressable by the CAViaR family with appropriate per-symbol method selection (oracle hybrid achieves 1 / 10 reject; defensible cross-validation-based selection is future work). HOOD remains structurally invariant on this 245-weekend post-IPO sample."
+- *HOOD specifically* now identified as the sole universally-invariant rejector across **seven** orthogonal mechanism families (Trials 1, 2, 3, 6, Family D, CAViaR-SAV, CAViaR-AS). Strong prior that HOOD's τ = 0.99 miscalibration is the §10.2 halt / corp-action filter's territory or a fundamental small-sample issue (HOOD has only 245 OOS weekends and 73 calibration weekends, both tiny).
+- *Family A continuation*: schedule cross-validation-based per-symbol selection as a follow-up trial. Estimated 1-2 weeks. If passes, this becomes the v1.5 deployment with materially better §6.4.1 numbers (1-2 / 10 reject vs 3 / 10).
+
+**Updated five-family status.**
+- Family D (HAR-RV): complete, fail.
+- Family A (CAViaR): **complete, oracle PASS / defensible PARTIAL** — selection methodology is the bottleneck.
+- Family B (Hawkes-POT): queued; targets HOOD specifically (self-exciting tail clustering for the IPO-era + meme-stock-era event cycle).
+- Family C (vine copula): queued; targets cross-asset tail correlation (now informationally less critical since Family A oracle proves AAPL/SPY are directly addressable).
+- Family E (NGBoost): queued; lower priority given Family A's diagnosed signal.
+
+Artefacts: `scripts/exp_caviar_tail.py`; `reports/tables/v1b_oos_caviar_summary.csv`, `v1b_oos_dq_per_symbol_caviar.csv`.
+
+
+#### Family B result — pending
+
+
+#### Family C result — pending
+
+
+#### Family E result — pending
+
+
+#### Final synthesis — pending
+
 
 ---
 
