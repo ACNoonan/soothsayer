@@ -383,18 +383,17 @@ HOOD has $n = 73$ pre-2023 calibration weekends. Per the criterion above:
 
 The §6.4.1 disclosure changes shape from "HOOD's miscalibration is structural and unaddressable" to "HOOD's calibration history $n = 73$ is below the BMA-CAViaR eligibility floor of ~100, consistent with the eight-mechanism-family invariance evidence; HOOD is therefore served at $\tau \in [0.50, 0.85]$ pending more calibration history (~ +50 weekends ≈ 1 year)."
 
-**Where this fits in the future-paper plan.**
+**Where this fits in the future work plan (consolidated 2026-04-29 per user feedback on publication sprawl).**
 
-This is *not* Paper 1 critical-path methodology. Paper 1 is the calibration-transparent oracle primitive itself; the eligibility criterion is a *deployment-policy companion*. Two follow-up paper directions:
+This is *not* Paper 1 critical-path methodology. Paper 1 is the calibration-transparent oracle primitive itself; the eligibility criterion is a *deployment-policy companion*. The framework + protocol-design layers share one empirical anchor (the HOOD case), one table (the eligibility map), one deployment surface (the Soothsayer router program), and they are *one work package*, not two — consistent with the depth-over-volume publication discipline (`feedback_publication_depth.md`; Paper 4's plan applies the same consolidation to its empirical companion).
 
-1. **"Sample-size eligibility for calibration-transparent oracles" (paper-N candidate, ML / q-fin.RM venue).** Formalise the empirical floors above into a theoretical framework using:
-   - Conformal-prediction sample-complexity bounds (Vovk-Gammerman-Shafer 2005; Lei-Wasserman 2014; Tibshirani-Foygel-Barber-Ramdas 2019).
-   - Quantile-estimator finite-sample rates (Koenker 2005; Chernozhukov-Fernandez-Val-Galichon 2010).
-   - Empirical-Bayes / hierarchical-Bayes shrinkage for small-sample symbols (Efron-Morris classical; horseshoe priors for sparse heterogeneity).
-   - The eight-mechanism-family scorecard as an empirical case study supporting the proposed floors.
-   The deliverable is a *framework paper*, with our HOOD case as the load-bearing empirical anchor and SPY/AAPL as the contrast cases that *do* satisfy the floor and benefit from the higher-τ methodology stack.
+The single follow-up direction has two intertwined layers:
 
-2. **"Symbol-graduation pipeline for tokenized RWAs" (paper-N+1 candidate, ACM AFT / DeFi venue).** Operationalises the eligibility criterion as an *on-chain admission contract*: when a tokenized-equity SPL launches, the calibration-transparent oracle's router program enforces the eligibility table on-chain — a freshly-listed token gets τ_max = 0.85 until its calibration history accumulates past the 200-row floor, at which point it graduates to τ_max = 0.99 automatically. This is a clean DeFi-protocol-design contribution that connects the calibration methodology to the *product surface* in a way that handles new-token-launch trust-bootstrap (the protocol commits ex ante to refusing tail coverage for new tokens until they've earned it via calibration accumulation). Connects to the user's broader research arc per the protocol-builder career-direction memory: a calibration-transparent oracle's analog of LVR-aware AMMs' "venue gets discount as it accumulates LP-side history."
+- **Framework layer.** Formalise the empirical floors above into a theoretical framework using conformal-prediction sample-complexity bounds (Vovk-Gammerman-Shafer 2005; Tibshirani-Foygel-Barber-Ramdas 2019), quantile-estimator finite-sample rates (Koenker 2005), EVT (Embrechts-Klüppelberg-Mikosch 1997), and empirical-Bayes / hierarchical-Bayes shrinkage for small-sample symbols. The eight-mechanism-family scorecard is the load-bearing empirical case study; HOOD is the under-floor case; SPY / AAPL are the over-floor cases that benefit from the higher-τ methodology stack.
+
+- **Protocol-design layer.** Operationalise the eligibility criterion as an *on-chain admission contract* in the Soothsayer router program: a freshly-listed tokenized RWA enters at $\tau_\max = 0.85$ and graduates to $\tau_\max = 0.99$ automatically as calibration history accumulates past the 200-row floor. Solves the new-token-launch trust-bootstrap problem that any deployed oracle for emerging tokenized assets faces.
+
+Whether this work eventually merits a standalone paper, a technical-report extension to Paper 1, or a section in one of the trilogy companions (Paper 3's lending-protocol policy is the closest natural fit; Paper 4's protocol-design framing is also adjacent) is a decision *deferred to the time the work is actually done* — not pre-committed now. The conjecture is seeded in Paper 1 §10.6; the formalisation finds its home when the formalisation happens.
 
 **Action items (this session).**
 
