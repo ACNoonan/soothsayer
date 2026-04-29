@@ -407,6 +407,8 @@ Effort: ~5-7 days for Python + Rust + parity + paper update + new methodology en
 - Trial 5 (CEVT): v2 territory. Defer until production port + scryer §10.2 filter results land.
 - Strategic alternative (drop τ = 0.99): downgraded but still live as a v1 fallback if production port reveals issues. Otherwise becomes a v1 → v2 sequencing question.
 
+**Production-port deferral (per user direction 2026-04-28).** Wait for scryer wishlist items 15a (`yahoo.corp_actions`) and 15b (`nasdaq_halts.v1` historical backfill) to land before porting Trial 3 + Trial 6 to production. Rationale: the §10.2 halt / corp-action filter test is the next-tested hypothesis on the AAPL / HOOD / SPY structural residual, and those three symbols' DQ behaviour is the load-bearing item in the §6.4.1 disclosure now. Bundling the production port (Trial 3 + Trial 6) with the §10.2 filter result into a single Paper 1 §6 update gives reviewers one consistent set of headline numbers rather than two sequential revisions. Estimated wait: ~1 week (scryer effort estimates: 15a ~3-4h, 15b ~4-6h plus methodology-log entry overhead). If scryer slips beyond two weeks, revisit and consider porting Trial 3 + Trial 6 alone with the §10.2 filter as a follow-up §6.4.1 sensitivity update.
+
 
 ---
 
