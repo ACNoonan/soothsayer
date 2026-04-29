@@ -295,6 +295,95 @@ Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 la
 
 ---
 
+### 2026-04-28 (late evening, +4) — v1.5 / v2 trial-extension work log: targeted methodology upgrades for the AAPL / HOOD / SPY residual
+
+**Trigger.** The four-trial program (Trials 1, 2, 3, 6 — see entries +1 / +2 / +3 / +3 sub-blocks) ruled out four orthogonal mechanism families and produced one passing trial (Trial 3 pooled-tail, deployable as v1) plus one partial-pass at lower anchors (Trial 6 state augmentation). The persistent τ = 0.99 rejectors AAPL / HOOD / SPY are invariant under all four. After targeted literature review (CAViaR, Hawkes-POT, vine copulas, HAR-RV, NGBoost; sources in conversation log) the candidate-mechanism list refines to *temporal clustering of tail events* (Hawkes / CAViaR target) and *cross-asset tail correlation* (vine copula target). This entry documents the next round of trials specifically targeted at what the four-trial scorecard ruled in.
+
+**Status.** Work log only — trials queued but not all executed in this session. Family D (HAR-RV, the cheapest and best-targeted of the lower-effort options) starts immediately; Families A / B / C / E are documented here for the v1.5 / v2 roadmap and pickup when capacity allows.
+
+**Why this isn't "wasted v1 work" given v2 is acknowledged.** Drawing the line: anything that *strengthens the deployed v0 / v1 calibration claim at τ = 0.99* is paper-1-relevant; anything that *requires architectural changes to the calibration-surface family* is v2 territory. HAR-RV (Family D) and NGBoost (Family E) are surface-compatible (regressor / predictor swaps inside the existing F1 architecture); CAViaR (A), Hawkes (B), and vine copulas (C) are different methodology families and naturally land in the v2 calibration-surface revision. Running Family D in the v1 cycle is constructive; A / B / C are documented here as pre-specified v1.5 / v2 trials with effort estimates and decision rules so they're ready to execute rather than re-derived later.
+
+**Decision threshold (uniform across all extension trials).** Same four-threshold scorecard as the four-trial program: per-symbol DQ reject-count at τ = 0.99 ≤ 3 / 10 (production-side baseline 5 / 10; standalone-replay baseline 6 / 10), realised within ±2pp, Christoffersen $p_\text{ind} > 0.05$, mean half-width ≤ 1.5× empirical-baseline.
+
+**Family D — HAR-RV multi-horizon realized-vol regressor.** *Status: complete — mixed-negative result, did NOT pass scorecard.*
+
+Result table at τ = 0.99 vs Trial 6 single-horizon baseline:
+
+| τ | Trial 6 (1 horizon) | Family D HAR-RV (3 horizons) | shift |
+|---:|---:|---:|---|
+| 0.68 | 5 / 10 | 4 / 10 | improves |
+| 0.85 | 4 / 10 | 4 / 10 | same |
+| 0.95 | 5 / 10 | 6 / 10 | **worse** |
+| 0.99 | 3 / 10 | **5 / 10** | **worse — NVDA + QQQ flip pass → reject** |
+
+Decision-threshold scorecard at τ = 0.99: threshold 1 (per-symbol DQ ≤ 3 / 10) **fails**; threshold 4 (bandwidth ≤ 1.5×) passes (471 → 475 bps; essentially unchanged). Christoffersen $p_\text{ind}$ degrades 0.906 → 0.653 (still passes); pooled realised 0.975 → 0.971 (still within ±2pp).
+
+**Diagnostic.** The three HAR features (`log_rv_w1`, `log_fri_vol_20d`, `log_rv_w13`) are highly correlated by construction — all three are measures of recent volatility at slightly different scales. On a 156-row F1 fit window, the multicollinearity inflates the σ_now estimate's variance. The added regressors don't carry independent information that the single-horizon Trial 6 regressor was missing; instead they introduce per-row noise in σ_now that hurts conditional coverage at the tail (where σ-precision matters most).
+
+**Per-symbol pattern under Family D at τ = 0.99:** AAPL, HOOD, SPY remain rejecting (the structural three from the four-trial program); NVDA and QQQ flip pass → reject. NVDA / QQQ were passing under Trial 6 (single-horizon) and pooled-tail base; under HAR-RV's noisier σ they pick up enough conditional structure to reject. This is *over-fitting at the σ level*, not a step toward closing the AAPL / HOOD / SPY structural residual.
+
+**Confirmation of the structural-residual hypothesis.** AAPL / HOOD / SPY now rejected under five orthogonal attempts:
+
+1. Trial 1 — GPD parametric tail extrapolation (small-sample noise mitigation)
+2. Trial 3 — pooled-cross-section quantile (per-symbol tail-shape mitigation)
+3. Trial 6 — single-horizon vol regressor (conditional-vol persistence, per-symbol)
+4. Trial 2 — per-symbol Mondrian residual correction
+5. Family D — multi-horizon HAR-style vol regressors
+
+Five orthogonal mechanism families × same three persistent rejectors = the AAPL / HOOD / SPY tail miscalibration is *deeply structural* and is not addressable from inside the empirical-quantile-with-σ-regression family at the calibration sample size we have. The two remaining mechanism candidates that haven't been tested directly (Family A CAViaR; Family B Hawkes-POT) target *different methodology families*, not extensions to the existing one. The §10.2 halt / corp-action filter is the third remaining candidate, scryer-blocked.
+
+**Lower-anchor reading.** Family D's 4 / 10 at τ = 0.68 is the lowest reject-count we've achieved at that anchor across the program; the lower anchors are *not* where we have a problem (Kupiec + Christoffersen pass everywhere except τ = 0.99 in the headline). Family D's marginal value at τ ≤ 0.95 is incremental but doesn't justify the τ = 0.99 regression.
+
+**Implications for v1 deployment.** Family D is *not* a deployment candidate — its single positive (τ = 0.68) is overshadowed by the τ = 0.95 / 0.99 regressions. Trial 3 + Trial 6 (single-horizon) remains the v1 deployment plan; Family D is shelved as "tested, not adopted." The methodology log entry stands as the formal record of why multi-horizon HAR was tried and rejected.
+
+**Family D postmortem — what we learned that's useful regardless.** The multicollinearity finding is genuinely useful: it tells us the existing single-horizon `fri_vol_20d` regressor is already near the saturation point of what additional vol-state information can buy at this calibration sample size. Adding more features in the same scale family is over-engineering. The next-real-improvements have to come from a *different* methodology family (CAViaR, Hawkes, copula) or from *new data* (intraday RV, halt / corp-action filter via scryer 15a / 15b, factor-tail cross-asset structure).
+
+Artefacts: `scripts/exp_har_rv_tail.py`; `reports/tables/v1b_oos_har_rv_summary.csv`, `v1b_oos_dq_per_symbol_har_rv.csv`.
+
+**~~Family D — HAR-RV multi-horizon realized-vol regressor.~~** *(original placeholder superseded by the result block above.)*
+
+- *Mechanism.* Replace Trial 6's single-horizon `log(fri_vol_20d)` with the canonical Corsi 2009 **HAR-RV(1, 5, 22)** structure: daily realized vol (1-day), weekly average realized vol (5-trading-day), monthly average realized vol (22-trading-day) added jointly as σ-regressors in F1's log-log regression. Captures multi-horizon volatility persistence — the empirical regularity that vol shocks have heterogeneous decay rates across short, medium, and long horizons. Stacks on Trial 3's pooled-tail base.
+- *Why this targets the residual.* Trial 6 helped at τ ≤ 0.95 with a single-horizon vol regressor. HAR-RV's three-horizon structure is the standard finance-econometric extension and is documented to capture more of the conditional-vol persistence Trial 6 partly addressed. If Trial 6's lower-anchor improvements were "the right idea, wrong horizon-resolution," HAR-RV should both (a) extend the lower-anchor wins and (b) plausibly start to bite at τ = 0.99.
+- *Effort.* ~3-5 days end-to-end. Standalone experiment script first (no production-pipeline change); needs daily realized vol from yahoo bars (already in scryer) for the rv_1d and rv_5d components; rv_22d ≈ existing fri_vol_20d.
+- *Citations.* Corsi 2009 (canonical HAR-RV); Clements-Rodrigo 2019 (HAR-REX tail extension).
+- *Decision.* If passes the four thresholds with strict improvement over Trial 6 at τ = 0.99, becomes the v1 deployment candidate (replaces Trial 6 in the production-port checklist). If passes at τ ≤ 0.95 only (matching Trial 6 pattern), stays as the v1 σ-regressor stack.
+
+**Family A — CAViaR (Conditional Autoregressive Value at Risk).** *Status: queued, v1.5 / v2.*
+
+- *Mechanism.* Engle-Manganelli 2004 quantile autoregression: model the conditional quantile $q_t(\tau)$ directly as $q_t = \beta_0 + \beta_1 q_{t-1} + \beta_2 g(y_{t-1}, \ldots)$ where $g$ is a function of past returns. Variants: SAV (Symmetric Absolute Value), AS (Asymmetric Slope), IGARCH-CAViaR, AC (Adaptive). Recent **RES-CAViaR** (2024) adds realized vol + ES jointly. Recent **Component CAViaR with spillover effects** (2026) decomposes tail risk into proper-risk + spillover-from-influential-assets — directly addresses cross-asset correlation.
+- *Why this targets the residual.* CAViaR was *designed alongside* the DQ test by the same authors specifically because empirical-quantile / GARCH-based VaR estimators systematically fail DQ. By construction it captures the conditional-quantile dynamics DQ tests for. Spillover-CAViaR specifically addresses AAPL-in-SPY/QQQ correlation.
+- *Effort.* ~2-3 weeks per-symbol CAViaR; ~4-6 weeks for the spillover variant.
+- *Citations.* Engle-Manganelli 2004; Mitrodima-Oberoi 2024 (joint VaR + ES); Component CAViaR-SE 2026.
+- *Decision.* If per-symbol CAViaR passes the four thresholds, becomes the v1.5 calibration-surface revision (replaces empirical-quantile at τ ≥ 0.95). If only the spillover variant passes, becomes a v2 cross-asset tail extension.
+
+**Family B — Hawkes Peaks-Over-Threshold (2T-POT Hawkes).** *Status: queued, v1.5 / v2.*
+
+- *Mechanism.* Combine Trial 1's GPD machinery with a Hawkes-process intensity for the *occurrence* of tail exceedances: $\lambda_t = \mu + \sum_{i: t_i < t} \alpha \cdot \exp(-\beta (t - t_i))$. Self-excitation explicitly models the empirical regularity that tail events trigger future tail events (post-shock recovery, vol-spike-decay, earnings-cycle clustering). Two-tailed variant fits separate intensities for upper and lower exceedances.
+- *Why this targets the residual.* The DQ rejection at τ = 0.99 catches autocorrelation of hit indicators — exactly the pattern Hawkes self-excitation generates. AAPL specifically has well-documented event-cycle clustering (earnings every 3 months); HOOD has post-IPO + meme-stock-era halt episodes that fit a self-exciting mark structure cleanly.
+- *Effort.* ~2-3 weeks. Heavy mathematical machinery (intensity estimation, marked point process), but well-cited literature with off-the-shelf packages (`tick`, R `hawkes`).
+- *Citations.* Bacry-Mastromatteo-Muzy 2015 (Hawkes in finance survey); 2T-POT Hawkes recent thesis (Cardiff 2025).
+- *Decision.* If per-symbol Hawkes-POT passes the four thresholds, becomes the v2 calibration-surface revision for the τ = 0.99 anchor. Likely complements rather than replaces pooled-tail (Hawkes for the exceedance *intensity*; pooled-tail GPD for the exceedance *magnitude*).
+
+**Family C — Vine copula for cross-asset tail dependence.** *Status: queued, v2.*
+
+- *Mechanism.* Joint distribution of standardized residuals across the 10-symbol universe modelled as a hierarchical cascade of bivariate copulas (vine copula). C-vine variant outperforms D-vine for non-parametric tail-dependence estimation per recent (2024) work. Models the *joint* tail behavior that Trial 3's pooling assumed away (independence after standardization).
+- *Why this targets the residual.* AAPL is a top-5 weight in QQQ + SPY by index construction. Their τ = 0.99 misses are *mechanically* correlated — when AAPL has a tail event, QQQ and SPY have one too. Pooled-tail (Trial 3) treats the 10 symbols' standardized residuals as exchangeable; vine copulas explicitly model the dependence.
+- *Effort.* ~3-4 weeks. Introduces a copula library dependency (`pyvinecopulib` or R `VineCopula`).
+- *Citations.* Czado 2019 (vine copulas textbook); Sahamkhadam et al. 2024 (vine copula portfolio VaR); GARCH-MIDAS-R-Vine 2025.
+- *Decision.* v2 calibration-surface revision. Most architecturally invasive of the five families; only justified if Hawkes (B) and CAViaR (A) both leave residual cross-asset structure.
+
+**Family E — NGBoost / LightGBM-quantile (ML-native baseline).** *Status: queued, v1.5 / v2.*
+
+- *Mechanism.* Replace F1's log-log regression with NGBoost (Stanford 2020 — gradient-boosted probabilistic prediction with natural gradients) or LightGBM with quantile (pinball) loss. Non-parametric, captures non-linear interactions; predicts full conditional distribution per row.
+- *Why this targets the residual.* Different functional form. If AAPL / HOOD / SPY's tail behavior is non-linearly predictable from the existing covariates (factor returns, vol indices, earnings flags), an ML model with no linearity / log-log assumption may capture it where the parametric F1 cannot.
+- *Effort.* ~1 week. Off-the-shelf packages (`ngboost`, `lightgbm`).
+- *Citations.* Duan et al. 2020 (NGBoost); Meinshausen 2006 (quantile regression forests, the conceptual predecessor).
+- *Decision.* Run as a benchmark / sanity check rather than a candidate v1 deployment — ML-native predictors are harder to publish in a calibration-transparent paper (the methodology defensibility argument cuts the other way). If NGBoost passes the four thresholds, becomes a strong "is the parametric F1 leaving signal on the table" diagnostic; if not, confirms F1 is a competitive functional form.
+
+**Sequencing.** Family D this session (HAR-RV; ~3-5 days). Families A / B / C / E gated on Family D outcome and capacity. Production port (Trial 3 + Trial 6 + possibly Family D) still waits for scryer 15a / 15b per the +3 entry. v1.5 / v2 calibration-surface revision (Families A, B, C) is a separate workstream not on the Paper 1 critical path.
+
+---
+
 ### 2026-04-28 (late evening, +3) — Trial-program continuation: option C (Trials 6 + 2 before production port)
 
 **Decision.** Per user direction, run Trials 6 + 2 before porting Trial 3 to production. Rationale: Trial 3's pooled-tail PASS is the first positive result, but the residual 3 / 10 rejections at τ = 0.99 (AAPL, HOOD, SPY) suggest there's per-symbol tail-shape heterogeneity that pooled-tail can't capture. Two candidate mechanisms remain testable as v1 work (rather than v2 territory): conditional-volatility persistence beyond what VIX captures (Trial 6), and per-symbol residual-correction layered on the pooled-tail base (Trial 2 reframed). Running both before deployment means the production port carries either pooled-tail alone *or* pooled-tail + the best of {Trial 6, Trial 2} as a stronger combined fix; either way the trial-program scorecard is complete before we change deployed code.
