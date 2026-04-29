@@ -427,7 +427,64 @@ Decision rule: if the defensible scheme achieves per-symbol DQ reject-count ≤ 
 Artefacts: `scripts/exp_caviar_tail.py`; `reports/tables/v1b_oos_caviar_summary.csv`, `v1b_oos_dq_per_symbol_caviar.csv`.
 
 
-#### Family B result — pending
+#### Family B result — clean negative; HOOD residual confirmed as fundamental small-sample limitation
+
+Two-tailed Peaks-Over-Threshold Hawkes (2T-POT Hawkes) implementation per Bacry-Mastromatteo-Muzy 2015 + Cardiff 2025 thesis, applied to all 10 symbols. Per-symbol Hawkes(μ, α, β) MLE fit on calibration-period exceedance times above 90th-percentile threshold; per-symbol GPD(ξ, σ) on exceedance magnitudes. Conditional VaR at τ = 0.99 inflates the GPD-quantile by the Hawkes intensity ratio λ(t) / μ_uncond.
+
+Tested at thresholds 0.90 and 0.80 (lower threshold doubles the per-symbol exceedance count to address sample-size concerns).
+
+**Result: both thresholds FAIL all four scorecard thresholds.** Per-symbol DQ reject-count at τ = 0.99:
+
+| | base | Hawkes-POT (90th) | Hawkes-POT (80th) |
+|---|---:|---:|---:|
+| Per-symbol DQ rejects | 3 / 10 | 4 / 10 | 6 / 10 |
+| Realised | 0.975 | 0.971 | 0.967 |
+| Christoffersen $p_\text{ind}$ | 0.906 | 0.004 | 0.000 |
+| Mean half-width (bps) | 471 | 451 | 471 |
+
+Christoffersen $p_\text{ind}$ degrades dramatically under both Hawkes variants (0.906 → 0.004 / 0.000) — Hawkes' intensity-multiplier path creates *new* violation clustering that wasn't there before.
+
+**HOOD specifically — the headline target — is unchanged under Hawkes.** HOOD's calibration set has only 73 weekends → ~7-14 exceedances depending on threshold → Hawkes (μ, α, β) is statistically unidentifiable. The MLE either fails or returns parameters that produce essentially constant intensity, so HOOD's bound is unchanged from baseline. HOOD's per-symbol DQ p-value is 0.0000 under all three (base, Hawkes-90, Hawkes-80).
+
+**The diagnostic confirmation.** HOOD's τ = 0.99 miscalibration is now invariant under **eight** orthogonal mechanism families:
+
+1. Trial 1 — GPD parametric tail extrapolation
+2. Trial 3 — pooled-cross-section quantile
+3. Trial 6 — single-horizon vol regressor
+4. Trial 2 — per-symbol Mondrian residual correction
+5. Family D — multi-horizon HAR-RV
+6. Family A pure substitution — CAViaR-SAV
+7. Family A pure substitution — CAViaR-AS
+8. Family B — Hawkes-POT (this trial, both threshold variants)
+
+Plus 9 — Family A CV-defensible: HOOD remains rejecting under the CV selection too (defaults to baseline because no CAViaR fits stabilize on 73 calibration weekends).
+
+The mechanism-space exhaustion is now strong evidence that **HOOD's residual is a fundamental small-sample limitation, not a methodology choice**. HOOD has the smallest data footprint of any symbol (245 OOS weekends, 73 pre-2023 calibration), and every parametric tail-modeling family we've tested needs more data than HOOD provides. The remaining options for HOOD are:
+
+1. **§10.2 halt / corp-action filter** (scryer-blocked on wishlist 15a + 15b) — if HOOD's misses correlate with halt episodes (very plausible given meme-stock-era halt history), the filter closes the residual.
+2. **More data history** — wait for HOOD to accumulate 200+ calibration weekends (multi-year wait; 73 → 200 at ~50 weekends / year ≈ 2.5 years).
+3. **Product-shape change** — flag HOOD as "experimental coverage at τ = 0.99" in v1's calibration-transparent event stream; deploy τ ∈ [0.50, 0.95] for HOOD specifically while serving τ = 0.99 for the other 9 symbols.
+
+**Other-symbol incidental observations.**
+
+* SPY at 80th-percentile Hawkes flipped reject → pass (same direction as CAViaR-SAV; SPY's tail dynamics genuinely have autoregressive structure that multiple methods catch).
+* Hawkes broke GLD/GOOGL/MSTR/TSLA at 80th-percentile threshold — the lower-threshold inflation factor swings too wildly for the more-stable symbols.
+* The Hawkes signal is mostly destructive on this data: it captures SPY's intent better but at the cost of noise everywhere else.
+
+**Implications for v1.5 deployment.**
+
+* Family B is *not* a deployment candidate. Family A CV-defensible CAViaR hybrid (1 / 10 reject from the previous sub-block) remains the v1.5 deployment plan.
+* HOOD's residual is now firmly established as the *one* symbol that the methodology cannot close on its own data. The §10.2 filter is the next-tested hypothesis; if it also fails, the product-shape change becomes the right framing.
+* Paper 1 §6.4.1 disclosure: "Hawkes-POT was tested for HOOD specifically and could not stabilize due to the 73-weekend calibration history (8 mechanism families tested in `reports/v1b_*.md` show HOOD invariant). HOOD's τ = 0.99 residual is therefore a fundamental small-sample limitation rather than a methodology-choice limitation; the §10.2 halt/corp-action filter is the next-tested hypothesis."
+
+**Updated five-family status.**
+- Family A (CAViaR + CV defensible): **v1.5 deployment candidate, 1 / 10 reject.**
+- Family B (Hawkes-POT): complete, clean negative; HOOD residual diagnosed as small-sample.
+- Family C (vine copula): queued; informationally lower priority since HOOD's residual is now diagnosed as small-sample (cross-asset correlation isn't HOOD's issue).
+- Family D (HAR-RV): complete, fail.
+- Family E (NGBoost): queued; lower priority.
+
+Artefacts: `scripts/exp_hawkes_pot.py`; `reports/tables/v1b_oos_hawkes_summary.csv`, `v1b_oos_dq_per_symbol_hawkes.csv`.
 
 
 #### Family C result — pending
