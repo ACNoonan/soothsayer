@@ -341,6 +341,75 @@ Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 la
 
 ---
 
+### 2026-04-29 (morning) — Sample-size eligibility framework: turning HOOD's residual into a positive methodology contribution (future-paper seed)
+
+**Trigger.** The eight-trial mechanism-family program (Trials 1, 2, 3, 6, Family D, A-SAV, A-AS, B-Hawkes) plus the Family A continuation (CV-defensible BMA scheme) demonstrate that HOOD's τ = 0.99 miscalibration is *invariant under every parametric tail-modeling family we tested* — and that this invariance correlates exactly with HOOD's *minimum data footprint* of any symbol (245 OOS weekends, 73 pre-2023 calibration weekends, smallest in the universe). User observation 2026-04-29: HOOD's diagnosis is not just a per-symbol disclosure; it is the *empirical floor* of what calibration-history a symbol needs to be served at a given target coverage. Formalising this floor as an *eligibility criterion* converts the §6.4.1 "HOOD residual" disclosure into a positive methodological contribution: a sample-size-conditional admission policy for calibration-transparent oracles.
+
+**Hypothesis.** A symbol $s$ with pre-deployment calibration history $|\mathcal{T}_s| = n$ is eligible to be served at consumer target $\tau \in [\tau_\min, \tau_\max(n)]$, with $\tau_\max(n)$ derived from the empirical sample-size requirements of the methodology-stack components active at that $\tau$. Below the floor, the served bound is either undefined or carries a known calibration defect that violates the §3.4 P2 contract.
+
+**Empirical sample-size floors (from this project's eight-trial scorecard).**
+
+| methodology component | minimum calibration $n$ | source / evidence |
+|---|---:|---|
+| F1 log-log σ regression (4 covariates) | ~50 | $\geq 10$ obs / parameter rule of thumb |
+| F1 + state augmentation (5 covariates) | ~50 | Trial 6 result |
+| Empirical quantile at τ ≤ 0.85 | ~50 | $\geq 5$ expected violations |
+| Empirical quantile at τ = 0.95 | ~100 | ~5 expected violations at central anchor |
+| Pooled-tail at τ ≥ 0.95 (Trial 3) | per-symbol ~50 *plus* universe ≥ 5 symbols | cross-symbol pool stabilises |
+| Empirical quantile at τ = 0.99 | ~150 | ~1.5 expected violations is unstable |
+| CAViaR-SAV / AS at τ = 0.99 | **~100** | this project's empirical fit-floor; HOOD at 73 fails |
+| GPD on tail exceedances at 90th-pct | ~30 exceedances ≈ ~300 obs | Pickands-Balkema-de Haan asymptotic regime |
+| Hawkes-POT at 90th-pct (μ, α, β identification) | ~30-50 exceedances ≈ ~300-500 obs | this project's Family B finding; fails on HOOD at ~7 exceedances |
+| BMA-CAViaR per-symbol hybrid | ~100 (limited by CAViaR floor) | this project's Family A continuation result |
+
+**Derived eligibility criterion (proposed).**
+
+| symbol calibration $n$ | eligible $\tau_\max$ | served methodology |
+|---|---|---|
+| $n < 50$ | not eligible | F0 stale-hold only with explicit "non-calibrated" receipt flag |
+| $50 \leq n < 100$ | $\tau_\max = 0.85$ | F1 + per-symbol empirical-quantile only; no pooled-tail eligibility |
+| $100 \leq n < 200$ | $\tau_\max = 0.95$ | F1 + state-aug + pooled-tail; no CAViaR / Hawkes-POT |
+| $200 \leq n < 500$ | $\tau_\max = 0.99$ | full v1.5 BMA stack (Trial 3 + Trial 6 + Family A BMA) |
+| $n \geq 500$ | $\tau_\max = 0.99$ | full v1.5 stack + optional Hawkes-POT layer |
+
+The $\tau_\max$ table is the *contract enforcement* surface. A consumer requesting $\tau$ above $\tau_\max(n_s)$ for symbol $s$ either (i) gets refused, (ii) gets served at a clipped $\tau' = \tau_\max(n_s)$ with a receipt indicating the clip, or (iii) gets served with an explicit "non-calibrated" flag in the receipt — three deployment-policy variants the framework leaves to product configuration.
+
+**Where the framework lands HOOD specifically.**
+
+HOOD has $n = 73$ pre-2023 calibration weekends. Per the criterion above:
+- Eligible: $\tau \in [0.50, 0.85]$ — F1 + per-symbol empirical-quantile.
+- *Not* eligible at $\tau = 0.95$ on the per-symbol path; pooled-tail might lift this since pooling is robust to per-symbol $n$.
+- *Not* eligible at $\tau = 0.99$ — below the 200-row BMA-CAViaR floor; eight mechanism families confirm.
+
+The §6.4.1 disclosure changes shape from "HOOD's miscalibration is structural and unaddressable" to "HOOD's calibration history $n = 73$ is below the BMA-CAViaR eligibility floor of ~100, consistent with the eight-mechanism-family invariance evidence; HOOD is therefore served at $\tau \in [0.50, 0.85]$ pending more calibration history (~ +50 weekends ≈ 1 year)."
+
+**Where this fits in the future-paper plan.**
+
+This is *not* Paper 1 critical-path methodology. Paper 1 is the calibration-transparent oracle primitive itself; the eligibility criterion is a *deployment-policy companion*. Two follow-up paper directions:
+
+1. **"Sample-size eligibility for calibration-transparent oracles" (paper-N candidate, ML / q-fin.RM venue).** Formalise the empirical floors above into a theoretical framework using:
+   - Conformal-prediction sample-complexity bounds (Vovk-Gammerman-Shafer 2005; Lei-Wasserman 2014; Tibshirani-Foygel-Barber-Ramdas 2019).
+   - Quantile-estimator finite-sample rates (Koenker 2005; Chernozhukov-Fernandez-Val-Galichon 2010).
+   - Empirical-Bayes / hierarchical-Bayes shrinkage for small-sample symbols (Efron-Morris classical; horseshoe priors for sparse heterogeneity).
+   - The eight-mechanism-family scorecard as an empirical case study supporting the proposed floors.
+   The deliverable is a *framework paper*, with our HOOD case as the load-bearing empirical anchor and SPY/AAPL as the contrast cases that *do* satisfy the floor and benefit from the higher-τ methodology stack.
+
+2. **"Symbol-graduation pipeline for tokenized RWAs" (paper-N+1 candidate, ACM AFT / DeFi venue).** Operationalises the eligibility criterion as an *on-chain admission contract*: when a tokenized-equity SPL launches, the calibration-transparent oracle's router program enforces the eligibility table on-chain — a freshly-listed token gets τ_max = 0.85 until its calibration history accumulates past the 200-row floor, at which point it graduates to τ_max = 0.99 automatically. This is a clean DeFi-protocol-design contribution that connects the calibration methodology to the *product surface* in a way that handles new-token-launch trust-bootstrap (the protocol commits ex ante to refusing tail coverage for new tokens until they've earned it via calibration accumulation). Connects to the user's broader research arc per the protocol-builder career-direction memory: a calibration-transparent oracle's analog of LVR-aware AMMs' "venue gets discount as it accumulates LP-side history."
+
+**Action items (this session).**
+
+1. Add §10.6 to Paper 1 — "Sample-size eligibility framework (future paper)" — sketching the framework as future work and citing this methodology entry.
+2. Defer the formalisation paper itself; surface the conjecture in Paper 1's future-work section so the framework's seed is already in the literature when the follow-up paper lands.
+3. *Do not* implement the eligibility criterion in the v1.5 router program yet — v1.5 ships with current-symbol-universe-fixed methodology, and the eligibility framework is research, not product. The router-level admission contract is v2 → paper-N+1 critical path.
+
+**No methodology change yet.** v1.5 deployment plan is unchanged. This entry seeds the future-paper direction; the empirical floors above are the ten-symbol case study that the future paper would expand with cross-asset-class validation (FX, futures, perps, etc.).
+
+**Future-data note: CEX stock-perp coverage shipped (scryer wishlist item 45 via scryer phases 55-58 on 2026-04-28; commit `074fae2`).** When the CEX stock-perp tape (`cex_stock_perp_tape.v1` + `cex_stock_perp_ohlcv.v1`) is consumed via scryer parquet, HOOD's "fundamental small-sample limitation" diagnosis becomes revisitable — perp tapes provide *continuous 24/7 weekend price discovery* that the daily-bar-derived calibration set fundamentally lacks. This could collapse HOOD's eligibility floor from "wait 1 year for new weekends" to "incorporate perp-derived intra-weekend RV as an additional predictor in F1 / CAViaR / Hawkes" — at which point the eight-mechanism-family invariance evidence is contingent on the *current* daily-bar data, not on HOOD's structural tail behaviour. v2 calibration-surface revision territory; lands in paper-N+1 if the perp-data integration changes HOOD's reject-count.
+
+**Scryer status snapshot (2026-04-29).** Item 15 schemas (yahoo.bars, yahoo.earnings, backed.v1, nasdaq_halts.v1, kraken_funding.v1) shipped via scryer phases 11-15 on 2026-04-27/28. The canonical scryer dataset root currently shows 5 active venues (geckoterminal, kamino_scope, pyth, redstone, soothsayer_v5); yahoo / backed / nasdaq_halts venues need either launchd plist activation or `scry import` invocation to populate. **Items 15a (`yahoo.corp_actions`) and 15b (`nasdaq_halts.v1` historical backfill) — the soothsayer-paper-1-blockers — have NOT shipped.** Those remain queued in `scryer/wishlist.md` with the original `[methodology-entry-needed; soothsayer-paper-1-blocker]` tags; the §10.2 halt / corp-action filter test remains gated. Subsequent scryer phases 43-58 prioritised other items (priority_fees, mango_v4, fred_macro_extended, deribit_iv, cboe_indices, raydium_pool_metadata, xstock_holders, edgar_8k, evm_liquidation, pyth_poster, cex_stock_perp_*) — not Paper-1-blocking.
+
+---
+
 ### 2026-04-28 (very late evening) — Strategic commitment: depth-first methodology before Paper 1 publication
 
 **Decision (user-driven, 2026-04-28).** Defer Paper 1 publication as needed to run the full v1.5 / v2 methodology trial extension (Families A / B / C / E from the late-evening +4 entry below) before submission. The five-trial scorecard (Trials 1, 2, 3, 6, Family D) demonstrates the AAPL / HOOD / SPY τ = 0.99 residual is invariant under five orthogonal mechanism families inside the empirical-quantile-with-σ-regression family. Closing the residual requires a methodology-family change (CAViaR / Hawkes / vine copula), and the project's competitive position is *only* defensible if the methodology is bulletproof — a one-builder team competing with Pyth, Chainlink, RedStone earns the right to reviewer attention by running every reasonable mechanism, not by shipping the first passing variant.
@@ -897,6 +966,8 @@ Effort: ~5-7 days for Python + Rust + parity + paper update + new methodology en
 ---
 
 ### 2026-04-28 (afternoon) — Unified-feed router design lock: regime gate + Layer 0 multi-upstream aggregator + governance plan
+
+> **AMENDMENT 2026-04-29 (late evening)** — The v0 calendar gap referenced in this entry's regime-gate design (the embedded NYSE / CME GLOBEX calendar shipped without holiday handling, without DST handling, and without early-close semantics — relying solely on the "calendar disagrees with oracle → Unknown" safety net) is **closed for NYSE**. The router program's `nyse_calendar_signal` now embeds a sorted 2024–2027 NYSE holiday table (50 entries; FullClose / EarlyClose), applies the post-2007 US DST rule algorithmically (Howard Hinnant civil-date arithmetic, BPF-safe), and returns `Closed` after 13:00 ET on early-close days. The safety net remains, now firing on intra-session `Halted` rather than every holiday morning. CME GLOBEX remains `NotApplicable` until the first CME-tracked asset lands in `RouterConfig`. See the 2026-04-29 (late evening) "Holiday-aware DST-correct NYSE calendar" entry above for table sources (ICE PRs + SEC Release 34-101993), the DST algorithm, the market-hour UTC windows, and new open question O8 (calendar refresh cadence).
 
 **Trigger.** The strategic discussion across 2026-04-27 → 2026-04-28 evolved soothsayer's product positioning from "calibration-transparent supplementary band primitive" to "calibration-transparent unified reference feed for tokenized RWAs, primary in closed-market regimes and aggregated multi-source during open hours." The motivating product is a router program that consumers read as a single PDA per asset, with internal regime-routing between an open-hours multi-upstream aggregator (Layer 0, deterministic; Layer 1 future, calibration-weighted) and the existing closed-hours soothsayer band primitive. This entry locks the design.
 
