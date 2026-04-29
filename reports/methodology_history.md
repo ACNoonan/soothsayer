@@ -295,6 +295,121 @@ Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 la
 
 ---
 
+### 2026-04-28 (late evening, +3) — Trial-program continuation: option C (Trials 6 + 2 before production port)
+
+**Decision.** Per user direction, run Trials 6 + 2 before porting Trial 3 to production. Rationale: Trial 3's pooled-tail PASS is the first positive result, but the residual 3 / 10 rejections at τ = 0.99 (AAPL, HOOD, SPY) suggest there's per-symbol tail-shape heterogeneity that pooled-tail can't capture. Two candidate mechanisms remain testable as v1 work (rather than v2 territory): conditional-volatility persistence beyond what VIX captures (Trial 6), and per-symbol residual-correction layered on the pooled-tail base (Trial 2 reframed). Running both before deployment means the production port carries either pooled-tail alone *or* pooled-tail + the best of {Trial 6, Trial 2} as a stronger combined fix; either way the trial-program scorecard is complete before we change deployed code.
+
+**Time budget.** Trial 6 ~ 1-2 hours (modify the standalone pooled-tail script, add `log_fri_vol_20d` as an extra regressor in F1's σ model; rerun diagnostics). Trial 2 ~ 2-4 hours (CQR-style Mondrian conformal correction on top of pooled-tail bounds; per-(symbol, regime) calibration). Total ~ half-day session.
+
+**Trial 6 — State augmentation: log(realised_vol_4w) as extra F1 σ regressor.** F1's current σ model regresses log|residual| on log(VIX) + earnings_next_week + is_long_weekend. Add `log(fri_vol_20d)` as a fourth regressor — `fri_vol_20d` is the trailing 20-trading-day std of this symbol's log-returns at Friday close, a per-symbol realized-vol measure that VIX (forward-looking, market-wide) doesn't carry. Hypothesis: per-symbol conditional-volatility persistence is the residual mechanism beyond pooled-tail; adding the per-symbol realized-vol predictor reduces the AAPL / HOOD / SPY tail miscalibration via a tighter symbol-specific σ_now estimate.
+
+**Trial 2 (reframed) — Mondrian conformal correction on pooled-tail bounds.** Take Trial 3's pooled-tail bounds as the base predictor; for each (symbol, regime) group, compute the CQR-style asymmetric residual on the calibration split, take the (1 − α / 2) quantile per group, add as a symmetric correction to the bounds. Different from the originally-proposed Trial 2 (Mondrian on GPD) because the base predictor is the post-Trial-3 leading candidate. Hypothesis: per-symbol residual correction closes the AAPL / HOOD / SPY gap by adding a finite-sample group-conditional coverage layer over the pooled-cross-section base.
+
+**Production port deferred.** Trial 3 alone is already deployable; Trial 3 + (best of Trial 2 / 6) is the candidate deployment if either further reduces the per-symbol DQ reject-count at τ = 0.99 without exploding bandwidth. Decision deferred to after both trials report.
+
+**Sub-entries.** Trial 6 result + Trial 2 result will appear inline below as sub-blocks under this entry as they land, with a final synthesis at the end.
+
+#### Trial 6 result — partial positive: helps τ ≤ 0.95, no effect at τ = 0.99
+
+State augmentation (added `log(fri_vol_20d)` as a fourth F1 σ regressor on top of pooled-tail) ran in seconds. Result: per-symbol DQ reject-count at lower anchors visibly improves; at τ = 0.99 specifically it does *not* move.
+
+| τ | Trial 3 base reject-count | Trial 6 aug reject-count | shift |
+|---:|---:|---:|---|
+| 0.68 | 6 / 10 | 5 / 10 | improves |
+| 0.85 | 5 / 10 | 4 / 10 | improves |
+| 0.95 | 7 / 10 | 5 / 10 | improves |
+| **0.99** | **3 / 10** | **3 / 10** | **no change** |
+
+At τ = 0.99 specifically: the same three symbols (AAPL, HOOD, SPY) reject under both Trial 3 base and Trial 6 augmented. NVDA, QQQ, TSLA pass under both (continuing their Trial 3 → pass status). Bandwidth at τ = 0.99 *tightens* by 3.5 % (489 → 471 bps) — sharpness improvement, not coverage improvement. Christoffersen $p_\text{ind}$ at τ = 0.99: 0.984 → 0.906 (still strong pass; minor degradation from added regressor noise at the sparse tail).
+
+**Diagnostic refinement.** The persistent τ = 0.99 rejectors (AAPL / HOOD / SPY) are now confirmed as *structurally* unaffected by:
+- Trial 1: parametric tail extrapolation (small-sample noise mitigation)
+- Trial 3: cross-symbol pooling (per-symbol tail-shape mitigation)
+- Trial 6: per-symbol conditional-volatility augmentation
+
+Three trials × three different mechanisms × same three rejecting symbols = these three carry tail behaviour orthogonal to all three mechanism families. Candidate explanations for the AAPL / HOOD / SPY residual:
+- Heavier per-symbol kurtosis than the cross-section average (heavy-tail symbols whose pooled-tail bound is *under-covering* relative to their individual tails).
+- Event-driven tail clustering (earnings cycles for AAPL; post-IPO sample composition for HOOD; index-driven correlated tail for SPY).
+- Within-symbol auto-correlation of squared residuals at the tail that none of the three mechanisms tested addresses (this is the GARCH / CEVT mechanism — Trial 5 territory, v2).
+
+**Trial-program implication.** State augmentation is a real methodology improvement at τ ≤ 0.95 (3 / 10 fewer per-symbol rejections summed across the three lower anchors) but *not* the v1 fix for τ = 0.99 specifically. Worth porting alongside Trial 3 if the production deployment plan covers all four anchors; not necessary if the deployment plan keeps τ = 0.99 as the only anchor where pooled-tail materially helps. Trial 2 (Mondrian on pooled-tail) targets the AAPL / HOOD / SPY residual directly via per-symbol residual-correction; if Trial 2 closes that gap, the v1 deployment becomes pooled-tail + Trial 2 + (optionally) Trial 6 augmentation. If Trial 2 also fails on AAPL / HOOD / SPY, the conclusion is that those three symbols' τ = 0.99 miscalibration is structural and v2 territory (Trial 5 CEVT or scope-the-deployed-range alternative).
+
+Artefacts: `scripts/exp_state_aug_tail.py`; `reports/tables/v1b_oos_state_aug_summary.csv`, `v1b_oos_dq_per_symbol_state_aug.csv`; `data/processed/exp_state_aug_bounds.parquet`.
+
+
+#### Trial 2 result — null: Mondrian doesn't move AAPL/HOOD/SPY
+
+CQR-style Mondrian conformal correction layered on Trial 3's pooled-tail base, per-symbol calibration on the pre-2023 panel (~430 rows per symbol, well-defined for the (1−α/2)(n+1)/n quantile at τ = 0.99), evaluated on the full OOS test slice.
+
+| τ | base reject-count | Mondrian reject-count | bandwidth Δ |
+|---:|---:|---:|---:|
+| 0.68 | 6 / 10 | 6 / 10 | +3 % |
+| 0.85 | 5 / 10 | 4 / 10 | +8 % |
+| 0.95 | 7 / 10 | 8 / 10 | +9 % |
+| **0.99** | **3 / 10** | **3 / 10** | **+9 %** |
+
+At τ = 0.99 the per-symbol DQ p-values for AAPL / HOOD / SPY are *byte-identical* under base and Mondrian (0.0000 / 0.0000 / 0.0002). Christoffersen $p_\text{ind}$ at τ = 0.99 actually degrades (0.984 → 0.216) — Mondrian's per-symbol correction reduces total violations from 42 → 36 (over-corrects slightly given small calibration tail) but does not shift the temporal-clustering pattern that DQ catches for the three rejecting symbols.
+
+**Diagnostic implication.** Four trials × four orthogonal mechanism families × same three persistent rejectors:
+
+| trial | mechanism family | AAPL | HOOD | SPY |
+|---|---|:---:|:---:|:---:|
+| 1 (GPD)               | small-sample tail-quantile noise        | reject | reject | reject |
+| 3 (pooled-tail)       | per-symbol tail-shape heterogeneity     | reject | reject | reject |
+| 6 (state augmentation)| conditional-vol persistence (per-symbol)| reject | reject | reject |
+| 2 (Mondrian)          | per-symbol residual correction          | reject | reject | reject |
+
+The AAPL / HOOD / SPY τ = 0.99 miscalibration is therefore *not* in the mechanism-family space spanned by these four trials. Remaining candidates:
+
+1. **GARCH / conditional-EVT** — within-symbol auto-correlation of squared residuals at the tail. Trial 5 territory; v2 calibration-surface revision.
+2. **Halt / corp-action structural exceptions** — §10.2 filter, scryer-blocked on wishlist items 15a + 15b. AAPL specifically has a long history of splits (4-for-1 2020, 7-for-1 2014), recurring earnings-cycle clustering; HOOD has post-IPO sample composition + meme-stock-era halt episodes; SPY reflects index-driven correlated tail events that the per-symbol regression can't decompose. Mechanism 2 is therefore a strong prior on AAPL specifically and plausible for HOOD; SPY is more a "captures-the-residual-of-everything-else" rejection.
+3. **Cross-symbol tail correlation** — AAPL is a top-5 weight in SPY and QQQ; their τ = 0.99 misses are not statistically independent. Pooled-tail's cross-sectional pooling assumes residual exchangeability; if residual *correlation* is the issue (not heterogeneity), pooling doesn't fix it. Multivariate copula or factor-tail extension; v2.
+
+Artefacts: `scripts/exp_mondrian_conformal.py`; `reports/tables/v1b_oos_mondrian_summary.csv`, `v1b_oos_dq_per_symbol_mondrian.csv`.
+
+
+#### Synthesis — four-trial scorecard, v1 deployment recommendation
+
+**Scorecard.**
+
+| trial | mechanism | τ = 0.99 reject-count | other anchors | bandwidth Δ vs empirical | verdict |
+|---|---|:---:|---|:---:|---|
+| 1 (GPD) | small-sample tail-quantile noise | 6 / 10 (no improvement) | unchanged | + 8 % | **fail** |
+| 3 (pooled-tail) | per-symbol tail-shape heterogeneity | **3 / 10** | unchanged | + 9 % | **PASS** |
+| 6 (pooled + state augmentation) | conditional-vol persistence | 3 / 10 (no further improvement) | **6 → 5, 5 → 4, 7 → 5** at lower anchors | + 9 % at τ = 0.99; − 3.5 % vs Trial 3 | **partial PASS — wins at τ ≤ 0.95** |
+| 2 (pooled + Mondrian) | per-symbol residual correction | 3 / 10 (no improvement) | minor improvements at τ = 0.85 | + 18 % vs empirical (+ 9 % vs Trial 3) | **null** |
+
+**v1 deployment recommendation: port Trial 3 + Trial 6 jointly.** Pooled-tail (Trial 3) closes 3 of 6 per-symbol DQ rejections at τ = 0.99 and is the headline win; state augmentation (Trial 6) closes additional rejections at the lower anchors where Trial 3 is unchanged from baseline (sums of per-symbol rejections at τ ∈ {0.68, 0.85, 0.95}: empirical baseline 18 / 30, Trial 3 alone 18 / 30, Trial 3 + Trial 6 14 / 30). Trial 2 (Mondrian) provides no marginal value beyond Trial 3 and adds bandwidth — defer.
+
+**The persistent 3 / 10 (AAPL / HOOD / SPY) at τ = 0.99 is a real residual.** Documented as structural per-symbol tail-clustering that none of the four mechanisms tested addresses. Two paths forward:
+
+1. **§10.2 halt / corp-action filter** (scryer-blocked, wishlist 15a + 15b). AAPL specifically has the strongest a-priori case for this: extensive split history, regular earnings cycle, dividend events. HOOD's post-IPO + meme-stock-era halt history. SPY captures index-driven correlated stress. Filter test runs as soon as scryer ships the gating items.
+
+2. **v2 calibration surface** with Trial 5 (conditional EVT) and / or factor-tail / copula extension to handle cross-symbol tail correlation (AAPL is top-5 weight in QQQ + SPY → not independent). Accompanied by a possible product-shape change: if τ = 0.99 cannot be made per-symbol-DQ-clean, ship τ ∈ [0.50, 0.95] in v0/v1 and expose τ = 0.99 as an experimental tier in v1's calibration-transparent event stream where per-symbol structure can be surfaced to the consumer.
+
+**Production-port checklist (Trial 3 + Trial 6 combined, supersedes the Trial-3-only port from the +2 entry).**
+
+1. Refactor `src/soothsayer/backtest/forecasters.py:empirical_quantiles_f1_loglog` to:
+   - Accept `pool_tail_above_q: float | None = None` (Trial 3): when set, the τ ≥ pool_tail_above_q quantile is computed from the pooled cross-section z_hist instead of per-symbol.
+   - Accept `extra_regressors_with_log: tuple[str, ...] = ("log_fri_vol_20d",)` (Trial 6): adds `log(fri_vol_20d)` to the σ regression alongside the existing extras. Default ON.
+2. Add `panel.build` derivation for `log_fri_vol_20d` (= `np.log(fri_vol_20d.clip(lower=1e-6))`).
+3. Default `pool_tail_above_q = 0.95` in `oracle.py`. Surface entries for q ≥ 0.95 use the pooled-cross-section calibration.
+4. Rebuild `data/processed/v1b_bounds.parquet` with the new forecaster; rerun reviewer-diagnostics + walk-forward + leave-one-out batteries; verify production-side per-symbol DQ aligns with the standalone replays.
+5. Update §6.4 / §6.4.1 of Paper 1 with the new headline numbers. Expected production shifts at τ = 0.99: per-symbol DQ reject-count 5 / 10 → ~2 / 10; pooled realised 0.977 → ~0.978-0.980; Christoffersen $p_\text{ind}$ stays comfortable; mean half-width ~580 → ~620 bps. Lower anchors get Trial 6's improvement.
+6. §6.4.1 disclosure update: "the residual reject-count of N / 10 at τ = 0.99 (AAPL, HOOD, SPY in our standalone replay) is structural per-symbol tail-clustering invariant under four mechanism families tested in `reports/v1b_evt_pot_trial.md` / `v1b_pooled_tail_trial.md` / `v1b_state_aug_trial.md` / `v1b_mondrian_trial.md`; the §10.2 halt / corp-action filter (gated on scryer wishlist 15a + 15b) is the next-tested hypothesis." Cite the four trial reports.
+7. Rust port: byte-for-byte parity test on the new pooled-tail + augmented-σ surface. Update `crates/soothsayer-oracle/src/{config,oracle}.rs`. Rerun the 75 / 75 parity test.
+8. Methodology log entry at deployment time per CLAUDE.md hard rule on methodology log entries.
+
+Effort: ~5-7 days for Python + Rust + parity + paper update + new methodology entry. Larger than the Trial-3-only port (~3-5 days) by the Trial 6 augmentation overhead, but ships a stronger combined fix.
+
+**Updated trial-program status.**
+- Trial 1, Trial 2, Trial 3, Trial 6: complete. Scorecard above.
+- Trial 5 (CEVT): v2 territory. Defer until production port + scryer §10.2 filter results land.
+- Strategic alternative (drop τ = 0.99): downgraded but still live as a v1 fallback if production port reveals issues. Otherwise becomes a v1 → v2 sequencing question.
+
+
+---
+
 ### 2026-04-28 (late evening, +2) — Trial 3 result: pooled-tail-only PASSES the four-threshold scorecard (first positive trial; v1-deployable)
 
 **Result.** Trial 3 (pooled-tail-only at τ ≥ 0.95) **passes all four decision thresholds** in the standalone replay. Per-symbol DQ reject-count at τ = 0.99 drops from 6 / 10 (empirical baseline) to 3 / 10 (pooled). Pooled realised coverage 0.976 (within ±2pp of 0.99). Christoffersen $p_\text{ind} = 0.984$. Bandwidth 489 bps (+ 9 % vs empirical baseline; well within the 1.5× cap of 674 bps). This is the first positive result in the trial program and a deployable v1 fix.
