@@ -295,6 +295,42 @@ Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 la
 
 ---
 
+### 2026-04-28 (late evening, +2) — Trial 3 result: pooled-tail-only PASSES the four-threshold scorecard (first positive trial; v1-deployable)
+
+**Result.** Trial 3 (pooled-tail-only at τ ≥ 0.95) **passes all four decision thresholds** in the standalone replay. Per-symbol DQ reject-count at τ = 0.99 drops from 6 / 10 (empirical baseline) to 3 / 10 (pooled). Pooled realised coverage 0.976 (within ±2pp of 0.99). Christoffersen $p_\text{ind} = 0.984$. Bandwidth 489 bps (+ 9 % vs empirical baseline; well within the 1.5× cap of 674 bps). This is the first positive result in the trial program and a deployable v1 fix.
+
+**Per-symbol shifts at τ = 0.99 under pooled.** NVDA, QQQ, TSLA flip reject → pass; AAPL, HOOD, SPY remain rejecting; GLD, MSTR, GOOGL stay passing; TLT drops out (too few violations under pooled to test).
+
+**Mechanism interpretation — refines Trial 1's diagnostic.** Both Trial 1 (GPD on per-symbol exceedances) and Trial 3 address sample-size issues at different levels. Trial 1 didn't help; Trial 3 did. Therefore the τ = 0.99 per-symbol miscalibration is *not* pure small-sample tail-quantile noise — it is **per-symbol tail-shape instability** on a 156-weekend window that GPD's per-symbol parametric fit inherits but cross-symbol pooling bypasses. Pooling assumes cross-sectional homogeneity of standardized residuals (after F1's per-symbol σ standardization removes scale heterogeneity); this assumption holds for 7 / 10 symbols and fails for AAPL / HOOD / SPY. The 3 / 10 residual rejections are therefore *symbol-specific tail-shape deviations from the cross-sectional average*, not estimator-precision issues.
+
+**Trial-program updates.**
+
+- *Trial 3:* PASS. Port to production calibration pipeline as the leading v1 fix. Estimated effort ~3-5 days for Python + Rust + parity + §6.4.1 paper update. This becomes a *methodology change* (the deployed system now changes at τ ≥ 0.95) rather than a paper-side disclosure.
+- *Trial 6 (state augmentation, post-shock realized vol):* still worth running. The 3 / 10 residual rejections (AAPL, HOOD, SPY) suggest per-symbol tail-shape heterogeneity that pooling can't capture. State augmentation (e.g., trailing 4-week realized vol as an extra F1 σ regressor) might capture per-symbol conditional volatility variation that closes part of the residual gap. Effort ~3-5 days. Run after Trial 3 ports to production so we can layer the experiments cleanly.
+- *Trial 2 (Mondrian conformal): back on the table.* Reframe as "Mondrian conformal correction layered on the pooled-tail base predictor" — different base from the originally-proposed GPD. Marginal value would be closing the AAPL / HOOD / SPY gap further. Defer until Trial 6 result is known.
+- *Trial 5 (conditional EVT) and the strategic alternative (drop τ = 0.99 from deployed surface):* unchanged; remain v2 territory or fallback if Trials 6 + 2 also fall short.
+
+**Production deployment checklist (Trial 3 port).**
+
+1. Add `pool_tail_above_q: float | None = None` parameter to `compute_calibration_surface()` in `src/soothsayer/backtest/calibration.py`. When set, surface entries for q ≥ pool_tail_above_q are computed by pooling z_hist across symbols within (regime, time-window) rather than per-(symbol, regime).
+2. Default value: `pool_tail_above_q = 0.95` per Trial 3's experiment design. Disable per-symbol fallback at the pooled-tail threshold; the cross-section is the more stable estimator.
+3. Update `oracle.py` Oracle.fair_value() to consult the pooled-tail surface row when target τ inverts to claimed-q ≥ 0.95.
+4. Rebuild bounds parquet (`v1b_bounds.parquet`) and run the full reviewer-diagnostics + walk-forward batteries on the new served bounds. Verify production-side per-symbol DQ aligns with the standalone replay's improvement (3 / 10 in replay; expected to map to ~2-3 / 10 in production after the surface + buffer machinery applies).
+5. Update §6.4 / §6.4.1 with the new production-side numbers (Kupiec / Christoffersen / DQ at τ = 0.99 will all change). The headline P2 claim improves at τ = 0.99; the §9.1 structural-ceiling disclosure tightens.
+6. Rust parity: port the pooled-tail surface construction to `crates/soothsayer-oracle/src/{config,oracle}.rs`; rerun the 75/75 byte-for-byte parity test.
+7. Methodology log entry documenting the methodology change at deployment time (this entry documents the *trial result*; the *deployment* needs its own dated entry per the doc's "When you change methodology, append a new dated entry" rule).
+
+**Caveat — standalone vs production.** Trial 3's standalone replay uses raw bounds at the claimed-grid point τ (no calibration surface, no per-target buffer, no extended-grid resolution). Production gets to 5 / 10 per-symbol DQ via surface + buffer + extended grid; my replay's empirical baseline is 6 / 10. Pooled-tail's 3 / 10 in replay should map to ~2-3 / 10 in production after the same machinery is applied — but this needs verification by the production-port step above, not assumption.
+
+**Paper 1 implication.** §6.4.1 is now substantively updateable: pooled-tail can be reported as the production estimator with per-symbol DQ reject-count at τ = 0.99 of ~2-3 / 10 rather than 5 / 10. This is a real headline improvement to the P2 calibration claim. The §9.1 structural-ceiling disclosure can be tightened: "the 1 % tail is resolved to per-symbol DQ ≤ 3 / 10 with cross-sectional pooling; the residual three-symbol miscalibration is per-symbol tail-shape heterogeneity (AAPL / HOOD / SPY) that the regime labeler does not encode and that the §10.2 halt / corp-action filter or Trial 6 state augmentation may further address."
+
+**Artefacts.**
+- `reports/v1b_pooled_tail_trial.md` — full trial report.
+- `scripts/exp_pooled_tail.py` — standalone experiment.
+- `reports/tables/v1b_oos_pooled_tail_summary.csv`, `v1b_oos_dq_per_symbol_pooled.csv` — diagnostic tables.
+
+---
+
 ### 2026-04-28 (late evening, +1) — Trial 1 result: GPD does not fix the τ = 0.99 per-symbol DQ rejections
 
 **Result.** Hypothesis H1 from the late-evening trial program **rejected**. GPD-based τ ≥ 0.95 quantiles produce the *same* per-symbol DQ reject-count at τ = 0.99 as the empirical baseline (6 / 10 in the standalone replay; the absolute number differs from production's 5 / 10 because the experiment uses raw claimed-grid bounds with no calibration-surface inversion or per-target buffer, but the *internal* empirical-vs-GPD comparison is apples-to-apples). Bandwidth widened modestly (449 → 484 bps, +8%), well within the 1.5× cap. Decision-threshold scorecard: 1 (DQ) **fail**, 2 (realised) fail in both, 3 (Christoffersen) pass, 4 (bandwidth) pass.
