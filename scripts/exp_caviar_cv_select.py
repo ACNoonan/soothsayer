@@ -406,16 +406,40 @@ def main() -> None:
     pivot_rej.columns = [f"n_rej_{c}" for c in pivot_rej.columns]
     print(pivot_rej.to_string())
 
-    # Selection rule: pick method with highest median p-value across folds.
-    # Default to baseline if all methods all-NaN (e.g. HOOD insufficient calibration).
+    # Selection rule: principled tiebreak chain.
+    # 1. Primary: highest median CV-DQ p-value
+    # 2. Tiebreak: fewest folds rejecting at α=0.05
+    # 3. Tiebreak: smallest min p across folds (most consistently non-rejecting)
+    # 4. Final fallback: baseline (most parsimonious — fewer parameters)
+    # 5. All-NaN fallback (e.g., HOOD): baseline
     def _select_per_symbol(group):
         finite = group.dropna(subset=["median_p"])
         if finite.empty:
             return group[group["method"] == "baseline"].iloc[0]
-        return finite.loc[finite["median_p"].idxmax()]
-    sel = agg.groupby("symbol", as_index=False).apply(_select_per_symbol)[["symbol", "method", "median_p", "n_folds_reject_05"]]
+        # Primary: max median_p
+        max_median_p = finite["median_p"].max()
+        candidates = finite[finite["median_p"] >= max_median_p - 1e-9]
+        if len(candidates) == 1:
+            return candidates.iloc[0]
+        # Tiebreak 1: fewest folds rejecting
+        min_rej = candidates["n_folds_reject_05"].min()
+        candidates = candidates[candidates["n_folds_reject_05"] == min_rej]
+        if len(candidates) == 1:
+            return candidates.iloc[0]
+        # Tiebreak 2: highest min_p (most consistent non-rejection across folds)
+        max_min_p = candidates["min_p"].max()
+        candidates = candidates[candidates["min_p"] >= max_min_p - 1e-9]
+        if len(candidates) == 1:
+            return candidates.iloc[0]
+        # Final fallback: prefer baseline (most parsimonious) > sav > as
+        for preferred in ["baseline", "sav", "as"]:
+            sub = candidates[candidates["method"] == preferred]
+            if not sub.empty:
+                return sub.iloc[0]
+        return candidates.iloc[0]
+    sel = agg.groupby("symbol", as_index=False).apply(_select_per_symbol)[["symbol", "method", "median_p", "n_folds_reject_05", "min_p"]]
     sel = sel.set_index("symbol")
-    print(f"\n=== Defensible per-symbol selection (highest CV-median p, baseline fallback) ===", flush=True)
+    print(f"\n=== Defensible per-symbol selection (principled tiebreak chain) ===", flush=True)
     print(sel.to_string())
 
     # --- Refit CAViaR on FULL pre-2023 calibration; apply to OOS using selected per-symbol method ---
@@ -453,9 +477,71 @@ def main() -> None:
     res_base = run_diag_battery(bounds_oos, ("lo_baseline", "hi_baseline"), label="baseline")
     print(res_base["summary"].to_string(index=False, float_format=lambda x: f"{x:.3f}"))
 
-    print("\n=== Defensible (CV-selected per-symbol) ===", flush=True)
+    print("\n=== Defensible (CV-selected per-symbol via principled tiebreak chain) ===", flush=True)
     res_def = run_diag_battery(bounds_oos, ("lo_def", "hi_def"), label="defensible")
     print(res_def["summary"].to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+
+    # === BMA: Bayesian Model Averaging across the three methods ===
+    # For each symbol, compute weights from CV-median-p:
+    #   w_m = max(1e-3, median_p_m) (clipped to avoid zero weight)
+    #   normalize across methods
+    # Combined bound = sum_m w_m * bound_m
+    print("\n--- Bayesian Model Averaging (CV-weighted across methods) ---", flush=True)
+    bma_weights = {}
+    all_symbols = sorted(bounds_oos["symbol"].unique())
+    for sym in all_symbols:
+        sym_agg = agg[agg["symbol"] == sym]
+        if sym_agg.empty or sym_agg["median_p"].isna().all():
+            bma_weights[sym] = {"baseline": 1.0, "sav": 0.0, "as": 0.0}
+            continue
+        weights = {}
+        for _, row in sym_agg.iterrows():
+            p = row["median_p"]
+            weights[row["method"]] = max(p, 1e-3) if np.isfinite(p) else 1e-3
+        # Normalize
+        total = sum(weights.values())
+        weights = {k: v / total for k, v in weights.items()}
+        bma_weights[sym] = weights
+
+    # Apply BMA at τ=0.99
+    bounds_oos["lo_bma"] = bounds_oos["lo_baseline"]
+    bounds_oos["hi_bma"] = bounds_oos["hi_baseline"]
+    for sym, w in bma_weights.items():
+        mask = (bounds_oos["symbol"] == sym) & (bounds_oos["target"] == 0.99)
+        if not mask.any(): continue
+        # Build BMA-weighted bounds
+        sub = bounds_oos.loc[mask]
+        # Handle NaN bounds (e.g., HOOD CAViaR didn't fit) by zeroing those weights
+        lo_combined = pd.Series(0.0, index=sub.index)
+        hi_combined = pd.Series(0.0, index=sub.index)
+        for method, lo_col, hi_col in [
+            ("baseline", "lo_baseline", "hi_baseline"),
+            ("sav", "lo_sav_full", "hi_sav_full"),
+            ("as", "lo_as_full", "hi_as_full"),
+        ]:
+            if method not in w: continue
+            lo_vals = sub[lo_col]
+            hi_vals = sub[hi_col]
+            valid = lo_vals.notna() & hi_vals.notna()
+            wm = w[method] if valid.all() else (w[method] if valid.mean() > 0.5 else 0)
+            lo_combined.loc[valid] += wm * lo_vals.loc[valid]
+            hi_combined.loc[valid] += wm * hi_vals.loc[valid]
+        # Renormalize per-row by the sum of valid weights
+        # Simpler: if all baseline+CAViaR valid, weights sum to 1. If CAViaR missing, fall back
+        bounds_oos.loc[mask, "lo_bma"] = lo_combined.values
+        bounds_oos.loc[mask, "hi_bma"] = hi_combined.values
+        # Where BMA produced 0 (no valid bounds), revert to baseline
+        zero_mask = mask & (bounds_oos["lo_bma"] == 0)
+        bounds_oos.loc[zero_mask, "lo_bma"] = bounds_oos.loc[zero_mask, "lo_baseline"]
+        bounds_oos.loc[zero_mask, "hi_bma"] = bounds_oos.loc[zero_mask, "hi_baseline"]
+
+    print("\n=== BMA (CV-weighted Bayesian Model Averaging) ===", flush=True)
+    res_bma = run_diag_battery(bounds_oos, ("lo_bma", "hi_bma"), label="bma")
+    print(res_bma["summary"].to_string(index=False, float_format=lambda x: f"{x:.3f}"))
+
+    print("\n=== BMA per-symbol weights ===", flush=True)
+    weights_df = pd.DataFrame(bma_weights).T.round(3)
+    print(weights_df.to_string())
 
     print("\n=== Oracle (OOS-DQ-selected, upper bound) ===", flush=True)
     res_oracle = run_diag_battery(bounds_oos, ("lo_oracle", "hi_oracle"), label="oracle")
