@@ -295,6 +295,86 @@ Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 la
 
 ---
 
+### 2026-04-28 (late evening, +1) — Trial 1 result: GPD does not fix the τ = 0.99 per-symbol DQ rejections
+
+**Result.** Hypothesis H1 from the late-evening trial program **rejected**. GPD-based τ ≥ 0.95 quantiles produce the *same* per-symbol DQ reject-count at τ = 0.99 as the empirical baseline (6 / 10 in the standalone replay; the absolute number differs from production's 5 / 10 because the experiment uses raw claimed-grid bounds with no calibration-surface inversion or per-target buffer, but the *internal* empirical-vs-GPD comparison is apples-to-apples). Bandwidth widened modestly (449 → 484 bps, +8%), well within the 1.5× cap. Decision-threshold scorecard: 1 (DQ) **fail**, 2 (realised) fail in both, 3 (Christoffersen) pass, 4 (bandwidth) pass.
+
+**Diagnostic implication.** The τ = 0.99 per-symbol miscalibration is *not* a small-sample tail-quantile-estimator issue. The per-symbol reject pattern is invariant under the GPD swap: AAPL, HOOD, NVDA, QQQ, SPY, TSLA reject under both estimators; GLD, GOOGL, MSTR, TLT pass under both (with GLD/MSTR/TLT passing partly because their bands are wide enough that DQ has no power). If the mechanism were unstable tail-quantile estimates from too few exceedances, GPD's parametric extrapolation would visibly help — it does not. Therefore, the candidate-mechanism list refines to (in rough priority order): conditional volatility clustering / GARCH effects on residuals (the canonical McNeil-Frey diagnosis); regime-transition state the current $\rho$ labeler doesn't encode (post-shock recovery, vol-spike-decay sub-regimes); symbol-specific tail behaviour the factor switchboard doesn't carry (TSLA idiosyncratic vol, NVDA AI-rotation transitions, etc.); and the §10.2 halt / corp-action structural-exception filter, which remains scryer-blocked and orthogonal.
+
+**Trial-program updates.**
+
+- *Trial 2 (Mondrian conformal on top of Trial 1):* defer. Mondrian is a different aggregation, not a different mechanism; with the per-symbol mechanism unaddressed by GPD, Mondrian's group-conditional coverage guarantee is unlikely to close the per-symbol DQ gap. Reconsider only if reframed as a v2 surface-design change rather than a Paper 1 patch.
+- *Trial 3 (pooled-tail-only):* run anyway as a falsification control. Cheap (1-2 days). If pooled-tail also shows 6 / 10 reject, that fully rules out the small-sample-noise mechanism family; if it moves the count, the joint reading is more nuanced.
+- *Trial 5 (new) — Conditional EVT (GARCH + GPD on standardized residuals).* McNeil-Frey 2000 canonical two-stage. Targets the volatility-clustering mechanism Trial 1's negative result points at. Effort ~1-2 weeks per-symbol GARCH refits. Belongs in v2 calibration-surface revision, not Paper 1.
+- *Trial 6 (new) — State augmentation: post-shock realized-vol indicator.* Add `realized_vol_4w` (or VIX-percentile rank, or GARCH-implied $\sigma$ surrogate) as an extra regressor in F1's $\sigma$ model. Targets the regime-transition-state mechanism. Effort ~3-5 days; lighter than full GARCH; may capture much of the same conditional-volatility signal at much lower cost.
+- *Strategic alternative (drop τ = 0.99 from the deployed surface).* Strengthened by Trial 1's negative result: the per-symbol miscalibration at the 1% tail is now identified as a structural property of the empirical-quantile / regime-conditioned methodology rather than an estimator-tuning issue. The cleanest disclosure is to scope the deployed range to where the methodology demonstrably holds (τ ∈ [0.50, 0.95] passes uniformly per the §0 D5 inter-anchor sweep). Decision deferred to after Trial 3 + Trial 6 results.
+
+**Paper 1 implication.** The §6.4.1 disclosure framing — pooled DQ rejection partly aggregation-inflated, irreducible 5 / 10 at τ = 0.99 — is unchanged by Trial 1. If anything the negative result *strengthens* the disclosure: the obvious counter-claim ("did you try a parametric tail estimator?") is now explicitly answered with citation to `reports/v1b_evt_pot_trial.md`. No paper-side text changes required for this result; an optional one-line addition to §6.4.1 could note "Trial 1 GPD swap did not improve per-symbol DQ; see `reports/v1b_evt_pot_trial.md` for the decision-threshold scorecard" if reviewer transparency is desired.
+
+**No methodology change.** Deployed system unchanged. Trial 1 was a fork-only experiment; the standalone script (`scripts/exp_evt_pot_tail.py`) is in-repo for reproducibility but does not modify production code paths.
+
+**Artefacts.**
+- `reports/v1b_evt_pot_trial.md` — full trial report with mechanism analysis.
+- `scripts/exp_evt_pot_tail.py` — standalone experiment.
+- `data/processed/exp_evt_pot_bounds.parquet` — per-(symbol, fri\_ts, target) raw bounds, both estimators side-by-side.
+- `reports/tables/v1b_oos_evt_pot_summary.csv`, `v1b_oos_dq_per_symbol_evt.csv` — diagnostic tables.
+
+---
+
+### 2026-04-28 (late evening) — Tail-fix trial program for τ = 0.99 per-symbol miscalibration
+
+**Trigger.** The 2026-04-28 (evening) §6.4.1 update found 5 / 10 per-symbol DQ rejections at τ = 0.99 — irreducible under any defensible aggregation (binomial test on observed 5 / 10 vs expected 0.5 / 10 under H₀: p < 10⁻⁷). The §10.2 halt / corp-action filter is gated on scryer wishlist 15a + 15b (forward-looking, ~1 week of scryer work). This entry documents the *parallel modeling-side* trial program — what we test, in what order, and what counts as success — so that the experiments are pre-specified rather than discovered after the fact.
+
+**Why a parallel modeling track.** The §10.2 filter test addresses the *structural-exception* mechanism (halts, corp actions confounding the τ = 0.99 misses for specific symbols). The trial program below addresses the *small-sample noise / temporal clustering* mechanism (the empirical-quantile estimator on a 156-weekend per-(symbol, regime) calibration window has ~1.5 expected violations per τ = 0.99 cell; tail quantile estimation is unstable at that sample size and produces autocorrelated misses). The two mechanisms are orthogonal; both can contribute, and we want to size each before deciding the deployment fix.
+
+**Decision (queue four trials, run on the existing 1,730-row OOS panel; no new data required).** All trials operate on a fork of the existing calibration pipeline. Deployed system unchanged until a trial wins on the decision thresholds below.
+
+**Pre-specified decision thresholds (uniform across all trials).** A trial *passes* if all four hold at τ = 0.99 on the OOS panel:
+1. Per-symbol DQ reject-count at α = 0.05 ≤ 3 / 10 (current baseline: 5 / 10).
+2. Pooled realised coverage within ±2pp of target 0.99 (current baseline: 0.977, fails).
+3. Pooled Christoffersen $p_\text{ind} > 0.05$ (current baseline: 0.956, passes).
+4. Mean served half-width at τ = 0.99 ≤ 1.5× the empirical-quantile baseline (current baseline: 580.8 bps; cap: ≤ 871 bps).
+
+**Trial 1 — EVT / Peaks-over-Threshold (Generalized Pareto Distribution) for τ ≥ 0.95 anchors only.**
+- *Mechanism.* Replace the empirical-quantile estimator at τ ≥ 0.95 with a parametric GPD fit on the standardized-residual exceedances above the 95th-percentile threshold. The Pickands-Balkema-de Haan theorem (Pickands 1975, Balkema-de Haan 1974) justifies GPD asymptotics for the tail. Empirical-quantile path for τ ≤ 0.95 unchanged.
+- *Why this targets the symptom.* GPD fits stably on 30-50 exceedances vs the empirical method's ~150 needed for comparable tail-quantile precision. Our 156-weekend per-(symbol, regime) window has ~8-25 expected exceedances above the 95th percentile (regime-dependent) — squarely in GPD's sweet spot, well below empirical's stability floor.
+- *Citations.* McNeil-Frey 2000 (the canonical conditional-EVT VaR paper); Embrechts-Klüppelberg-Mikosch 1997 EVT textbook; Bee-Dupuis-Trapin 2019 (realized POT with high-frequency data). Already in the §2 reference graph via the Allen-Koh-Segers-Ziegel 2025 tail-calibration citation.
+- *Effort.* 3-5 days. Standalone experiment script first (no production-pipeline change), then if Trial 1 passes, port into `src/soothsayer/backtest/calibration.py` as a new tail-quantile path.
+- *Hypothesis.* GPD-based τ = 0.99 quantile estimates pass the four decision thresholds.
+
+**Trial 2 — Mondrian (group-conditional) conformal layered on top of Trial 1's GPD predictor.**
+- *Mechanism.* Apply Mondrian conformal prediction (Vovk-Petej-Lindsay 2003) stratified by (symbol, regime), using the GPD-based predictor from Trial 1 as the base. Different from the previously-tested vanilla split-conformal / nexCP / block-recency variants in `reports/v1b_conformal_comparison.md` — those gave *marginal* coverage; Mondrian gives *group-conditional* coverage, which is the right shape for the per-(symbol, regime) decomposition we already use elsewhere in the surface.
+- *Why this layers on Trial 1.* GPD addresses the small-sample tail-estimator instability; Mondrian addresses the per-symbol-conditional coverage gap (exactly what DQ catches). The combination is the most-defensible-by-construction stack: GPD for parametric tail extrapolation, Mondrian for finite-sample group-conditional coverage guarantee.
+- *Citations.* Vovk-Petej-Lindsay 2003 (original Mondrian); Tibshirani-Barber-Candès-Ramdas 2019 (weighted conformal); Gibbs-Cherian-Candès 2025 (conformal with conditional guarantees).
+- *Effort.* 1 week (Mondrian implementation + recalibration + battery rerun). Conditional on Trial 1 not closing the gap alone.
+- *Hypothesis.* Mondrian + GPD reduces per-symbol DQ reject-count to ≤ 1 / 10 with bandwidth ≤ 1.7× the empirical-quantile baseline.
+
+**Trial 3 — Pooled-tail-only calibration (control / baseline).**
+- *Mechanism.* At τ ≥ 0.95, use the pooled-across-symbols calibration surface (10× the per-(symbol, regime) cell size); per-(symbol, regime) for τ < 0.95. Already partially built — `pooled_surface()` is the pooled-fallback path used when per-symbol $n < n_\text{min}$.
+- *Why this is the control.* Pooling addresses the *small-sample noise* mechanism but leaves the empirical-quantile estimator family intact. If pooling alone hits the threshold, Trials 1 + 2's machinery is over-engineered for the problem and the deployment fix is the simpler change.
+- *Effort.* 1-2 days. Cheapest of the four; runs in parallel with Trial 1.
+- *Hypothesis.* Pooling addresses small-sample noise but not temporal clustering — DQ should improve modestly (reject-count ~3-4 / 10) but is unlikely to converge to ≤ 1 / 10. If the hypothesis is wrong (i.e., pooling alone hits the threshold), Trial 1 is unnecessary.
+
+**Trial 4 — TCP-RM (Robbins-Monro online conformal) — gated.**
+- *Mechanism.* Online α-adjustment based on rolling miscoverage, per Angelopoulos-Bates 2025-2026 framework and the broader Adaptive Conformal Inference (Gibbs-Candès 2021) tradition.
+- *Why deferred.* Best-suited for *drift* not present in our weekend-panel setting (the v1b walk-forward stability check shows the deployed buffer at the cross-split mean — no drift signal). TCP-RM addresses a different failure mode than DQ catches.
+- *Effort.* 2 weeks. Conditional on Trials 1-3 all falling short — if static methods can't close the gap, online correction is the next swing. Otherwise belongs in v2.
+
+**Strategic alternative (independent of all four trials).** Drop τ = 0.99 from the deployed product surface; deploy τ ∈ [0.50, 0.95] only. Preserves Paper 1 as-is; defers the tail problem to v2. Decision deferred until Trial 1 + 2 results — if neither hits the threshold, this becomes the v0 default and τ = 0.99 ships in the v2 calibration-transparent event stream where the per-symbol structure can be exposed to the consumer rather than aggregated away.
+
+**Sequencing.** Trial 1 first (highest leverage, self-contained, cleanest theoretical justification). Trial 3 in parallel (cheapest baseline, sets the lower-bound for what the simpler change buys you). Trial 2 conditional on Trial 1 passing decision thresholds 1-3 but not bandwidth threshold 4 — i.e., only if GPD is too wide. Trial 4 deferred unless Trials 1-3 all fall short on threshold 1.
+
+**No methodology change yet.** Document trials, run experiments, report results in subsequent dated entries; deployment fix decision conditional on the four-threshold scorecard above.
+
+**Artefacts (planned, not yet generated).**
+- `scripts/exp_evt_pot_tail.py` — Trial 1 standalone experiment.
+- `scripts/exp_pooled_tail.py` — Trial 3 standalone experiment.
+- `reports/v1b_evt_pot_trial.md` — Trial 1 results.
+- `reports/v1b_pooled_tail_trial.md` — Trial 3 results.
+- `reports/tables/v1b_oos_dq_per_symbol_evt.csv` — per-symbol DQ on the EVT-modified bounds (parallel to current `v1b_oos_dq_per_symbol.csv`).
+
+---
+
 ### 2026-04-28 (evening) — Paper 1 §6.7 incumbent-comparator integration + DQ per-symbol-median sensitivity
 
 **Trigger.** User-driven Paper 1 status check vs the post-cutover scryer dataset surface and the 2026-04-25 deferred Berkowitz / Engle-Manganelli DQ rejections. Two questions: are the standalone Pyth + Chainlink comparison reports (2026-04-25 §0 incumbent block) integrated into Paper 1 yet, and can the DQ rejection be revisited with the data we now have?
