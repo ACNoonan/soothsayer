@@ -11,7 +11,7 @@ use polars::prelude::*;
 use std::path::Path;
 
 use crate::config::MIN_OBS;
-use crate::error::{OracleError, OracleResult};
+use crate::error::{Error, Result};
 
 /// A single surface row: (symbol, regime_pub, forecaster, claimed, realized,
 /// n_obs, mean_half_width_bps).
@@ -33,7 +33,7 @@ pub struct CalibrationSurface {
 }
 
 impl CalibrationSurface {
-    pub fn load_csv(path: &Path) -> OracleResult<Self> {
+    pub fn load_csv(path: &Path) -> Result<Self> {
         let df = CsvReadOptions::default()
             .with_has_header(true)
             .with_parse_options(CsvParseOptions::default().with_try_parse_dates(false))
@@ -64,7 +64,7 @@ pub struct PooledSurface {
 }
 
 impl PooledSurface {
-    pub fn load_csv(path: &Path) -> OracleResult<Self> {
+    pub fn load_csv(path: &Path) -> Result<Self> {
         let df = CsvReadOptions::default()
             .with_has_header(true)
             .with_parse_options(CsvParseOptions::default().with_try_parse_dates(false))
@@ -82,33 +82,33 @@ impl PooledSurface {
     }
 }
 
-fn parse_surface_df(df: &DataFrame) -> OracleResult<Vec<SurfaceRow>> {
+fn parse_surface_df(df: &DataFrame) -> Result<Vec<SurfaceRow>> {
     let n = df.height();
-    let sym_col = df.column("symbol").map_err(|_| OracleError::MissingColumn {
+    let sym_col = df.column("symbol").map_err(|_| Error::MissingColumn {
         column: "symbol".into(),
         artifact: "surface".into(),
     })?;
-    let reg_col = df.column("regime_pub").map_err(|_| OracleError::MissingColumn {
+    let reg_col = df.column("regime_pub").map_err(|_| Error::MissingColumn {
         column: "regime_pub".into(),
         artifact: "surface".into(),
     })?;
-    let fc_col = df.column("forecaster").map_err(|_| OracleError::MissingColumn {
+    let fc_col = df.column("forecaster").map_err(|_| Error::MissingColumn {
         column: "forecaster".into(),
         artifact: "surface".into(),
     })?;
-    let claimed_col = df.column("claimed").map_err(|_| OracleError::MissingColumn {
+    let claimed_col = df.column("claimed").map_err(|_| Error::MissingColumn {
         column: "claimed".into(),
         artifact: "surface".into(),
     })?;
-    let realized_col = df.column("realized").map_err(|_| OracleError::MissingColumn {
+    let realized_col = df.column("realized").map_err(|_| Error::MissingColumn {
         column: "realized".into(),
         artifact: "surface".into(),
     })?;
-    let n_obs_col = df.column("n_obs").map_err(|_| OracleError::MissingColumn {
+    let n_obs_col = df.column("n_obs").map_err(|_| Error::MissingColumn {
         column: "n_obs".into(),
         artifact: "surface".into(),
     })?;
-    let hw_col = df.column("mean_half_width_bps").map_err(|_| OracleError::MissingColumn {
+    let hw_col = df.column("mean_half_width_bps").map_err(|_| Error::MissingColumn {
         column: "mean_half_width_bps".into(),
         artifact: "surface".into(),
     })?;

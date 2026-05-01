@@ -9,7 +9,7 @@ use crate::config::{
     buffer_for_target, default_buffer_by_target, default_regime_forecaster, DEFAULT_FORECASTER,
     MAX_SERVED_TARGET,
 };
-use crate::error::{OracleError, OracleResult};
+use crate::error::{Error, Result};
 use crate::surface::{invert_with_fallback, CalibrationSurface, PooledSurface};
 use crate::types::{PricePoint, PricePointDiagnostics, Regime};
 
@@ -50,7 +50,7 @@ impl Oracle {
         bounds_path: &Path,
         surface_path: &Path,
         surface_pooled_path: &Path,
-    ) -> OracleResult<Self> {
+    ) -> Result<Self> {
         let bounds = load_bounds_table(bounds_path)?;
         let surface = CalibrationSurface::load_csv(surface_path)?;
         let surface_pooled = PooledSurface::load_csv(surface_pooled_path)?;
@@ -108,7 +108,7 @@ impl Oracle {
         target_coverage: f64,
         forecaster_override: Option<&str>,
         buffer_override: Option<f64>,
-    ) -> OracleResult<PricePoint> {
+    ) -> Result<PricePoint> {
         // 1. Look up every forecaster's rows at this (symbol, fri_ts)
         let rows: Vec<&BoundsRow> = self
             .bounds
@@ -116,7 +116,7 @@ impl Oracle {
             .filter(|r| r.symbol == symbol && r.fri_ts == as_of)
             .collect();
         if rows.is_empty() {
-            return Err(OracleError::NoBounds {
+            return Err(Error::NoBounds {
                 symbol: symbol.to_string(),
                 as_of,
             });
@@ -125,7 +125,7 @@ impl Oracle {
         let regime_str = rows[0].regime_pub.clone();
         let fri_close = rows[0].fri_close;
         let regime = Regime::from_str(&regime_str)
-            .ok_or_else(|| OracleError::UnknownRegime(regime_str.clone()))?;
+            .ok_or_else(|| Error::UnknownRegime(regime_str.clone()))?;
 
         // 2. Pick forecaster (hybrid per-regime by default)
         let forecaster_used: String = match forecaster_override {
@@ -184,12 +184,12 @@ impl Oracle {
                     .partial_cmp(&(b - claimed_served).abs())
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
-            .ok_or_else(|| OracleError::Integrity("empty claimed grid".into()))?;
+            .ok_or_else(|| Error::Integrity("empty claimed grid".into()))?;
 
         let chosen = fc_rows
             .iter()
             .find(|r| (r.claimed - nearest_claimed).abs() < 1e-12)
-            .ok_or_else(|| OracleError::Integrity(
+            .ok_or_else(|| Error::Integrity(
                 format!("no bounds row at claimed={}", nearest_claimed),
             ))?;
 
@@ -256,7 +256,7 @@ impl Oracle {
     }
 }
 
-fn load_bounds_table(path: &Path) -> OracleResult<Vec<BoundsRow>> {
+fn load_bounds_table(path: &Path) -> Result<Vec<BoundsRow>> {
     let mut file = std::fs::File::open(path)?;
     let df = ParquetReader::new(&mut file).finish()?;
 
@@ -271,7 +271,7 @@ fn load_bounds_table(path: &Path) -> OracleResult<Vec<BoundsRow>> {
         "fri_close",
     ];
     for col in &required {
-        df.column(col).map_err(|_| OracleError::MissingColumn {
+        df.column(col).map_err(|_| Error::MissingColumn {
             column: (*col).into(),
             artifact: "bounds".into(),
         })?;

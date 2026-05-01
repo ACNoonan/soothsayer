@@ -2,10 +2,10 @@
 
 use thiserror::Error;
 
-pub type OracleResult<T> = std::result::Result<T, OracleError>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Error)]
-pub enum OracleError {
+pub enum Error {
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
 
