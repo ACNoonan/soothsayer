@@ -519,7 +519,7 @@
       </div>
 
       <div class="timeline-row" style="margin-top: 28px;">
-        <div class="provider-name">Chainlink<span class="sub">Data Streams · official</span></div>
+        <div class="provider-name">Chainlink<span class="sub">LTP frozen / tokenized mark live</span></div>
         <div class="bar-track">
           <!-- Mon–Fri 8pm ET: live. Fri 8pm → Sun 8pm: stale hold. -->
           <div class="bar-fill chainlink" style="left: 0%; width: 68.5%;"></div>
@@ -555,7 +555,7 @@
 
     <div style="margin-top: 80px; display: flex; gap: 48px;">
       <div style="font-family: var(--mono); letter-spacing: 0.08em; font-size: 24px;">
-        <span style="color: var(--ink-faint);">— Chainlink schema v11 · </span><span style="color: var(--ink-dim);">marketStatus = 5 → stale hold</span>
+        <span style="color: var(--ink-faint);">— Chainlink weekend: </span><span style="color: var(--ink-dim);">frozen LTP, placeholder-derived v11 mid</span>
       </div>
     </div>
 
@@ -727,16 +727,16 @@
       <tbody>
         <tr>
           <td class="provider">Chainlink Data&nbsp;Streams</td>
-          <td><span class="no">— stale hold</span></td>
-          <td><span class="cell-note">Median, opaque</span></td>
-          <td><span class="no">— none</span></td>
+          <td><span class="partial">~ field-dependent</span></td>
+          <td><span class="cell-note">Frozen LTP or opaque tokenized mark</span></td>
+          <td><span class="no">— none verifiable</span></td>
           <td><span class="no">— closed</span></td>
         </tr>
         <tr>
           <td class="provider">Pyth + Blue Ocean</td>
           <td><span class="no">— overnight only</span></td>
           <td><span class="cell-note">Weighted median</span></td>
-          <td><span class="partial">~ quote dispersion *</span></td>
+          <td><span class="partial">10.2% at claimed 95%</span></td>
           <td><span class="partial">~ partial</span></td>
         </tr>
         <tr>
@@ -790,14 +790,14 @@
       </div>
       <div class="bullet">
         <div class="num">02</div>
-        <div class="h">Measurement: build the public liquidation and OEV evidence layer.</div>
-        <div class="p">Paper 2 turns the primitive into reusable public infrastructure: xStocks-on-Kamino and MarginFi liquidation datasets, band-edge labels, and the empirical base for mechanism-design work on Pyth Express Relay.</div>
+        <div class="h">Policy layer: turn calibrated uncertainty into protocol action.</div>
+        <div class="p">Paper 3 turns the primitive into a deployable decision layer: reserve-buffer scoring, path-aware closed-market evaluation, and policy defaults that lending protocols can defend in production.</div>
       </div>
       <div class="bullet">
         <div class="num">03</div>
-        <div class="h">Decision layer: show how downstream users act on the signal.</div>
-        <div class="p">Paper 3 asks how protocols, liquidators, and risk teams should map the same band and receipt into reserve buffers, triggers, and closed-market policy defaults.</div>
-        <div class="citation">The trilogy is methodology → mechanism → policy. v1b already passes OOS at τ ∈ {0.68, 0.85, 0.95}; Rust and Python are at byte-for-byte parity (75/75 tests).</div>
+        <div class="h">Deployment layer: ship the calibrated band and its receipts.</div>
+        <div class="p">The product story is now compact: validate the primitive in Paper 1, prove the policy mapping in Paper 3, and ship the same contract through the on-chain router and consumer stack.</div>
+        <div class="citation">The active arc is methodology → policy. v1b already passes OOS at τ ∈ {0.68, 0.85, 0.95}; Rust and Python are at byte-for-byte parity (75/75 tests).</div>
       </div>
     </div>
 
@@ -1055,7 +1055,7 @@
     <div class="risk-grid" style="margin-top: 56px;">
       <div class="risk">
         <div class="num">01</div>
-        <div class="txt"><b>Currently evaluating market gaps.</b> If Chainlink’s stale hold is already tight enough versus Monday’s open, our core anchor loses weight.</div>
+        <div class="txt"><b>Currently evaluating market gaps.</b> If incumbent frozen-LTP or opaque tokenized marks are already tight enough versus Monday’s open, our core anchor loses weight.</div>
       </div>
       <div class="risk">
         <div class="num">02</div>
@@ -1098,25 +1098,25 @@
         <div class="ph-lbl">Phase 0 ✅</div>
         <div class="ph-when">complete · 2026-04-25</div>
         <div class="ph-h">Validation</div>
-        <div class="ph-p">12-year decade-scale backtest, 5,986 weekends × 10 tickers. Full PASS — Kupiec + Christoffersen, OOS 2023+, at τ ∈ {0.68, 0.85, 0.95}. Rust port at byte-for-byte parity with Python (75/75 tests).</div>
+        <div class="ph-p">12-year decade-scale backtest, 5,986 panel rows across 10 tickers. Full PASS — Kupiec + Christoffersen, OOS 2023+, at τ ∈ {0.68, 0.85, 0.95}. Rust port at byte-for-byte parity with Python (75/75 tests).</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 1</div>
         <div class="ph-when">now · ~4 weeks</div>
         <div class="ph-h">Devnet + Paper 1 + Paper 3 (parallel)</div>
-        <div class="ph-p">Devnet deploy across 8 Kamino-onboarded xStocks · Paper 1 §4/§5/§7/§8 → arXiv (q-fin.RM, ACM AFT) · Paper 3 outline + first draft · Paper 2 plan refinement + auction-simulator design.</div>
+        <div class="ph-p">Devnet deploy across 8 Kamino-onboarded xStocks · Paper 1 §4/§5/§7/§8 → arXiv (q-fin.RM, ACM AFT) · Paper 3 outline + first draft.</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 2</div>
         <div class="ph-when">~2 weeks after Phase 1</div>
         <div class="ph-h">Dashboard + papers live + design partners</div>
-        <div class="ph-p">Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) · Paper 1 + Paper 3 on arXiv + SSRN · Paper 2 simulator build · first design-partner conversations (Backed, Ondo, Kamino BD).</div>
+        <div class="ph-p">Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) · Paper 1 + Paper 3 on arXiv + SSRN · first design-partner conversations (Backed, Ondo, Kamino BD).</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 3</div>
         <div class="ph-when">gated</div>
         <div class="ph-h">Mainnet + B2B + formal publication</div>
-        <div class="ph-p">Gated on Paper 3 evidence + ≥1 design-partner LOI. Mainnet deployment, first paid pilot, AFT / FC submissions for Paper 1 + Paper 3, and Paper 2 to arXiv / AFT or ACM EC.</div>
+        <div class="ph-p">Gated on Paper 3 evidence + ≥1 design-partner LOI. Mainnet deployment, first paid pilot, and AFT / FC submissions for Paper 1 + Paper 3.</div>
       </div>
     </div>
 

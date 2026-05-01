@@ -1,6 +1,6 @@
 # References — Paper 3 (Optimal Liquidation Policy Defaults Under Calibrated Oracle Uncertainty)
 
-Working bibliography. Verified entries follow the `[tag]` convention used in Paper 1's `references.md` (`../paper1_coverage_inversion/references.md`). Cross-references inherited from Paper 1 are listed by tag only and not re-stated below; see Paper 1 for the full entry. References shared with Paper 2 (`../paper2_oev_mechanism_design/references.md`) are likewise listed by tag.
+Working bibliography. Verified entries follow the `[tag]` convention used in Paper 1's `references.md` (`../paper1_coverage_inversion/references.md`). Cross-references inherited from Paper 1 are listed by tag only and not re-stated below; see Paper 1 for the full entry.
 
 Buckets (per `plan.md` §16.3):
 - **calibration-coverage** — Kupiec / Christoffersen / conformal upgrades for the policy's input
@@ -112,19 +112,16 @@ The following Paper 1 entries will be cited in Paper 3 without restatement here.
 
 ---
 
-## Cross-references inherited from Paper 2
+## Additional cross-reference
 
-- `[andreoulis-fair-oev]` — Andreoulis et al. 2026 — relevant for §12.5 (MEV / OEV non-claims) and the trilogy-coherence forward reference.
+- `[andreoulis-fair-oev]` — Andreoulis et al. 2026 — relevant for §12.5 (MEV / OEV non-claims) and for positioning the policy paper against existing liquidation / OEV work.
 
 ---
 
 ## Self-reference
 
-### [soothsayer-paper-1] (this trilogy) Paper 1 — *Empirical coverage inversion*.
+### [soothsayer-paper-1] Paper 1 — *Empirical coverage inversion*.
 - Defines the calibrated band that Paper 3 consumes.
-
-### [soothsayer-paper-2] (this trilogy) Paper 2 — *OEV mechanism design under calibration-transparent oracles*.
-- Defines the auction-and-trigger layer Paper 3 sits on top of. Paper 3's strongest claims hold most cleanly when the auction layer is the one specified by Paper 2.
 
 ---
 
@@ -132,6 +129,6 @@ The following Paper 1 entries will be cited in Paper 3 without restatement here.
 
 - **Verified:** 0 Paper-3-specific references (all TODO; production anchors and DeFi-lending-theory references need to be chased before §2 is drafted).
 - **Inherited from Paper 1 (no re-verification needed):** 17 entries (the cross-reference list above).
-- **Inherited from Paper 2:** 1 entry (andreoulis-fair-oev).
+- **Additional cross-reference:** 1 entry (andreoulis-fair-oev).
 
 Pre-draft action: production anchors (Kamino, Chainlink 24/5, Aave Horizon, Gauntlet, Chaos Labs, Kraken/backed) are the load-bearing citations for the introduction. They should be verified first.

@@ -5,7 +5,7 @@ Soothsayer is an open-source research project. Contributions are welcome — par
 ## What kinds of contributions are useful
 
 - **Methodology critique.** If a notebook makes a statistical claim that doesn't hold up, open an issue with the counter-argument and a reference. Replications with different samples are especially valuable.
-- **Additional data sources.** New free feeds, better coverage of existing ones, or robust fallbacks when a provider rate-limits us. Add a module under `src/soothsayer/sources/` and wire it into the relevant notebook.
+- **Additional data sources.** New free feeds, better coverage of existing ones, or robust fallbacks when a provider rate-limits us. Add the fetcher and schema in the sibling `scryer` repo first, then consume the resulting parquet from soothsayer via `src/soothsayer/sources/scryer.py` or direct parquet reads.
 - **Hypothesis additions.** If you think a signal we haven't considered (say, on-chain congestion, CEX perp basis, options flow) should be tested, open an issue describing the claim, the test, and the gate criterion — same shape as the existing validation tasks.
 - **Code quality.** `ruff` catches the obvious stuff; type hints, clearer names, and shorter notebooks help more.
 

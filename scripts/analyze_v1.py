@@ -1,8 +1,10 @@
 """
 V1 analysis: Chainlink weekend bias vs realized Monday-open gap.
 
-Depends on scripts/run_v1_scrape.py having produced
+Consumes the frozen historical artifact
 data/processed/v1_chainlink_vs_monday_open.parquet.
+The original producer script (`scripts/run_v1_scrape.py`) was deleted in
+the April 2026 scryer cutover; do not recreate it in soothsayer.
 
 Produces:
   - reports/figures/v1_chainlink_bias.png       per-ticker residual plot

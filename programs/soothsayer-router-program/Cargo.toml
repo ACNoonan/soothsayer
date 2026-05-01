@@ -1,0 +1,25 @@
+[package]
+name = "soothsayer-router-program"
+description = "Soothsayer unified-feed router. Regime-routes between an open-hours multi-upstream aggregator (Pyth + Chainlink v11 + Switchboard On-Demand + RedStone Live, optionally Mango v4 post-guard) and the closed-hours soothsayer band primitive. Emits unified_feed_receipt.v1 per the 2026-04-28 methodology lock."
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/ACNoonan/soothsayer"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "soothsayer_router_program"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31", features = ["init-if-needed"] }
+pyth-solana-receiver-sdk = "0.6"
+switchboard-on-demand = "0.12"
+bytemuck = { version = "1", features = ["derive"] }

@@ -4,7 +4,10 @@
   "private": true,
   "description": "Anchor TS integration tests for the Soothsayer on-chain program. Phase 1 Week 2.5.",
   "scripts": {
-    "test": "ts-mocha -p ./tsconfig.json -t 1000000 tests/integration.ts"
+    "test": "ts-mocha -p ./tsconfig.json -t 1000000 tests/integration.ts",
+    "test:router": "ts-mocha -p ./tsconfig.json -t 1000000 tests/integration_router.ts",
+    "test:relay": "ts-mocha -p ./tsconfig.json -t 1000000 tests/integration_relay.ts",
+    "test:all": "ts-mocha -p ./tsconfig.json -t 1000000 tests/integration.ts tests/integration_router.ts tests/integration_relay.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",

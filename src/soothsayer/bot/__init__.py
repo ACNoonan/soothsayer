@@ -1,8 +1,8 @@
 """Soothsayer xStocks-on-Kamino weekend-reopen observe-first instrument.
 
 MVP / devnet scope: position monitor + band evaluator + tape logger.
-No bidding. Synthetic positions. Validates the instrumentation contract
-documented in `docs/bot_kamino_xstocks_liquidator.md`.
+No bidding. Synthetic positions. Validates the observe-first
+instrumentation contract for Kamino-style reserve-buffer monitoring.
 
 The primary deliverable is the V5 forward-cursor *tape* — a research-grade
 record of every observed event under real Kamino reserve semantics. Net

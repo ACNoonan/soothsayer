@@ -1,16 +1,25 @@
 [workspace]
+# soothsayer-ingest was removed in the April 2026 scryer cutover.
+# All upstream data fetching now lives in the sibling `scryer` repo;
+# soothsayer reads scryer parquet. See CLAUDE.md hard rule #1 and
+# the 2026-04-27 entry in reports/methodology_history.md.
 members = [
     "crates/soothsayer-core",
-    "crates/soothsayer-ingest",
     "crates/soothsayer-oracle",
     "crates/soothsayer-consumer",
     "crates/soothsayer-publisher",
     "crates/soothsayer-demo-kamino",
+    "crates/soothsayer-router",
 ]
-# Exclude the Anchor program — it's built via `anchor build` with its own
-# BPF/SBF toolchain, lives in `programs/`, and has its own Cargo context.
-# Including it here fights with host-side crates over `getrandom` features, etc.
-exclude = ["programs/soothsayer-oracle-program"]
+# Exclude the Anchor programs — they're built via `anchor build` with their own
+# BPF/SBF toolchain, live in `programs/`, and have their own Cargo context.
+# Including them here fights with host-side crates over `getrandom` features, etc.
+exclude = [
+    "programs/soothsayer-oracle-program",
+    "programs/soothsayer-router-program",
+    "programs/soothsayer-streams-relay-program",
+    "programs/mock-chainlink-verifier-program",
+]
 resolver = "2"
 
 [workspace.package]

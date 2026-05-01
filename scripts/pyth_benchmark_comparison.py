@@ -11,13 +11,14 @@ Kupiec p_uc = 1.000?*
 
 The comparison is fair because:
   - same panel (10 US equities, OOS 2023+ weekends, 172 weekends)
-  - same realised target (mon_open from yfinance, which approximates NBBO open)
+  - same realised target (mon_open from Scryer Yahoo daily bars, which approximates NBBO open)
   - Pyth's Friday-close price + conf is the "Friday observation" comparator
     to Soothsayer's served band at Friday-close (`fri_close`).
 
 For each (symbol, fri_ts) we:
-  1. Find the nearest Pyth publish_time to Friday 16:00 ET (ET → UTC, with DST).
-  2. Pull (price, conf) from Pyth Benchmarks API.
+  1. Find the nearest regular-session Pyth tape row to Friday 16:00 ET
+     (ET → UTC, with DST), using scryer's `pyth/oracle_tape/v1` parquet.
+  2. Read (price, conf) from that row.
   3. For k ∈ {1, 1.96, 3, 5, 10, 25, 50, 100, 250, 500, 1000}, compute the
      band [price − k·conf, price + k·conf] and check whether mon_open is
      inside.
@@ -35,16 +36,15 @@ Outputs:
 
 from __future__ import annotations
 
-import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-import requests
 
 from soothsayer.config import DATA_PROCESSED, REPORTS
+from soothsayer.sources.scryer import load_pyth_window
 
 PYTH_FEEDS = {
     "SPY":   "19e09bb805456ada3979a7d1cbb4b6d63babc3a0f8e8a9509f68afa5c4c11cd5",
@@ -62,13 +62,10 @@ PYTH_FEEDS = {
 SPLIT_DATE = date(2023, 1, 1)
 PYTH_START_DATE = date(2024, 1, 1)  # RH equity feeds didn't exist before this
 EASTERN = ZoneInfo("America/New_York")
-HERMES_BENCHMARKS = "https://benchmarks.pyth.network/v1/updates/price/{ts}"
-# Pyth RH equity feeds publish during the trading day; they stop at 16:00 ET
-# (the close). We aim 5 minutes before close, then scan backwards looking
-# for the most recent RH publish. Don't scan forward past the close — the
-# feed is dark there. 2025+ data is sparser than 2024 so we extend up to
-# 2 hours back. If still no hit, mark unavailable.
-RETRY_OFFSETS = [0, -1, -5, -30, -60, -300, -600, -1800, -3600, -7200]
+# Pyth RH equity feeds publish during the trading day and stop at the close.
+# Mirror the old Hermes scan with a local-parquet rule: last regular-session
+# row at or before 15:55 ET, up to 2 hours back.
+LOOKBACK_SECS = 7_200
 K_GRID = (1.0, 1.96, 3.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
 
 
@@ -84,35 +81,28 @@ def _friday_pre_close_ts(fri_ts: date) -> int:
     return int(et_dt.timestamp())
 
 
-def _pull_pyth(session: requests.Session, feed_id: str, target_ts: int) -> tuple[dict | None, int | None]:
-    """Try to find a Pyth update near target_ts. Returns (parsed_price_obj, used_ts)
-    or (None, None) on miss."""
-    for offset in RETRY_OFFSETS:
-        ts = target_ts + offset
-        try:
-            r = session.get(
-                HERMES_BENCHMARKS.format(ts=ts),
-                params={"ids": feed_id, "parsed": "true"},
-                timeout=10,
-            )
-            if r.status_code != 200:
-                continue
-            data = r.json()
-            parsed = data.get("parsed", [])
-            if parsed:
-                return parsed[0], ts
-        except (requests.RequestException, ValueError):
-            continue
-    return None, None
-
-
-def _scaled(p: dict) -> tuple[float, float, int]:
-    """Convert Pyth (price, conf, expo) to floats."""
-    expo = int(p["expo"])
-    price = float(p["price"]) * (10 ** expo)
-    conf = float(p["conf"]) * (10 ** expo)
-    pub_time = int(p["publish_time"])
-    return price, conf, pub_time
+def _pull_pyth(symbol: str, friday: date, target_ts: int) -> tuple[dict | None, int | None]:
+    """Find the latest regular-session scryer Pyth row before Friday close."""
+    df = load_pyth_window(friday, friday)
+    if df.empty:
+        return None, None
+    sub = df[df["symbol"] == symbol].copy()
+    if sub.empty:
+        return None, None
+    if "session" in sub.columns:
+        regular = sub[sub["session"] == "regular"]
+        if not regular.empty:
+            sub = regular
+    sub["poll_unix"] = pd.to_numeric(sub["poll_unix"], errors="coerce")
+    sub = sub[
+        sub["poll_unix"].notna()
+        & (sub["poll_unix"] <= target_ts)
+        & (sub["poll_unix"] >= target_ts - LOOKBACK_SECS)
+    ].copy()
+    if sub.empty:
+        return None, None
+    row = sub.sort_values("poll_unix").iloc[-1]
+    return row.to_dict(), int(row["poll_unix"])
 
 
 def main() -> None:
@@ -136,21 +126,14 @@ def main() -> None:
         cached = pd.DataFrame()
         cached_keys = set()
 
-    session = requests.Session()
-    session.headers["User-Agent"] = "soothsayer-pyth-benchmark/0.1"
-
     rows = list(cached.to_dict(orient="records")) if not cached.empty else []
     n_new, n_hit, n_miss = 0, 0, 0
-    t0 = time.time()
     for i, w in panel_oos.iterrows():
         key = (w["symbol"], w["fri_ts"])
         if key in cached_keys:
             continue
-        feed_id = PYTH_FEEDS.get(w["symbol"])
-        if feed_id is None:
-            continue
         target_ts = _friday_pre_close_ts(w["fri_ts"])
-        result, used_ts = _pull_pyth(session, feed_id, target_ts)
+        result, used_ts = _pull_pyth(w["symbol"], w["fri_ts"], target_ts)
         n_new += 1
         if result is None:
             rows.append({
@@ -162,23 +145,19 @@ def main() -> None:
             })
             n_miss += 1
         else:
-            price, conf, pub_time = _scaled(result["price"])
             rows.append({
                 "symbol": w["symbol"], "fri_ts": w["fri_ts"], "regime_pub": w["regime_pub"],
                 "fri_close": float(w["fri_close"]), "mon_open": float(w["mon_open"]),
                 "target_ts": target_ts, "used_ts": int(used_ts),
-                "pyth_price": float(price), "pyth_conf": float(conf), "pyth_publish_time": int(pub_time),
+                "pyth_price": float(result["pyth_price"]), "pyth_conf": float(result["pyth_conf"]),
+                "pyth_publish_time": int(result["pyth_publish_time"]),
                 "pyth_unavailable": False,
             })
             n_hit += 1
         if n_new % 100 == 0:
-            elapsed = time.time() - t0
-            rate = n_new / max(elapsed, 1e-3)
-            print(f"  [{n_new}/{len(panel_oos) - len(cached_keys)}] hits={n_hit} miss={n_miss}  "
-                  f"rate={rate:.1f}/s  elapsed={elapsed:.0f}s", flush=True)
+            print(f"  [{n_new}/{len(panel_oos) - len(cached_keys)}] hits={n_hit} miss={n_miss}", flush=True)
             # Mid-run cache flush
             pd.DataFrame(rows).to_parquet(cache_path)
-        time.sleep(0.05)  # politeness
 
     df = pd.DataFrame(rows)
     df.to_parquet(cache_path)
@@ -239,7 +218,7 @@ def main() -> None:
         "",
         "**Question.** If a downstream protocol naively reads Pyth's published price ± k · confidence band as a probability statement, what realised coverage do they receive on the same OOS panel where Soothsayer delivers $\\tau = 0.95$ at Kupiec $p_{uc} = 1.000$?",
         "",
-        f"**Method.** For each (symbol, fri_ts) in the OOS panel ({len(panel_oos):,} rows, {panel_oos['fri_ts'].nunique()} weekends, 2023+), pull Pyth's (price, conf) from the Hermes Benchmarks API at the nearest publish to Friday 16:00 ET. For k ∈ {{1, 1.96, 3, 5, 10, 25, 50, 100, 250, 500, 1000}}, compute Pyth's implicit band as $[\\text{price} - k\\cdot\\text{conf},\\, \\text{price} + k\\cdot\\text{conf}]$ and ask whether mon_open is inside. Aggregate to pooled and per-symbol realised coverage.",
+        f"**Method.** For each (symbol, fri_ts) in the OOS panel ({len(panel_oos):,} rows, {panel_oos['fri_ts'].nunique()} weekends, 2023+), read Pyth's (price, conf) from scryer's `pyth/oracle_tape/v1` at the nearest regular-session publish to Friday 16:00 ET. For k ∈ {{1, 1.96, 3, 5, 10, 25, 50, 100, 250, 500, 1000}}, compute Pyth's implicit band as $[\\text{price} - k\\cdot\\text{conf},\\, \\text{price} + k\\cdot\\text{conf}]$ and ask whether mon_open is inside. Aggregate to pooled and per-symbol realised coverage.",
         "",
         f"**Pyth historical depth.** Of {len(df):,} (symbol, weekend) pairs, {int((~df['pyth_unavailable']).sum()):,} have Pyth data ({(1-df['pyth_unavailable'].mean())*100:.1f}%). Per-symbol availability:",
         "",
@@ -265,7 +244,7 @@ def main() -> None:
         "## Caveats",
         "",
         f"- Pyth's regular-hours equity feeds have variable historical depth ({(1-df['pyth_unavailable'].mean())*100:.1f}% availability across our OOS slice). Older 2023 weekends in particular have sparse coverage.",
-        "- Pyth publishes price + conf at ≥ 1 Hz during US market hours; we query at the nearest publish to Friday 16:00 ET with retry up to ±5 minutes. The realised target is yfinance's mon_open (NBBO open Monday 09:30 ET).",
+        "- Pyth publishes price + conf during US market hours; we read the nearest regular-session scryer tape row at or before Friday 15:55 ET, with a 2-hour lookback. The realised target is the Monday `open` in scryer's Yahoo daily bars.",
         "- Per-symbol coverage rates differ; see `reports/tables/pyth_coverage_by_k.csv` for the full breakdown.",
         "",
         "Raw observations: `data/processed/pyth_benchmark_oos.parquet`. Reproducible via `scripts/pyth_benchmark_comparison.py`.",

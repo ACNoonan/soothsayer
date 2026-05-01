@@ -1,14 +1,19 @@
-# RedStone Live forward-cursor tape — cron config
+# RedStone Live forward-cursor tape — historical pre-cutover cron config
 # Install with: crontab -e   (and paste the relevant block)
 # Verify with:  crontab -l
+#
+# Historical note: `scripts/run_redstone_scrape.py` was deleted in the April
+# 2026 scryer cutover. Live RedStone tape now lands in
+# `SCRYER_DATASET_ROOT/redstone/oracle_tape/v1/...`; use scryer's launchd/ops
+# path rather than restoring this cron job.
 #
 # The TZ env var is honoured by macOS/BSD vixie cron, so the schedule lines
 # below read in NY local time. Verify your platform with `man 5 crontab`.
 #
 # CAVEAT — laptop sleep: macOS cron does NOT catch up runs missed while the
-# Mac was asleep. For a multi-month polling job, run this on a server (the
-# same VPS planned for the Kamino bot per docs/bot_kamino_xstocks_liquidator.md
-# §8 covers the same infra). Until that's up, accept that some Friday/Monday
+# Mac was asleep. For a multi-month polling job, run this on a server using
+# the same low-latency VPS setup planned for live weekend monitoring. Until
+# that's up, accept that some Friday/Monday
 # polls will be missed if the Mac happens to be lid-closed.
 #
 # Day-of-deploy: run --backfill ONCE manually to grab the last 30d of history

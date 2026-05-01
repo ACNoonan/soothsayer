@@ -17,7 +17,7 @@
 **Product progression (locked 2026-04-29).**
 - **v0 — calibration-transparent band primitive.** The `soothsayer-router` Anchor program (in build); regime-routes between an open-hours multi-upstream aggregator (Layer 0: Pyth + Chainlink v11 + Switchboard On-Demand + RedStone Live, with Mango-style filters) and the closed-hours soothsayer band primitive. Returns `unified_feed_receipt.v1`. Methodology backing: Paper 1.
 - **v1 — calibration-transparent event stream** (gated on Paper 3). On-chain events fired when consumer-configured band thresholds are crossed; each event carries a calibration receipt + historical-frequency context. Consumer-driven action policy; account state stays consumer-private. The product layer that closes the integration-friction gap with action-publishing protocols (Mango v4) without abandoning the methodology-public + action-private architecture. Methodology backing: Paper 3.
-- **v2 — parameterized decision SDK** (2027). Rust + TS library that takes consumer cost weights + portfolio shape and returns binary recommendations with calibration receipts. Library runs client-side; soothsayer never reads borrower positions. Methodology backing: Paper 2 + Paper 3.
+- **v2 — parameterized decision SDK** (2027). Rust + TS library that takes consumer cost weights + portfolio shape and returns binary recommendations with calibration receipts. Library runs client-side; soothsayer never reads borrower positions. Methodology backing: Paper 3.
 
 The v0 → v1 → v2 progression preserves the methodology-public + action-private invariant at every layer and is non-substitutable with action-publishing protocols (Mango v4 et al.). See the 2026-04-29 §1 entry for the trigger (Mango premise verification) and the strategic framing.
 
@@ -78,6 +78,30 @@ See §1 entries dated 2026-04-28 (afternoon / midday / morning) for the design, 
 ---
 
 ## 1. Decision log
+
+### 2026-04-29 (night) — Scryer migration sweep: live-root lock and stale-reference cleanup
+
+**Trigger.** Post-cutover agent passes were still disagreeing about whether the "move pulls + data stores into scryer" migration had actually finished. The underlying code path was mostly correct, but the repo still contained a mix of (a) canonical live-root instructions, (b) offline sibling-checkout examples, and (c) older nominal path names like `yahoo/bars` and `kraken/funding_rates`. The disagreement was no longer methodological; it was a documentation-and-config drift problem.
+
+**Filesystem verification (this date).** The actual live dataset root on this machine is `/Users/adamnoonan/Library/Application Support/scryer/dataset` via `soothsayer.config.SCRYER_DATASET_ROOT`. The sibling checkout `../scryer/dataset` exists, but is incomplete and should be treated as an offline replay override only. The live root currently contains: `backed/corp_actions`, `geckoterminal/trades`, `kamino_scope/oracle_tape`, `kraken/funding`, `nasdaq/halts`, `pyth/oracle_tape`, `redstone/oracle_tape`, `soothsayer_v5/tape`, `yahoo/earnings`, `yahoo/equities_daily`.
+
+**Decision.** Lock the migration-verification rule to the real live layout, not to historical shorthand. For soothsayer:
+- Canonical root = `SCRYER_DATASET_ROOT` (`/Users/adamnoonan/Library/Application Support/scryer/dataset` on this machine).
+- `../scryer/dataset` is offline replay only, never the default live path.
+- Canonical live Yahoo daily bars path = `yahoo/equities_daily/v1/...`; `yahoo/bars` is legacy snapshot compatibility only.
+- Canonical live Kraken funding path on disk = `kraken/funding/v1/...`; schema remains `kraken_funding.v1`.
+
+**AMENDMENT to 2026-04-27 "Data-fetching cutover" entry.** The forward-path text in that entry that said "rewrite against `../scryer/dataset/...`" and illustrated `yahoo/bars/v1` was transitional and is superseded by this lock. New code, docs, and agent instructions should read against `SCRYER_DATASET_ROOT` and the verified live `venue/data_type` names above.
+
+**Tracked cleanup in this sweep.**
+- Agent-facing rules/examples aligned: `.cursorrules`, `CLAUDE.md`, `docs/scryer_consumer_guide.md`.
+- Runtime config fixed: `src/soothsayer/config.py` now loads `.env` before resolving `SCRYER_DATASET_ROOT`, and the default path no longer hardcodes a specific username.
+- Consumer/script wording aligned: `src/soothsayer/sources/scryer.py`, `scripts/run_calibration.py`, `scripts/run_kamino_weekly_rollup.sh`.
+- Stale migration references marked historical or updated in `docs/data-sources.md`, `scripts/redstone_cron.example`, `scripts/analyze_v1.py`, `scripts/chainlink_implicit_band_analysis.py`, `reports/paper1_coverage_inversion/05_data_and_regimes.md`, `reports/phase1_week1.md`, and `reports/kamino_xstocks_weekend_20260417.md`.
+
+**Implication.** The April 2026 cutover itself stands: upstream fetching belongs in scryer, soothsayer consumes parquet. What changed here is the enforcement surface: future migration audits should verify against disk under `SCRYER_DATASET_ROOT`, not against remembered path nicknames or older sibling-checkout examples.
+
+---
 
 ### 2026-04-29 (late evening) — Holiday-aware DST-correct NYSE calendar (router program step 2c)
 
@@ -311,7 +335,7 @@ The product is **not** a binary "liquidate this account" signal. It is a calibra
 
 Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 lands, v1 is unimplementable as specified — the "this τ corresponds to which action" semantic is exactly what Paper 3 develops. v1 product timing is therefore gated on Paper 3 publication (planned Q3-Q4 2026).
 
-**D3. Lock v2 product scope as a parameterized decision SDK.** A Rust + TypeScript library that takes consumer-supplied cost weights, portfolio shape, and action semantics, and returns a binary recommendation with a calibration receipt. Soothsayer never sees the consumer's accounts; the library runs client-side. This is the most distant product layer from Mango's pattern: still methodology-public, still action-private (the recommendation is computed *from* the consumer's parameterization, not imposed). Methodology backing: **Paper 2** (OEV mechanism design under calibration-transparent oracles) + Paper 3. v2 timing is 2027.
+**D3. Lock v2 product scope as a parameterized decision SDK.** A Rust + TypeScript library that takes consumer-supplied cost weights, portfolio shape, and action semantics, and returns a binary recommendation with a calibration receipt. Soothsayer never sees the consumer's accounts; the library runs client-side. This is the most distant product layer from Mango's pattern: still methodology-public, still action-private (the recommendation is computed *from* the consumer's parameterization, not imposed). Methodology backing: **Paper 3**. v2 timing is 2027.
 
 **D4. v0 router build proceeds unchanged.** The v0 work landed in this session (Anchor program scaffold + Chainlink v11 + Pyth + Switchboard On-Demand decoders + Layer 0 filter pipeline + regime gate + soothsayer-band closed-regime read) is the v0 product surface. Adding event-stream logic to the current program is explicitly **out of scope** until Paper 3 lands. The router program ships to mainnet on the v0 contract (band primitive only); v1's event stream is a separate program (or a separate set of instructions on the same program) deployed once Paper 3 is published.
 
@@ -337,7 +361,7 @@ Methodology backing: **Paper 3** (the band → action mapping). Until Paper 3 la
 
 **Open questions added to §2.**
 - O8. What is the on-chain event format for v1's calibration-transparent event stream? Anchor `emit!`, or a custom event-log PDA with a versioned schema parallel to `unified_feed_receipt.v1`? Decision deferred to v1 design lock; revisited when Paper 3's threshold semantics firm up.
-- O9. How does v2's parameterized decision SDK handle multi-asset portfolios where calibration is per-(symbol, regime) but the consumer's risk model aggregates? Methodology question for Paper 3 §10 / Paper 2.
+- O9. How does v2's parameterized decision SDK handle multi-asset portfolios where calibration is per-(symbol, regime) but the consumer's risk model aggregates? Methodology question for Paper 3 §10 / v2 product design.
 
 ---
 
@@ -393,7 +417,7 @@ The single follow-up direction has two intertwined layers:
 
 - **Protocol-design layer.** Operationalise the eligibility criterion as an *on-chain admission contract* in the Soothsayer router program: a freshly-listed tokenized RWA enters at $\tau_\max = 0.85$ and graduates to $\tau_\max = 0.99$ automatically as calibration history accumulates past the 200-row floor. Solves the new-token-launch trust-bootstrap problem that any deployed oracle for emerging tokenized assets faces.
 
-Whether this work eventually merits a standalone paper, a technical-report extension to Paper 1, or a section in one of the trilogy companions (Paper 3's lending-protocol policy is the closest natural fit; Paper 4's protocol-design framing is also adjacent) is a decision *deferred to the time the work is actually done* — not pre-committed now. The conjecture is seeded in Paper 1 §10.6; the formalisation finds its home when the formalisation happens.
+Whether this work eventually merits a standalone paper, a technical-report extension to Paper 1, or a section in a later downstream paper (Paper 3's lending-protocol policy is the closest natural fit; Paper 4's protocol-design framing is also adjacent) is a decision *deferred to the time the work is actually done* — not pre-committed now. The conjecture is seeded in Paper 1 §10.6; the formalisation finds its home when the formalisation happens.
 
 **Action items (this session).**
 
@@ -1136,6 +1160,27 @@ DeviationHit {
 
 ---
 
+### 2026-04-29 (afternoon) — Operational dataset-path clarification: verify against the live Scryer layout, not nominal schema nicknames
+
+**Trigger.** The cutover itself was correct, but post-cutover docs and agent-facing instructions still mixed three different naming layers: (a) schema names (`yahoo.v1`, `nasdaq_halts.v1`), (b) intended dataset examples (`yahoo/bars`, `nasdaq_halts/live`), and (c) the *actual* live on-disk layout under `SCRYER_DATASET_ROOT`. During the migration cleanup, the real dataset root on this machine showed that the canonical live storage paths are `yahoo/equities_daily/v1/...`, `yahoo/earnings/v1/...`, `soothsayer_v5/tape/v1/...`, and `nasdaq/halts/v1/...`. The mismatch was causing agent verification passes to report false negatives or to rewire consumers against stale nominal paths rather than the parquet that actually exists.
+
+**Decision.** Lock an operational rule on top of the April 27 cutover rule: when verifying data availability or wiring a consumer, agents and contributors should prefer the *live filesystem layout under* `soothsayer.config.SCRYER_DATASET_ROOT` over path names inferred from schema nicknames or older docs. Schema version remains the semantic contract; `venue/data_type` is an operational storage detail and may differ from the old shorthand.
+
+**Clarified live paths (2026-04-29 snapshot).**
+- Yahoo daily OHLCV: `SCRYER_DATASET_ROOT / "yahoo" / "equities_daily" / "v1" / "symbol=SPY" / "year=YYYY.parquet"` with `_schema_version = "yahoo.v1"`.
+- Yahoo earnings calendar: `SCRYER_DATASET_ROOT / "yahoo" / "earnings" / "v1" / ...` with `_schema_version = "earnings.v1"`.
+- V5 joined tape: `SCRYER_DATASET_ROOT / "soothsayer_v5" / "tape" / "v1" / year=YYYY/month=MM/day=DD.parquet`.
+- Nasdaq halts: `SCRYER_DATASET_ROOT / "nasdaq" / "halts" / "v1" / year=YYYY.parquet` with `_schema_version = "nasdaq_halts.v1"`.
+- The sibling checkout `../scryer/dataset/...` remains valid for offline replay, but it is not the canonical live root.
+
+**Operational implication.**
+- Verification check order is now: (1) inspect `SCRYER_DATASET_ROOT`, (2) use `soothsayer.sources.scryer` or `docs/scryer_consumer_guide.md` to resolve the exact path, (3) assert `_schema_version`, then (4) update docs if the real dataset layout and the doc examples diverge.
+- `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, `docs/scryer_consumer_guide.md`, and the current-generation calibration / comparator scripts were updated to follow the live layout.
+
+**No methodology change.** This does not alter the oracle, the calibration surface, or any empirical finding. It is an operational clarification so future agents verify against the data *where it is actually stored* rather than against a stale path alias.
+
+---
+
 ### 2026-04-27 — Data-fetching cutover: scryer is the source of truth; soothsayer's ingest infra hard-deleted
 
 **Trigger.** Across this repo, the sibling `scryer` repo, and the upstream `relay-sol` proxy fork, three different implementations of retry-and-backoff existed for what is functionally the same problem (provider rate-limits + transient failures + quota exhaustion). Schemas for the same logical data (oracle tape rows, swap rows, funding rows) were silently diverging between repos. Scryer v0.1 phases 1–15 + 17–19 (April 26–28, 2026) consolidated all of soothsayer's raw-data fetch surface into scryer crates with versioned schemas + the `dataset/{venue}/{data_type}/v{N}/...` parquet contract. With 14 schemas now live in scryer (`yahoo.v1`, `earnings.v1`, `kraken_funding.v1`, `kamino_scope.v1`, `pyth.v1`, `redstone.v1`, `v5_tape.v1`, `backed.v1`, `nasdaq_halts.v1`, `swap.v1`, `trade.v1`, `kamino_liquidation.v1`, `jupiter_lend_liquidation.v1`, `fluid_vault_config.v1`) the soothsayer-side ingest code was a duplication risk, not a hedge.
@@ -1424,7 +1469,7 @@ Items the team explicitly knows about and has chosen to defer rather than ignore
 | O6. How does Layer 0 handle assets where one or more upstreams don't list the feed? Soft-skip with `min_quorum` recalculation, or hard-fail-config? | First non-paper-1-underlier asset added to `RouterConfig` | This log 2026-04-28 (afternoon); v0 design assumes config-time enumeration per asset |
 | O7. Calendar-based regime-detection fallback for non-NYSE/CME-GLOBEX-tracking assets? | First asset class outside US equities + commodities + treasuries (e.g., tokenised JP / EU equity, FX) | This log 2026-04-28 (afternoon); v0 ships with NYSE + CME GLOBEX hard-coded |
 | O8. v1 event-stream on-chain format: Anchor `emit!` log, or a custom event-log PDA with a versioned schema parallel to `unified_feed_receipt.v1`? | Paper 3 publication + v1 design lock | This log 2026-04-29 |
-| O9. v2 SDK behaviour for multi-asset portfolios where calibration is per-(symbol, regime) but the consumer's risk model aggregates across assets — does the receipt aggregate too, or stay per-asset and let the consumer compose? | Paper 2 + Paper 3 §10 | This log 2026-04-29 |
+| O9. v2 SDK behaviour for multi-asset portfolios where calibration is per-(symbol, regime) but the consumer's risk model aggregates across assets — does the receipt aggregate too, or stay per-asset and let the consumer compose? | Paper 3 §10 + v2 product design | This log 2026-04-29 |
 | O10. Relay daemon signing model: dedicated hot keypair, per-feed keypair, or multisig-of-publishers (decentralisation of the relay layer)? | First production relay deploy + design-partner conversations | This log 2026-04-29 (afternoon); v0 default is single dedicated hot keypair |
 | O11. Relay program's Verifier-CPI policy at `post_relay_update`: always-CPI, opportunistic, or trust-mode? | First mainnet relay deploy; CU-cost measurement on devnet first | This log 2026-04-29 (afternoon); v0 ships always-CPI on devnet |
 | O12. Enforcement mechanism for the relay-operator no-position policy: on-chain attestation account (default), periodic third-party audit, or partner-witnessed multisig governing the wallet list? | Before mainnet relay deploy | This log 2026-04-29 (evening); v0 default = attestation-account |

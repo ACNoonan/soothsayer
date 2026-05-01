@@ -1,0 +1,19 @@
+[package]
+name = "soothsayer-router"
+description = "Unified-feed router types: regime-routed receipt schema (unified_feed_receipt.v1) + Layer 0 multi-upstream aggregator filter primitives. See reports/methodology_history.md entries dated 2026-04-28."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+soothsayer-core = { path = "../soothsayer-core" }
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -26,18 +26,18 @@ The script walks both top-level and inner instructions and matches the leading 8
 
 ## Why this matters
 
-This is a **material finding** for both the grant pitch and Paper 3, and it should be surfaced honestly.
+This is a **material finding** for Paper 3 and for any future event-driven extension work, and it should be surfaced honestly.
 
-**For the Solana Foundation grant proposal** (`docs/grant_solana_oev_band_edge.md`): the H₀-vs-H₁ test relies on a panel of liquidation events with measurable OEV. A 30-day window of zero events on Kamino-xStocks specifically means:
+**For any future event-driven empirical work:** the H₀-vs-H₁ test relies on a panel of liquidation events with measurable OEV. A 30-day window of zero events on Kamino-xStocks specifically means:
 
-  - The grant's empirical-replay claim cannot be substantiated on Kamino-xStocks alone over recent windows.
-  - The grant proposal mentions MarginFi alongside Kamino; **MarginFi is now the load-bearing source of liquidation events** for the empirical work, not Kamino.
-  - The grant's "H₁ confirmed retrospectively at 3.56× dominance ratio" anchor was derived from underlier proxies (the 12-year Soothsayer panel), not from on-chain Solana liquidations. The on-chain replay still needs to be built; this scan suggests the historical window has to extend further back AND/OR widen across markets.
+  - The empirical-replay claim cannot be substantiated on Kamino-xStocks alone over recent windows.
+  - **MarginFi is now the load-bearing source of liquidation events** for any serious event-panel build, not Kamino.
+  - The retrospective 3.56× dominance anchor was derived from underlier proxies (the 12-year Soothsayer panel), not from on-chain Solana liquidations. The on-chain replay still needs to be built; this scan suggests the historical window has to extend further back AND/OR widen across markets.
 
 **For Paper 3** (`reports/paper3_liquidation_policy/plan.md`): the policy-comparison empirical work was scoped around xStocks-on-Kamino. With zero events in a 30-day window, the paper either:
 
   - Extends the empirical horizon to xStocks history since launch (2025-07-14, ~287 days back), OR
-  - Extends the protocol surface to MarginFi / Drift / Save / Loopscale as the grant doc's M2 stretch goal already names, OR
+  - Extends the protocol surface to MarginFi / Drift / Save / Loopscale, OR
   - Acknowledges the policy comparison as forward-looking scenario analysis rather than retrospective empirical claim.
 
 Most defensible: do all three, in that order.

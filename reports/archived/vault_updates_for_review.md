@@ -80,7 +80,7 @@ Original gates and what they became:
 - [[DS 07 - Incumbent Oracles]] — Chainlink weekend behaviour reference
 - [[H5 - Consumer Story]] — Kamino auto-pause wedge, now a first-class Phase 1 demo
 - [[08 - Project Plan]] — Phase 1 MVP build plan
-- Reports: `reports/v1b_calibration.md`, `reports/v1b_decision.md`, `reports/option_c_spec.md`
+- Reports: `reports/v1b_calibration.md`, `reports/v1b_decision.md`, `docs/product-spec.md`
 ```
 
 **Open question for you:** keep the `status: PASS-LITE` literal, or use `status: validated` to match the frontmatter convention? I chose PASS-LITE because it's more honest about the partial high-vol coverage.
@@ -429,9 +429,9 @@ The offline guide is a valid pedagogical walkthrough of the original V1-V3 valid
 ```
 
 ```markdown
-> **Historical walkthrough (2026-04-24).** This guide steps through the original Phase 0 validation tests (V1 Chainlink weekend bias, V2 Madhavan-Sobczyk half-life, V3 Kraken perp funding) using Excel. It is retained as an educational artifact showing how the validation gates were designed and what they surfaced. The methodology **pivoted 2026-04-24** after these tests — see `reports/v1b_decision.md` and `reports/option_c_spec.md` for the current product shape.
+> **Historical walkthrough (2026-04-24).** This guide steps through the original Phase 0 validation tests (V1 Chainlink weekend bias, V2 Madhavan-Sobczyk half-life, V3 Kraken perp funding) using Excel. It is retained as an educational artifact showing how the validation gates were designed and what they surfaced. The methodology **pivoted 2026-04-24** after these tests — see `reports/v1b_decision.md` and `docs/product-spec.md` for the current product shape.
 >
-> The data CSVs under `data/` are the small test datasets used for the original V1-V3 walkthroughs. They are NOT the v1b backtest data (which uses 5,986 underlying-equity weekends and lives in the cache at `data/raw/yahoo_*.parquet`).
+> The data CSVs under `data/` are the small test datasets used for the original V1-V3 walkthroughs. They are NOT the v1b backtest data (which uses 5,986 underlying-equity weekends and now lives in Scryer parquet under `SCRYER_DATASET_ROOT/yahoo/equities_daily/v1/...`).
 ```
 
 Don't rename the file itself — inbound links from elsewhere would break. A status preamble is lower-risk.

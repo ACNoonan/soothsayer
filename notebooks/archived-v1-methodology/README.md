@@ -1,6 +1,6 @@
 # Archived V1-methodology notebooks
 
-These notebooks were part of the original Phase 0 validation plan, built around the Madhavan-Sobczyk / VECM / HAR-RV / Hawkes methodology stack. The methodology pivoted 2026-04-24 (see `reports/v1b_decision.md` and `reports/option_c_spec.md`), and these notebooks are retained as historical decision trail rather than live code.
+These notebooks were part of the original Phase 0 validation plan, built around the Madhavan-Sobczyk / VECM / HAR-RV / Hawkes methodology stack. The methodology pivoted 2026-04-24 (see `reports/v1b_decision.md` and `docs/product-spec.md`), and these notebooks are retained as historical decision trail rather than live code.
 
 | Notebook | Intent | Outcome |
 |---|---|---|

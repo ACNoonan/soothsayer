@@ -3,7 +3,7 @@
 - Panel: 5,996 weekend observations across 10 tickers
 - Window: 2014-01-17 to 2026-04-24
 - Publish time: Friday 16:00 ET (US equity close)
-- Target: Monday 09:30 ET open (from yfinance daily 'Open')
+- Target: Monday 09:30 ET open (from Scryer `yahoo/equities_daily/v1` daily `open`)
 
 ## Overall summary (pooled across tickers)
 

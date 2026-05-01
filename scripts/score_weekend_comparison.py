@@ -5,10 +5,15 @@ Phase 1 Week 3 / Step 3 of the real-data Kamino comparator. For each
 (symbol, weekend), assembles:
 
 - Kamino reserve config (LTV / liq threshold / heuristic guard rail / oracle
-  wiring), from ``data/processed/kamino_xstocks_snapshot_*.json``.
-- Friday close + Monday open reference, from yfinance underlier.
+  wiring), from ``data/processed/kamino_xstocks_snapshot_*.json``. (The
+  scryer ``kamino_reserve.v1`` venue is wishlist Priority-1 #4 and not
+  yet shipped; this consumer continues to use the JSON snapshot until it
+  is.)
+- Friday close + Monday open reference, from the Yahoo underlier series read
+  via Scryer parquet (not direct yfinance — see CLAUDE.md hard rule
+  #1; loader call deferred until needed).
 - Kamino-actually-served price at Friday close + Monday open. If the Scope
-  tape (``data/raw/kamino_scope_tape_*.parquet``) covers the window we use
+  tape (scryer ``kamino_scope/oracle_tape/v1``) covers the window we use
   it directly; otherwise we fall back to the V5 tape's Chainlink ``cl_tokenized_px``,
   which is what Scope downstream-aggregates anyway, and label the result
   accordingly.
@@ -69,17 +74,21 @@ import argparse
 import json
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
-from glob import glob
-from pathlib import Path
 from typing import Optional
 
 import pandas as pd
 
-from soothsayer.config import DATA_PROCESSED, DATA_RAW
+from soothsayer.config import DATA_PROCESSED
 from soothsayer.oracle import Oracle
-from soothsayer.sources.jupiter import XSTOCK_MINTS
+from soothsayer.sources.scryer import (
+    load_kamino_scope_window,
+    load_pyth_window,
+    load_v5_window,
+    load_yahoo_bars,
+)
+from soothsayer.universe import XSTOCK_MINTS
 
-# Mapping xStock symbol → underlier ticker for yfinance.
+# Mapping xStock symbol → underlier ticker for the Yahoo daily-bars venue.
 XSTOCK_TO_UNDERLIER = {f"{u}x": u for u in ["SPY", "QQQ", "TSLA", "GOOGL", "AAPL", "NVDA", "MSTR", "HOOD"]}
 
 DEFAULT_TARGET_85 = 0.85
@@ -105,7 +114,7 @@ class WeekendWindow:
 
 
 def latest_completed_friday(today: Optional[date] = None) -> date:
-    """Most recent Friday whose Monday is also in the past (so yfinance has Mon open)."""
+    """Most recent Friday whose Monday is also in the past (so the daily bars exist)."""
     today = today or date.today()
     # Find this week's Friday relative to today.
     # weekday(): Mon=0..Sun=6. Friday=4.
@@ -119,66 +128,74 @@ def latest_completed_friday(today: Optional[date] = None) -> date:
 
 
 def latest_snapshot() -> dict:
+    """Return the newest reserve-config snapshot we have on disk.
+
+    The kamino-reserve fetcher used to live at
+    ``scripts/snapshot_kamino_xstocks.py`` (deleted in the April 2026
+    cutover; see ``docs/scryer_consumer_guide.md`` migration cheat-
+    sheet). Until scryer's ``kamino_reserve.v1`` schema ships
+    (wishlist Priority-1 #4), the rollup uses the frozen JSON at
+    ``data/processed/kamino_xstocks_snapshot_*.json`` — reserve params
+    change slowly enough for short-term reuse.
+    """
     candidates = sorted(DATA_PROCESSED.glob("kamino_xstocks_snapshot_*.json"))
     if not candidates:
-        raise SystemExit("No Kamino snapshot found. Run scripts/snapshot_kamino_xstocks.py.")
+        raise SystemExit(
+            "No Kamino reserve snapshot found in data/processed/. "
+            "scryer kamino_reserve.v1 is wishlist Priority-1 #4 "
+            "(not yet shipped); for now, manually copy the most-recent "
+            "kamino_xstocks_snapshot_*.json from a peer checkout."
+        )
     return json.loads(candidates[-1].read_text())
 
 
 def load_v5_tape(window: WeekendWindow) -> pd.DataFrame:
-    """Concat all v5_tape parquets covering the weekend window."""
-    frames = []
-    for fp in sorted(glob(str(DATA_RAW / "v5_tape_*.parquet"))):
-        df = pd.read_parquet(fp)
-        # poll_ts is unix int.
-        in_window = (df["poll_ts"] >= window.fri_close_ts) & (df["poll_ts"] <= window.mon_open_ts)
-        if in_window.any():
-            frames.append(df[in_window])
-    if not frames:
-        return pd.DataFrame(columns=["poll_ts", "symbol", "cl_tokenized_px", "jup_mid"])
-    return pd.concat(frames, ignore_index=True)
+    """Concat scryer v5_tape rows covering the weekend window.
+
+    Reads ``soothsayer_v5/tape/v1`` daily partitions across
+    ``[friday, monday]`` and filters by ``poll_ts`` (int unix).
+    """
+    df = load_v5_window(window.friday, window.monday)
+    if df.empty:
+        return df
+    in_window = (df["poll_ts"] >= window.fri_close_ts) & (df["poll_ts"] <= window.mon_open_ts)
+    return df[in_window].reset_index(drop=True)
 
 
 def load_scope_tape(window: WeekendWindow) -> pd.DataFrame:
-    frames = []
-    for fp in sorted(glob(str(DATA_RAW / "kamino_scope_tape_*.parquet"))):
-        df = pd.read_parquet(fp)
-        # poll_ts is iso string here; convert.
-        df["poll_unix"] = pd.to_datetime(df["poll_ts"]).astype("int64") // 10**9
-        in_window = (df["poll_unix"] >= window.fri_close_ts) & (df["poll_unix"] <= window.mon_open_ts)
-        if in_window.any():
-            frames.append(df[in_window])
-    if not frames:
-        return pd.DataFrame(columns=["poll_ts", "poll_unix", "symbol", "scope_price"])
-    return pd.concat(frames, ignore_index=True)
+    """Concat scryer kamino-scope tape rows covering the weekend window.
+
+    ``poll_ts`` is an iso string (kamino_scope.v1); we derive ``poll_unix``
+    inline so legacy callers keying on ``poll_unix`` keep working.
+    """
+    df = load_kamino_scope_window(window.friday, window.monday)
+    if df.empty:
+        df["poll_unix"] = pd.Series(dtype="int64")
+        return df
+    df = df.copy()
+    ts = pd.to_datetime(df["poll_ts"], utc=True)
+    df["poll_unix"] = (ts - pd.Timestamp("1970-01-01", tz="UTC")) // pd.Timedelta(seconds=1)
+    in_window = (df["poll_unix"] >= window.fri_close_ts) & (df["poll_unix"] <= window.mon_open_ts)
+    return df[in_window].reset_index(drop=True)
 
 
 def load_pyth_tape(window: WeekendWindow) -> pd.DataFrame:
-    """Concat all pyth_xstock_tape parquets covering the weekend window.
+    """Concat scryer pyth oracle-tape rows covering the weekend window.
 
-    Schema (from ``scripts/collect_pyth_xstock_tape.py``):
-      poll_ts (iso str), poll_unix (int), symbol (UNDERLIER, e.g. "SPY"),
-      session (regular/on/pre/post), pyth_price, pyth_conf,
-      pyth_publish_time, pyth_age_s, pyth_half_width_bps, ...
+    Schema ``pyth.v1``: ``poll_ts`` (iso str), ``poll_unix`` (int64),
+    ``symbol`` (UNDERLIER, e.g. "SPY"), ``session``
+    (regular/on/pre/post), ``pyth_price``, ``pyth_conf``,
+    ``pyth_publish_time``, ``pyth_age_s``, ``pyth_half_width_bps``, ...
 
-    Note: Pyth tape symbols are *underlier* tickers (SPY, QQQ, AAPL, ...)
-    not xStock symbols (SPYx, QQQx, ...). The score_weekend caller maps
-    xStock → underlier before filtering.
+    Note: Pyth tape symbols are *underlier* tickers (SPY, QQQ, AAPL,
+    ...) not xStock symbols (SPYx, QQQx, ...). The score_weekend caller
+    maps xStock → underlier before filtering.
     """
-    frames = []
-    for fp in sorted(glob(str(DATA_RAW / "pyth_xstock_tape_*.parquet"))):
-        df = pd.read_parquet(fp)
-        # poll_unix is already an int column in this tape (verified via the
-        # daemon's expand_row()). No conversion needed.
-        in_window = (df["poll_unix"] >= window.fri_close_ts) & (df["poll_unix"] <= window.mon_open_ts)
-        if in_window.any():
-            frames.append(df[in_window])
-    if not frames:
-        return pd.DataFrame(columns=[
-            "poll_ts", "poll_unix", "symbol", "session",
-            "pyth_price", "pyth_conf", "pyth_half_width_bps",
-        ])
-    return pd.concat(frames, ignore_index=True)
+    df = load_pyth_window(window.friday, window.monday)
+    if df.empty:
+        return df
+    in_window = (df["poll_unix"] >= window.fri_close_ts) & (df["poll_unix"] <= window.mon_open_ts)
+    return df[in_window].reset_index(drop=True)
 
 
 def pyth_band(sym_pyth: pd.DataFrame, fri_close_ts: int, fri_close_ref: float,
@@ -194,7 +211,7 @@ def pyth_band(sym_pyth: pd.DataFrame, fri_close_ts: int, fri_close_ref: float,
     Returns a dict with the same shape as the score-script's other band
     constructors: ``{lower, upper, point, ...}``. If the requested session
     has no observations in the window, returns a degenerate band centred
-    on the yfinance Friday-close reference with zero width and a
+    on the Yahoo-underlier Friday-close reference with zero width and a
     ``pyth_unavailable`` label.
 
     The Pyth band is *static* across the weekend by construction — Pyth
@@ -230,28 +247,23 @@ def pyth_band(sym_pyth: pd.DataFrame, fri_close_ts: int, fri_close_ref: float,
     }
 
 
-def yfinance_close_open(symbols: list[str], friday: date, monday: date) -> dict[str, dict]:
-    """Pull Friday close + Monday open per underlier ticker via yfinance.
-    Bulk-fetch a 2-week window so the call is single-shot."""
-    import yfinance as yf
-    tickers = " ".join(symbols)
-    # Pull 2 weeks of history to be tolerant of holidays.
-    df = yf.download(
-        tickers, start=(friday - timedelta(days=10)).isoformat(),
-        end=(monday + timedelta(days=2)).isoformat(),
-        progress=False, auto_adjust=False, group_by="ticker",
-    )
+def yahoo_close_open(symbols: list[str], friday: date, monday: date) -> dict[str, dict]:
+    """Load Friday close + Monday open per underlier ticker via scryer Yahoo bars."""
     out: dict[str, dict] = {}
     for sym in symbols:
         try:
-            sub = df[sym] if sym in df.columns.get_level_values(0) else df
-            # Find the row where the index is the friday and the monday.
-            sub.index = pd.to_datetime(sub.index).date
-            fri_close = float(sub.loc[friday, "Close"]) if friday in sub.index else None
-            mon_open = float(sub.loc[monday, "Open"]) if monday in sub.index else None
+            sub = load_yahoo_bars(sym, friday - timedelta(days=10), monday + timedelta(days=2))
+            if sub.empty:
+                out[sym] = {"fri_close": None, "mon_open": None}
+                continue
+            sub = sub.copy()
+            sub["ts"] = pd.to_datetime(sub["ts"]).dt.date
+            sub = sub.set_index("ts")
+            fri_close = float(sub.loc[friday, "close"]) if friday in sub.index else None
+            mon_open = float(sub.loc[monday, "open"]) if monday in sub.index else None
             out[sym] = {"fri_close": fri_close, "mon_open": mon_open}
         except Exception as e:  # noqa: BLE001
-            out[sym] = {"fri_close": None, "mon_open": None, "yf_err": str(e)}
+            out[sym] = {"fri_close": None, "mon_open": None, "yahoo_err": str(e)}
     return out
 
 
@@ -477,7 +489,7 @@ def path_buffer_exhaustion(reserve_cfg: dict, path_summary: dict,
 
     Each source uses its own internal Friday-close reference (the first
     in-window observation on that tape), so the breach-price is denominated
-    in the same units as the path. ``fri_close`` (yfinance underlier) is
+    in the same units as the path. ``fri_close`` (Yahoo-underlier reference) is
     retained as a fall-back reference for sources whose first observation is
     missing, and as the cross-source reporting frame.
 
@@ -485,7 +497,7 @@ def path_buffer_exhaustion(reserve_cfg: dict, path_summary: dict,
       {
         "max_ltv_pct": ..., "liq_threshold_pct": ..., "ltv_gap_pp": ...,
         "trigger_drop_bps": ...,             # endpoint trigger drop
-        "yfinance_breach_price": ...,        # for cross-method comparison
+        "yfinance_breach_price": ...,        # legacy field name; Yahoo-underlier breach price for cross-method comparison
         "by_source": {
           "cl_tokenized": {fri_ref, breach_price, path_min,
                            min_drawdown_bps, buffer_breached, breach_count,
@@ -518,7 +530,7 @@ def path_buffer_exhaustion(reserve_cfg: dict, path_summary: dict,
 
         # Source's own first in-window observation = its "Friday close
         # reference" in the same units as the rest of its path. Falls back
-        # to yfinance fri_close only when the source has no first-obs
+        # to the Yahoo-underlier fri_close only when the source has no first-obs
         # recorded (defensive — should not happen since `compute_path_summary`
         # always emits one when n_obs > 0).
         fri_ref = s.get("first_value")
@@ -563,11 +575,11 @@ def path_aware_methods_2x2(reserve_cfg: dict, fri_close: float,
 
     Decision rules:
     - "Path breached": at least one source's intra-window minimum fell below
-      the yfinance-anchored breach price (so a max-LTV borrower would have
+      the Yahoo-underlier-anchored breach price (so a max-LTV borrower would have
       had collateral marked at sub-breach during the weekend on at least one
       observable venue).
     - "Method flagged": the method's lower bound is at or below the
-      yfinance-anchored breach price. Same denomination as the endpoint
+      Yahoo-underlier-anchored breach price. Same denomination as the endpoint
       classification, so endpoint and path-aware results are directly
       comparable.
 
@@ -726,21 +738,21 @@ def score_weekend(friday: date, monday: date, snapshot: dict, oracle: Oracle) ->
           f"Pyth tape rows: {len(pyth_tape)}")
 
     underlier_symbols = list(XSTOCK_TO_UNDERLIER.values())
-    yf = yfinance_close_open(underlier_symbols, friday, monday)
-    print(f"  yfinance pulls: {sum(1 for v in yf.values() if v.get('fri_close'))}/{len(yf)} fri_close, "
-          f"{sum(1 for v in yf.values() if v.get('mon_open'))}/{len(yf)} mon_open")
+    yahoo_refs = yahoo_close_open(underlier_symbols, friday, monday)
+    print(f"  Yahoo refs: {sum(1 for v in yahoo_refs.values() if v.get('fri_close'))}/{len(yahoo_refs)} fri_close, "
+          f"{sum(1 for v in yahoo_refs.values() if v.get('mon_open'))}/{len(yahoo_refs)} mon_open")
 
     rows: list[dict] = []
     for r in snapshot["reserves"]:
         x_sym = r["symbol"]
         underlier = XSTOCK_TO_UNDERLIER.get(x_sym)
-        if not underlier or underlier not in yf:
+        if not underlier or underlier not in yahoo_refs:
             continue
-        yfv = yf[underlier]
+        yfv = yahoo_refs[underlier]
         fri_close = yfv.get("fri_close")
         mon_open = yfv.get("mon_open")
         if fri_close is None or mon_open is None:
-            print(f"  [{x_sym}] missing yfinance fri/mon — skip")
+            print(f"  [{x_sym}] missing Yahoo fri/mon — skip")
             continue
 
         sym_v5 = v5_tape[v5_tape["symbol"] == x_sym] if not v5_tape.empty else v5_tape

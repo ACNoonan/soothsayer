@@ -3,6 +3,8 @@
 **Date:** 2026-04-24
 **Status:** Rust serving layer live, Python parity verified on 105/105 test cases
 
+> **Storage-path note (2026-04-29).** This report preserves the Week 1 engineering snapshot. Where it discusses a future "live data fetcher," the current architecture is now Scryer-first: Soothsayer consumes parquet from `SCRYER_DATASET_ROOT` rather than fetching from `src/soothsayer/sources/yahoo.py` or other deleted Soothsayer-side source modules.
+
 ## What shipped
 
 ### New crates
@@ -77,7 +79,7 @@ The current Rust Oracle serves **historical Fridays in the bounds table only** �
 
 What's explicitly not yet built:
 
-1. **Rust live data fetcher** — equivalent to yfinance in `src/soothsayer/sources/yahoo.py`, plus equivalents for Kraken / Helius. Needed for a "current weekend" serve that fetches fresh Friday close data and runs the model online. Scope: ~1 week, covers Week 1.5 or Week 2.
+1. **Rust live data consumer / Scryer bridge** — now understood as a Scryer-backed path that reads fresh Friday-close inputs from the canonical parquet dataset rather than reintroducing a Soothsayer-side Yahoo / Kraken / Helius fetcher. Needed for a "current weekend" serve that consumes fresh Friday-close data and runs the model online. Scope: ~1 week, covers Week 1.5 or Week 2.
 2. **Rust forecaster fit** — port of `empirical_quantiles_f1_loglog` + Gaussian bounds for F0. Needed if we want the Rust binary to produce bounds for a brand-new Friday independently of Python. Scope: ~3–5 days.
 3. **Rolling calibration rebuild cron** — periodically re-run `scripts/run_calibration.py` to extend the bounds table through the latest completed weekend. Production deployment would run this weekly. Scope: ~1 day (it's already scriptable).
 
@@ -88,7 +90,7 @@ What's explicitly not yet built:
 ```
 crates/
   soothsayer-core/           (pre-existing, unchanged)
-  soothsayer-ingest/         (pre-existing, unchanged — used in Week 2)
+  soothsayer-ingest/         (historical note: removed in the April 2026 scryer cutover)
   soothsayer-oracle/         NEW — serving-layer library
     src/
       config.rs              REGIME_FORECASTER, CALIBRATION_BUFFER_PCT, MAX_SERVED_TARGET

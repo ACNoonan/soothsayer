@@ -9,9 +9,10 @@ This module exposes two registries — one per schema:
                            feed IDs from v10).
 
 Both were identified empirically by price-band correlation against
-yfinance — see ``scripts/enumerate_v11_xstock_feeds.py`` and the
-verifier-tx scans in ``scripts/scan_chainlink_schemas.py`` /
-``scripts/verify_v11_cadence.py``. If Chainlink migrates a feed ID or
+yfinance — see the 2026-04-25 Chainlink schema/cadence entries in
+``reports/methodology_history.md``. The original probe scripts named in
+those entries were retired in the April 2026 scryer cutover. If Chainlink
+migrates a feed ID or
 transitions a stream to a different schema, these entries need to be
 updated — there is no on-chain directory we can query.
 
@@ -44,13 +45,13 @@ XSTOCK_FEEDS: dict[str, str] = {
 # and a placeholder-only v11 feed exist for the same xStock, the real-quote
 # one is the canonical mapping).
 #
-# Identified empirically by ``scripts/enumerate_v11_xstock_feeds.py`` via
-# price-band correlation: median ``last_traded_price`` per feed_id matched
-# against yfinance Friday close for 2026-04-24, tolerance ±5%. Match
-# precision sub-0.1% on all four entries. Real-quote vs placeholder
-# classification confirmed by ``scripts/dump_v11_feed_inventory.py`` —
-# real-quote feeds have 0% bid `.01`-suffix rate; placeholder feeds have
-# 100%.
+# Identified empirically by the pre-cutover Chainlink feed-enumeration probes
+# summarized in ``reports/methodology_history.md``: median
+# ``last_traded_price`` per feed_id matched against yfinance Friday close for
+# 2026-04-24, tolerance ±5%. Match precision sub-0.1% on all four entries.
+# Real-quote vs placeholder classification was confirmed in the same evidence
+# sweep: real-quote feeds have 0% bid `.01`-suffix rate; placeholder feeds
+# have 100%.
 #
 # Coverage gap: only 4 of 8 xStocks have observable v11 traffic in the
 # 30000-Verifier-sig deep scan (~3-4 hours of recent traffic). AAPL, GOOGL,
@@ -74,7 +75,7 @@ XSTOCK_V11_FEEDS: dict[str, str] = {
 # Known placeholder-only alternate v11 feeds — same xStock as the canonical
 # mapping above, but a different Chainlink stream that publishes only the
 # synthetic-low-bid pattern (bid ends in ``.01``, 100% of samples). These
-# entries exist so that ``verify_v11_cadence.py`` can bucket samples per
+# entries exist so downstream cadence-verification code can bucket samples per
 # (canonical-vs-alternate, status) and emit per-feed-shape verdicts; the
 # comparator (``score_weekend_comparison.py``) does NOT use this dict — it
 # wants the canonical real-quote feed when one is available.

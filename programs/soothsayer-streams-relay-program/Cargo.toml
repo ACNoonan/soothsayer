@@ -1,0 +1,23 @@
+[package]
+name = "soothsayer-streams-relay-program"
+description = "Soothsayer Chainlink Data Streams relay. The soothsayer-controlled Anchor program that the off-chain relay daemon (scryer wishlist item 43) calls to persist DON-validated Chainlink reports into per-feed PDAs the soothsayer-router reads passively. Locked 2026-04-29 (afternoon) per soothsayer/reports/methodology_history.md."
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/ACNoonan/soothsayer"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "soothsayer_streams_relay_program"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31", features = ["init-if-needed"] }
+chainlink_solana_data_streams = { git = "https://github.com/smartcontractkit/chainlink-data-streams-solana", tag = "v1.1.0" }

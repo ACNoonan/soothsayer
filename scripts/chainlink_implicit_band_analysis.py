@@ -4,8 +4,9 @@ that empirically delivers a coverage claim during weekends?
 
 The existing dataset (`data/processed/v1_chainlink_vs_monday_open.parquet`,
 87 weekend × xStock observations 2026-02-06 → 2026-04-17) captures
-Chainlink's published values during the Friday → Monday gap. Pulled by
-`scripts/run_v1_scrape.py` via Helius RPC.
+Chainlink's published values during the Friday → Monday gap. This is a
+frozen pre-cutover artifact; the original `scripts/run_v1_scrape.py`
+producer was retired in the April 2026 scryer migration.
 
 Two findings paper-relevant for §1.1 + §6:
 
@@ -121,7 +122,7 @@ def main() -> None:
     md = [
         "# V1b — Chainlink incumbent comparison",
         "",
-        f"**Dataset.** Existing scrape of Chainlink Data Streams v10/v11 publish events during {df['weekend_mon'].nunique()} weekends (2026-02-06 → 2026-04-17) across {df['symbol'].nunique()} xStock tickers (SPYx, QQQx, AAPLx, GOOGLx, NVDAx, TSLAx, HOODx, MSTRx). One observation per (weekend, ticker) at the latest pre-Monday-open Chainlink publish. Pulled via Helius RPC (`scripts/run_v1_scrape.py`); raw parquet at `data/processed/v1_chainlink_vs_monday_open.parquet`. Sample size **{len(df)} observations**.",
+        f"**Dataset.** Existing scrape of Chainlink Data Streams v10/v11 publish events during {df['weekend_mon'].nunique()} weekends (2026-02-06 → 2026-04-17) across {df['symbol'].nunique()} xStock tickers (SPYx, QQQx, AAPLx, GOOGLx, NVDAx, TSLAx, HOODx, MSTRx). One observation per (weekend, ticker) at the latest pre-Monday-open Chainlink publish. The parquet at `data/processed/v1_chainlink_vs_monday_open.parquet` is a frozen pre-cutover artifact; the original soothsayer-side producer was retired in the April 2026 scryer migration. Sample size **{len(df)} observations**.",
         "",
         "## Finding 1 — Chainlink does not publish a band during weekend `marketStatus = 5`",
         "",
@@ -149,7 +150,7 @@ def main() -> None:
         "",
         "## Caveats",
         "",
-        f"- Sample size is **{len(df)}** obs from a recent {df['weekend_mon'].nunique()}-weekend window — sufficient to demonstrate the structural finding (no Chainlink band) but small for a per-regime breakdown. A multi-year extension would require pulling Chainlink Data Streams reports from earlier 2025 / 2024 via Helius; the pull infrastructure exists in `src/soothsayer/chainlink/scraper.py` and is gated only on engineering time, not data access.",
+        f"- Sample size is **{len(df)}** obs from a recent {df['weekend_mon'].nunique()}-weekend window — sufficient to demonstrate the structural finding (no Chainlink band) but small for a per-regime breakdown. A multi-year extension would require older Chainlink history to be ingested into Scryer first; the deleted soothsayer-side scraper is no longer the sanctioned path.",
         "- The naive ±k% wrap is *not* what a sophisticated Chainlink consumer would actually deploy; this is the comparator a *naive* consumer would see. The stronger v2 comparison is against the observed Kamino xStocks reserve configuration and oracle semantics, plus simpler heuristic baselines; the earlier flat ±300bps benchmark in `reports/tables/protocol_compare_*.csv` is now retained only as a legacy stylized baseline.",
         "- We do not measure Chainlink's *bias* — that's the V1 finding (`reports/v1_chainlink_bias.md`): pooled bias is −8.77 bps with t = −0.52, p = 0.605 (undetectable). Chainlink's point estimate is unbiased; what's missing is the band.",
         "",

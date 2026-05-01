@@ -95,7 +95,7 @@ The 2023-01-01 split point is conservative in two respects: (i) it places the 20
 
 ## 5.7 Provenance and reproducibility
 
-All inputs are pulled live from Yahoo Finance via the `yfinance` Python library (`src/soothsayer/sources/yahoo.py`); pulls are cached to local parquet under `data/raw/yahoo_*.parquet` to insulate the backtest from API rate limits and intermittent provider unavailability. No credentials are required for any Phase 0 data source. The `earnings_dates` flag uses the same library's earnings-calendar endpoint.
+All Phase 0 equity inputs are now read from Scryer parquet: `yahoo/equities_daily/v1` for daily OHLCV and `yahoo/earnings/v1` for the earnings-calendar flag. No credentials are required for the consumer path in soothsayer; upstream fetch, retry, and schema ownership live in the sibling Scryer repo.
 
 The end-to-end calibration backtest runs under fifteen minutes on a 2024 M3 MacBook from a cold cache, and under one minute when the daily-history cache is warm. Reproduction:
 

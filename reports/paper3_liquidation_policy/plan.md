@@ -1,12 +1,11 @@
 # Paper 3 Plan — Liquidation Policy Defaults Under Calibrated Oracle Uncertainty and Real Reserve-Buffer Exhaustion
 
 **Status:** planning document (internal).  
-**Relationship to Paper 1 and Paper 2:**
+**Relationship to Paper 1:**
 - **Paper 1** validates an **oracle calibration primitive** (coverage inversion + receipts) on held-out data.
-- **Paper 2** (in planning, `../paper2_oev_mechanism_design/plan.md`) studies **OEV mechanism design under calibration-transparent oracles** — how publishing the calibration band itself reshapes liquidation-auction equilibria.
-- **Paper 3** (this document, `plan.md`) is the **decision-theoretic protocol-policy** capstone: given a calibrated band and the auction structure of Paper 2, what should a lending protocol's liquidation-policy defaults be?
+- **Paper 3** (this document, `plan.md`) is the **decision-theoretic protocol-policy** capstone: given a calibrated band, what should a lending protocol's liquidation-policy defaults be?
 
-The trilogy is methodology → mechanism → policy. Paper 3 can be read independently of Paper 2, but its strongest claims (welfare-comparable expected loss, robust operating regions) hold most cleanly when the auction layer is the one specified by Paper 2 rather than an arbitrary opaque-oracle baseline.
+The active research arc is methodology → policy. Paper 3 can be read independently of any separate mechanism-design work; its contribution is the mapping from calibrated uncertainty to liquidation action under explicit reserve, cost, and truth semantics.
 
 ---
 
@@ -395,7 +394,7 @@ Close the introduction by narrowing scope: no universal optimality, no claim of 
 These are candidate lines or near-lines, not final prose:
 
 - "The production gap is not that protocols fail to optimize liquidation policy; it is that they optimize against off-hours price inputs that do not publish an auditable uncertainty contract."
-- "Paper 1 asks whether a served band is calibrated. Paper 2 asks how OEV auctions should be designed to consume that band. Paper 3 asks what a lending protocol should do with the resulting (band, auction) primitive."
+- "Paper 1 asks whether a served band is calibrated. Paper 3 asks what a lending protocol should do with that calibrated uncertainty."
 - "In closed-market tokenized-equity lending, uncertainty is not an implementation detail of the price feed; it is part of the state variable that should govern liquidation."
 - "The relevant benchmark is not a single Monday reopening print but the worst executable off-hours path the protocol would have had to survive."
 

@@ -1,0 +1,22 @@
+[package]
+name = "mock-chainlink-verifier-program"
+description = "Devnet-only test fixture: Anchor program that mimics Chainlink's Verifier interface (`verify(signed_report: Vec<u8>)` returning Ok). Used to validate the soothsayer-streams-relay-program's Phase 42b CPI shape end-to-end without a Chainlink Streams subscription. NOT for production use — production assets always point at Chainlink's real Verifier."
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/ACNoonan/soothsayer"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "mock_chainlink_verifier_program"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31", features = ["init-if-needed"] }

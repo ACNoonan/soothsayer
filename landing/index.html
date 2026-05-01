@@ -753,7 +753,7 @@
           <span class="eyebrow"><span class="bar"></span>The gap</span>
           <h2>Every weekend, the incumbents <span class="em">stop thinking.</span></h2>
         </div>
-        <p>Weekends are the cleanest proof of the gap. Chainlink's main consumed fields go stale, Pyth + Blue Ocean extend into 24/5 but still hand back the weekend, and continuous off-hours marks remain difficult to audit. The market has activity, but not yet shared closed-market pricing infrastructure.</p>
+        <p>Weekends are the cleanest proof of the gap. Chainlink's consumed fields either freeze at Friday close or route to an opaque tokenized mark, Pyth + Blue Ocean extend into 24/5 but still hand back the weekend, and continuous off-hours marks remain difficult to audit. The market has activity, but not yet shared closed-market pricing infrastructure.</p>
       </div>
 
       <div class="gap-card">
@@ -765,7 +765,7 @@
         </div>
 
         <div class="row">
-          <div class="name">Chainlink<span class="sub">Data Streams · official</span></div>
+          <div class="name">Chainlink<span class="sub">LTP frozen / tokenized mark live</span></div>
           <div class="track">
             <div class="fill grey" style="left: 0%; width: 68.5%;"></div>
             <div class="fill stale" style="left: 68.5%; width: 28.5%;"></div>
@@ -791,7 +791,7 @@
 
         <div class="gap-note">
           <span><span class="hi">● THE 48-HOUR GAP</span> &nbsp;— Fri 8pm → Sun 8pm ET</span>
-          <span>— Chainlink schema v11 · marketStatus = 5 → stale hold</span>
+          <span>— Chainlink weekend: frozen LTP, placeholder-derived v11 mid</span>
         </div>
       </div>
     </div>
@@ -843,15 +843,15 @@
           <p>Paper 1 formalizes the coverage-inversion primitive: a public Solana fair-value band with target coverage, claimed-served quantile, and replayable audit receipts instead of a black-box point estimate.</p>
           <div class="tag-row">
             <span class="tag">12 years</span>
-            <span class="tag">5,986 weekends</span>
+            <span class="tag">5,986 panel rows</span>
             <span class="tag">Reproducible</span>
           </div>
         </div>
 
         <div class="prod">
-          <span class="num">02 · MEASUREMENT · PAPER 2</span>
-          <h3>Build the public liquidation and OEV evidence layer.</h3>
-          <p>Paper 2 and the Solana OEV grant proposal turn the primitive into public infrastructure: liquidation datasets, weekend comparators, and event labels that test where rent concentrates in xStocks-on-Kamino and MarginFi.</p>
+          <span class="num">02 · POLICY · PAPER 3</span>
+          <h3>Map calibrated uncertainty into protocol action.</h3>
+          <p>Paper 3 turns the primitive into protocol-facing policy: reserve-buffer scoring, closed-market decision rules, and evidence for how lending systems should respond when uncertainty is explicit rather than hidden.</p>
           <div class="tag-row">
             <span class="tag">Open dataset</span>
             <span class="tag">Mechanism design</span>
@@ -961,8 +961,6 @@
               <span class="i">Friday close</span>
               <span class="i">ES=F return</span>
               <span class="i">VIX</span>
-              <span class="i">earnings flag</span>
-              <span class="i">long-weekend flag</span>
             </div>
           </div>
 
@@ -1059,16 +1057,16 @@
         <tbody>
           <tr>
             <td class="prov">Chainlink Data Streams</td>
-            <td><span class="no">— stale hold</span></td>
-            <td><span class="note">Stale fields / tokenized mark</span></td>
-            <td><span class="no">— none</span></td>
+            <td><span class="mid">~ field-dependent</span></td>
+            <td><span class="note">Frozen LTP or opaque tokenized mark</span></td>
+            <td><span class="no">— none verifiable</span></td>
             <td><span class="no">— closed</span></td>
           </tr>
           <tr>
             <td class="prov">Pyth + Blue Ocean</td>
             <td><span class="no">— overnight only</span></td>
             <td><span class="note">Weighted median</span></td>
-            <td><span class="mid">~ quote dispersion *</span></td>
+            <td><span class="mid">10.2% at claimed 95%</span></td>
             <td><span class="mid">~ partial</span></td>
           </tr>
           <tr>
@@ -1158,6 +1156,8 @@
     </div>
     <div class="links-foot">
       <a href="pitch.html">Pitch deck</a>
+      <a href="dashboard.html">Backtest receipts</a>
+      <a href="live.html">Live · devnet</a>
       <a href="#method">Methodology</a>
       <a href="#contact" data-open-contact>Contact</a>
     </div>

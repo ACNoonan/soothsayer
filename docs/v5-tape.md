@@ -4,7 +4,7 @@
 
 This doc covers: (1) the V5 tape daemon design, (2) the verified xStock mint universe, and (3) the Chainlink Data Streams schema reality on Solana — empirically established 2026-04-25 across both v10 and v11 feeds.
 
-> **Historical context.** This file replaces `docs/plan-b.md`, which evaluated a "Chainlink xStock quality monitor" pivot in early April 2026. That pivot was not taken — Option C (calibration transparency) won instead, see [`reports/v1b_decision.md`](../reports/v1b_decision.md) and [`reports/option_c_spec.md`](../reports/option_c_spec.md). The operational content (V5 tape design, mints, decoder schema) survives here because it's still load-bearing for Phase 1.
+> **Historical context.** This file replaces `docs/plan-b.md`, which evaluated a "Chainlink xStock quality monitor" pivot in early April 2026. That pivot was not taken — Option C (calibration transparency) won instead, see [`reports/v1b_decision.md`](../reports/v1b_decision.md) and [`docs/product-spec.md`](product-spec.md). The operational content (V5 tape design, mints, decoder schema) survives here because it's still load-bearing for Phase 1.
 
 ## V5 tape daemon
 
@@ -16,12 +16,13 @@ The V5 tape is a 1-minute parquet log of (Chainlink xStock mark, Jupiter DEX mid
 ### Design
 
 - **Cadence.** 1-minute polling. ~11,500 samples/day across 8 feeds + DEX, well within Helius free budget.
-- **Cursor design.** Forward cursor, not backfill. Each tick, walk only `(last_sig, now]` per feed — turns ~95s cold-scrape per feed into sub-second delta. The naive `fetch_latest_per_xstock(lookback_hours=1)` from `src/soothsayer/chainlink/scraper.py` is for smoke tests only; production daemon (`scripts/run_v5_tape.py`) maintains a per-feed last-seen Verifier signature.
-- **Storage.** Daily parquet partitions: `data/raw/v5_tape_YYYYMMDD.parquet`. Append-only, never rewrite.
-- **Runner.** Long-running daemon with `PYTHONUNBUFFERED=1`:
+- **Cursor design.** Forward cursor, not backfill. Each tick, walk only `(last_sig, now]` per feed — turns ~95s cold-scrape per feed into sub-second delta. Post-cutover this logic lives in Scryer, not in `src/soothsayer/chainlink/scraper.py`.
+- **Storage.** Daily parquet partitions now live under `SCRYER_DATASET_ROOT/soothsayer_v5/tape/v1/year=YYYY/month=MM/day=DD.parquet`. Soothsayer reads them via `load_v5_window(...)`.
+- **Runner.** Historical pre-cutover runner was a long-lived Python daemon. Post-cutover, the authoritative runner lives in Scryer and writes directly to `SCRYER_DATASET_ROOT/soothsayer_v5/tape/v1/...`:
 
 ```bash
-nohup uv run python -u scripts/run_v5_tape.py > /tmp/v5_tape.log 2>&1 &
+# from the sibling scryer checkout
+scry ...   # venue-specific daemon / import entrypoint
 ```
 
 - **DEX side.** Jupiter quote API (`lite-api.jup.ag/swap/v1/quote`) — free, unmetered, no key. The older `quote-api.jup.ag` was decommissioned (NXDOMAIN); Jupiter consolidated under `lite-api.jup.ag` in 2026.
@@ -31,8 +32,8 @@ nohup uv run python -u scripts/run_v5_tape.py > /tmp/v5_tape.log 2>&1 &
 
 The original V5 design enumerated five divergence axes. They survive as the structure for the Phase 2 comparator dashboard, not as go/no-go gates:
 
-1. **CL vs yfinance — regular hours.** Baseline oracle lag (<5 bps expected).
-2. **CL vs yfinance — extended hours (4–9:30 AM ET, 4–8 PM ET).** Real-volume price-discovery window.
+1. **CL vs Yahoo-underlier reference — regular hours.** Baseline oracle lag (<5 bps expected).
+2. **CL vs Yahoo-underlier reference — extended hours (4–9:30 AM ET, 4–8 PM ET).** Real-volume price-discovery window.
 3. **CL vs DEX mid — continuous.** The core off-hours basis signal. Threshold: |basis| > 30 bps gets flagged.
 4. **CL vs DEX — weekend-specific.** Whether CL leans on DEX during dark hours, or has an independent off-hours mark.
 5. **Event windows.** Earnings, splits, halts. Enumerate-and-eyeball; statistical power is limited by ~3 months of CL history.
@@ -56,7 +57,7 @@ USDC on Solana: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`.
 
 ## Chainlink Data Streams — schema reality on Solana (verified 2026-04-25)
 
-Both v10 (Tokenized Asset, schema `0x000a`) and v11 (RWA Advanced, schema `0x000b`) are active on Solana. The plan-b doc and pre-2026-04-25 framing were partial. Empirical scan: `scripts/scan_chainlink_schemas.py`; data: `data/raw/v5_tape_*.parquet`.
+Both v10 (Tokenized Asset, schema `0x000a`) and v11 (RWA Advanced, schema `0x000b`) are active on Solana. The plan-b doc and pre-2026-04-25 framing were partial. Historical empirical scan came from the pre-cutover `scripts/scan_chainlink_schemas.py`; current consumers should read the Scryer V5 tape parquet instead.
 
 ### Field-level cadence (Saturday 2026-04-25, market_status = closed/weekend)
 
@@ -107,7 +108,7 @@ Verification task scheduled — see `docs/ROADMAP.md` Phase 1 → Methodology / 
 
 - [ ] Monday 2026-04-27 morning ET — verify v11 24/5 cadence (pre-market 04:00-09:30 ET = 08:00-13:30 UTC). Re-run `scripts/scan_chainlink_schemas.py` and check whether v11 `mid`/`bid`/`ask` carry real values during pre-market state.
 - [ ] Map v11 feed_ids → xStock symbols (defer until needed for Phase 2 comparator).
-- [ ] Extend `scripts/run_v5_tape.py` to log v11 fields alongside v10 (defer until Phase 2 comparator design).
+- [ ] Extend the Scryer V5 tape daemon to log v11 fields alongside v10 (defer until Phase 2 comparator design).
 - [ ] FASTRPC wiring — replaces Helius free-tier path for the cold-scrape problem.
 - [ ] `scripts/analyze_v5.py` — per-axis charts + pooled stats for the Phase 2 comparator dashboard.
 

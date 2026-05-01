@@ -124,13 +124,14 @@ def render_markdown(data: dict) -> str:
         "parameters. All 8 xStocks live in lending market "
         f"`{rows[0]['lending_market']}` and consume Scope as the primary oracle. The numbers "
         "below are reproducible from the on-chain klend program (`KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD`) "
-        "via `scripts/snapshot_kamino_xstocks.py` + `scripts/score_weekend_comparison.py`.\n"
+        "via `scripts/score_weekend_comparison.py` (reserve config from the most-recent "
+        "`data/processed/kamino_xstocks_snapshot_*.json`; tape data via the scryer dataset).\n"
     )
 
     # --- Section 1: What was observed ---------------------------------
     md.append("## Section 1 — What was observed\n")
     md.append(
-        "Per-symbol Friday close (yfinance underlier), Monday open (yfinance underlier), "
+        "Per-symbol Friday close (Yahoo-underlier reference via Scryer), Monday open (Yahoo-underlier reference via Scryer), "
         "Kamino reserve config (LTV at origination / liquidation threshold / heuristic guard "
         "rail), and weekend tape coverage. Kamino's `PriceHeuristic` is a *validity guard rail* "
         "— Scope reads outside the range are rejected — not a coverage band, so it is reported "

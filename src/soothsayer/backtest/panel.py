@@ -21,10 +21,8 @@ from datetime import date, timedelta
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
-from ..cache import parquet_cached
-from ..sources.yahoo import fetch_daily
+from ..sources.scryer import load_yahoo_bars, load_yahoo_earnings
 from ..universe import CORE_XSTOCKS
 
 # Extra underlyings to support the RWA-generalization narrative (closed-market
@@ -123,7 +121,27 @@ def _weekend_pairs_with_vol(daily: pd.DataFrame, spec: PanelSpec) -> pd.DataFram
                     "fri_vol_20d": float(fri_vol),
                 }
             )
+    if not out:
+        return pd.DataFrame(
+            columns=[
+                "symbol", "fri_ts", "mon_ts", "gap_days", "fri_close",
+                "mon_open", "fri_vol_20d",
+            ]
+        )
     return pd.DataFrame(out)
+
+
+def _load_daily_window(symbols: list[str], start: date, end: date) -> pd.DataFrame:
+    """Load one Yahoo daily-bar window from scryer for a list of symbols."""
+    frames: list[pd.DataFrame] = []
+    for sym in symbols:
+        df = load_yahoo_bars(sym, start, end)
+        if df.empty:
+            continue
+        frames.append(df[["symbol", "ts", "open", "close"]].copy())
+    if not frames:
+        return pd.DataFrame(columns=["symbol", "ts", "open", "close"])
+    return pd.concat(frames, ignore_index=True)
 
 
 def _join_exog(panel: pd.DataFrame, exog: pd.DataFrame, exog_symbol: str, prefix: str) -> pd.DataFrame:
@@ -165,33 +183,25 @@ def _earnings_flags(spec: PanelSpec) -> pd.DataFrame:
     """For each (symbol, weekend), emit earnings_next_week boolean: True if the
     ticker has an earnings release scheduled in the upcoming Mon–Fri window.
 
-    Uses yfinance Ticker.earnings_dates which typically returns the last ~5
-    years of releases. Earlier years get False (absence of flag, not absence
-    of earnings) — not perfect, but lets the log-log regression estimate the
-    regime effect on the post-2020 slice where we have clean coverage."""
-
+    Reads scryer ``yahoo/earnings/v1`` parquet. The historical depth is still
+    bounded by the imported earnings calendar, so earlier years naturally land
+    as False rather than "known no earnings".
+    """
     symbols = [x.underlying for x in CORE_XSTOCKS]
-    key = {"earnings_flags_v1": True, "symbols": sorted(symbols), "end": str(spec.end)}
-
-    def _go() -> pd.DataFrame:
-        rows: list[dict] = []
-        for sym in symbols:
-            try:
-                t = yf.Ticker(sym)
-                ed = t.earnings_dates
-                if ed is None or len(ed) == 0:
-                    continue
-                dates = pd.to_datetime(ed.index).tz_localize(None).normalize().date
-                for d in dates:
-                    rows.append({"symbol": sym, "earnings_date": d})
-            except Exception as exc:
-                warnings.warn(f"earnings_dates failed for {sym}: {exc}")
-        df = pd.DataFrame(rows)
-        if df.empty:
-            df = pd.DataFrame(columns=["symbol", "earnings_date"])
-        return df
-
-    return parquet_cached("earnings", key, _go)
+    rows: list[pd.DataFrame] = []
+    for sym in symbols:
+        try:
+            df = load_yahoo_earnings(sym, spec.start, spec.end + timedelta(days=4))
+        except Exception as exc:
+            warnings.warn(f"earnings loader failed for {sym}: {exc}")
+            continue
+        if not df.empty:
+            rows.append(df[["symbol", "earnings_date"]].copy())
+    if not rows:
+        return pd.DataFrame(columns=["symbol", "earnings_date"])
+    return pd.concat(rows, ignore_index=True).drop_duplicates(
+        subset=["symbol", "earnings_date"]
+    )
 
 
 def _attach_earnings_flag(panel: pd.DataFrame, earnings: pd.DataFrame) -> pd.DataFrame:
@@ -238,12 +248,12 @@ def build(spec: PanelSpec) -> pd.DataFrame:
       fut_ret                           -- alias for es_ret (legacy F2 path)
     """
     equities = _universe()
-    eq_daily = fetch_daily(equities, spec.start, spec.end)
-    fut_daily = fetch_daily(list(FUTURES), spec.start, spec.end)
-    vix_daily = fetch_daily([VIX], spec.start, spec.end)
-    gvz_daily = fetch_daily([GVZ], spec.start, spec.end)
-    move_daily = fetch_daily([MOVE], spec.start, spec.end)
-    btc_daily = fetch_daily([BTC], spec.start, spec.end)
+    eq_daily = _load_daily_window(equities, spec.start, spec.end)
+    fut_daily = _load_daily_window(list(FUTURES), spec.start, spec.end)
+    vix_daily = _load_daily_window([VIX], spec.start, spec.end)
+    gvz_daily = _load_daily_window([GVZ], spec.start, spec.end)
+    move_daily = _load_daily_window([MOVE], spec.start, spec.end)
+    btc_daily = _load_daily_window([BTC], spec.start, spec.end)
 
     panel = _weekend_pairs_with_vol(eq_daily, spec)
 

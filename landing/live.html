@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Soothsayer — live on devnet</title>
+<meta name="description" content="Live, on-chain state of the Soothsayer router and Chainlink Streams relay programs on Solana devnet. Calibration receipts read directly from the deployed PDAs every 30 seconds." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@solana/web3.js@1.95.4/lib/index.iife.min.js"></script>
+<style>
+  :root {
+    --bg: #0A0B0D;
+    --bg-elev: #111216;
+    --bg-card: #131418;
+    --ink: #F4F3EE;
+    --ink-dim: #A6A8AD;
+    --ink-faint: #6B6E75;
+    --rule: rgba(244, 243, 238, 0.09);
+    --rule-strong: rgba(244, 243, 238, 0.18);
+    --purple: #9945FF;
+    --green: #14F195;
+    --warn: #F4B45A;
+    --red: #F26A5A;
+    --sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --maxw: 1320px;
+    --pad-x: clamp(20px, 4vw, 56px);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); margin: 0; padding: 0; color: var(--ink); }
+  body { font-family: var(--sans); font-weight: 400; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--green); color: var(--bg); }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad-x); }
+  .mono { font-family: var(--mono); }
+
+  /* nav */
+  nav.top {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(10, 11, 13, 0.82);
+    backdrop-filter: saturate(140%) blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  nav.top .inner { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  nav.top .brand { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+  nav.top .brand .dot { color: var(--green); }
+  nav.top .links { display: flex; gap: 28px; align-items: center; }
+  nav.top .links a {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--ink-dim);
+    transition: color 120ms ease;
+  }
+  nav.top .links a:hover { color: var(--ink); }
+  @media (max-width: 780px) { nav.top .links a { display: none; } }
+
+  /* hero */
+  .hero { padding: 64px 0 36px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--green); font-weight: 500; display: inline-flex; align-items: center; gap: 10px;
+  }
+  .eyebrow .bar { width: 24px; height: 1px; background: var(--green); opacity: 0.5; }
+  h1 {
+    font-size: clamp(36px, 5vw, 60px); font-weight: 500;
+    letter-spacing: -0.03em; line-height: 1.05;
+    margin: 18px 0 0; max-width: 900px; text-wrap: balance;
+  }
+  .lede {
+    margin-top: 22px; max-width: 760px;
+    font-size: clamp(15px, 1.2vw, 18px); line-height: 1.55; color: var(--ink-dim); font-weight: 300;
+  }
+
+  /* status pill */
+  .status-row {
+    margin-top: 32px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; color: var(--ink-faint);
+  }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border: 1px solid var(--rule-strong); border-radius: 999px;
+  }
+  .status-pill .led {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 0 4px rgba(20, 241, 149, 0.14);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .status-pill.warn .led { background: var(--warn); box-shadow: 0 0 0 4px rgba(244, 180, 90, 0.14); }
+  .status-pill.warn { color: var(--warn); }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(20, 241, 149, 0); } }
+
+  /* main grid */
+  main { padding: 36px 0 96px; }
+  .grid {
+    display: grid; gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+  }
+
+  /* cards */
+  .card {
+    background: var(--bg-card); border: 1px solid var(--rule);
+    padding: 28px 28px 24px; border-radius: 4px;
+  }
+  .card .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .card h2 {
+    font-size: 20px; font-weight: 500; letter-spacing: -0.01em; margin: 0;
+  }
+  .card .id-row {
+    margin-top: 4px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    word-break: break-all;
+  }
+  .card .id-row a { color: var(--ink-dim); border-bottom: 1px dotted transparent; }
+  .card .id-row a:hover { color: var(--ink); border-bottom-color: var(--rule-strong); }
+
+  .field-grid {
+    margin-top: 24px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px;
+  }
+  .field { font-family: var(--mono); }
+  .field .label {
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  .field .value { margin-top: 4px; font-size: 15px; color: var(--ink); }
+  .field .value.dim { color: var(--ink-dim); }
+  .field .value.green { color: var(--green); }
+  .field .value.warn { color: var(--warn); }
+  .field .value.red { color: var(--red); }
+  .field.full { grid-column: 1 / -1; }
+
+  .price-row {
+    margin-top: 24px;
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+  }
+  .price { font-family: var(--mono); font-size: 32px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; }
+  .price.dim { color: var(--ink-faint); }
+  .band {
+    font-family: var(--mono); font-size: 14px; color: var(--ink-dim);
+    padding: 6px 10px; border: 1px solid var(--rule); border-radius: 4px;
+  }
+
+  .meta {
+    margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em;
+  }
+
+  /* skeleton state */
+  .skel { color: var(--ink-faint); font-style: italic; }
+
+  /* footer */
+  footer {
+    margin-top: 96px; padding: 32px 0; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em;
+  }
+  footer a { color: var(--ink-dim); border-bottom: 1px dotted transparent; }
+  footer a:hover { color: var(--ink); border-bottom-color: var(--rule-strong); }
+
+  /* legend */
+  .legend {
+    margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--rule);
+    font-size: 13px; color: var(--ink-dim); line-height: 1.6;
+  }
+  .legend h3 { font-size: 14px; font-weight: 500; color: var(--ink); margin: 0 0 10px; letter-spacing: -0.005em; }
+  .legend code {
+    font-family: var(--mono); font-size: 12px;
+    background: rgba(244,243,238,0.04); padding: 1px 6px; border-radius: 2px;
+  }
+</style>
+</head>
+
+<body>
+
+<nav class="top">
+  <div class="wrap inner">
+    <a class="brand" href="./index.html">
+      soothsayer<span class="dot">.</span>
+    </a>
+    <div class="links">
+      <a href="./index.html">overview</a>
+      <a href="./dashboard.html">backtest receipts</a>
+      <a href="./pitch.html">pitch</a>
+      <a href="./live.html" style="color: var(--green);">live</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow"><span class="bar"></span> live · solana devnet</span>
+    <h1>The deployed thing.</h1>
+    <p class="lede">
+      Soothsayer's calibration-transparent oracle stack is live on Solana devnet. This page reads the on-chain state directly from the deployed router and relay programs every 30&nbsp;seconds — no cached snapshots, no off-chain compositing.
+    </p>
+    <div class="status-row">
+      <span class="status-pill" id="rpc-pill"><span class="led"></span><span id="rpc-label">connecting…</span></span>
+      <span id="last-refresh" class="mono">—</span>
+      <span class="mono" style="color: var(--ink-faint);">cluster: <span style="color: var(--ink-dim);">devnet</span></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="grid">
+
+      <!-- ROUTER SNAPSHOT CARD -->
+      <section class="card" id="router-card">
+        <div class="head">
+          <div>
+            <h2>Router snapshot — SOL</h2>
+            <div class="id-row">
+              <span style="color: var(--ink-faint);">program:</span>
+              <a href="#" id="router-program-link" target="_blank" rel="noopener">AZE8…xNU</a>
+              · <span style="color: var(--ink-faint);">snapshot pda:</span>
+              <a href="#" id="router-snapshot-link" target="_blank" rel="noopener" id-suffix="...">—</a>
+            </div>
+          </div>
+        </div>
+        <div class="price-row">
+          <span class="price dim" id="router-price">$ — — —</span>
+          <span class="band" id="router-band">band [—, —]</span>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <div class="label">regime</div>
+            <div class="value" id="router-regime">—</div>
+          </div>
+          <div class="field">
+            <div class="label">quality</div>
+            <div class="value" id="router-quality">—</div>
+          </div>
+          <div class="field">
+            <div class="label">aggregate method</div>
+            <div class="value dim" id="router-aggregate">—</div>
+          </div>
+          <div class="field">
+            <div class="label">quorum (size / required)</div>
+            <div class="value dim" id="router-quorum">—</div>
+          </div>
+          <div class="field full">
+            <div class="label">methodology</div>
+            <div class="value dim mono" id="router-methodology">soothsayer-router · unified_feed_receipt.v1</div>
+          </div>
+        </div>
+        <div class="meta">
+          <span id="router-publish-ts">publish_ts: —</span>
+          <span id="router-publish-slot">slot: —</span>
+        </div>
+      </section>
+
+      <!-- RELAY UPDATE CARD -->
+      <section class="card" id="relay-card">
+        <div class="head">
+          <div>
+            <h2>Streams relay — SPY (synthetic feed)</h2>
+            <div class="id-row">
+              <span style="color: var(--ink-faint);">program:</span>
+              <a href="#" id="relay-program-link" target="_blank" rel="noopener">DiLq…yMFG</a>
+              · <span style="color: var(--ink-faint);">relay pda:</span>
+              <a href="#" id="relay-update-link" target="_blank" rel="noopener">—</a>
+            </div>
+          </div>
+        </div>
+        <div class="price-row">
+          <span class="price dim" id="relay-price">$ — — —</span>
+          <span class="band" id="relay-band">bid/ask [—, —]</span>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <div class="label">market status</div>
+            <div class="value" id="relay-market-status">—</div>
+          </div>
+          <div class="field">
+            <div class="label">signature verified</div>
+            <div class="value" id="relay-signature">—</div>
+          </div>
+          <div class="field">
+            <div class="label">schema decoded from</div>
+            <div class="value dim" id="relay-schema">—</div>
+          </div>
+          <div class="field">
+            <div class="label">underlier symbol</div>
+            <div class="value dim" id="relay-symbol">—</div>
+          </div>
+          <div class="field full">
+            <div class="label">feed_id</div>
+            <div class="value dim mono" id="relay-feed-id" style="font-size: 11px; word-break: break-all;">—</div>
+          </div>
+        </div>
+        <div class="meta">
+          <span id="relay-chainlink-ts">chainlink_observations_ts: —</span>
+          <span id="relay-post-ts">relay_post_ts: —</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- LEGEND -->
+    <div class="legend">
+      <h3>How to read this page</h3>
+      <p><strong>Router snapshot</strong> is what consumers integrate against. The <code>regime</code> tells you which calibration methodology backed this read — <code>open</code> means Layer 0's multi-upstream aggregator, <code>closed</code> means soothsayer's empirically-calibrated band primitive. The <code>quality_flag</code> is a required disclosure when the underlying conditions are degraded (low quorum, all upstreams stale, ambiguous regime).</p>
+      <p><strong>Streams relay</strong> is the soothsayer-controlled relay for Chainlink Data Streams (Option C, <a href="../reports/methodology_history.md" style="color: var(--ink);">methodology entry 2026-04-29 afternoon</a>). The <code>signature_verified</code> field is load-bearing: <code>1</code> means the underlying signed Chainlink report was validated on-chain by the Chainlink Verifier program via CPI before this PDA was written; <code>0</code> means dev-mode (off-chain validation only). Production relays always run with CPI required.</p>
+      <p>Both PDAs auto-refresh every 30 seconds. Click any address to open it in a Solana explorer.</p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap" style="display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+    <span>soothsayer · 2026-04-29 · devnet integration</span>
+    <span><a href="https://github.com/ACNoonan/soothsayer">github.com/ACNoonan/soothsayer</a></span>
+  </div>
+</footer>
+
+<script>
+  // ─────────────── Configuration ───────────────
+  const RPC = "https://api.devnet.solana.com";
+  const ROUTER_PROGRAM = "AZE8HixpkLpqmuuZbCku5NbjWqoQLWhPRTHp8aMY9xNU";
+  const RELAY_PROGRAM = "DiLqUXQPAMrX1ZoFrEqfw8mPWjpWxzhsPPQzNnEZyMFG";
+  const REFRESH_MS = 30_000;
+  const DISC_LEN = 8;
+  // SPY-synthetic feed_id used in the relay smoke test (32 bytes of 0x53).
+  const SYNTHETIC_FEED_ID_HEX = "53".repeat(32);
+
+  // ─────────────── Solana Web3 ─────────────────
+  const { Connection, PublicKey } = solanaWeb3;
+  const conn = new Connection(RPC, "confirmed");
+
+  // ─────────────── Helpers ─────────────────────
+  const $ = (id) => document.getElementById(id);
+
+  function encodeSymbol(sym) {
+    // 16-byte ASCII null-padded
+    const buf = new Uint8Array(16);
+    for (let i = 0; i < sym.length && i < 16; i++) buf[i] = sym.charCodeAt(i);
+    return buf;
+  }
+
+  function hexToBytes(hex) {
+    const out = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i*2, 2), 16);
+    return out;
+  }
+
+  function findPda(seeds, programId) {
+    return PublicKey.findProgramAddressSync(seeds, new PublicKey(programId))[0];
+  }
+
+  function readBigInt64LE(buf, offset) {
+    // DataView big-endian helpers; web3.js gives Buffer-like; use DataView
+    const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    return view.getBigInt64(offset, true);
+  }
+  function readBigUInt64LE(buf, offset) {
+    const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    return view.getBigUint64(offset, true);
+  }
+  function readInt8(buf, offset) {
+    const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    return view.getInt8(offset);
+  }
+  function readUint8(buf, offset) { return buf[offset]; }
+
+  function fmtPrice(rawI64, exponent, opts = {}) {
+    const scale = Math.pow(10, exponent);
+    const v = Number(rawI64) * scale;
+    if (!isFinite(v) || v === 0 && opts.zeroDash) return "—";
+    return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  }
+
+  function fmtSymbol(buf) {
+    let end = buf.length;
+    while (end > 0 && buf[end-1] === 0) end--;
+    return new TextDecoder().decode(buf.slice(0, end));
+  }
+
+  function explorerLink(addr) {
+    return `https://explorer.solana.com/address/${addr}?cluster=devnet`;
+  }
+
+  function tsAgo(ts) {
+    if (!ts || ts === 0n) return "—";
+    const now = BigInt(Math.floor(Date.now()/1000));
+    const delta = now - ts;
+    const ad = delta < 0n ? -delta : delta;
+    const dir = delta >= 0n ? "ago" : "from now";
+    if (ad < 60n) return `${ad}s ${dir}`;
+    if (ad < 3600n) return `${ad/60n}m ${ad%60n}s ${dir}`;
+    return `${ad/3600n}h ${(ad%3600n)/60n}m ${dir}`;
+  }
+
+  function fmtTs(ts) {
+    if (!ts || ts === 0n) return "never";
+    const d = new Date(Number(ts) * 1000);
+    return d.toISOString().replace('T', ' ').slice(0, 19) + 'Z (' + tsAgo(ts) + ')';
+  }
+
+  // Initialize the program-link a tags + truncated displays
+  $("router-program-link").href = explorerLink(ROUTER_PROGRAM);
+  $("relay-program-link").href = explorerLink(RELAY_PROGRAM);
+
+  // Derive PDAs
+  const routerSnapshotPda = findPda(
+    [new TextEncoder().encode("snapshot"), encodeSymbol("SOL")],
+    ROUTER_PROGRAM
+  );
+  const relayUpdatePda = findPda(
+    [new TextEncoder().encode("streams_relay"), hexToBytes(SYNTHETIC_FEED_ID_HEX)],
+    RELAY_PROGRAM
+  );
+
+  // Render PDA links
+  function shortPda(pk) { const s = pk.toBase58(); return s.slice(0, 4) + "…" + s.slice(-4); }
+  $("router-snapshot-link").href = explorerLink(routerSnapshotPda.toBase58());
+  $("router-snapshot-link").textContent = shortPda(routerSnapshotPda);
+  $("relay-update-link").href = explorerLink(relayUpdatePda.toBase58());
+  $("relay-update-link").textContent = shortPda(relayUpdatePda);
+
+  // ─────────────── Decoders ────────────────────
+  // Router UnifiedFeedSnapshot offsets (after 8-byte disc, struct-relative):
+  //   0   version u8
+  //   1   regime_code u8
+  //   2   quality_flag_code u8
+  //   3   aggregate_method_code u8
+  //   4   forecaster_code u8
+  //   5   closed_market_regime_code u8
+  //   6   quorum_size u8
+  //   7   quorum_required u8
+  //   8   exponent i8
+  //   9..15 _pad0
+  //   16..31 asset_id [u8;16]
+  //   32..39 point i64
+  //   40..47 lower i64
+  //   48..55 upper i64
+  //   56..57 target_coverage_bps u16
+  //   58..59 claimed_served_bps u16
+  //   60..61 buffer_applied_bps u16
+  //   62..63 _pad1
+  //   64..71 publish_ts i64
+  //   72..79 publish_slot u64
+  function decodeRouterSnapshot(data) {
+    const D = DISC_LEN;
+    return {
+      version: readUint8(data, D + 0),
+      regimeCode: readUint8(data, D + 1),
+      qualityFlagCode: readUint8(data, D + 2),
+      aggregateMethodCode: readUint8(data, D + 3),
+      quorumSize: readUint8(data, D + 6),
+      quorumRequired: readUint8(data, D + 7),
+      exponent: readInt8(data, D + 8),
+      assetId: data.slice(D + 16, D + 32),
+      point: readBigInt64LE(data, D + 32),
+      lower: readBigInt64LE(data, D + 40),
+      upper: readBigInt64LE(data, D + 48),
+      publishTs: readBigInt64LE(data, D + 64),
+      publishSlot: readBigUInt64LE(data, D + 72),
+    };
+  }
+
+  // Relay StreamsRelayUpdate offsets:
+  //   0   version u8
+  //   1   market_status_code u8
+  //   2   schema_decoded_from u8
+  //   3   signature_verified u8
+  //   4..7 _pad0
+  //   8..39 feed_id [u8;32]
+  //   40..55 underlier_symbol [u8;16]
+  //   56..63 price i64
+  //   64..71 confidence i64
+  //   72..79 bid i64
+  //   80..87 ask i64
+  //   88..95 last_traded_price i64
+  //   96..103 chainlink_observations_ts i64
+  //   104..111 chainlink_last_seen_ts_ns i64
+  //   112..119 relay_post_ts i64
+  //   120..127 relay_post_slot u64
+  //   128 exponent i8
+  function decodeRelayUpdate(data) {
+    const D = DISC_LEN;
+    return {
+      version: readUint8(data, D + 0),
+      marketStatusCode: readUint8(data, D + 1),
+      schemaDecodedFrom: readUint8(data, D + 2),
+      signatureVerified: readUint8(data, D + 3),
+      feedId: data.slice(D + 8, D + 40),
+      underlierSymbol: data.slice(D + 40, D + 56),
+      price: readBigInt64LE(data, D + 56),
+      bid: readBigInt64LE(data, D + 72),
+      ask: readBigInt64LE(data, D + 80),
+      lastTradedPrice: readBigInt64LE(data, D + 88),
+      chainlinkObservationsTs: readBigInt64LE(data, D + 96),
+      relayPostTs: readBigInt64LE(data, D + 112),
+      relayPostSlot: readBigUInt64LE(data, D + 120),
+      exponent: readInt8(data, D + 128),
+    };
+  }
+
+  // ─────────────── Lookups ─────────────────────
+  const REGIME = ["open", "closed", "halted", "unknown"];
+  const QUALITY = ["ok", "low_quorum", "all_stale", "soothsayer_band_unavailable", "regime_ambiguous"];
+  const AGGREGATE = ["robust_median_v1", "calibration_weighted_v1"];
+  const MARKET_STATUS = ["unknown", "pre_market", "regular", "post_market", "overnight", "closed"];
+  const SCHEMA_NAMES = { 8: "V8 (RWA)", 11: "V11 (EVM-side)" };
+
+  function regimeColor(code) {
+    return ({ 0: "green", 1: "dim", 2: "warn", 3: "warn" })[code] || "dim";
+  }
+  function qualityColor(code) {
+    return code === 0 ? "green" : "warn";
+  }
+
+  // ─────────────── Render ──────────────────────
+  function renderRouter(snap, found) {
+    if (!found) {
+      $("router-price").textContent = "$ — — —";
+      $("router-price").className = "price dim";
+      $("router-band").textContent = "snapshot account not found";
+      $("router-regime").textContent = "—";
+      $("router-quality").textContent = "—";
+      $("router-aggregate").textContent = "—";
+      $("router-quorum").textContent = "—";
+      $("router-publish-ts").textContent = "publish_ts: never";
+      $("router-publish-slot").textContent = "slot: —";
+      return;
+    }
+    const s = snap;
+    const regimeName = REGIME[s.regimeCode] || `code_${s.regimeCode}`;
+    const qualityName = QUALITY[s.qualityFlagCode] || `code_${s.qualityFlagCode}`;
+    $("router-price").textContent = fmtPrice(s.point, s.exponent);
+    $("router-price").className = "price";
+    $("router-band").textContent = `band [${fmtPrice(s.lower, s.exponent)}, ${fmtPrice(s.upper, s.exponent)}]`;
+    $("router-regime").textContent = regimeName;
+    $("router-regime").className = "value " + regimeColor(s.regimeCode);
+    $("router-quality").textContent = qualityName;
+    $("router-quality").className = "value " + qualityColor(s.qualityFlagCode);
+    if (s.regimeCode === 0) {
+      $("router-aggregate").textContent = AGGREGATE[s.aggregateMethodCode] || `code_${s.aggregateMethodCode}`;
+      $("router-quorum").textContent = `${s.quorumSize} / ${s.quorumRequired}`;
+    } else {
+      $("router-aggregate").textContent = "(closed regime)";
+      $("router-quorum").textContent = "(closed regime)";
+    }
+    $("router-publish-ts").textContent = "publish_ts: " + fmtTs(s.publishTs);
+    $("router-publish-slot").textContent = "slot: " + s.publishSlot;
+  }
+
+  function renderRelay(upd, found) {
+    if (!found) {
+      $("relay-price").textContent = "$ — — —";
+      $("relay-price").className = "price dim";
+      $("relay-band").textContent = "relay update account not found";
+      $("relay-market-status").textContent = "—";
+      $("relay-signature").textContent = "—";
+      $("relay-schema").textContent = "—";
+      $("relay-symbol").textContent = "—";
+      $("relay-feed-id").textContent = "—";
+      $("relay-chainlink-ts").textContent = "chainlink_observations_ts: never";
+      $("relay-post-ts").textContent = "relay_post_ts: never";
+      return;
+    }
+    const u = upd;
+    $("relay-price").textContent = fmtPrice(u.price, u.exponent);
+    $("relay-price").className = "price";
+    const bidStr = u.bid !== 0n ? fmtPrice(u.bid, u.exponent) : "—";
+    const askStr = u.ask !== 0n ? fmtPrice(u.ask, u.exponent) : "—";
+    $("relay-band").textContent = `bid/ask [${bidStr}, ${askStr}]`;
+    $("relay-market-status").textContent = MARKET_STATUS[u.marketStatusCode] || `code_${u.marketStatusCode}`;
+    $("relay-market-status").className = "value " + (u.marketStatusCode === 2 ? "green" : "dim");
+    $("relay-signature").textContent = u.signatureVerified === 1 ? "1 — verifier_cpi" : "0 — offchain_only";
+    $("relay-signature").className = "value " + (u.signatureVerified === 1 ? "green" : "warn");
+    $("relay-schema").textContent = SCHEMA_NAMES[u.schemaDecodedFrom] || `schema_${u.schemaDecodedFrom}`;
+    $("relay-symbol").textContent = `"${fmtSymbol(u.underlierSymbol)}"`;
+    let feedHex = "";
+    for (const b of u.feedId) feedHex += b.toString(16).padStart(2, "0");
+    $("relay-feed-id").textContent = "0x" + feedHex;
+    $("relay-chainlink-ts").textContent = "chainlink_observations_ts: " + fmtTs(u.chainlinkObservationsTs);
+    $("relay-post-ts").textContent = "relay_post_ts: " + fmtTs(u.relayPostTs);
+  }
+
+  // ─────────────── Refresh loop ────────────────
+  let inFlight = false;
+  async function refresh() {
+    if (inFlight) return;
+    inFlight = true;
+    try {
+      $("rpc-pill").classList.remove("warn");
+      $("rpc-label").textContent = "fetching…";
+
+      const [routerInfo, relayInfo] = await Promise.all([
+        conn.getAccountInfo(routerSnapshotPda).catch(() => null),
+        conn.getAccountInfo(relayUpdatePda).catch(() => null),
+      ]);
+
+      if (routerInfo && routerInfo.data) {
+        const snap = decodeRouterSnapshot(routerInfo.data);
+        renderRouter(snap, true);
+      } else {
+        renderRouter(null, false);
+      }
+
+      if (relayInfo && relayInfo.data) {
+        const upd = decodeRelayUpdate(relayInfo.data);
+        renderRelay(upd, true);
+      } else {
+        renderRelay(null, false);
+      }
+
+      const t = new Date().toISOString().replace('T', ' ').slice(0, 19) + 'Z';
+      $("rpc-pill").classList.remove("warn");
+      $("rpc-label").textContent = "live · devnet";
+      $("last-refresh").textContent = "last refresh: " + t;
+    } catch (err) {
+      console.error("refresh failed:", err);
+      $("rpc-pill").classList.add("warn");
+      $("rpc-label").textContent = "rpc error";
+    } finally {
+      inFlight = false;
+    }
+  }
+
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+</script>
+
+</body>
+</html>

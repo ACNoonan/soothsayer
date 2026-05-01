@@ -22,7 +22,7 @@ from soothsayer.backtest import metrics as met
 from soothsayer.backtest import regimes as rg
 from soothsayer.backtest.panel import build, PanelSpec, _universe, FUTURES, VIX
 from soothsayer.config import DATA_PROCESSED, REPORTS
-from soothsayer.sources.yahoo import fetch_daily
+from soothsayer.sources.scryer import load_yahoo_bars
 
 
 FORECASTERS = (
@@ -46,6 +46,18 @@ def _figures_dir() -> Path:
     p = REPORTS / "figures"
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def _load_daily_window(symbols: list[str], start: date, end: date) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
+    for sym in symbols:
+        df = load_yahoo_bars(sym, start, end)
+        if df.empty:
+            continue
+        frames.append(df[["symbol", "ts", "open", "close"]].copy())
+    if not frames:
+        return pd.DataFrame(columns=["symbol", "ts", "open", "close"])
+    return pd.concat(frames, ignore_index=True)
 
 
 def _run_forecasters(panel: pd.DataFrame, daily: pd.DataFrame) -> dict:
@@ -180,7 +192,7 @@ def _write_report(
         f"- Panel: {len(panel):,} weekend observations across {panel.symbol.nunique()} tickers",
         f"- Window: {panel.fri_ts.min()} to {panel.fri_ts.max()}",
         f"- Publish time: Friday 16:00 ET (US equity close)",
-        f"- Target: Monday 09:30 ET open (from yfinance daily 'Open')",
+        f"- Target: Monday 09:30 ET open (from scryer `yahoo/equities_daily/v1` daily `open`)",
         "",
         "## Overall summary (pooled across tickers)",
         "",
@@ -422,9 +434,9 @@ def main() -> None:
     panel = build(spec)
     panel = rg.tag(panel)
 
-    # Daily bars are needed again for HAR-RV (F2). They're cached from panel.build().
+    # Daily bars are needed again for HAR-RV (F2).
     equities = _universe()
-    daily = fetch_daily(equities + list(FUTURES) + [VIX], spec.start, spec.end)
+    daily = _load_daily_window(equities + list(FUTURES) + [VIX], spec.start, spec.end)
 
     forecasts = _run_forecasters(panel, daily)
 

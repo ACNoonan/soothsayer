@@ -4,6 +4,8 @@
 **Status:** **PASS — hybrid-regime Oracle with empirical buffer is OOS-calibrated at target=0.95**
 **Source:** [v1b_calibration.md](v1b_calibration.md) + [v1b_hybrid_validation.md](v1b_hybrid_validation.md) (5,986 weekends, 2014–2026, 10 tickers)
 
+> **Storage-path note (2026-04-29).** This file preserves the 2026-04-24 decision snapshot. Where it mentions Soothsayer-side fetchers or `data/raw` tape locations, treat those as historical context only. The live verification path is now Scryer parquet under `SCRYER_DATASET_ROOT`, notably `yahoo/equities_daily/v1`, `yahoo/earnings/v1`, and `soothsayer_v5/tape/v1`.
+>
 > **UPDATE 2026-04-25 — methodology refinement, decision unchanged.** The calibration buffer described below as a scalar `CALIBRATION_BUFFER_PCT = 0.025` has been replaced with a per-target schedule `BUFFER_BY_TARGET = {0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}` (linear interpolation off-grid). Trigger: the shipping default τ moved from 0.95 to 0.85 on EL-against-Kamino evidence, which exposed that 0.025 was tuned for τ=0.95 specifically and under-corrected at τ=0.85 (Kupiec rejected at p_uc=0.014). A buffer sweep on the same OOS 2023+ slice produced the per-target values; a separate split-conformal comparison (vanilla, Barber nexCP at 6/12-month half-lives, block-recency at 6/12 months) confirmed every off-the-shelf alternative under-corrects relative to the heuristic, with bootstrap CIs that exclude zero. **Subsequent 2026-04-25 (afternoon) grid extension:** the claimed-coverage grid was extended from a 0.995 cap to {0.997, 0.999} with `MAX_SERVED_TARGET = 0.999`; OOS realised at τ=0.99 lifted from 0.972 → 0.977 (Kupiec still rejects); `BUFFER_BY_TARGET[0.99]` bumped 0.005 → 0.010; structural ceiling re-attributed to the 156-weekend per-(symbol, regime) calibration window size, not grid spacing. The PASS verdict still holds — and is now stronger at τ=0.95: realised 0.950 with Kupiec p_uc=1.000 and Christoffersen p_ind=0.485, plus an additional Kupiec+Christoffersen pass at the new τ=0.85 default. See `reports/v1b_buffer_tune.md`, `reports/v1b_conformal_comparison.md`, `reports/v1b_extended_grid.md`, and `reports/methodology_history.md` for the full evolution. The historical narrative below is preserved as the 2026-04-24 decision-snapshot record — note that the body's τ=0.99 references to "grid-capped" and "can't buffer past 0.995" are superseded by the grid extension above.
 
 ## Decision
@@ -100,7 +102,7 @@ The consumer can set `buffer_override=0.0` to disable the buffer and inspect raw
 - `src/soothsayer/oracle.py` — hybrid per-regime forecaster selection (`REGIME_FORECASTER`), empirical calibration buffer (`CALIBRATION_BUFFER_PCT=0.025`), expanded `PricePoint` with `forecaster_used`, `calibration_buffer_applied` fields.
 - `scripts/run_calibration.py` — builds both F0 and F1_emp_regime bounds at the fine grid, combined surface, Christoffersen tests, reliability diagram.
 - `scripts/validate_hybrid.py` — out-of-sample product-level validation (this doc's primary evidence source).
-- `scripts/run_v5_tape.py` — long-running daemon collecting Chainlink + Jupiter basis tape for Phase 1 Week 3. Launched 2026-04-24, writing to `data/raw/v5_tape_YYYYMMDD.parquet`.
+- `scripts/run_v5_tape.py` — historical pre-cutover daemon collecting Chainlink + Jupiter basis tape for Phase 1 Week 3. The live tape now sits in Scryer at `SCRYER_DATASET_ROOT/soothsayer_v5/tape/v1/...`.
 - New artifacts: `reports/figures/v1b_reliability_diagram.png`, `reports/figures/v1b_hybrid_reliability.png`, `reports/tables/v1b_conditional_coverage_{pooled,by_regime}.csv`, `reports/tables/v1b_hybrid_validation.csv`.
 
 ## Phase 1 readiness
@@ -118,10 +120,10 @@ Phase 1 Week 1 (live-mode Oracle) can begin.
 - Decision: this file
 - Full methodology tables: `reports/v1b_calibration.md`
 - OOS validation: `reports/v1b_hybrid_validation.md`
-- Product spec: `reports/option_c_spec.md`
+- Product spec: `docs/product-spec.md`
 - External evidence pack: `07.1 - Deep Research Output v2.md` in the vault
 - Code: `src/soothsayer/backtest/{panel,forecasters,metrics,regimes,calibration}.py`, `src/soothsayer/oracle.py`
-- Drivers: `scripts/run_calibration.py`, `scripts/validate_hybrid.py`, `scripts/run_v5_tape.py`
+- Drivers: `scripts/run_calibration.py`, `scripts/validate_hybrid.py`, and the Scryer-backed V5 tape now read via `soothsayer.sources.scryer.load_v5_window(...)`
 - Demo: `scripts/smoke_oracle.py`
 - Figures: `reports/figures/v1b_{calibration_curve,reliability_diagram,hybrid_reliability}.png`
 - Bounds table: `data/processed/v1b_bounds.parquet` (137K rows across 2 forecasters × 12 claims × ~5,986 weekends × 10 tickers)
