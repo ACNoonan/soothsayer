@@ -1,0 +1,5 @@
+# Locally-scoped cargo config. Tests under `tests/integration.rs` use
+# `solana-program-test` in BPF mode and expect the program's `.so` artefact
+# to be discoverable via `SBF_OUT_DIR`. Build with `cargo build-sbf` first.
+[env]
+SBF_OUT_DIR = { value = "target/deploy", relative = true }
