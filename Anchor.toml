@@ -9,12 +9,14 @@ mock_chainlink_verifier_program = "G1FNffdhk83kejVjWXcHNbrX9y84nhx8EfzWu86EaKxL"
 soothsayer_oracle_program = "AgXLLTmUJEVh9EsJnznU1yJaUeE9Ufe7ZotupmDqa7f6"
 soothsayer_router_program = "AZE8HixpkLpqmuuZbCku5NbjWqoQLWhPRTHp8aMY9xNU"
 soothsayer_streams_relay_program = "DiLqUXQPAMrX1ZoFrEqfw8mPWjpWxzhsPPQzNnEZyMFG"
+soothsayer_band_amm_program = "7vjG4nuVcpotSBDHPQeonrzuvxbwgDddKzibeLASaqw8"
 
 [programs.localnet]
 mock_chainlink_verifier_program = "G1FNffdhk83kejVjWXcHNbrX9y84nhx8EfzWu86EaKxL"
 soothsayer_oracle_program = "AgXLLTmUJEVh9EsJnznU1yJaUeE9Ufe7ZotupmDqa7f6"
 soothsayer_router_program = "AZE8HixpkLpqmuuZbCku5NbjWqoQLWhPRTHp8aMY9xNU"
 soothsayer_streams_relay_program = "DiLqUXQPAMrX1ZoFrEqfw8mPWjpWxzhsPPQzNnEZyMFG"
+soothsayer_band_amm_program = "7vjG4nuVcpotSBDHPQeonrzuvxbwgDddKzibeLASaqw8"
 
 [registry]
 url = "https://api.apr.dev"
@@ -24,7 +26,7 @@ cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [workspace]
-members = ["programs/soothsayer-oracle-program", "programs/soothsayer-router-program", "programs/soothsayer-streams-relay-program", "programs/mock-chainlink-verifier-program"]
+members = ["programs/soothsayer-oracle-program", "programs/soothsayer-router-program", "programs/soothsayer-streams-relay-program", "programs/mock-chainlink-verifier-program", "programs/soothsayer-band-amm-program"]
 
 [scripts]
 test = "echo 'tests not yet wired — see scripts/test_oracle_program.sh when implemented'"

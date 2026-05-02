@@ -106,7 +106,7 @@ The following Paper 1 entries will be cited in Paper 3 without restatement here.
 - `[madhavan-sobczyk-2016]` — ETF dynamics for the tokenized-equity comparison.
 - `[cong-tokenized-2025]` — empirical motivation: weekend price discovery migrating to crypto-native venues.
 - `[hasbrouck-1995]`, `[hasbrouck-2003]` — price-discovery methodology underlying Soothsayer's factor switchboard.
-- `[chainlink-2]`, `[chainlink-streams]`, `[redstone-live]`, `[pyth-conf]`, `[switchboard]` — incumbent oracle landscape.
+- `[chainlink-2]`, `[chainlink-streams]`, `[chainlink-v10]`, `[chainlink-v11]`, `[redstone-live]`, `[pyth-conf]`, `[pyth-pro]`, `[blueocean-pyth]`, `[switchboard]` — incumbent oracle landscape (per-schema Chainlink pins and the Pyth Pro / Blue Ocean overnight integration added in the 2026-05-02 oracle-comparator drift fix to Paper 1).
 - `[flashboys-2]` — MEV / adversarial-ordering context for §12.5 non-claims.
 - `[sok-oracles]`, `[bis-oracle]`, `[uma]`, `[tellor]` — oracle-integrity-vs-calibration distinction.
 

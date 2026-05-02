@@ -1,0 +1,24 @@
+[package]
+name = "soothsayer-band-amm-program"
+description = "Soothsayer BandAMM. Single-active-range oracle-aware AMM whose quoted range tracks the calibrated band published by soothsayer-oracle-program. Inside-band swaps charge a flat fee; outside-band swaps incur a width-scaled surcharge that accrues to LPs. Every swap emits a receipt event reconcilable against the on-chain PriceUpdate at publish_slot. Colosseum hackathon MVP, devnet-only."
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/ACNoonan/soothsayer"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "soothsayer_band_amm_program"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31", features = ["init-if-needed"] }
+anchor-spl = { version = "0.31", features = ["token"] }
+soothsayer-consumer = { path = "../../crates/soothsayer-consumer", default-features = false }

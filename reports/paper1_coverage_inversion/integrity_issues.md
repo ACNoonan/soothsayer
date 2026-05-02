@@ -96,7 +96,16 @@ pre-decoder-correction caveat lives in §9.8 but is not inline.
 **Direction:** Lead with sample bounds before conclusion; replace
 "degenerate" with "structurally placeholder"; mirror §9.8's
 pre-correction caveat inline.
-**Status:** [ ] open
+**Status:** [x] resolved
+**Resolved 2026-05-02:** §6.7.2 rewritten end-to-end against the
+canonical `docs/sources/oracles/chainlink_v11.md` §3 per-symbol
+synthetic-marker findings (PURE_PLACEHOLDER for SPYx; BID_SYNTHETIC for
+QQQx, TSLAx; REAL n=1 for NVDAx). The "degenerate / zeroed" framing
+replaced with marker-aware language; the broken-decoder bid=1e-18/ask=0
+table replaced with the corrected per-symbol pattern; "robust across
+decoder versions" claim struck. Mirror fixes landed in §6.8 summary and
+§9.8 limitation. See commit on 2026-05-02 (oracle-comparator drift
+fix); canonical anchor `docs/sources/oracles/chainlink_v11.md` §3.
 
 ### P1-06 — v10 `tokenizedPrice` field exclusion is not stated where the comparison happens
 **Where:** §6.7.2 (no current mention); referenced abstractly in §1.1
@@ -131,7 +140,14 @@ into §6.7.2. If still open, bound the §6.7.2 finding explicitly:
 "verified for `marketStatus = 5` (weekend) only; pre-market and
 overnight 24/5 cadence is currently open and will be resolved in
 Phase 2."
-**Status:** [ ] open
+**Status:** [x] resolved
+**Resolved 2026-05-02:** §6.7.2 rewrite explicitly bounds the
+synthetic-marker finding to `marketStatus = 5` (weekend) windows on
+the four currently-mapped xStock feeds, and the canonical
+`docs/sources/oracles/chainlink_v11.md` §6 Q1 ("pre-market / regular /
+post-market / overnight cadence verification") is cited as the open
+question gating sessions 1/2/3/4. The Phase 2 resolution path is
+preserved in canonical doc §6 Q1 rather than duplicated here.
 
 ---
 
@@ -197,7 +213,12 @@ subset cannot *confirm* a definitional thesis about three different
 oracle products.
 **Direction:** Soften to "consistent with §1.1's structural
 observation on these subsets."
-**Status:** [ ] open
+**Status:** [x] resolved
+**Resolved 2026-05-02:** §6.8 summary updated to "consistent with
+§1.1's structural observation on these subsets" verbatim, alongside
+the Tier A v10/v11 framing rewrite that grounds the §1.1 thesis in
+canonical-doc evidence rather than the previous decoder-artefact
+sample.
 
 ### P1-14 — "The audit trail the calibration receipt provides for free" — §6.8
 **Where:** §6.8, line 178.
@@ -207,7 +228,11 @@ is a sales register; the rest of §6.8 is in research register.
 served band is wider than either consumer-back-fit incumbent on this
 subset; the comparison the paper claims is calibration-receipt
 provenance, not bandwidth."
-**Status:** [ ] open
+**Status:** [x] resolved
+**Resolved 2026-05-02:** §6.8 summary line updated verbatim to the
+suggested framing ("soothsayer's served band is wider, and the
+comparison the paper claims is calibration-receipt provenance, not
+bandwidth"). "For free" register dropped.
 
 ### P1-15 — Caveat ordering in §6.7 lead
 **Where:** §6.7, lines 133–135.

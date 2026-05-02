@@ -2,7 +2,7 @@
 
 **Audience:** internal — companion to `docs/product_stack.md`. Each section answers two questions per layer: (a) is there demonstrated, communicated demand for this kind of primitive? (b) what is a defensible market-size estimate?
 
-**Headline.** The window is open and visibly narrowing. Tokenized equities on Solana hit ~$2B in onchain RWA value by March 2026, ~94% of all-time tokenized equity spot volume settled on Solana, and Q1 2026 tokenized-asset trading volumes hit a record $1.3B. The structural problems Soothsayer addresses — LVR bleed for LPs, halt-driven oracle gaps for perps, calibration-free uncertainty — are now openly discussed by Blockworks Research, FalconX, MetaMask/Hyperliquid commentary, and academic work as the *binding constraints* on this market growing further. At the same time, Chainlink has already shipped an "RWA Advanced (v11)" schema that exposes session state (regular hours / pre-market / overnight / weekend) and won the official xStocks oracle slot at Kamino. The slot above point-in-time data — calibrated bands with coverage receipts — is empty but will not stay empty for long.
+**Headline.** The window is open and visibly narrowing. Tokenized equities on Solana hit ~$2B in onchain RWA value by March 2026, ~94% of all-time tokenized equity spot volume settled on Solana, and Q1 2026 tokenized-asset trading volumes hit a record $1.3B. The structural problems Soothsayer addresses — LVR bleed for LPs, halt-driven oracle gaps for perps, calibration-free uncertainty — are now openly discussed by Blockworks Research, FalconX, MetaMask/Hyperliquid commentary, and academic work as the *binding constraints* on this market growing further. At the same time, Chainlink has already shipped an "RWA Advanced (v11)" schema that exposes session state (Unknown / Pre-market / Regular / Post-market / Overnight / Closed-weekend) and is one of the upstream feeds Kamino's Scope-mediated xStocks reserves consume (see [`docs/sources/oracles/chainlink_v10.md`](../../docs/sources/oracles/chainlink_v10.md) §4 — the actual reserve-side oracle is Scope; Chainlink v10 is one of its inputs). The slot above point-in-time data — calibrated bands with coverage receipts — is empty but will not stay empty for long.
 
 ---
 
@@ -15,8 +15,8 @@
 - **MetaMask/Hyperliquid commentary on perp liquidations** explicitly identifies oracle design (aggregation, circuit breakers, TWAPs) as critical, with a worked scenario where "a transient price spike on a single exchange feeds into an index with too much weight, momentarily lifting the mark price; short positions are liquidated onchain before the feed normalizes" — this is exactly the failure mode a calibrated band defends against.
 - **The JELLYJELLY incident on Hyperliquid (March 2025)** caused $12M of HLP losses via oracle manipulation and is repeatedly cited as the canonical "your oracle is your single point of failure" reference.
 - **The Volcano Exchange analysis of tokenized-asset liquidity** documents a real case where a single illiquid spot market triggered $9.21M in Hyperliquid liquidations *exceeding the Binance liquidation volume that fed the oracle*. The conclusion in their piece is that the oracle's input weighting is the propagation mechanism — uncertainty was present in the input, was not represented in the output, and the consumers were forced to act as if the point was certain.
-- **Chainlink's "RWA Advanced (v11)" schema** ships a session enum (0=Unknown, 1=Pre-market, 2=Regular, 3=Post-market, 4=Overnight, 5=Weekend). The market for *some* notion of "this price is more or less reliable right now" is already real enough that the incumbent surfaces a coarse version of it. The latent demand for a continuous, calibrated version is implied.
-- **Pyth's roadmap pivot to "Pyth Pro" and the Pyth Data Marketplace (April 2026, with Fidelity and Euronext)** validates the thesis that the oracle layer's commercial future is institutional-grade, calibrated data products — not just commodity price-point feeds.
+- **Chainlink's "RWA Advanced (v11)" schema** ships a 6-state session enum (`0=Unknown, 1=Pre-market, 2=Regular, 3=Post-market, 4=Overnight, 5=Closed/weekend`; canonical [`docs/sources/oracles/chainlink_v11.md`](../../docs/sources/oracles/chainlink_v11.md) §1.2). The market for *some* notion of "this price is more or less reliable right now" is already real enough that the incumbent surfaces a coarse version of it. The latent demand for a continuous, calibrated version is implied. Note that the empirical investigation in canonical `chainlink_v11.md` §3 also documents that the v11 wire `bid` carries a synthetic `.01`-suffix marker on weekend windows for SPYx/QQQx/TSLAx, so the v11 *band* is not a coverage signal even though the session enum is finer than v10's.
+- **Pyth's roadmap pivot to "Pyth Pro" (formerly Pyth Lazer; the docs page now reads "Pyth Pro (formerly Pyth Lazer)" — see canonical [`docs/sources/oracles/pyth_lazer.md`](../../docs/sources/oracles/pyth_lazer.md))** and the announced Pyth Data Marketplace (the Fidelity / Euronext April 2026 detail is *unverified* by our canonical docs — re-probe before publication) validates the thesis that the oracle layer's commercial future is institutional-grade, calibrated data products — not just commodity price-point feeds. The Blue Ocean ATS exclusive distribution (Sun–Thu 8 PM – 4 AM ET overnight equity book data through end-2026) is the load-bearing 24/5 differentiator, but the canonical xStock weekend window (Friday 4 PM ET – Sunday 8 PM ET) remains uncovered by Pyth Pro.
 
 ### Market sizing
 
@@ -62,7 +62,7 @@ The fee pool that LVR currently leaks out of LPs is the addressable pie:
 
 ### Risks specific to this layer
 
-- **Oracle latency vs. block production.** LVR-minimising AMMs depend on the oracle being faster than the underlying market. Pyth Lazer / RedStone Bolt are racing to provide sub-second updates; the band-AMM needs to be evaluated against that timing, not against a 30s-update assumption.
+- **Oracle latency vs. block production.** LVR-minimising AMMs depend on the oracle being faster than the underlying market. Pyth Pro (formerly Lazer) and RedStone Bolt (the latter unverified by our canonical docs) are racing to provide sub-second updates; the band-AMM needs to be evaluated against that timing, not against a 30s-update assumption. (Per canonical [`docs/sources/oracles/pyth_lazer.md`](../../docs/sources/oracles/pyth_lazer.md) §1.2, regular-Pyth slot cadence is ~400ms; Pyth Pro subscriber-customizable cadence is finer, with exact values not surfaced in the public overview page.)
 - **Bin-based DLMMs ≠ CLMMs ≠ TFMMs.** QuantAMM's RVR analysis showed that the LVR benchmark itself depends on rebalancing assumptions. The methodology paper (Paper 4) needs to be honest about which of these architectures the band-conditioning improves, and by how much.
 
 ---
@@ -143,8 +143,8 @@ This layer is a *strategy slot* not a near-term build commitment, consistent wit
 
 **Yes, and partially already-claimed.** This is the most uncomfortable finding in the research:
 
-- **Chainlink already won the xStocks oracle slot at Kamino**, with a "custom-built xStocks oracle delivering sub-second price updates for tokenized equities," and is the official oracle infrastructure of the xStocks Alliance (Kraken, Bybit, Raydium, Jupiter, Kamino).
-- **Pyth integrated with Polymarket** for prediction-market settlement on RWAs (gold, oil, US equities) and launched the Pyth Data Marketplace with Fidelity and Euronext backing in April 2026.
+- **Chainlink is the named upstream feed for tokenized equities at Kamino**, marketed as a "custom-built xStocks oracle delivering sub-second price updates for tokenized equities" and as the official oracle infrastructure of the xStocks Alliance (Kraken, Bybit, Raydium, Jupiter, Kamino). The actual reserve-side oracle path on Kamino is Scope-mediated (Scope sources Chainlink v10's `tokenizedPrice` as one input among others), not a direct Chainlink slot — see canonical [`docs/sources/oracles/chainlink_v10.md`](../../docs/sources/oracles/chainlink_v10.md) §4 and [`docs/sources/oracles/scope.md`](../../docs/sources/oracles/scope.md). The "sub-second" cadence claim is marketing language; the canonical doc only documents v10 as "continuously updated while the DON is operational" without a published latency SLA.
+- **Pyth integrated with Polymarket** for prediction-market settlement on RWAs (gold, oil, US equities). Pyth Data Marketplace with Fidelity / Euronext backing in April 2026 — *unverified by our canonical docs*; needs a re-probe before publication.
 - **RedStone won the BlackRock BUIDL and Apollo ACRED tokenized-fund feeds**, plus the Ethena and Gearbox slots.
 
 The licensing pattern that's actually working in 2026 is the *bespoke* RWA feed — a custom oracle product co-designed with the consumer protocol — not a generic data feed. RedStone's framing ("By builders, for builders") and Pyth's first-party data publisher model are both validation that the licensing market is structured around *trust-bearing custom feeds*, not commodity price points.
@@ -162,9 +162,9 @@ Soothsayer at L4 is realistically a *secondary-rail licensee*, riding on Pyth's 
 
 - **Bear (1–2 anchor consumers, e.g. one lending market + one perp DEX):** $500K–1.5M ARR.
 - **Base (5–10 consumer protocols, recurring):** $3–8M ARR.
-- **Bull (becomes the licensed reference rate for tokenized-equity DeFi, displacing Chainlink xStocks oracle as Kamino's default):** $15–30M ARR by 2028.
+- **Bull (becomes the licensed reference rate for tokenized-equity DeFi, displacing the Scope/Chainlink-v10 path as Kamino's default xStocks input):** $15–30M ARR by 2028.
 
-The bull case requires either (a) Chainlink's xStocks oracle to publicly fail in a way the band primitive obviously fixes, or (b) a new tokenized-equity protocol (a Kamino-equivalent that doesn't yet exist) picking Soothsayer at launch as the default.
+The bull case requires either (a) the Scope-mediated Chainlink path to publicly fail in a way the band primitive obviously fixes, or (b) a new tokenized-equity protocol (a Kamino-equivalent that doesn't yet exist) picking Soothsayer at launch as the default.
 
 ### Risks specific to this layer
 
