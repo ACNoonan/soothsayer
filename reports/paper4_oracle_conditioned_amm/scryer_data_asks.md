@@ -123,6 +123,13 @@ Per provider/window/session (and by symbol where available):
    - **RedStone:** `minutes_age_median`, `poll_cadence_s_median`, `poll_cadence_s_p90`
    - **Chainlink v11:** `spread_bps_median`, `spread_bps_p90`, `market_status_share_*`,
      `bid_marker_01_rate`, `ask_marker_01_rate`
+     *Note:* `spread_bps_*` is **misleading during `market_status = 5` (weekend)** windows
+     for SPYx, QQQx, and TSLAx because the wire `bid` / `ask` carry synthetic `.01`-suffix
+     placeholder values (canonical [`docs/sources/oracles/chainlink_v11.md`](../../docs/sources/oracles/chainlink_v11.md)
+     §3, "Spread is misleading on weekends" reconciliation row). The `bid_marker_01_rate`
+     and `ask_marker_01_rate` metrics above are the load-bearing weekend signal; consumers
+     should stratify spread metrics by `market_status` and treat synthetic-marker-positive
+     rows as a separate cohort rather than averaging through them.
    - **v5 joined comparator:** `basis_abs_bps_median`, `basis_abs_bps_p90`
 4. **Data-health metrics**
    - `null_rate_<core_field>`

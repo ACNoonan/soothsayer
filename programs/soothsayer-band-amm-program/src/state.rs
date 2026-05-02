@@ -29,7 +29,11 @@ pub struct BandAmmPool {
     pub base_vault_bump: u8,
     /// Bump for the quote vault token account PDA.
     pub quote_vault_bump: u8,
-    pub _pad0: [u8; 2],
+    /// Decimals of base + quote mints, copied from the Mint accounts at init.
+    /// Stored on the pool so swap math doesn't have to deserialize Mint
+    /// accounts on every IX. Locked at init; mints are immutable.
+    pub base_decimals: u8,
+    pub quote_decimals: u8,
 
     /// Authority that can pause / set fee params. Multisig in production.
     pub authority: Pubkey,

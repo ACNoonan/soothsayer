@@ -16,17 +16,20 @@
 //! the oracle program crate.
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount};
+use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer};
 
 pub mod errors;
+pub mod lp_math;
 pub mod state;
 pub mod swap_math;
 
 use errors::BandAmmError;
+use lp_math::{lp_for_first_deposit, lp_for_subsequent_deposit, redeem_lp, LpMathError};
 use state::{
     BandAmmPool, BAND_AMM_POOL_VERSION, DEFAULT_FEE_ALPHA_OUT_BPS, DEFAULT_FEE_BPS_IN,
     DEFAULT_FEE_W_MAX_BPS, DEFAULT_MAX_BAND_STALENESS_SECS,
 };
+use swap_math::{quote_swap, FeeTier, Side, SwapMathError};
 
 declare_id!("7vjG4nuVcpotSBDHPQeonrzuvxbwgDddKzibeLASaqw8");
 
@@ -72,7 +75,8 @@ pub mod soothsayer_band_amm_program {
         pool.lp_mint_bump = ctx.bumps.lp_mint;
         pool.base_vault_bump = ctx.bumps.base_vault;
         pool.quote_vault_bump = ctx.bumps.quote_vault;
-        pool._pad0 = [0; 2];
+        pool.base_decimals = ctx.accounts.base_mint.decimals;
+        pool.quote_decimals = ctx.accounts.quote_mint.decimals;
 
         pool.authority = params.authority;
         pool.base_mint = ctx.accounts.base_mint.key();
@@ -104,37 +108,355 @@ pub mod soothsayer_band_amm_program {
         Ok(())
     }
 
-    /// Deposit liquidity. Day 1 stub — Day 2 wires SPL transfers + LP mint.
+    /// Deposit liquidity. First deposit (LP supply == 0) sets the initial
+    /// pool ratio; subsequent deposits are prorata against current reserves.
+    /// Caller passes max amounts; the pool takes the prorata portion that
+    /// matches the smaller side and refunds the other implicitly (only
+    /// `base_used`/`quote_used` are pulled from the user).
     pub fn deposit(
-        _ctx: Context<Deposit>,
-        _amount_base: u64,
-        _amount_quote: u64,
-        _min_lp_out: u64,
+        ctx: Context<Deposit>,
+        amount_base: u64,
+        amount_quote: u64,
+        min_lp_out: u64,
     ) -> Result<()> {
-        // Day-2 implementation; placeholder so the IDL emits the IX shape.
+        require!(ctx.accounts.pool.paused == 0, BandAmmError::PoolPaused);
+        require!(
+            amount_base > 0 && amount_quote > 0,
+            BandAmmError::ZeroAmountIn
+        );
+
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        let r_base = ctx.accounts.base_vault.amount;
+        let r_quote = ctx.accounts.quote_vault.amount;
+
+        let (lp_minted, base_used, quote_used) = if lp_supply == 0 {
+            let lp = lp_for_first_deposit(amount_base, amount_quote).map_err(map_lp_err)?;
+            (lp, amount_base, amount_quote)
+        } else {
+            let plan = lp_for_subsequent_deposit(
+                amount_base, amount_quote, r_base, r_quote, lp_supply,
+            )
+            .map_err(map_lp_err)?;
+            (plan.lp_minted, plan.base_used, plan.quote_used)
+        };
+
+        require!(lp_minted >= min_lp_out, BandAmmError::SlippageExceeded);
+
+        // ── Pull base + quote from user into vaults.
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.user_base.to_account_info(),
+                    to: ctx.accounts.base_vault.to_account_info(),
+                    authority: ctx.accounts.user.to_account_info(),
+                },
+            ),
+            base_used,
+        )?;
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.user_quote.to_account_info(),
+                    to: ctx.accounts.quote_vault.to_account_info(),
+                    authority: ctx.accounts.user.to_account_info(),
+                },
+            ),
+            quote_used,
+        )?;
+
+        // ── Mint LP to user (pool PDA is mint authority).
+        let pool_key = ctx.accounts.pool.key();
+        let base_mint_key = ctx.accounts.pool.base_mint;
+        let quote_mint_key = ctx.accounts.pool.quote_mint;
+        let pool_bump = ctx.accounts.pool.pool_bump;
+        let _ = pool_key; // for signer-seed clarity; pool is signer.
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"band_amm_pool",
+            base_mint_key.as_ref(),
+            quote_mint_key.as_ref(),
+            &[pool_bump],
+        ]];
+        token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.lp_mint.to_account_info(),
+                    to: ctx.accounts.user_lp.to_account_info(),
+                    authority: ctx.accounts.pool.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            lp_minted,
+        )?;
+
+        emit!(Deposited {
+            pool: pool_key,
+            user: ctx.accounts.user.key(),
+            base_used,
+            quote_used,
+            lp_minted,
+            ts: Clock::get()?.unix_timestamp,
+        });
         Ok(())
     }
 
-    /// Withdraw liquidity. Day 1 stub — Day 2 wires LP burn + SPL transfers.
+    /// Withdraw a prorata share of the pool reserves. Burns the caller's LP
+    /// and transfers `(lp · r / supply)` rounded down for each leg.
+    /// Withdrawals are allowed even when the pool is paused — LPs can always
+    /// exit their position (matches Test Plan §3.4 policy choice).
     pub fn withdraw(
-        _ctx: Context<Withdraw>,
-        _lp_amount: u64,
-        _min_base_out: u64,
-        _min_quote_out: u64,
+        ctx: Context<Withdraw>,
+        lp_amount: u64,
+        min_base_out: u64,
+        min_quote_out: u64,
     ) -> Result<()> {
-        // Day-2 implementation; placeholder so the IDL emits the IX shape.
+        require!(lp_amount > 0, BandAmmError::ZeroAmountIn);
+
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        let r_base = ctx.accounts.base_vault.amount;
+        let r_quote = ctx.accounts.quote_vault.amount;
+
+        let plan = redeem_lp(lp_amount, r_base, r_quote, lp_supply).map_err(map_lp_err)?;
+
+        require!(
+            plan.base_out >= min_base_out && plan.quote_out >= min_quote_out,
+            BandAmmError::SlippageExceeded
+        );
+
+        // ── Burn the user's LP first (defence against re-entrancy of any kind).
+        token::burn(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Burn {
+                    mint: ctx.accounts.lp_mint.to_account_info(),
+                    from: ctx.accounts.user_lp.to_account_info(),
+                    authority: ctx.accounts.user.to_account_info(),
+                },
+            ),
+            lp_amount,
+        )?;
+
+        // ── Transfer base + quote out (pool PDA signs).
+        let pool_key = ctx.accounts.pool.key();
+        let base_mint_key = ctx.accounts.pool.base_mint;
+        let quote_mint_key = ctx.accounts.pool.quote_mint;
+        let pool_bump = ctx.accounts.pool.pool_bump;
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"band_amm_pool",
+            base_mint_key.as_ref(),
+            quote_mint_key.as_ref(),
+            &[pool_bump],
+        ]];
+
+        if plan.base_out > 0 {
+            token::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    Transfer {
+                        from: ctx.accounts.base_vault.to_account_info(),
+                        to: ctx.accounts.user_base.to_account_info(),
+                        authority: ctx.accounts.pool.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                plan.base_out,
+            )?;
+        }
+        if plan.quote_out > 0 {
+            token::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    Transfer {
+                        from: ctx.accounts.quote_vault.to_account_info(),
+                        to: ctx.accounts.user_quote.to_account_info(),
+                        authority: ctx.accounts.pool.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                plan.quote_out,
+            )?;
+        }
+
+        emit!(Withdrawn {
+            pool: pool_key,
+            user: ctx.accounts.user.key(),
+            lp_burned: lp_amount,
+            base_out: plan.base_out,
+            quote_out: plan.quote_out,
+            ts: Clock::get()?.unix_timestamp,
+        });
         Ok(())
     }
 
-    /// Swap. Day 1 stub — Day 2 wires the in/out fee branch + SPL transfers,
-    /// Day 3 wires receipt event + staleness guard.
+    /// Swap. Reads the soothsayer `PriceUpdate` PDA, decodes via
+    /// `soothsayer-consumer`, validates invariants + staleness, quotes the
+    /// trade through `swap_math::quote_swap`, applies SPL transfers, and
+    /// emits a receipt event.
     pub fn swap(
-        _ctx: Context<Swap>,
-        _amount_in: u64,
-        _min_amount_out: u64,
-        _side_base_in: bool,
+        ctx: Context<Swap>,
+        amount_in: u64,
+        min_amount_out: u64,
+        side_base_in: bool,
     ) -> Result<()> {
-        // Day-2 implementation; placeholder so the IDL emits the IX shape.
+        require!(ctx.accounts.pool.paused == 0, BandAmmError::PoolPaused);
+        require!(amount_in > 0, BandAmmError::ZeroAmountIn);
+
+        // ── Decode the band PDA. `address = pool.price_update` is enforced
+        // by the account constraint; here we decode + validate.
+        let band = {
+            let data = ctx
+                .accounts
+                .price_update
+                .try_borrow_data()
+                .map_err(|_| error!(BandAmmError::BandRejected))?;
+            let band = soothsayer_consumer::decode_price_update(&data)
+                .map_err(|_| error!(BandAmmError::BandRejected))?;
+            band.validate_invariants()
+                .map_err(|_| error!(BandAmmError::BandRejected))?;
+            band
+        };
+
+        // ── Staleness guard. Day-2 wires this here; Day-3 adds explicit test
+        // coverage in integration tests.
+        let now_ts = Clock::get()?.unix_timestamp;
+        let age = now_ts.saturating_sub(band.publish_ts);
+        require!(
+            age <= ctx.accounts.pool.max_band_staleness_secs as i64,
+            BandAmmError::BandStale
+        );
+
+        // ── Quote the swap.
+        let r_base = ctx.accounts.base_vault.amount;
+        let r_quote = ctx.accounts.quote_vault.amount;
+        let side = if side_base_in { Side::BaseIn } else { Side::QuoteIn };
+
+        let pool_ref = &ctx.accounts.pool;
+        let q = quote_swap(
+            r_base,
+            r_quote,
+            amount_in,
+            side,
+            band.lower,
+            band.upper,
+            band.exponent,
+            pool_ref.base_decimals,
+            pool_ref.quote_decimals,
+            pool_ref.fee_bps_in,
+            pool_ref.fee_alpha_out_bps,
+            pool_ref.fee_w_max_bps,
+        )
+        .map_err(map_swap_err)?;
+
+        require!(
+            q.amount_out >= min_amount_out,
+            BandAmmError::SlippageExceeded
+        );
+
+        // ── Execute transfers. Direction governs which vault pays out; the
+        // pool PDA always signs the outflow leg.
+        let pool_key = pool_ref.key();
+        let base_mint_key = pool_ref.base_mint;
+        let quote_mint_key = pool_ref.quote_mint;
+        let pool_bump = pool_ref.pool_bump;
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"band_amm_pool",
+            base_mint_key.as_ref(),
+            quote_mint_key.as_ref(),
+            &[pool_bump],
+        ]];
+
+        match side {
+            Side::BaseIn => {
+                // user → vault: base in
+                token::transfer(
+                    CpiContext::new(
+                        ctx.accounts.token_program.to_account_info(),
+                        Transfer {
+                            from: ctx.accounts.user_base.to_account_info(),
+                            to: ctx.accounts.base_vault.to_account_info(),
+                            authority: ctx.accounts.user.to_account_info(),
+                        },
+                    ),
+                    amount_in,
+                )?;
+                // vault → user: quote out
+                token::transfer(
+                    CpiContext::new_with_signer(
+                        ctx.accounts.token_program.to_account_info(),
+                        Transfer {
+                            from: ctx.accounts.quote_vault.to_account_info(),
+                            to: ctx.accounts.user_quote.to_account_info(),
+                            authority: ctx.accounts.pool.to_account_info(),
+                        },
+                        signer_seeds,
+                    ),
+                    q.amount_out,
+                )?;
+            }
+            Side::QuoteIn => {
+                token::transfer(
+                    CpiContext::new(
+                        ctx.accounts.token_program.to_account_info(),
+                        Transfer {
+                            from: ctx.accounts.user_quote.to_account_info(),
+                            to: ctx.accounts.quote_vault.to_account_info(),
+                            authority: ctx.accounts.user.to_account_info(),
+                        },
+                    ),
+                    amount_in,
+                )?;
+                token::transfer(
+                    CpiContext::new_with_signer(
+                        ctx.accounts.token_program.to_account_info(),
+                        Transfer {
+                            from: ctx.accounts.base_vault.to_account_info(),
+                            to: ctx.accounts.user_base.to_account_info(),
+                            authority: ctx.accounts.pool.to_account_info(),
+                        },
+                        signer_seeds,
+                    ),
+                    q.amount_out,
+                )?;
+            }
+        }
+
+        // ── Update cumulative counters. Fee accrues to the input-token leg.
+        let pool = &mut ctx.accounts.pool;
+        match side {
+            Side::BaseIn => {
+                pool.cumulative_fees_base = pool
+                    .cumulative_fees_base
+                    .saturating_add(q.fee_paid);
+            }
+            Side::QuoteIn => {
+                pool.cumulative_fees_quote = pool
+                    .cumulative_fees_quote
+                    .saturating_add(q.fee_paid);
+            }
+        }
+        pool.cumulative_swaps = pool.cumulative_swaps.saturating_add(1);
+
+        // ── Receipt event. Day 3 expands to the full PriceBand mirror.
+        emit!(Swapped {
+            pool: pool_key,
+            user: ctx.accounts.user.key(),
+            side_base_in,
+            amount_in,
+            amount_out: q.amount_out,
+            fee_paid: q.fee_paid,
+            effective_fee_bps: q.effective_fee_bps,
+            fee_tier_out_of_band: q.fee_tier == FeeTier::OutOfBand,
+            band_lower: band.lower,
+            band_upper: band.upper,
+            band_exponent: band.exponent,
+            band_publish_ts: band.publish_ts,
+            band_publish_slot: band.publish_slot,
+            claimed_served_bps: band.claimed_served_bps,
+            regime_code: band.regime_code,
+            ts: now_ts,
+        });
         Ok(())
     }
 
@@ -398,4 +720,68 @@ pub struct FeeParamsUpdated {
     pub max_band_staleness_secs: u32,
     pub authority: Pubkey,
     pub ts: i64,
+}
+
+#[event]
+pub struct Deposited {
+    pub pool: Pubkey,
+    pub user: Pubkey,
+    pub base_used: u64,
+    pub quote_used: u64,
+    pub lp_minted: u64,
+    pub ts: i64,
+}
+
+#[event]
+pub struct Withdrawn {
+    pub pool: Pubkey,
+    pub user: Pubkey,
+    pub lp_burned: u64,
+    pub base_out: u64,
+    pub quote_out: u64,
+    pub ts: i64,
+}
+
+/// Swap receipt — the on-chain analogue of Paper 1's calibration receipt,
+/// applied to AMM execution. Reconcilable against the on-chain `PriceUpdate`
+/// PDA at `band_publish_slot` for the audit-chain test (test plan §5.3).
+#[event]
+pub struct Swapped {
+    pub pool: Pubkey,
+    pub user: Pubkey,
+    pub side_base_in: bool,
+    pub amount_in: u64,
+    pub amount_out: u64,
+    pub fee_paid: u64,
+    pub effective_fee_bps: u32,
+    pub fee_tier_out_of_band: bool,
+    pub band_lower: i64,
+    pub band_upper: i64,
+    pub band_exponent: i8,
+    pub band_publish_ts: i64,
+    pub band_publish_slot: u64,
+    pub claimed_served_bps: u16,
+    pub regime_code: u8,
+    pub ts: i64,
+}
+
+// ─────────────────────────────── Error mappers ───────────────────────────────
+
+fn map_lp_err(e: LpMathError) -> Error {
+    match e {
+        LpMathError::ZeroAmount => error!(BandAmmError::ZeroAmountIn),
+        LpMathError::ZeroLpSupplyWithReserves => error!(BandAmmError::InsufficientReserves),
+        LpMathError::Overflow => error!(BandAmmError::MathOverflow),
+        LpMathError::InsufficientReserves => error!(BandAmmError::InsufficientReserves),
+    }
+}
+
+fn map_swap_err(e: SwapMathError) -> Error {
+    match e {
+        SwapMathError::ZeroAmountIn => error!(BandAmmError::ZeroAmountIn),
+        SwapMathError::InsufficientReserves => error!(BandAmmError::InsufficientReserves),
+        SwapMathError::Overflow => error!(BandAmmError::MathOverflow),
+        SwapMathError::InvertedBand => error!(BandAmmError::BandRejected),
+        SwapMathError::NegativeBandValue => error!(BandAmmError::BandRejected),
+    }
 }

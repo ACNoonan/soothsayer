@@ -108,6 +108,7 @@ For **comparator dashboards and Paper 1 framing**, RedStone Live's actual useful
 ## 5. Known confusions / version pitfalls
 
 - **Live vs Classic vs Pull / Push / X / Atom.** RedStone has shipped many product names. **Live** is the 24/7 equity-coverage REST product launched March 2026 — the subject of this file. **Classic** is the older Push (Wormhole-bridged) on-chain push model — separate file. **Pull (Core)** is the consumer-pull pattern (sign + verify in-tx). **X** is deferred-execution for perps. **Atom** is atomic-push. The naming is overloaded; cross-referencing third-party "RedStone supports xyz" claims without checking which surface is the source of confusion.
+- **Bolt is a separate surface from Live.** RedStone Bolt is the high-frequency push product (officially presented as ~2.4ms updates, initially on the MegaETH path), while this file is specifically about the RedStone Live REST gateway used in Soothsayer comparator work. Do not transfer Bolt latency/coverage claims onto the Live REST dataset without direct evidence.
 - **`api.redstone.finance/prices` ≠ on-chain RedStone.** The public REST gateway is one observation surface; consumers integrating RedStone on-chain do **not** read the gateway, they read program PDAs (or use Wormhole Queries). The two surfaces have different update cadences and content sets.
 - **Underlier vs xStock symbol convention.** RedStone's equity feeds price `SPY`, not `SPYx`. Same gotcha as Pyth (see [`oracles/pyth_regular.md`](pyth_regular.md) §5).
 - **30-day retention is silent.** No HTTP error or warning at T-31d; queries simply return empty result sets indistinguishable from "ticker not covered." Distinguishing retention-cap vs no-coverage requires probing a known-good ticker at the same `T-N` window.
@@ -130,6 +131,8 @@ For **comparator dashboards and Paper 1 framing**, RedStone Live's actual useful
 ## 7. Citations
 
 - [`redstone-introduction`] RedStone. *Introduction*. https://docs.redstone.finance/docs/introduction. Accessed: 2026-04-29.
+- [`redstone-bolt-blog`] RedStone. 2025-04-08. *Introducing RedStone Bolt: The Fastest Blockchain Oracle To Date*. https://blog.redstone.finance/2025/04/08/introducing-redstone-bolt-the-fastest-blockchain-oracle-to-date/. Accessed: 2026-05-02.
+- [`redstone-bolt-product`] RedStone. *Bolt product page*. https://redstone.finance/bolt. Accessed: 2026-05-02.
 - [`redstone-models-404`] RedStone. *RedStone Models* (deep page). https://docs.redstone.finance/docs/dapps-and-defi/redstone-models — returned 404 on 2026-04-29; link rot logged.
 - [`redstone-rest-gateway`] RedStone. Public REST gateway. https://api.redstone.finance/prices. Probed: 2026-04-26.
 - [`coindesk-redstone-weekend`] Kazmierczak, M. (RedStone co-founder). 2025-11-23. *Weekend gap acknowledgement*. CoinDesk. (Specific URL TBD; cited via [`docs/data-sources.md`](../../data-sources.md#redstone).)
