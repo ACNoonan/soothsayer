@@ -4,8 +4,9 @@ Soothsayer is the analysis + serving + on-chain-publish layer of a
 two-repo system. The sibling repo `scryer` (../scryer/) owns all
 upstream data fetching.
 
-Read `CLAUDE.md` for the long form and `AGENTS.md` for the same rules
-in agent-tool format.
+Read `CLAUDE.md` for compact startup context, `AGENTS.md` for the same
+rules in agent-tool format, and `reports/methodology_history.md` only
+when methodology state matters.
 
 ## Hard rules
 
@@ -48,4 +49,5 @@ df = pl.read_parquet(
 assert df.select(pl.col("_schema_version").unique()).item() == "yahoo.v1"
 ```
 
-Full guide: `docs/scryer_consumer_guide.md`.
+Full guide: `docs/scryer_consumer_guide.md`. Keep startup docs compact:
+current state, active gates, and links beat pasted historical rationale.

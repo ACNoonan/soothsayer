@@ -7,6 +7,10 @@
 
 The active research arc is methodology → policy. Paper 3 can be read independently of any separate mechanism-design work; its contribution is the mapping from calibrated uncertainty to liquidation action under explicit reserve, cost, and truth semantics.
 
+**Companion files (load-bearing — read alongside this plan):**
+- [`../../docs/protocol_semantics_kamino_xstocks.md`](../../docs/protocol_semantics_kamino_xstocks.md) — verified end-to-end action semantics for the Kamino-xStocks lending market (oracle path, validity gates, liquidation arithmetic, reserve config). Closes ROADMAP §"Must fix before Paper 3 is credible" #1.
+- [`./protocol_semantics.md`](./protocol_semantics.md) — band → action → expected-loss mapping per reserve; the geometric core of §6 below. Partially closes ROADMAP §"Must fix before Paper 3 is credible" #2 (the geometry side; the historical-event side is gated on scryer-side liquidation panels per `protocol_semantics.md` §6).
+
 ---
 
 ## 1) One-sentence thesis
@@ -47,6 +51,7 @@ The production landscape is now clearer than when this plan was first drafted:
 - **Kraken/backed-style market makers already behave like "factor switchboards."** Their published off-hours methodology cites ATS venues, index futures, and internal models, with wider off-hours spreads. That is pragmatic validation that Paper 3 is directionally aligned with how desks already approximate fair value off-hours.
 - **Gauntlet and Chaos Labs already frame liquidation policy as an optimization problem.** This is strategically excellent for positioning. Paper 3 is not introducing the optimization framing; it is supplying a calibrated uncertainty input that existing consultancy-style optimization stacks currently do not publish.
 - **Institutional RWA venues already admit that time-of-day and market-closure constraints matter.** Aave Horizon and similar setups acknowledge custom liquidation logic, custodial delay, and market-closure handling. Paper 3 can therefore frame regime-aware liquidation policy as a standardization of something sophisticated venues already do by hand.
+- **Recent loss events name the failure mode in the same language Paper 3 uses.** The JELLYJELLY incident on Hyperliquid (March 2025; ~$12M HLP loss) and the Volcano Exchange post-mortem of a tokenized-asset perp episode documenting $9.21M of Hyperliquid liquidations — *exceeding* the Binance liquidation volume that fed the oracle — both diagnose the propagation mechanism as "uncertainty present in the input, not represented in the output, with consumers forced to act as if the point was certain." This is direct production evidence for the gap §3 describes and replaces the earlier abstract framings of the same point.
 
 That gives the paper a sharper opening claim: the gap is not "protocols ignore liquidation risk." The gap is that **production systems already optimize liquidation policy, but do so with point-price or aggregation-diagnostic inputs that do not publish an auditable coverage SLA for closed-market uncertainty.**
 
@@ -60,6 +65,39 @@ The earlier Paper 3 scaffold leaned too heavily on a simplified Kamino-style fla
 
 The right question for Paper 3 is therefore not "which band beats a flat 300 bps incumbent?" It is: **which uncertainty-aware policy best predicts and prices reserve-buffer exhaustion under the actual production reserve configuration and oracle semantics?**
 
+### Per-reserve buffer geometry — sharpened 2026-05-01
+
+The 2pp / 10pp LTV-gap framing above understates the geometry; the *adverse-move* buffers are reserve-specific and split the 8 reserves into two classes (full derivation in [`protocol_semantics.md`](./protocol_semantics.md) §2):
+
+- **Narrow-buffer class (SPYx, QQQx):** 2.67% / 2.78% adverse-move buffers from origination to liquidation. These are the only reserves where soothsayer's served band has policy-decision-flipping headroom against typical realized weekend moves.
+- **Wide-buffer class (TSLAx, GOOGLx, NVDAx, AAPLx, MSTRx, HOODx):** 14–25% buffers; soothsayer's band lower bound at any reasonable τ does not mechanically force a Liquidate decision when Kamino reads Safe. The policy value-add here is the Caution-zone (early operational warning), not on-chain action change.
+
+This split has direct implications for the §15 abstract framing — the deployment story is **per-reserve**, not "soothsayer dominates Kamino on xStocks." The two-class structure is itself a Paper 3 finding worth threading explicitly.
+
+### Two structural findings the snapshot exposed
+
+1. **No oracle redundancy.** Pyth and Switchboard are `active: false` on all 8 xStocks; Scope is the sole active oracle. A single Scope writer outage degrades all 8 reserves simultaneously (see [`docs/sources/oracles/scope.md`](../../docs/sources/oracles/scope.md) §4).
+2. **`autodeleverage_enabled = 0` on all 8.** Kamino's soft-liquidation / graduated-margin-call mechanism is *defined* in the IDL but disabled on xStocks. The on-chain trigger is binary (Safe → Liquidatable), not graduated; the `Caution` zone in soothsayer's demo crate has no Kamino-program-level analog. The decision-display surface is off-chain.
+
+A third behavior — **block-state avoidance** — is structural rather than empirical: when Kamino's price gates fail (PriceHeuristic upper-bound breach, TWAP divergence > 5%, or 300s staleness), the protocol enters block-state where neither liquidation nor any other operation can proceed and the bad-debt residual accumulates silently. Soothsayer's served-band primitive has no equivalent gates that fail in that mode. This is a soothsayer-positive finding that does not depend on flipping any specific liquidation decision.
+
+### Strategic implications and deployment-priority shift (2026-05-01, reconciled with scryer findings)
+
+The findings above force three connected pivots. The first two were drafted earlier on 2026-05-01; the third was originally framed as an open question gating a Kamino → MarginFi deployment-priority swap, and was answered later that same day by scryer's MarginFi IDL pin + 422-Bank scan + Kamino 9-month liquidation panel. The reconciled three-pivot structure below supersedes the earlier "MarginFi-first pivot" framing; cross-references in [`docs/sources/lending/marginfi.md`](../../docs/sources/lending/marginfi.md) §1.5 and `reports/methodology_history.md` 2026-05-01 AMENDMENT carry the verification chain.
+
+**1. The paper splits into three claims, each with a different epistemic basis.**
+- **Geometric** (always true, all 8 reserves, no data dependency): per-reserve adverse-move buffer is the right object, and it splits the xStocks reserve set into two policy-relevant classes (narrow ~2.7% on SPYx/QQQx; wide 14–25% on the other 6).
+- **Structural** (always true, all 8 reserves, no data dependency): soothsayer's served band avoids the block-state failure mode that Kamino's price-validity gates can enter under stress.
+- **Empirical** (Kamino-xStocks panel, 102 events 9 months 2025-08 → 2026-04, with a 2025-11-04 → 2025-11-21 cluster of 8 events): on the narrow-buffer class (SPYx, QQQx), soothsayer's stricter-τ band lowers expected protocol loss by pre-empting liquidations Kamino's stale-held Scope read misses. The empirical home of this claim was previously expected to be MarginFi (per the 30-day Kamino-zero finding) and is now Kamino-xStocks itself; data lives at `scryer/dataset/kamino/liquidations/v1/`.
+
+The original §3 framing pooled all three implicitly. Disaggregating them strengthens the paper: Geometric + Structural are publishable now without any new data; Empirical is now landable on data we already have (the 30-day-zero finding was a sampling artifact). The Nov 2025 cluster — 7% of the panel in 18 days — is a candidate §C4 figure with a regime-conditional story to tell.
+
+**2. Deployment substrate vs. xStock empirical home are different questions.** MarginFi-v2's `assets use P − conf, liabilities use P + conf` rule (per [`docs/sources/lending/marginfi.md`](../../docs/sources/lending/marginfi.md) §1.1) is a one-line substitution with soothsayer's `(lower, upper)` band, and remains the cleanest *deployment-shape* argument for a MarginFi design-partner conversation on the general-lending book. That argument does not depend on direct xStock listings on MarginFi. Separately, the *xStock-specific empirical event panel* lives on Kamino, because (per pivot 3 below) MarginFi has no direct xStock Banks and any xStock-adjacent MarginFi events are downstream re-emissions of Kamino-position events. The earlier "deployment priority pivots from Kamino-first to MarginFi-first" framing conflated these two questions and is superseded.
+
+**3. The §6 #2 open question is now answered: MarginFi xStock exposure is indirect-only.** Scryer's 422-Bank scan (2026-05-01, `marginfi/reserves/v1`) found zero direct xStock SPL-token Banks. xStock collateral on MarginFi exists only via `KaminoPythPush` / `KaminoSwitchboardPull` `OracleSetup` routes — i.e., MarginFi Banks whose oracle read is delegated to Kamino-position infrastructure. A MarginFi liquidation on xStock collateral is therefore a downstream re-emission of a Kamino-position event, not an independent observation. The cross-protocol comparison has structural asymmetry, not venue diversity. (See [`docs/sources/lending/marginfi.md`](../../docs/sources/lending/marginfi.md) §1.5 for the verification.) This sharpens the paper rather than weakening it: cross-protocol propagation of an oracle-staleness event is a more interesting story than parallel-venue comparison would have been, and it speaks to systemic risk.
+
+**Timeline reality.** Geometric + Structural claims have always been data-independent and can be drafted immediately. The Empirical claim — previously gated on `marginfi/liquidations/v1` engineering work (4–8 weeks) — is **now ungated**: Kamino-xStocks data lives at `scryer/dataset/kamino/liquidations/v1/` and can be queried today. Paper 3 §1 / §2 / §3 / §4 / §6 / §C4 can all be drafted on data that exists. A MarginFi liquidations panel, when it lands, adds cross-protocol-propagation evidence (pivot 2's deployment-substrate claim), not the load-bearing xStock empirical claim. This is a meaningful timeline acceleration.
+
 ---
 
 ## 4) Draft claims (what Paper 3 would aim to prove)
@@ -70,14 +108,18 @@ Liquidation-policy defaults are not identifiable from calibration metrics alone.
 - a protocol loss function (missed liquidation vs unnecessary liquidation vs unnecessary caution)
 - semantics of what counts as “correct” under realized outcomes
 
-### C2 — Calibrated-band policies can dominate production-style baselines out of sample
-There exists a policy family using Soothsayer's band (e.g. Case A) that lowers expected loss versus the observed Kamino xStocks production configuration and simple heuristic baselines on walk-forward OOS evaluation, under stated assumptions.
+### C2 — Calibrated-band policies can dominate production-style baselines out of sample, **on the narrow-buffer reserve class**
+The deployment case has been narrowed by the 2026-05-01 buffer-geometry analysis ([`protocol_semantics.md`](./protocol_semantics.md) §2). On the narrow-buffer class (SPYx, QQQx; ~2.7% adverse-move headroom), there exists a policy family using Soothsayer's band (e.g. Case A) that lowers expected loss versus the observed Kamino xStocks production configuration on walk-forward OOS evaluation, under stated assumptions. On the wide-buffer class (the other 6 reserves), the claim is *operational risk display via the Caution zone*, not on-chain decision change. **Pooling the two classes obscures both findings.** The honest framing is per-class.
 
 ### C3 — Robust regions beat fragile point-optima
-The correct publishable output is a **stable region** (e.g. `τ ∈ [0.80, 0.85]` for a class of protocols/books), not a single fragile optimum.
+The correct publishable output is a **stable region** (e.g. `τ ∈ [0.80, 0.85]` for a class of protocols/books), not a single fragile optimum. The narrow- vs wide-buffer split adds a second axis of stability: the publishable region is `(reserve-class, τ)`, not `τ` alone.
 
-### C4 — The production gap is specifically a closed-market reserve-buffer-exhaustion problem
-The strongest deployment case is not "bands are always better than points everywhere." It is narrower and more defensible: when the reference market is closed, calibrated-band policies outperform production point-price plus validity-check stacks because they expose uncertainty precisely where incumbent infrastructure is least trustworthy and where real reserve buffers are narrow enough to matter.
+### C4 — The production gap is specifically a closed-market reserve-buffer-exhaustion problem **plus a block-state-avoidance problem**
+The strongest deployment case is not "bands are always better than points everywhere." It is narrower and more defensible:
+- when the reference market is closed, calibrated-band policies outperform production point-price plus validity-check stacks because they expose uncertainty precisely where incumbent infrastructure is least trustworthy and where real reserve buffers are narrow enough to matter, **and**
+- the served-band primitive structurally avoids the block-state failure mode (Kamino's price-validity gates failing under stress, deferring liquidation by program design) that the incumbent stack falls into during real adverse moves. This is a soothsayer-positive finding independent of the per-event liquidation comparison and applies to *all* 8 reserves, not just the narrow-buffer class.
+
+**Wedge framing.** Chainlink already won the xStocks oracle slot at Kamino with a custom sub-second tokenized-equity feed; Paper 3's claim is therefore *complement-to-incumbent*, not *displace-incumbent*. The deployment story is: given the Chainlink/Scope point feed already wired to the reserves, an auditable calibration band layered on top supplies (i) the uncertainty representation the incumbent does not publish and (ii) a publication path that does not enter the block-state failure mode under stress. Both are additive to the existing oracle path; neither requires the protocol to drop Chainlink as the primary feed.
 
 ---
 
@@ -190,10 +232,12 @@ Use weekend-block bootstrap on deltas and ranking stability:
 - `scripts/aggregate_ab_comparison.py` — aggregate per-regime and per-LTV comparisons.
 - `scripts/replay_shock_weekend.py` — case-study figures for narrative.
 
-### Protocol semantics reference
-- `crates/soothsayer-demo-kamino/src/lib.rs` — the canonical `Safe/Caution/Liquidate` ladder used in the demo.
+### Protocol semantics reference (load-bearing for §6 / §7 / §8)
+- [`../../docs/protocol_semantics_kamino_xstocks.md`](../../docs/protocol_semantics_kamino_xstocks.md) — **the canonical reference** for what Kamino-xStocks actually does end-to-end: Scope-only oracle wiring, 300s staleness gate, 5% TWAP divergence rejection, PriceHeuristic guard rails per reserve, dynamic-bonus `[5%, 10%]` range with 50% protocol-fee split, `autodeleverage_enabled = 0` on all 8, the implicit closed-market-deferral mode. Pinned to klend IDL v1.19.0 + Scope IDL v0.33.0 + on-chain snapshot 2026-04-27.
+- [`./protocol_semantics.md`](./protocol_semantics.md) — band → action → expected-loss mapping per reserve; per-reserve buffer geometry table; decision-flip arithmetic worked example; the §5 expected-loss EV framework with explicit gating on each unfilled scryer dataset.
+- `crates/soothsayer-demo-kamino/src/lib.rs` — the *stylized* `Safe/Caution/Liquidate` ladder used in the demo. **Demoted from canonical reference**: Kamino's on-chain trigger is binary (Safe → Liquidatable), so the Caution state in the demo is a soothsayer-side risk-display layer, not a Kamino-program-level state. Useful as a deployment surface, not as a description of the incumbent.
 
-Paper 3 should treat these as the prototype implementation, then strengthen the evaluation design (walk-forward, real reserve-buffer semantics, richer baselines, path-aware truth, protocol-specific costs).
+Paper 3 should treat the protocol-semantics file as the ground-truth reference, the protocol-compare scaffolding as the prototype evaluation harness, and the demo crate as the deployable shape — then strengthen the evaluation design (walk-forward, real reserve-buffer semantics, richer baselines, path-aware truth, protocol-specific costs).
 
 ### External anchors now secured and worth citing directly
 - **Kamino xStocks docs / launch materials** for the direct policy target: soft liquidations, dynamic penalty ladder, TWAP/EWMA protections, LTV + borrow factor semantics.
@@ -305,26 +349,44 @@ The goal of this section is not to claim novelty over every adjacent paper. It i
 
 ---
 
-## 13) Success criteria (what would make the second paper a “yes”)
+## 13) Success criteria (what would make the second paper a "yes")
+
+Updated 2026-05-01 to reflect the narrow-vs-wide-buffer split surfaced in [`protocol_semantics.md`](./protocol_semantics.md) §2 and the block-state-avoidance finding.
 
 I would consider Paper 3 ready to draft when we can show:
-- A Soothsayer-based policy family beats the observed production baseline and heuristic comparables in expected loss on walk-forward OOS.
-- The win is robust across a reasonable grid of cost and weight assumptions.
+- A Soothsayer-based policy family beats the observed production baseline and heuristic comparables in expected loss **on the narrow-buffer reserve class (SPYx, QQQx)** on walk-forward OOS.
+- For the wide-buffer class (TSLAx, GOOGLx, NVDAx, AAPLx, MSTRx, HOODx), the policy claim is operational risk-display via the Caution zone — measurable as the fraction of weekends where soothsayer's band would have flagged Caution within an actionable window before realized stress, not as on-chain liquidation flips.
+- The win is robust across a reasonable grid of cost and weight assumptions, **with per-reserve-class disaggregation** rather than pooled.
 - We can explain the mechanism in reserve-buffer terms (narrow when calm, widen when risky, fewer expensive buffer-exhaustion misses without too many unnecessary liquidations).
 - The result still holds when tested against **path-aware weekend truth**, not only Monday-open truth.
-- We can disclose where it does *not* win (assumption-sensitive regions) without undermining the core claim.
+- The block-state-avoidance finding (soothsayer's served band has no validity gates that fail in the mode Kamino's `PriceHeuristic` / TWAP-divergence / staleness path can) is documented with at least one historical or synthetic adverse-move scenario where Kamino enters block-state and soothsayer would have continued to publish a usable band.
+- We can disclose where it does *not* win (assumption-sensitive regions, deposit-only reserves with structurally wide buffers) without undermining the core claim.
 
 ---
 
 ## 14) Concrete next steps (research execution order)
 
-1. Extend `run_protocol_compare` from a flat-band prototype into walk-forward evaluation against real reserve-buffer semantics.
-2. Expand cost scenarios (parameter sweep) and record ranking stability.
-3. Add the observed production baseline plus at least one additional heuristic baseline beyond flat ±300bps.
-4. Build path-aware weekend truth before treating the paper as draft-ready.
-5. Only after that decide how much explicit MEV / execution realism is needed for the claim we want to make.
+Updated 2026-05-01 with the dependency graph from [`protocol_semantics.md`](./protocol_semantics.md) §6.
 
-This order keeps the project honest: prove the decision-layer story under clearly stated assumptions, but do not stop at endpoint truth. The paper's biggest strategic advantage is precisely that closed-market uncertainty is observable, material, and mishandled by today's production stack.
+**Phase 1 — geometry and framework (mostly done; ready now):**
+1. Reserve-buffer geometry: ✅ done in [`protocol_semantics.md`](./protocol_semantics.md) §2.
+2. Verified end-to-end action semantics: ✅ done in [`../../docs/protocol_semantics_kamino_xstocks.md`](../../docs/protocol_semantics_kamino_xstocks.md).
+3. Expected-loss EV framework: ✅ scaffold in [`protocol_semantics.md`](./protocol_semantics.md) §5; needs `D_repaid` distribution and dynamic-bonus curve fit (Phase 2).
+
+**Phase 2 — empirical event panel (gated on scryer):**
+4. `kamino/liquidations/v1` lands → fit dynamic-bonus curve `curve(health)` empirically; estimate `D_repaid` distribution. **Gating:** scryer wishlist Priority-0 #1 (already queued).
+5. `marginfi/liquidations/v1` lands → load-bearing event panel for actual liquidation outcomes (Kamino-xStocks has 0 events in 30 days per [`../kamino_liquidations_first_scan.md`](../kamino_liquidations_first_scan.md)). **Gating:** new scryer wishlist entry surfaced 2026-05-01.
+6. `pyth_express_relay/auction_tape/v1` lands → OEV-recapture-rate scoring on the protocol-bonus side. **Gating:** new scryer wishlist entry surfaced 2026-05-01.
+
+**Phase 3 — evaluation runs (after Phase 2):**
+7. Extend `run_protocol_compare` from flat-band prototype into walk-forward evaluation against real reserve-buffer semantics, **disaggregated by reserve class** per §13's narrow/wide split.
+8. Expand cost scenarios (parameter sweep) and record ranking stability per (reserve, regime) cell — not pooled.
+9. Add the observed production baseline (Kamino-incumbent reading Scope under all three validity gates), the Pyth-conf-haircut comparator (the cleanest non-Kamino comparator, per MarginFi-v2's `assets use P − conf` rule), EWMA/realized-vol haircut, stale-hold Gaussian. Flat ±300bps remains only as legacy continuity.
+10. Build path-aware weekend truth: cex_stock_perp tape (gated on Gap 3 in the 2026-05-01 scryer-agent prompt) + DEX OHLC.
+11. Block-state-avoidance scenario: identify historical adverse-move weekends where Kamino's `PriceHeuristic` upper bound would have been breached for QQQx (5% headroom) or AAPLx (10% headroom); compare Kamino's block-state outcome to soothsayer's continued-band-publication outcome.
+12. Only after Phase 3 decide how much explicit MEV / execution realism is needed for the claim we want to make.
+
+This order keeps the project honest: prove the decision-layer story under clearly stated assumptions on the narrow-buffer class where soothsayer's band has policy-flipping headroom; document the wider-buffer class as operational-risk-display infrastructure; back-stop both with the structural block-state-avoidance finding that does not depend on event density. The paper's strategic advantage is the per-reserve-class disaggregation and the structural finding — not the decade-pooled framing the original plan implied.
 
 ---
 

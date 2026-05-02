@@ -185,13 +185,13 @@ The Paper 3 §7 walk-forward evaluation runs this `E[L | π]` across the policy 
 
 For each blocking item, the gating action is named:
 
-1. **`kamino/liquidations/v1` scryer dataset** — needed to estimate `D_repaid` distribution and the realized `bonus_pct` curve from past Kamino events on non-xStock reserves. **Gating:** scryer wishlist Priority-0 #1 (already queued; status visibility was flagged in the 2026-05-01 scryer-agent prompt).
-2. **`marginfi/liquidations/v1` scryer dataset** — same role but on the load-bearing event source (Kamino-xStocks had 0 events in 30 days; MarginFi is denser per `reports/kamino_liquidations_first_scan.md`). **Gating:** new scryer wishlist entry surfaced in the 2026-05-01 scryer-agent prompt (Gap 1).
+1. **`kamino/liquidations/v1` scryer dataset** — **landed 2026-05-01** at `scryer/dataset/kamino/liquidations/v1/`. 102 events over 9 months (2025-08 → 2026-04) with a structural cluster 2025-11-04 → 2025-11-21 (8 events / 18 days). Used both for the Kamino-xStocks empirical core (a non-empty event panel, contrary to the prior 30-day-zero finding) and for `D_repaid` distribution / realized `bonus_pct` curve estimation. The Nov 2025 cluster is a candidate regime-conditional §C4 figure.
+2. **`marginfi/liquidations/v1` scryer dataset** — **reframed 2026-05-01: cross-protocol-confirmation, not the load-bearing event source.** The 30-day Kamino-xStocks zero-event finding that previously framed MarginFi as load-bearing was a sampling artifact (item 1 above). Independently, scryer's 422-Bank `marginfi/reserves/v1` scan (2026-05-01) found that MarginFi has zero direct xStock Banks — xStock exposure is indirect-only via `KaminoPythPush` / `KaminoSwitchboardPull` `OracleSetup` routes (Kamino-position events surfaced one layer up). When the panel lands, MarginFi xStock-adjacent events join back to upstream Kamino-position events, characterising cross-protocol propagation rather than supplying independent observations. **Gating:** scryer wishlist (no longer load-bearing for Paper 3 publication).
 3. **The dynamic-bonus curve `curve(health)`** — not in the IDL or snapshot. **Gating:** `protocol_semantics_kamino_xstocks.md` §6 #1; resolved by Kamino-source review or empirical fit on `kamino/liquidations/v1`.
 4. **Path-aware weekend truth** (per `plan.md` §12.5) — Monday-open is endpoint truth; intra-weekend executable price excursions matter for the bad-debt-residual estimate. **Gating:** `cex_stock_perp_tape.v1` end-to-end visibility (Gap 3 in the 2026-05-01 prompt) plus DEX OHLC ingest.
 5. **`pyth_express_relay/auction_tape/v1`** — needed to score the OEV-recapture-rate side of the comparison (the protocol's bonus is partially recoverable through PER auctions). **Gating:** Gap 2 in the 2026-05-01 scryer-agent prompt.
 
-Until items 1, 2, and 4 land, the §5 expected-loss numbers are **conditional on parameter choices for `D_repaid`, `bonus_pct`, and the realized-move distribution**, not back-tested. The buffer geometry (§2) and the band-width-vs-flip arithmetic (§4) are unconditional and stand on the snapshot alone.
+Item 1 (Kamino) landed 2026-05-01 and unblocks the §5 expected-loss numbers' empirical anchoring on the Kamino-xStocks panel. Item 2 (MarginFi) is now cross-protocol-confirmation rather than load-bearing for Paper 3. Until items 4 and 5 land, the path-aware-truth and OEV-recapture-rate components remain parameter-conditional. The buffer geometry (§2) and the band-width-vs-flip arithmetic (§4) are unconditional and stand on the snapshot alone.
 
 ---
 
@@ -202,7 +202,7 @@ What this analysis sharpens for the §15 abstract / introduction:
 1. **The headline number is reserve-specific, not protocol-specific.** SPYx (2.67%) and QQQx (2.78%) are the reserves where soothsayer's band has policy-decision-flipping headroom. Generic "Kamino-vs-soothsayer" framing without per-reserve geometry obscures this.
 2. **The buffer's mechanical relation to the LTV ratio means MSTRx/HOODx (with 25% buffers) are not where soothsayer's band wins on liquidation timing.** The deployment story for those reserves is *Caution-zone operational signal*, not a different on-chain decision.
 3. **The "block-state" outcome is unique to the Kamino-incumbent path** because soothsayer's band doesn't have validity gates that fail; this is a distinct mode of protocol loss the served-band primitive structurally avoids.
-4. **The empirical event panel comes from MarginFi, not Kamino.** Paper 3's empirical core needs the wider lending-stack view; this file is the geometry, not the panel.
+4. **The xStock empirical event panel is Kamino, not MarginFi.** Reframed 2026-05-01: the prior framing relied on a 30-day Kamino-xStocks zero-event scan; scryer's 9-month panel (`scryer/dataset/kamino/liquidations/v1/`) carries 102 events. MarginFi has no direct xStock Banks (422-Bank scan, 2026-05-01); xStock exposure on MarginFi is indirect-only via `KaminoPythPush` / `KaminoSwitchboardPull` routes, so MarginFi xStock-adjacent events are downstream re-emissions of Kamino-position events. When `marginfi/liquidations/v1` lands, MarginFi joins back into the analysis as cross-protocol-propagation evidence on the deployment-substrate claim, not as the load-bearing xStock event panel. This file remains geometry; the panel for §5's empirical anchor lives at `kamino/liquidations/v1`.
 
 ---
 
@@ -211,7 +211,7 @@ What this analysis sharpens for the §15 abstract / introduction:
 - [`docs/protocol_semantics_kamino_xstocks.md`](../../docs/protocol_semantics_kamino_xstocks.md) — verified end-to-end action semantics (oracle path, validity gates, liquidation arithmetic).
 - [`data/processed/kamino_xstocks_snapshot_20260427.json`](../../data/processed/kamino_xstocks_snapshot_20260427.json) — on-chain snapshot, all 8 reserves.
 - [`reports/kamino_xstocks_weekend_20260424.md`](../kamino_xstocks_weekend_20260424.md) — forward-running comparator with realized moves and band half-widths used in §3.
-- [`reports/kamino_liquidations_first_scan.md`](../kamino_liquidations_first_scan.md) — zero-events finding, MarginFi-load-bearing pivot.
+- [`reports/kamino_liquidations_first_scan.md`](../kamino_liquidations_first_scan.md) — the 30-day zero-events finding that motivated the (now-superseded) MarginFi-load-bearing pivot. Superseded by scryer's 9-month panel at `scryer/dataset/kamino/liquidations/v1/` (102 events; see `reports/methodology_history.md` 2026-05-01 AMENDMENT).
 - [`docs/sources/oracles/scope.md`](../../docs/sources/oracles/scope.md) — Sunday stale-hold finding and single-PDA exposure.
 - [`docs/sources/oracles/pyth_regular.md`](../../docs/sources/oracles/pyth_regular.md) — publisher-dispersion-vs-coverage-SLA reconciliation that informs the Pyth-conf-haircut comparator.
 - [`docs/sources/lending/marginfi.md`](../../docs/sources/lending/marginfi.md) — the wider-than-Kamino consumer reference; `P ± conf` haircut rule.
