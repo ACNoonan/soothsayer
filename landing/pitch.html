@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <title>Soothsayer — Colosseum Pitch</title>
-<meta name="description" content="Soothsayer pitch deck — Colosseum 2026. Calibration-transparent fair-value oracle for tokenized RWAs on Solana." />
+<meta name="description" content="Soothsayer pitch deck — Colosseum 2026. Oracle-aware spot AMM for tokenized RWAs on Solana, on a calibrated fair-value band you can audit." />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://soothsayer-landing.vercel.app/pitch.html" />
 <meta property="og:title" content="Soothsayer — pitch deck (Colosseum 2026)" />
-<meta property="og:description" content="Eleven slides on the calibration-transparent fair-value oracle for tokenized RWAs on Solana." />
+<meta property="og:description" content="Twelve slides on Soothsayer Research and the oracle-aware spot AMM for tokenized RWAs on Solana." />
 <meta property="og:image" content="https://soothsayer-landing.vercel.app/og-image.png" />
 <meta property="og:image:width" content="1280" />
 <meta property="og:image:height" content="640" />
@@ -485,7 +485,7 @@
   <div class="slide cover">
     <div class="top-row">
       <span class="cover-tag">Colosseum · Solana Frontier · 2026</span>
-      <span class="cover-tag">v0.1 · April 2026</span>
+      <span class="cover-tag">v0.2 · May 2026</span>
     </div>
 
     <div>
@@ -494,12 +494,12 @@
         <circle cx="12" cy="12" r="3" fill="#14F195"/>
       </svg>
       <div class="wordmark">Soothsayer<span class="dot">.</span></div>
-      <div class="tagline">The oracle that <span class="em">shows its math.</span></div>
-      <div class="subbrief">Open-source fair value + confidence intervals for tokenized equities on Solana.</div>
+      <div class="tagline">Oracle-aware liquidity that <span class="em">shows its math.</span></div>
+      <div class="subbrief">An oracle-aware spot AMM for tokenized RWAs on Solana, built on Soothsayer's calibrated fair-value band. <span style="color: var(--ink-faint);">Soothsayer Research + Oracle-aware AMM.</span></div>
     </div>
 
     <div class="cover-foot">
-      <span>Adviser pitch · 11 slides</span>
+      <span>Colosseum hackathon · 12 slides</span>
       <span>Adam Noonan — 2× exited founder</span>
     </div>
   </div>
@@ -553,23 +553,28 @@
       </div>
     </div>
 
-    <div style="margin-top: 80px; display: flex; gap: 48px;">
+    <div style="margin-top: 80px; display: flex; flex-direction: column; gap: 14px;">
       <div style="font-family: var(--mono); letter-spacing: 0.08em; font-size: 24px;">
         <span style="color: var(--ink-faint);">— Chainlink weekend: </span><span style="color: var(--ink-dim);">frozen LTP, placeholder-derived v11 mid</span>
+      </div>
+      <div style="font-family: var(--mono); letter-spacing: 0.08em; font-size: 24px;">
+        <span style="color: var(--ink-faint);">— Consequence: </span><span style="color: var(--ink-dim);">CPMM LPs eat the Monday-open repricing as LVR · lenders carry the same gap as bad-debt risk</span>
       </div>
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">02 / 11</div>
+    <div class="chrome-num">02 / 12</div>
   </div>
 </section>
 
 
 <!--
-  TODO: Two pending slides drafted in `docs/pitch_deck_content.md`:
+  TODO: Pending slide draft in `docs/pitch_deck_content.md`:
     - Slide A "Why this gap is still open" — additive to or follow-on from slide 03 below
-    - Slide B "Why an ML engineer found this, not a quant" — founder/insight slide, target near slide 10
-  Source draft: docs/pitch_deck_content.md (2026-04-25)
+  Slide B "Why an ML engineer found this, not a quant" has been absorbed into
+  the edge box on slide 12 (May 2026 AMM-led rewrite); the longer-form draft
+  in pitch_deck_content.md is still useful as a standalone founder slide if
+  needed. Source draft: docs/pitch_deck_content.md (2026-04-25).
 -->
 <!-- 03 — Why now -->
 <section data-label="03 — Why now">
@@ -609,8 +614,12 @@
       </div>
     </div>
 
+    <!-- TODO/RESEARCH: pull 2–3 AMM/LVR market-need cites from
+         reports/paper4_oracle_conditioned_amm/colosseum_implementation_brief.md
+         (Phase 2 — market need / awareness section). Candidate slot: a third
+         row beneath the Chainlink admission quote, framed as "AMM-side admission". -->
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">03 / 11</div>
+    <div class="chrome-num">03 / 12</div>
   </div>
 </section>
 
@@ -701,7 +710,7 @@
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">04 / 11</div>
+    <div class="chrome-num">04 / 12</div>
   </div>
 </section>
 
@@ -769,50 +778,96 @@
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">05 / 11</div>
+    <div class="chrome-num">05 / 12</div>
   </div>
 </section>
 
 
-<!-- 06 — Soothsayer -->
-<section data-label="06 — Soothsayer">
+<!-- 06 — Product stack -->
+<section data-label="06 — Product stack">
   <div class="slide">
-    <p class="eyebrow"><span class="bar"></span> What we build</p>
+    <p class="eyebrow"><span class="bar"></span> The product stack</p>
     <h1 class="headline">
-      A calibration-transparent primitive, measurement layer, and decision stack for Solana.
+      Soothsayer Research, and the <span class="accent">oracle-aware AMM</span> it makes possible.
     </h1>
 
     <div class="bullet-row" style="margin-top: 80px;">
       <div class="bullet">
-        <div class="num">01</div>
-        <div class="h">Primitive: publish the calibrated band and its receipt.</div>
-        <div class="p">Paper 1 formalizes coverage inversion, audit receipts, and a public fair-value band for tokenized equities on Solana. The product is a verifiable uncertainty contract, not just a point estimate.</div>
+        <div class="num">01 · The moat</div>
+        <div class="h">Soothsayer Research — the only auditable fair-value band on Solana.</div>
+        <div class="p">Papers 1 and 3 ship the calibrated band: a fair-value interval whose realized coverage is empirically verifiable on 12 years of public data. OOS Kupiec + Christoffersen pass at τ ∈ {0.68, 0.85, 0.95}. Anyone can fork an AMM. Only Soothsayer ships an auditable fair-value receipt under it.</div>
       </div>
       <div class="bullet">
-        <div class="num">02</div>
-        <div class="h">Policy layer: turn calibrated uncertainty into protocol action.</div>
-        <div class="p">Paper 3 turns the primitive into a deployable decision layer: reserve-buffer scoring, path-aware closed-market evaluation, and policy defaults that lending protocols can defend in production.</div>
+        <div class="num">02 · The lead product</div>
+        <div class="h">Oracle-aware spot AMM — liquidity that knows its uncertainty.</div>
+        <div class="p">A spot AMM for tokenized RWAs that consumes the band on-chain. Execution decisions reference fair value and its calibrated bounds, not just the on-chain mid — so LPs survive Monday opens, halts, and oracle drift. Devnet MVP this hackathon; mainnet on a single xStock pair after.</div>
       </div>
       <div class="bullet">
-        <div class="num">03</div>
-        <div class="h">Deployment layer: ship the calibrated band and its receipts.</div>
-        <div class="p">The product story is now compact: validate the primitive in Paper 1, prove the policy mapping in Paper 3, and ship the same contract through the on-chain router and consumer stack.</div>
-        <div class="citation">The active arc is methodology → policy. v1b already passes OOS at τ ∈ {0.68, 0.85, 0.95}; Rust and Python are at byte-for-byte parity (75/75 tests).</div>
+        <div class="num">03 · The future stack</div>
+        <div class="h">Perp, options, and settlement — same receipt.</div>
+        <div class="p">Every downstream primitive needs uncertainty as an input. With the band on-chain and the AMM live, perp mark/liquidation logic, calibrated options vol, and licensed band feeds to third-party venues all reuse the same calibration contract.</div>
+        <div class="citation">Stack frame: docs/product-stack.md · L0 oracle (live) → L1 AMM (this hackathon) → L2 perp / L3 options / L4 settlement.</div>
       </div>
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">06 / 11</div>
+    <div class="chrome-num">06 / 12</div>
   </div>
 </section>
 
 
-<!-- 07 — What Soothsayer protects against (scenarios) -->
-<section data-label="07 — What Soothsayer protects against">
+<!-- 07 — The oracle-aware AMM (architecture brief) -->
+<section data-label="07 — The oracle-aware AMM">
+  <div class="slide">
+    <p class="eyebrow"><span class="bar"></span> The lead product · architecture</p>
+    <h1 class="headline">
+      An AMM that prices like the underlying still trades — <span class="accent">because the band tells it where fair value is.</span>
+    </h1>
+
+    <div class="bullet-row" style="margin-top: 72px;">
+      <div class="bullet" style="border-top-color: var(--rule-strong);">
+        <div class="num">01 · FEED</div>
+        <div class="h">Calibrated band, on-chain.</div>
+        <div class="p">Soothsayer Research publishes <span class="mono" style="color: var(--ink);">point</span>, <span class="mono" style="color: var(--ink);">lower</span>, <span class="mono" style="color: var(--ink);">upper</span>, plus regime + forecaster receipt. Rust at byte-parity with the Python reference (75/75); router on devnet since 2026-04-29.</div>
+        <div class="citation">Layer 0 of the product stack.</div>
+      </div>
+      <div class="bullet" style="border-top: 1px solid var(--green); background: rgba(20,241,149,0.04); padding: 22px 24px 24px;">
+        <div class="num" style="color: var(--green);">02 · MECHANISM</div>
+        <div class="h">Band-aware Anchor program.</div>
+        <div class="p">Each block, the AMM reads the band and conditions execution on it — so quoting, spread, fees, or LP gating respond to fair-value drift before arbs do. The band is the LP's stop-loss; the receipt is the LP's audit trail.</div>
+        <div class="citation" style="color: var(--green);">Devnet MVP — single xStock pair.</div>
+      </div>
+      <div class="bullet" style="border-top-color: var(--rule-strong);">
+        <div class="num">03 · OUTCOME</div>
+        <div class="h">LPs survive the windows that bleed CPMMs.</div>
+        <div class="p">Weekend repricing into Monday open, halt-window mid-drift, primary-oracle drift, vol regime shifts. Every CPMM LP eats these as LVR. The oracle-aware AMM repositions before the toxic flow arrives — and publishes a receipt for why.</div>
+        <div class="citation">Future stack: same band, same receipt — perp / options / settlement.</div>
+      </div>
+    </div>
+
+    <!-- TODO/RESEARCH: pull mechanism choice from
+         reports/paper4_oracle_conditioned_amm/colosseum_implementation_brief.md
+         (Phase 3 — minimum viable mechanism). Replace [TBD] with the recommended
+         single mechanism: band-conditioned dynamic fee, band-conditioned spread,
+         JIT-LP gating around band breach, or band-breach arb-rebate auction.
+         Also pull 1-line Anchor scaffold reference (e.g., Whirlpools subset). -->
+    <div class="cost-callout" style="margin-top: 44px;">
+      <span class="k">MVP mechanism</span>
+      <span class="v"><span class="em">[TBD pending implementation brief]</span> &nbsp;<span class="dim">— one of: band-conditioned fee · band-conditioned spread · JIT-LP gating · band-breach auction. Pick one for the devnet demo; the architecture above is uniform across choices.</span></span>
+    </div>
+
+    <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
+    <div class="chrome-num">07 / 12</div>
+  </div>
+</section>
+
+
+<!-- 08 — What an oracle-aware AMM survives (scenarios) -->
+<section data-label="08 — What an oracle-aware AMM survives">
   <div class="slide">
     <div class="head-row">
-      <h1 class="headline">What Soothsayer protects against.</h1>
-      <div class="meta">Five scenarios</div>
+      <h1 class="headline">Five windows that bleed CPMMs. The oracle-aware AMM survives them.</h1>
+      <div class="meta">LP scenarios</div>
     </div>
 
     <div class="scen-grid">
@@ -825,14 +880,14 @@
             <path d="M50 44 L56 38 L50 38" stroke="#14F195" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
           </svg>
         </div>
-        <div class="scen-title">Weekend flash crash</div>
+        <div class="scen-title">Weekend LVR</div>
         <div class="row without">
-          <div class="k">Without</div>
-          <div class="v">Borrower liquidated on a thin-book print that reverts Monday. Position gone.</div>
+          <div class="k">CPMM</div>
+          <div class="v">Pool mid stays at Friday close. Underlying drifts on ES futures + crypto for 48 hours. LPs eat the difference Monday morning.</div>
         </div>
         <div class="row with">
-          <div class="k">With</div>
-          <div class="v">Served band at the consumer's τ shows the print outside the empirically calibrated range. The protocol has a defensible basis to pause or tighten policy, with a receipt.</div>
+          <div class="k">Oracle-aware</div>
+          <div class="v">AMM tracks the band over the weekend and repositions quote / spread before the open. Toxic flow finds a different pool.</div>
         </div>
       </div>
 
@@ -849,14 +904,14 @@
             <line x1="48" y1="56" x2="48" y2="60" stroke="#F26A5A" stroke-width="2"/>
           </svg>
         </div>
-        <div class="scen-title">Adverse Monday gap</div>
+        <div class="scen-title">Monday-open arb sweep</div>
         <div class="row without">
-          <div class="k">Without</div>
-          <div class="v">Stale-hold says Friday close is fine. Monday opens –8%. Bad debt.</div>
+          <div class="k">CPMM</div>
+          <div class="v">Friday close is held. Monday opens –8%. Arb bots clear the pool in seconds; LPs realize the entire gap as loss.</div>
         </div>
         <div class="row with">
-          <div class="k">With</div>
-          <div class="v">Factor-adjusted point tracks ES futures over the weekend; band widens with the per-symbol vol index. Risk teams have evidence to tighten buffers before the open.</div>
+          <div class="k">Oracle-aware</div>
+          <div class="v">Factor-adjusted band tracks ES futures across the weekend. AMM quote is at fair value Monday open — no free arb to capture.</div>
         </div>
       </div>
 
@@ -870,14 +925,14 @@
             <rect x="44" y="14" width="8" height="36" stroke="#F26A5A" stroke-width="2" fill="none" transform="rotate(36 48 32)"/>
           </svg>
         </div>
-        <div class="scen-title">Volatility regime change</div>
+        <div class="scen-title">Vol regime spike</div>
         <div class="row without">
-          <div class="k">Without</div>
-          <div class="v">One-size-fits-all band stays the same width whether vol is 12 or 35.</div>
+          <div class="k">CPMM</div>
+          <div class="v">Fee tier is static. Vol jumps from 12 to 35; LPs are paid the same to hold a 3× riskier book.</div>
         </div>
         <div class="row with">
-          <div class="k">With</div>
-          <div class="v">Pre-publish regime label switches the served forecaster (F1 → F0 in high_vol). Width adapts; receipt declares which forecaster served.</div>
+          <div class="k">Oracle-aware</div>
+          <div class="v">Regime label switches the served forecaster (F1 → F0 in high_vol). Band widens; AMM's band-conditioned execution adapts in step.</div>
         </div>
       </div>
 
@@ -890,14 +945,14 @@
             <rect x="35" y="22" width="5" height="20" fill="#F4F3EE"/>
           </svg>
         </div>
-        <div class="scen-title">Halts &amp; corporate actions</div>
+        <div class="scen-title">Halt + multiplier lag</div>
         <div class="row without">
-          <div class="k">Without</div>
-          <div class="v">Token-2022 multiplier updates with lag. Liquidations fire in the inconsistency window.</div>
+          <div class="k">CPMM</div>
+          <div class="v">Token-2022 multiplier updates with delay during halts / corporate actions. Trades execute in the inconsistency window at stale prices.</div>
         </div>
         <div class="row with">
-          <div class="k">With</div>
-          <div class="v">Regime = Halt. CI widens to near-infinity. Consumers: do not act on this price.</div>
+          <div class="k">Oracle-aware</div>
+          <div class="v">Regime = Halt. Band CI widens; AMM gates trading or quotes only inside-band, with the receipt declaring why.</div>
         </div>
       </div>
 
@@ -913,53 +968,59 @@
             <path d="M26 26 L38 26 M26 38 L38 38" stroke="#F26A5A" stroke-width="1.5"/>
           </svg>
         </div>
-        <div class="scen-title">Primary-oracle stale</div>
+        <div class="scen-title">Primary-oracle drift</div>
         <div class="row without">
-          <div class="k">Without</div>
-          <div class="v">Primary has an incident. Protocol freezes (lost revenue) or trusts stale data (bad debt).</div>
+          <div class="k">CPMM</div>
+          <div class="v">Primary feed has an incident or drifts off fundamentals. Pool keeps trading on stale data; LPs eat MEV / toxic flow until somebody notices.</div>
         </div>
         <div class="row with">
-          <div class="k">With</div>
-          <div class="v">Soothsayer as an independent, calibration-aware cross-check. Live fallback reference plus explicit uncertainty.</div>
+          <div class="k">Oracle-aware</div>
+          <div class="v">Soothsayer's calibrated band is an independent cross-check. AMM falls back to the band with explicit uncertainty disclosed in the receipt.</div>
         </div>
       </div>
 
     </div>
 
     <div class="scen-summary">
-      Every scenario: the protocol has to pick a number to act on. <span class="em">Soothsayer is the principled, uncertainty-aware number.</span>
+      Every scenario: the AMM has to price something. <span class="em">Soothsayer makes that price uncertainty-aware — and publishes the receipt.</span>
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">07 / 11</div>
+    <div class="chrome-num">08 / 12</div>
   </div>
 </section>
 
 
-<!-- 08 — Wedge + TAM -->
-<section data-label="08 — Wedge, TAM, outcome">
+<!-- 09 — Wedge + TAM (AMM lens) -->
+<section data-label="09 — Wedge, TAM, outcome">
   <div class="slide">
     <div class="head-row">
       <h1 class="headline">Wedge, TAM, outcome.</h1>
-      <div class="meta">2026 → 2030</div>
+      <div class="meta">2026 → 2030 · AMM lens</div>
     </div>
 
+    <!-- TODO/RESEARCH: replace [TBD] dollar slots with figures from
+         reports/paper4_oracle_conditioned_amm/colosseum_implementation_brief.md
+         (Phase 2 — market sizing). Specifically: xStock annualized spot DEX
+         volume; Lifinity / Hashflow comparable AMM TVL/volume; LVR-recapture
+         basis points on AMM volume; defensible Soothsayer share assumptions.
+         L1–L3 of the pyramid (macro RWA TAM) survive unchanged. -->
     <div style="display: grid; grid-template-columns: 420px 1fr; gap: 80px; align-items: stretch;">
 
       <!-- Wedge block -->
       <div style="display: flex; flex-direction: column; gap: 0; border-left: 2px solid var(--green); padding-left: 32px;">
-        <div class="tag" style="align-self: flex-start; border-color: var(--green); color: var(--green); margin-bottom: 20px;">Current proof point</div>
-        <div style="font-size: 72px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; color: var(--ink);">$150–600<span style="color: var(--ink-faint); font-weight: 400;">k</span></div>
-        <div style="font-family: var(--mono); font-size: 24px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 10px;">annualized wedge · first market</div>
-        <div style="font-size: 24px; color: var(--ink-dim); font-weight: 300; line-height: 1.4; margin-top: 28px;">Grounded in today's Kamino xStock market, but valuable because the same calibration, measurement, and policy stack can be reused across tokenized-equity lending and future RWA markets.</div>
+        <div class="tag" style="align-self: flex-start; border-color: var(--green); color: var(--green); margin-bottom: 20px;">First-pair proof</div>
+        <div style="font-size: 72px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; color: var(--ink);">[TBD]<span style="color: var(--ink-faint); font-weight: 400;">k</span></div>
+        <div style="font-family: var(--mono); font-size: 24px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 10px;">annualized fee + LVR recapture · first xStock pool</div>
+        <div style="font-size: 24px; color: var(--ink-dim); font-weight: 300; line-height: 1.4; margin-top: 28px;">Single-pair AMM MVP sized to validate band-conditioned execution. The same architecture scales to every xStock and to the future stack (perp, options, settlement) above.</div>
 
         <div class="tag" style="align-self: flex-start; border-color: var(--purple); color: var(--purple); margin: 56px 0 20px;">2030 outcome</div>
         <div style="font-size: 72px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; color: var(--ink);">$150M<span style="color: var(--ink-faint); font-weight: 400;">–</span>$1.5B</div>
         <div style="font-family: var(--mono); font-size: 24px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 10px;">valuation range</div>
-        <div style="font-size: 24px; color: var(--ink-dim); font-weight: 300; line-height: 1.4; margin-top: 20px;">Comparable multiples: Pyth 20–40×, RedStone 15–55× on 2030 ARR.</div>
+        <div style="font-size: 24px; color: var(--ink-dim); font-weight: 300; line-height: 1.4; margin-top: 20px;">Comparable multiples — spot AMM: Lifinity, Hashflow, Orca on 2030 ARR. Oracle-feed: Pyth 20–40×, RedStone 15–55×. Soothsayer captures both.</div>
       </div>
 
-      <!-- TAM pyramid -->
+      <!-- TAM pyramid (AMM lens) -->
       <div class="pyramid">
         <div class="pyramid-level">
           <div class="lvl-lbl">L1 · TAM</div>
@@ -978,30 +1039,30 @@
         </div>
         <div class="pyramid-level">
           <div class="lvl-lbl">L4</div>
-          <div class="lvl-name">Oracle revenue pool · Solana</div>
-          <div class="lvl-val">$100–420M</div>
+          <div class="lvl-name">xStock annualized spot DEX volume</div>
+          <div class="lvl-val">[TBD]</div>
         </div>
         <div class="pyramid-level focus">
           <div class="lvl-lbl">L5 · SAM</div>
-          <div class="lvl-name">Closed-market fair-value slice</div>
-          <div class="lvl-val">$20–170M</div>
+          <div class="lvl-name">Oracle-aware AMM addressable (fees + LVR recapture)</div>
+          <div class="lvl-val">[TBD]</div>
         </div>
         <div class="pyramid-level focus">
           <div class="lvl-lbl">L6 · ARR</div>
-          <div class="lvl-name">Soothsayer 2030 @ 15–25% share</div>
-          <div class="lvl-val">$3–42M</div>
+          <div class="lvl-name">Soothsayer AMM-share 2030</div>
+          <div class="lvl-val">[TBD]</div>
         </div>
       </div>
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">08 / 11</div>
+    <div class="chrome-num">09 / 12</div>
   </div>
 </section>
 
 
-<!-- 09 — Business model -->
-<section data-label="09 — Business model">
+<!-- 10 — Business model (AMM lens) -->
+<section data-label="10 — Business model">
   <div class="slide">
     <div class="head-row">
       <h1 class="headline">Business model.</h1>
@@ -1011,43 +1072,43 @@
     <div class="vectors" style="margin-top: 20px;">
       <div class="vector">
         <div class="rank">01 · PRIMARY</div>
-        <div class="name">Design-partner risk work</div>
-        <div class="desc">Protocol-specific reserve-buffer analysis, liquidation-policy studies, and closed-market risk reviews built on top of the calibrated band and Paper 3 evaluation stack.</div>
-        <div class="horizon">After Paper 3</div>
+        <div class="name">AMM fees + LVR recapture</div>
+        <div class="desc">Trading fees on the oracle-aware AMM, plus the LVR that band-conditioned execution captures back from CPMM LPs. Routed protocol-fee share funds treasury and (future) token holders.</div>
+        <div class="horizon">Devnet → mainnet 2026</div>
       </div>
       <div class="vector">
         <div class="rank">02 · SECONDARY</div>
-        <div class="name">Data + evidence licensing</div>
-        <div class="desc">Historical fair-value dataset, weekend comparator outputs, and model decomposition sold to quant funds, market makers, and other infrastructure teams.</div>
-        <div class="horizon">After dataset</div>
+        <div class="name">Band-feed licensing</div>
+        <div class="desc">Per-read / per-subscription access to the calibrated band — for other AMMs, perp DEXes, structured products, and lending markets. Pyth-style B2B distribution, validated by the AMM running on top of it first.</div>
+        <div class="horizon">After Papers 1 + 3</div>
       </div>
       <div class="vector">
         <div class="rank">03 · TERTIARY</div>
-        <div class="name">Consumer-protocol subscriptions</div>
-        <div class="desc">Per-read / per-subscription access to the band, receipts, and monitoring endpoints once the public measurement layer has enough live history behind it.</div>
-        <div class="horizon">2027</div>
+        <div class="name">Design-partner risk work</div>
+        <div class="desc">Reserve-buffer analysis, liquidation-policy studies, and closed-market risk reviews built on the Paper 3 evaluation stack. Lending protocols (Kamino, MarginFi) and risk consultancies as design partners.</div>
+        <div class="horizon">After Paper 3</div>
       </div>
       <div class="vector future">
         <div class="rank">04 · LONG TERM</div>
-        <div class="name">Publisher DAO + token fee share</div>
-        <div class="desc">The Pyth playbook, once methodology has replicated across independent publishers. Not near-term.</div>
-        <div class="horizon">2029+</div>
+        <div class="name">Future-stack primitives (perp, options, settlement)</div>
+        <div class="desc">Each downstream primitive uses the same band and the same receipt — perp mark/liquidation, calibrated options vol, licensed settlement to third-party venues. Independent product lines on shared infrastructure.</div>
+        <div class="horizon">2027+</div>
       </div>
     </div>
 
     <div class="cost-callout">
       <span class="k">Operating cost</span>
-      <span class="v"><span class="em">$310–800 / mo</span> &nbsp;<span class="dim">— the moat is methodology, not infra.</span></span>
+      <span class="v"><span class="em">$310–800 / mo</span> &nbsp;<span class="dim">— the moat is calibration, not infra.</span></span>
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">09 / 11</div>
+    <div class="chrome-num">10 / 12</div>
   </div>
 </section>
 
 
-<!-- 10 — Risks -->
-<section data-label="10 — Risks and unknowns">
+<!-- 11 — Risks -->
+<section data-label="11 — Risks and unknowns">
   <div class="slide">
     <p class="eyebrow"><span class="bar"></span> The humility slide · push back on any of these</p>
     <h1 class="headline">Risks and honest unknowns.</h1>
@@ -1055,38 +1116,38 @@
     <div class="risk-grid" style="margin-top: 56px;">
       <div class="risk">
         <div class="num">01</div>
-        <div class="txt"><b>Currently evaluating market gaps.</b> If incumbent frozen-LTP or opaque tokenized marks are already tight enough versus Monday’s open, our core anchor loses weight.</div>
+        <div class="txt"><b>Incumbents could close the calibration gap.</b> If Pyth or RedStone ship verifiable realized-coverage receipts, the band's moat narrows from methodology to integration depth. We monitor; the AMM's defense becomes the on-chain mechanism, not just the band.</div>
       </div>
       <div class="risk">
         <div class="num">02</div>
-        <div class="txt"><b>Single-publisher credibility gap.</b> Pyth ships 100+ institutional publishers. We ship one model. Multi-publisher trust has to come through replication, not BD.</div>
+        <div class="txt"><b>Single-team credibility.</b> Pyth runs 100+ institutional publishers. Soothsayer ships one model and one team. Multi-publisher trust has to come through replication of the methodology, not BD.</div>
       </div>
       <div class="risk">
         <div class="num">03</div>
-        <div class="txt"><b>RedStone is iterating on the same space.</b> $840M FDV (Q1 2026), Securitize + BUIDL + ACRED, Live 24/7 shipped March 2026 with methodology still undisclosed. They could publish methodology first; we monitor.</div>
+        <div class="txt"><b>8-day AMM execution risk.</b> Colosseum target is a devnet MVP on a single xStock pair, not a mainnet-ready protocol. Investors expecting production-grade audited code at submission will see a working demo with disclosed gaps.</div>
       </div>
       <div class="risk">
         <div class="num">04</div>
-        <div class="txt"><b>Distribution is concentrated in incumbent stacks.</b> xStocks Alliance, Kamino, and Ondo already sit on established feeds. We have to win by becoming the calibration and evidence layer those systems learn from.</div>
+        <div class="txt"><b>LP / liquidity bootstrap.</b> The oracle-aware AMM is most defensible <i>with</i> meaningful LP capital and routed flow. The devnet demo needs seeded liquidity + simulated arb pressure to show LVR-recapture economics live.</div>
       </div>
       <div class="risk">
         <div class="num">05</div>
-        <div class="txt"><b>CTA / UTP licensing is gray.</b> Futures-primary input stack sidesteps SIP by design; cash NBBO stays calibration-only. Still a surface worth naming.</div>
+        <div class="txt"><b>Incumbent AMMs could bolt on band-style oracles.</b> Lifinity, Hashflow, and concentrated-liquidity DEXes could plug a Pyth-confidence dial into fee curves. The defense is depth — calibrated band + receipts + xStock-specific factor switchboard, not a single-axis oracle plug-in.</div>
       </div>
       <div class="risk">
         <div class="num">06</div>
-        <div class="txt"><b>Kamino TVL is still small.</b> $25M xStock supply (Q1 2026 snapshot). The growth story is unlocking capital efficiency, not capturing fees on existing flow.</div>
+        <div class="txt"><b>Distribution is concentrated in incumbent stacks.</b> xStocks Alliance, Kamino, Ondo, and Backed already sit on established feeds and DEX surfaces. We have to win by making the calibration + AMM stack the obvious upgrade, not by replacing distribution rails.</div>
       </div>
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">10 / 11</div>
+    <div class="chrome-num">11 / 12</div>
   </div>
 </section>
 
 
-<!-- 11 — Ask + Roadmap -->
-<section data-label="11 — Ask and roadmap">
+<!-- 12 — Ask + Roadmap -->
+<section data-label="12 — Ask and roadmap">
   <div class="slide">
     <div class="head-row">
       <h1 class="headline">The ask.</h1>
@@ -1097,26 +1158,26 @@
       <div class="phase">
         <div class="ph-lbl">Phase 0 ✅</div>
         <div class="ph-when">complete · 2026-04-25</div>
-        <div class="ph-h">Validation</div>
+        <div class="ph-h">Band validation</div>
         <div class="ph-p">12-year decade-scale backtest, 5,986 panel rows across 10 tickers. Full PASS — Kupiec + Christoffersen, OOS 2023+, at τ ∈ {0.68, 0.85, 0.95}. Rust port at byte-for-byte parity with Python (75/75 tests).</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 1</div>
-        <div class="ph-when">now · ~4 weeks</div>
-        <div class="ph-h">Devnet + Paper 1 + Paper 3 (parallel)</div>
-        <div class="ph-p">Devnet deploy across 8 Kamino-onboarded xStocks · Paper 1 §4/§5/§7/§8 → arXiv (q-fin.RM, ACM AFT) · Paper 3 outline + first draft.</div>
+        <div class="ph-when">now · 8 days · Colosseum</div>
+        <div class="ph-h">Devnet AMM MVP + video</div>
+        <div class="ph-p">Oracle-aware AMM on a single xStock pair, devnet. Video submission for Colosseum. Paper 1 §4/§5/§7/§8 → arXiv (q-fin.RM, ACM AFT) in parallel.</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 2</div>
-        <div class="ph-when">~2 weeks after Phase 1</div>
-        <div class="ph-h">Dashboard + papers live + design partners</div>
-        <div class="ph-p">Public comparator dashboard (Soothsayer vs Chainlink vs Pyth, every weekend 2025–2026) · Paper 1 + Paper 3 on arXiv + SSRN · first design-partner conversations (Backed, Ondo, Kamino BD).</div>
+        <div class="ph-when">post-Colosseum · ~6 weeks</div>
+        <div class="ph-h">Mainnet · papers live · design partners</div>
+        <div class="ph-p">Mainnet AMM on first pair · public comparator dashboard (Soothsayer vs Chainlink vs Pyth) · Paper 1 + Paper 3 on arXiv + SSRN · first design-partner conversations (Solana DEX teams, Backed, Ondo, Kamino BD).</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 3</div>
         <div class="ph-when">gated</div>
-        <div class="ph-h">Mainnet + B2B + formal publication</div>
-        <div class="ph-p">Gated on Paper 3 evidence + ≥1 design-partner LOI. Mainnet deployment, first paid pilot, and AFT / FC submissions for Paper 1 + Paper 3.</div>
+        <div class="ph-h">Multi-pair · B2B band feed · future stack</div>
+        <div class="ph-p">Gated on AMM TVL + Paper 3 evidence + ≥1 design-partner LOI. Multi-pair AMM expansion · band-feed B2B licensing · future-stack specs (perp, options, settlement).</div>
       </div>
     </div>
 
@@ -1126,15 +1187,15 @@
         <div class="ask-list" style="margin-top: 0;">
           <div class="ask-item">
             <span class="letter">A</span>
-            <span class="txt">Feedback on <b>positioning</b> — calibration-transparent measurement and decision layer for RWAs.</span>
+            <span class="txt">Feedback on <b>positioning</b> — Soothsayer Research + the oracle-aware AMM as a single product stack.</span>
           </div>
           <div class="ask-item">
             <span class="letter">B</span>
-            <span class="txt">Intros to <b>Kamino BD, Backed, Ondo</b>.</span>
+            <span class="txt">Intros to <b>Solana DEX teams + market makers + RWA issuers</b> (Lifinity, Orca, Meteora, Jupiter; Wintermute / Selini / Flowdesk; Backed, Ondo, Kamino BD).</span>
           </div>
           <div class="ask-item">
             <span class="letter">C</span>
-            <span class="txt">Superteam-brokered <b>Solana RPC</b> for historical Kamino tx backfill.</span>
+            <span class="txt">Superteam-brokered <b>Solana RPC</b> for historical pool-state and Kamino tx backfill.</span>
           </div>
         </div>
       </div>
@@ -1142,8 +1203,8 @@
       <div>
         <div class="tag" style="margin-bottom: 28px;">My edge</div>
         <div style="font-size: 32px; color: var(--ink); font-weight: 300; line-height: 1.4; letter-spacing: -0.01em;">
-          <div style="font-weight: 500;">Rust + traditional quant time-series.</div>
-          <div style="color: var(--ink-dim); margin-top: 12px;">State-space models, cointegration, vol modelling — in the language Solana runs in.</div>
+          <div style="font-weight: 500;">ML engineer × Rust × DeFi protocol design.</div>
+          <div style="color: var(--ink-dim); margin-top: 12px;">Conformal-prediction calibration discipline (held-out, ablation, bootstrap CIs). Rust + Anchor in the language Solana runs in. Protocol-design fluency — LVR-aware AMMs, oracle-conditioned pricing, intent execution.</div>
         </div>
         <div style="font-size: 24px; color: var(--ink-faint); font-weight: 300; line-height: 1.4; margin-top: 24px;">
           The overlap of these three pillars is vanishingly small in the Colosseum submission pool.
@@ -1152,7 +1213,7 @@
     </div>
 
     <div class="chrome-wordmark">Soothsayer<span class="dot">.</span></div>
-    <div class="chrome-num">11 / 11</div>
+    <div class="chrome-num">12 / 12</div>
   </div>
 </section>
 

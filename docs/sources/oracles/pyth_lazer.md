@@ -1,5 +1,7 @@
 # `Pyth Lazer / Pyth Pro (Blue Ocean ATS path)` — Methodology vs. Observed
 
+Canonical registry row: `docs/sources/oracles/competitor_oracle_registry.md` (update both files together).
+
 ---
 
 **Last verified:** `2026-04-29`

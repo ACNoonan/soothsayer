@@ -1,5 +1,7 @@
 # `RedStone — Live (REST gateway, post-Mar 2026)` — Methodology vs. Observed
 
+Canonical registry row: `docs/sources/oracles/competitor_oracle_registry.md` (update both files together).
+
 ---
 
 **Last verified:** `2026-04-29`

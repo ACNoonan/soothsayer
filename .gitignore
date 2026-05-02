@@ -50,3 +50,4 @@ reports/tables/
 # Personal research-networking scratch (arXiv endorsement candidate list,
 # scraped emails, PDFs). Lives in repo for convenience; never committed.
 arxiv-endorsement/
+.vercel

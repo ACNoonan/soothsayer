@@ -66,3 +66,80 @@ These are Soothsayer-side consumers after parquet rows exist:
 - bundle-attribution to RWA-pool LVR labels
 - BAM Plugin reference implementation
 - B0/B1/B2/B3 counterfactual replay engine
+
+## Proposed recurring Scryer analytics job (new ask)
+
+This is the operational follow-up to the one-shot Soothsayer analytics script
+(`scripts/compute_competitor_oracle_analytics.py`): move the same metrics into
+a scheduled Scryer job so comparator analytics are continuously recomputed from
+fresh parquet and available to all downstream consumers.
+
+### Job contract
+
+- **Job name:** `competitor_oracle_analytics_rollup.v1`
+- **Owner:** Scryer (scheduled analysis/rollup, no new upstream fetchers)
+- **Run cadence:** hourly at `:07` (UTC), plus one daily close rollup at
+  `00:17` UTC.
+- **Input datasets:**
+  - `soothsayer_v5/tape/v1`
+  - `pyth/oracle_tape/v1`
+  - `redstone/oracle_tape/v1`
+  - Chainlink stream tape with path fallback:
+    - preferred `chainlink_data_streams/report_tape/v1`
+    - fallback `chainlink/data_streams/v1` (current local layout)
+- **Output dataset (derived):**
+  - `soothsayer_v6/competitor_oracle_analytics/v1/year=YYYY/month=MM/day=DD.parquet`
+  - schema version: `soothsayer_competitor_oracle_analytics.v1`
+
+### Output schema (tall format, append-friendly)
+
+Minimum columns:
+
+- `as_of_ts` (UTC timestamp; rollup run time)
+- `window` (`1d`, `7d`, `30d`, `all_available`)
+- `provider` (`chainlink_v11`, `chainlink_v10_v5`, `pyth_regular`, `redstone_live`)
+- `session_bucket` (`weekday`, `weekend`, `regular`, `pre`, `post`, `on`, `unknown`)
+- `symbol` (nullable string; empty for provider-level aggregate rows)
+- `metric` (string)
+- `value` (float64)
+- `n_obs` (int64)
+- `source_start_ts` (UTC timestamp)
+- `source_end_ts` (UTC timestamp)
+- `_schema_version`, `_fetched_at`, `_source`, `_dedup_key`
+
+### Required metrics
+
+Per provider/window/session (and by symbol where available):
+
+1. **Coverage counters**
+   - `rows_total`
+   - `symbols_covered`
+   - `coverage_hours`
+2. **Variance/dispersion proxies**
+   - `abs_return_bps_median`
+   - `abs_return_bps_p90`
+3. **Provider-specific integrity metrics**
+   - **Pyth:** `conf_bps_median`, `conf_bps_p90`
+   - **RedStone:** `minutes_age_median`, `poll_cadence_s_median`, `poll_cadence_s_p90`
+   - **Chainlink v11:** `spread_bps_median`, `spread_bps_p90`, `market_status_share_*`,
+     `bid_marker_01_rate`, `ask_marker_01_rate`
+   - **v5 joined comparator:** `basis_abs_bps_median`, `basis_abs_bps_p90`
+4. **Data-health metrics**
+   - `null_rate_<core_field>`
+   - `duplicate_rate_dedup_key`
+
+### Quality/freshness gates
+
+- Emit a row-level `data_quality_flag` derived from:
+  - freshness lag > 2 * expected cadence,
+  - symbol coverage drop > 30% vs prior 7-day baseline,
+  - chainlink v11 window too short for trend claim (`coverage_hours < 72`).
+- Do not suppress rows when quality is degraded; publish with flags so
+  dashboards/reports can disclose uncertainty rather than silently dropping data.
+
+### Soothsayer-side consumption
+
+- Registry and paper/dashboard consumers should read this derived dataset first;
+  one-off scripts become audit tools, not the production path.
+- `docs/sources/oracles/competitor_oracle_registry.md` should reference this
+  dataset as the canonical analytics feed once the job is live.

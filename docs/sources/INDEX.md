@@ -2,6 +2,8 @@
 
 Per-venue methodology-vs-observed reconciliation files. Each file follows the canonical structure in [`_template.md`](_template.md): stated methodology, observable signals in our scryer tape, side-by-side reconciliation, downstream consumer impact, known confusions, open questions, citations.
 
+For comparator framing and anti-regression semantics, start with [`oracles/competitor_oracle_registry.md`](oracles/competitor_oracle_registry.md) and then drill into per-venue files.
+
 This index is the lookup. Pin your read by **venue + version** here so you don't end up cross-referencing the wrong schema (the v10/v11 trap).
 
 For the budget / access / licensing catalog see [`../data-sources.md`](../data-sources.md). That file is a ledger of *what we pay for and where it lives*; this directory is *what each venue actually does and how it lines up against our tape*.
@@ -25,6 +27,7 @@ For the budget / access / licensing catalog see [`../data-sources.md`](../data-s
 
 | File | Version pin | Role | Status |
 |---|---|---|---|
+| [`oracles/competitor_oracle_registry.md`](oracles/competitor_oracle_registry.md) | Canonical comparator contract (v10/v11, Pyth, RedStone) | registry | ✅ live |
 | [`oracles/chainlink_v11.md`](oracles/chainlink_v11.md) | `v11` (24/5 RWA schema, live Jan 2026) | comparator | ✅ live |
 | [`oracles/chainlink_v10.md`](oracles/chainlink_v10.md) | `v10` (legacy RWA schema, pre-2025-Q4) | historical reference + comparator | ✅ live |
 | [`oracles/chainlink_data_streams.md`](oracles/chainlink_data_streams.md) | Streams API surface | transport layer | ✅ live |

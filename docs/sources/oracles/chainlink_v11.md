@@ -1,9 +1,11 @@
 # `Chainlink Data Streams v11` — Methodology vs. Observed
 
+Canonical registry row: `docs/sources/oracles/competitor_oracle_registry.md` (update both files together).
+
 ---
 
 **Last verified:** `2026-04-29`
-**Verified by:** `https://docs.chain.link/data-streams` (accessed 2026-04-29; specific RWA-payload sub-page returned 404 on 2026-04-29 — link rot noted, working off the SDK source pinned in §7 instead), `smartcontractkit/data-streams-sdk/rust/crates/report/src/report/v11.rs` via `src/soothsayer/chainlink/v11.py:11`, the empirical scan in [`reports/v11_cadence_verification.md`](../../../reports/v11_cadence_verification.md).
+**Verified by:** `https://docs.chain.link/data-streams/reference/report-schema-v11` (accessed 2026-05-02), `https://docs.chain.link/data-streams/reference/report-schema-overview` (accessed 2026-05-02), `smartcontractkit/data-streams-sdk/rust/crates/report/src/report/v11.rs` via `src/soothsayer/chainlink/v11.py:11`, the empirical scan in [`reports/v11_cadence_verification.md`](../../../reports/v11_cadence_verification.md).
 **Version pin:** `v11` (schema id `0x000b`, 14-field 448-byte ABI-encoded payload; first observed in soothsayer's tape Jan 2026; supersedes `v10` for 24/5 US equity streams). The active `v11` field set is `(feed_id, valid_from_timestamp, observations_timestamp, native_fee, link_fee, expires_at, mid, last_seen_timestamp_ns, bid, bid_volume, ask, ask_volume, last_traded_price, market_status)`.
 **Role in soothsayer stack:** `comparator` — Paper 1's load-bearing 24/5 incumbent archetype. We do **not** use Chainlink as a soothsayer fair-value input (would be circular for closed-market xStocks; see CLAUDE.md hard rule on tokenized-stock secondary-market prices).
 **Schema in scryer:** `dataset/soothsayer_v5/tape/v1/year=YYYY/month=MM/day=DD.parquet` (joined tape; the Chainlink v11 columns `cl_mid`, `cl_bid`, `cl_ask`, `cl_market_status` come from the on-chain Verifier reconstruction, not from a separate `chainlink/...` venue under scryer). The pre-cutover scraper in `crates/soothsayer-ingest/src/chainlink/v11.rs` was deleted in the April 2026 cutover; decoding now happens scryer-side, the Python decoder at `src/soothsayer/chainlink/v11.py` is retained for ad-hoc analysis.

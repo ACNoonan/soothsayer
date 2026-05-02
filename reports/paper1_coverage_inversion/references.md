@@ -27,6 +27,20 @@ Buckets:
 - **Why we cite it:** Documents that the *publisher-level* intervals carry an implied coverage claim, but that no verifiable calibration statement is published at the aggregate (feed) level — which is the surface downstream protocols actually read.
 - **Bucket:** oracles
 
+### [pyth-pro] Pyth Network. 2026. Pyth Pro (formerly Pyth Lazer): enterprise-grade price data with customizable cadence.
+- **Venue:** Pyth Network product documentation
+- **URL / DOI:** https://docs.pyth.network/lazer (accessed 2026-04-29; page reframes the product as "Pyth Pro (formerly Pyth Lazer)")
+- **Contribution:** Specifies the Pyth Pro tier — same publisher-vote aggregation as regular Pyth, with subscriber-customizable feed cadence and the Blue Ocean ATS overnight integration as the principal 24/5 equity differentiator.
+- **Why we cite it:** Primary technical reference for Pyth Pro. Bounds the framing in §1.1 / §2.1 / §6.7: Pyth Pro is the closest published incumbent to a real 24/5 equity feed but inherits regular Pyth's publisher-dispersion methodology and does not surface an aggregate-level calibration claim.
+- **Bucket:** oracles
+
+### [blueocean-pyth] Pyth Network. 2025-09-25. Blue Ocean ATS joins Pyth Network: institutional overnight hours US equity data.
+- **Venue:** Pyth Network blog (companion announcement on Blue Ocean's site)
+- **URL / DOI:** https://www.pyth.network/blog/blue-ocean-ats-joins-pyth-network-institutional-overnight-hours-us-equity-data ; https://blueocean-tech.io/2025/09/25/pyth-blue-ocean-ats-joins-pyth-network-institutional-overnight-hours-us-equity-data/
+- **Contribution:** Announces Pyth's exclusive on-chain distribution of Blue Ocean ATS overnight equity data through end-2026. Operating window 8:00 PM – 4:00 AM ET, Sun–Thu, executable book data with ~$1B nightly volume across ~5,000 actively-traded NMS symbols.
+- **Why we cite it:** Documents the closest published incumbent to a real 24/5 equity feed and bounds its coverage window. Used to qualify the "no published 24/5 equity feed" framing in §1.1 / §2.1 — Pyth Pro / Blue Ocean fills the *overnight* gap (Sun-Thu nights) but does not cover Friday 4 PM ET through Sunday 8 PM ET, the canonical xStock weekend window this paper targets.
+- **Bucket:** oracles
+
 ### [chainlink-2] Breidenbach, L., Cachin, C., Chan, B., Coventry, A., Ellis, S., Juels, A., Koushanfar, F., Miller, A., Magauran, B., Moroz, D., Nazarov, S., Topliceanu, A., Tramèr, F., Zhang, F. 2021. Chainlink 2.0: next steps in the evolution of decentralized oracle networks.
 - **Venue:** Chainlink research whitepaper (April 2021)
 - **URL / DOI:** https://research.chain.link/whitepaper-v2.pdf
@@ -34,18 +48,32 @@ Buckets:
 - **Why we cite it:** Canonical statement of the deployed Chainlink design — our "stale-hold" archetype is the real-world-asset profile of this design, and §2.1 distinguishes their integrity primitive from our calibration primitive.
 - **Bucket:** oracles
 
-### [chainlink-streams] Chainlink Labs. 2024. Chainlink Data Streams.
+### [chainlink-streams] Chainlink Labs. 2024–2026. Chainlink Data Streams.
 - **Venue:** Chainlink product documentation
-- **URL / DOI:** https://docs.chain.link/data-streams
-- **Contribution:** Specifies the Data Streams report schema, including the `marketStatus` and freshness flags used for RWA feeds; describes the pull-based low-latency delivery path and the standard v8 RWA report.
-- **Why we cite it:** Direct primary source for our description of the stale-hold archetype (`marketStatus = 5` held until venue reopens) — the feed we are distinguishing our design from.
+- **URL / DOI:** https://docs.chain.link/data-streams (top-level overview accessed 2026-04-29; deep schema sub-pages have been refactored — see `[chainlink-v10]` and `[chainlink-v11]` for the per-schema pins)
+- **Contribution:** Top-level Data Streams product page. Two RWA-relevant report schemas co-exist on Solana mainnet as of 2026-Q2: v10 (Tokenized Asset, schema id `0x000a`) and v11 (RWA Advanced, schema id `0x000b`). Both decode through the same Verifier program; consumers dispatch on schema id.
+- **Why we cite it:** Top-level entry point used in §1.1 and §2.1 when the claim is about the Data Streams product family rather than a specific schema; per-schema citations are `[chainlink-v10]` and `[chainlink-v11]`.
+- **Bucket:** oracles
+
+### [chainlink-v10] Chainlink Labs. 2025. Data Streams v10 ("Tokenized Asset") report schema.
+- **Venue:** Chainlink product documentation; SDK source (authoritative pin)
+- **URL / DOI:** https://docs.chain.link/data-streams/reference/report-schema-v10 (the deep schema page returned 404 in our 2026-04-29 probe — link rot logged); the SDK source at `smartcontractkit/data-streams-sdk` mirrored in `src/soothsayer/chainlink/v10.py` is the authoritative pin.
+- **Contribution:** Specifies the v10 report layout — schema id 0x000a, 13 fields, 416 bytes; carries `price` (venue last-trade), `tokenizedPrice` (24/7 CEX-aggregated mark), 3-state `marketStatus` enum (`0 Unknown / 1 Closed / 2 Open`), and corporate-action multipliers. **Carries no `bid`, `ask`, or confidence field on the wire.**
+- **Why we cite it:** Direct primary source for §1.1, §2.1, and §6.7.2. The v10 wire format is band-less by construction: a consumer reading v10 directly derives a degenerate zero-width band — the cleanest empirical instance of the "no incumbent publishes a verifiable calibration claim" framing.
+- **Bucket:** oracles
+
+### [chainlink-v11] Chainlink Labs. 2026. Data Streams v11 ("RWA Advanced") report schema.
+- **Venue:** Chainlink product documentation; SDK source (authoritative pin)
+- **URL / DOI:** https://docs.chain.link/data-streams/reference/report-schema-v11 (the deep schema page returned 404 in our 2026-04-29 probe — link rot logged); the SDK source at `smartcontractkit/data-streams-sdk` mirrored in `src/soothsayer/chainlink/v11.py` is the authoritative pin.
+- **Contribution:** Specifies the v11 RWA Advanced layout — schema id 0x000b, 14 fields, 448 bytes; extends v10 with `bid`/`ask`/`mid`/`last_traded_price`/`bid_volume`/`ask_volume` and a 6-state `marketStatus` enum distinguishing pre-market, regular, post-market, overnight, and closed/weekend states. Live in our Solana tape since 2026-Q1, co-existing with v10.
+- **Why we cite it:** Direct primary source for §1.1, §2.1, and §6.7.2. The v11 schema is the load-bearing 24/5 archetype against which we measure the synthetic-marker weekend pattern documented in our internal cadence-verification scan; the marker-aware classifier that distinguishes synthetic-bid bookends from real quotes lives at `reports/v11_cadence_verification.md`.
 - **Bucket:** oracles
 
 ### [redstone-live] RedStone. 2026. RedStone Live: real-time market data for 24/7 markets.
 - **Venue:** RedStone blog / product documentation (March 2026)
-- **URL / DOI:** https://blog.redstone.finance/2026/03/30/redstone-live-real-time-data-built-for-the-markets-that-never-sleep/
-- **Contribution:** Describes RedStone's 24/7 equity-feed product, which blends institutional sources during market hours with perpetual-market data during off-hours. Methodology weights and aggregation rules are described qualitatively but not published in reproducible form.
-- **Why we cite it:** Primary evidence for our "undisclosed-methodology" archetype — the feed serves closed-market values, but a consumer cannot reproduce the number or audit a coverage claim.
+- **URL / DOI:** Launch blog post: https://blog.redstone.finance/2026/03/30/redstone-live-real-time-data-built-for-the-markets-that-never-sleep/. Top-level documentation: https://docs.redstone.finance/docs/introduction (accessed 2026-04-29). The deep methodology page (`https://docs.redstone.finance/docs/dapps-and-defi/redstone-models`) returned 404 on 2026-04-29 — link rot logged in canonical `docs/sources/oracles/redstone_live.md`; the public REST gateway at `https://api.redstone.finance/prices` is the live observation surface.
+- **Contribution:** Describes RedStone's 24/7 equity-feed product, which blends institutional sources during market hours with perpetual-market data during off-hours. Methodology weights, contributing-venue list, consensus rule, and any confidence statement are described qualitatively but not published in reproducible form on any public surface (REST gateway, on-chain PDA, or launch post).
+- **Why we cite it:** Primary evidence for our "undisclosed-methodology" archetype — the feed serves closed-market values, but a consumer cannot reproduce the number or audit a coverage claim. The deep methodology page being 404'd is itself load-bearing: the framing in §1.1 / §2.1 / §9.8.1 ("no calibration claim exposed in any public artifact") is exact rather than rhetorical given the documented absence.
 - **Bucket:** oracles
 
 ### [switchboard] Switchboard. 2023. Switchboard V3 documentation.

@@ -1,0 +1,45 @@
+# Heavy build artifacts and dependencies
+target/
+.venv/
+node_modules/
+arxiv-endorsement/
+programs/
+
+# Source / non-deploy directories
+src/
+crates/
+scripts/
+reports/
+notebooks/
+data/
+tests/
+docs/
+idl/
+
+# Top-level config files not needed for the static landing deploy
+Cargo.lock
+Cargo.toml
+uv.lock
+pyproject.toml
+rust-toolchain.toml
+deny.toml
+package.json
+package-lock.json
+tsconfig.json
+.python-version
+Anchor.toml
+.cursorrules
+AGENTS.md
+CLAUDE.md
+CONTRIBUTING.md
+LICENSE
+.env
+.env.example
+
+# Hidden / OS / language caches
+.git/
+.claude/
+.DS_Store
+*.pyc
+__pycache__/
+.pytest_cache/
