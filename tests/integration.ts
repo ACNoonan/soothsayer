@@ -121,13 +121,15 @@ describe("soothsayer-oracle-program (devnet integration)", () => {
       programId
     );
 
-    // Build the on-chain payload from the CLI output.
+    // Build the on-chain payload from the CLI output. M6_REFACTOR.md A4
+    // adds `profileCode` (1=lending default, 2=amm) — the program rejects 0.
     const pl = prep.payload;
     const payload = {
       version: pl.version,
       regimeCode: pl.regime_code,
       forecasterCode: pl.forecaster_code,
       exponent: pl.exponent,
+      profileCode: pl.profile_code,
       targetCoverageBps: pl.target_coverage_bps,
       claimedServedBps: pl.claimed_served_bps,
       bufferAppliedBps: pl.buffer_applied_bps,

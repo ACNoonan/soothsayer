@@ -6,7 +6,7 @@ All deltas carry block-bootstrap 95% CIs by weekend (1000 resamples). Raw tables
 
 ## 7.1 Constant-buffer baseline (width-at-coverage)
 
-This compares the Oracle against the *external* baseline most likely to be deployed by a protocol team unwilling to absorb modelling complexity: the Pyth/Chainlink Friday close held forward, with a single global symmetric buffer $b(\tau)$ per claimed quantile. One parameter per $\tau$. No factor switchboard, no empirical residual quantile, no regime model.
+This is the deployable *external* baseline most likely to be used by a protocol team unwilling to absorb modelling complexity: the Pyth/Chainlink Friday close held forward, with a single global symmetric buffer $b(\tau)$ per claimed quantile. One parameter per $\tau$. No factor switchboard, no empirical residual quantile, no regime model.
 
 $$\big[\;p_{\text{Fri}}\,(1 - b(\tau)),\;p_{\text{Fri}}\,(1 + b(\tau))\;\big],\qquad b(\tau)\;\text{calibrated globally on the training panel}.$$
 
@@ -25,7 +25,7 @@ Each $b(\tau)$ is the empirical $\tau$-quantile of $|p_{\text{Mon}} - p_{\text{F
 | 0.99 | constant buffer (train-fit) | 0.984 | 695.0 | 0.018 | 0.927 |
 | 0.99 | deployed Oracle | 0.990 | 677.5 | 0.942 | 0.344 |
 
-The training-fit constant buffer **catastrophically undercovers** at every $\tau \leq 0.95$: deficits $-14.2 / -12.0 / -5.4$pp, all rejecting Kupiec at $p_{uc} < 10^{-6}$. The mechanism is non-stationarity: $b(\tau)$ is calibrated on a 2014–2022 window calmer than the 2023+ holdout. **The deployable constant-buffer baseline does not deliver coverage on the holdout; the Oracle does.** This is the *adaptivity-to-distribution-shift* contribution of the regime model.
+The training-fit constant buffer **catastrophically undercovers** at every $\tau \leq 0.95$ (deficits $-14.2 / -12.0 / -5.4$pp, all rejecting Kupiec at $p_{uc} < 10^{-6}$) — non-stationarity: $b(\tau)$ is calibrated on a 2014–2022 window calmer than the 2023+ holdout. **The deployable constant-buffer baseline does not deliver coverage on the holdout; the Oracle does.** This is the *adaptivity-to-distribution-shift* contribution of the regime model.
 
 ### 7.1.2 Coverage-matched comparison
 
@@ -42,7 +42,7 @@ To answer the width-at-coverage question, we re-fit $b(\tau)$ post-hoc on the OO
 
 ### 7.1.3 Per-regime decomposition
 
-The pooled premium obscures a sharply regime-conditional structure. At $\tau = 0.95$:
+The pooled premium hides a regime-conditional structure. At $\tau = 0.95$:
 
 | regime | $n$ | matched-CB realised | matched-CB hw | Oracle realised | Oracle hw |
 |---|---:|---:|---:|---:|---:|
@@ -50,9 +50,7 @@ The pooled premium obscures a sharply regime-conditional structure. At $\tau = 0
 | long_weekend | 190 | 0.968 | 395.6 | 0.953 | 396.5 |
 | high_vol | 380 | 0.900 | 395.6 | 0.963 | 591.6 |
 
-In `normal` and `long_weekend` the regime model is statistically indistinguishable from a constant buffer. In `high_vol` it widens sharply (+49.5%) and gains 6.3pp of coverage. The constant buffer's pooled coverage is "average right but worst where it matters most": violations concentrate in high-vol weekends — exactly where a downstream lending protocol incurs the largest mark-to-market gap. Matched-CB Christoffersen at pooled $\tau = 0.95$: $p_{ind} = 0.024$, *rejecting* independence; Oracle: $p_{ind} = 0.483$, does not. At $\tau = 0.68$ the gap is starker: $7.7 \times 10^{-7}$ vs 0.645.
-
-The regime model's contribution is **(i) calibration through distribution shift** and **(ii) tail-protection in `high_vol` weekends**. The implicit pooled-width-at-coverage claim does **not** survive this baseline at any $\tau \leq 0.95$ — readers of §6's headline should read it conditional on the calibration property.
+In `normal` and `long_weekend` the regime model is statistically indistinguishable from a constant buffer. In `high_vol` it widens sharply (+49.5%) and gains 6.3pp of coverage. The constant buffer's pooled coverage is "average right but worst where it matters most": violations concentrate in high-vol weekends — exactly where a downstream lending protocol incurs the largest mark-to-market gap. Matched-CB Christoffersen at pooled $\tau = 0.95$: $p_{ind} = 0.024$ (rejects); Oracle: $p_{ind} = 0.483$ (does not). At $\tau = 0.68$ the gap is starker: $7.7 \times 10^{-7}$ vs 0.645. The regime model's contribution is **(i) calibration through distribution shift** and **(ii) tail-protection in `high_vol` weekends**; the implicit pooled-width-at-coverage claim does not survive this baseline at $\tau \leq 0.95$.
 
 ## 7.2 Mondrian conformal-by-regime (the deployed v2 architecture)
 
@@ -85,7 +83,7 @@ Each variant fits a per-regime conformal quantile $q_r(\tau)$ and serves $[\hat 
 | 0.99 | v1 hybrid Oracle | 0.972 | 522.8 | 0.000 | 0.897 |
 | 0.99 | M5 deployed | 0.990 | 677.5 | 0.942 | 0.344 |
 
-M1 / M2 reproduce §7.1's finding from the other side: a deployable per-regime conformal lookup with no further tuning undercovers by 6–14pp at $\tau \leq 0.95$. M3 (per-symbol Mondrian) does worse on Christoffersen because per-(symbol, regime) bins thin to $N \approx 50$–$300$. M4 (oracle-fit) shows the headroom. M5 closes essentially all the M4 gap with the same 4-scalar budget v1 uses.
+M1 / M2 reproduce §7.1's finding from the other side: a deployable per-regime conformal lookup with no further tuning undercovers by 6–14pp at $\tau \leq 0.95$. M3 (per-symbol Mondrian) does worse on Christoffersen because per-(symbol, regime) bins thin to $N \approx 50$–$300$. M4 (oracle-fit) shows the headroom; M5 closes essentially all of it with the same 4-scalar budget v1 uses.
 
 Block-bootstrap CIs on M5 − v1 deltas:
 
@@ -111,11 +109,9 @@ The pooled OOS comparison is contaminated for both methods (both 4-scalar schedu
 
 **M5 with the δ-shift schedule passes Kupiec at every anchor on walk-forward at 25–33% narrower mean half-width than v1 through $\tau \leq 0.95$.** At $\tau = 0.99$, M5 trades width for target attainment.
 
-### 7.2.4 Density tests and per-regime decomposition
+### 7.2.4 Where the v1 premium goes
 
-Berkowitz on M5's walk-forward PITs: $\mathrm{LR} = 173.1$, $\hat\rho = 0.31$. DQ at $\tau = 0.95$: $p = 5.7 \times 10^{-6}$. Per-anchor Kupiec passes at every target; Berkowitz and DQ both reject. The diagnosis is structural — the classifier is a coarse three-bin index. Full-distribution conformal remains the v3 target.
-
-M5-vs-v1 $\tau = 0.95$ decomposition:
+§7.1.3 attributed the constant-buffer premium to `high_vol`; §7.2 shifts the question. M5-vs-v1 $\tau = 0.95$ decomposition:
 
 | regime | $n$ | M5 hw | v1 hw | v1 premium |
 |---|---:|---:|---:|---|
@@ -123,8 +119,6 @@ M5-vs-v1 $\tau = 0.95$ decomposition:
 | long_weekend | 190 | 403.4 | 396.5 | $-1.7\%$ wider, $-3.1$pp coverage |
 | high_vol | 380 | 557.8 | 591.6 | $+6.1\%$ wider, $-0.5$pp coverage |
 
-§7.1.3 put v1's pooled premium in `high_vol`; §7.2.4 puts it in `normal` (the 67% of weekends) at $+43.9\%$ wider for $+0.7$pp coverage. The v1 forecaster + buffer earns its OOS calibration *primarily by overwidening normal-regime weekends* — the v1 forecaster ladder is cosmetic on top of `regime_pub`.
+v1 earns its OOS calibration **primarily by overwidening normal-regime weekends** (the 67% of the panel) at $+43.9\%$ wider for $+0.7$pp coverage — the v1 forecaster ladder is cosmetic on top of `regime_pub`. Berkowitz and DQ on M5's walk-forward PITs reject ($\text{LR} = 173.1$; DQ at $\tau = 0.95$, $p = 5.7 \times 10^{-6}$) — same diagnosis as §6.3.1, full-distribution conformal remains the v3 target.
 
-### 7.2.5 Verdict
-
-§7.1 ruled out a deployable baseline that strips regime structure. §7.2 isolates the deployable baseline that keeps `regime_pub` and replaces v1's forecaster machinery with a Mondrian conformal quantile + δ-shifted $c(\tau)$: 19–20% narrower than v1 at indistinguishable coverage on OOS at $\tau \leq 0.95$; 25–33% narrower on walk-forward; hits the nominal $\tau = 0.99$ where v1 ceilings; shares v1's per-anchor-only profile on density tests. The wire format (`PriceUpdate` Borsh) is preserved across v1 → v2: the swap changes only the published *values*, not the decoder or the §3.4 property contract.
+§7.1 ruled out a deployable baseline that strips regime structure. §7.2 isolates the deployable baseline that keeps `regime_pub` and replaces v1's forecaster machinery: 19–20% narrower than v1 at indistinguishable coverage on OOS at $\tau \leq 0.95$; 25–33% narrower on walk-forward; hits nominal $\tau = 0.99$ where v1 ceilings; shares v1's per-anchor-only profile on density tests. The wire format (`PriceUpdate` Borsh) is preserved across v1 → v2: the swap changes only the published *values*, not the decoder or the §3.4 property contract.

@@ -28,6 +28,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "arch>=8.0.0",
     "ruff>=0.6",
 ]
 

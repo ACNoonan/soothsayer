@@ -20,6 +20,8 @@ pub struct PublishPayload {
     pub regime_code: u8,
     pub forecaster_code: u8,
     pub exponent: i8,
+    /// Serving profile (M6_REFACTOR.md A4): 1=lending, 2=amm.
+    pub profile_code: u8,
     pub target_coverage_bps: u16,
     pub claimed_served_bps: u16,
     pub buffer_applied_bps: u16,

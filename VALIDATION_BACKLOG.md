@@ -35,6 +35,7 @@ After the 2026-05-02 M5 Mondrian win, the question was: *what other tests should
 9. **W7 — Cross-class Mondrian (class × regime).** Subsumed by M6b3 in W2-followup; tested and rejected (sample dilution beats partition gain). Strike.
 10. **W8b — Sunday-Globex republish predictor (deferred).** Re-evaluate W8 with ES/NQ Sunday 18:00 ET reopen returns added to the feature set. Requires a scryer fetcher for Sunday-evening futures snapshots first. ~3–4 weeks total once scryer item lands.
 11. **W8c — V3.1 F_tok-based predictor (deferred).** Re-evaluate W8 with the on-chain xStock cross-section as the predictor's primary feature. Data-gated on V3.1 F_tok tape accumulation (≥150 weekends; ETA Q3–Q4 2026).
+12. ~~**W9 — v3 per-symbol-calibration bake-off (C1 / C2 / C4 vs M5).**~~ Complete 2026-05-03. **Decision: freeze M5 as Paper 1.** C1 (LWC + regime) lead candidate for v3 per-symbol calibration, deferred until V3.2 rolling-rebuild + paper-grade walk-forward; C2 (M6b2) → Paper 3 lending track (already deployed for Lending profile); C4 (stacked) Pareto-dominated, **rejected**.
 
 ---
 
@@ -254,24 +255,30 @@ Reading: a MarginFi asset Bank holding equity_highbeta collateral that targets 9
 
 ## W5 — Live forward-tape realized coverage
 
-**Status:** Not started; data accruing since 2026-04-26.
+**Status:** Soothsayer-side cron (analysis); scryer-side SLA dependency on `yahoo/equities_daily` Monday cron reliability. Data accruing since 2026-04-26.
 
 **Question.** What's realized coverage on the *forward* slice — weekends that happened entirely after the last calibration cutoff?
 
 **Protocol.**
-1. Define `forward_panel` = weekends with `_fetched_at` ≥ 2026-04-26 on Yahoo bars (or wherever the last calibration data ended).
+1. Define `forward_panel` = weekends with `mon_ts > 2026-04-24` (the last fri_ts in `data/processed/v1b_panel.parquet`'s held-out OOS slice).
 2. Build the same coverage table as §6 of Paper 1, computed only over `forward_panel`.
 3. Re-compute weekly as forward panel grows.
 
-**Why this matters.** Reviewer-immune — there is no plausible "you tuned on this" critique. For Colosseum, "live since 2026-04-26, realized 0.94 vs τ=0.95" beats a backtest table for video / pitch comprehensibility.
+**Why this matters.** Reviewer-immune — there is no plausible "you tuned on this" critique. For pitch / paper purposes, "live since 2026-04-26, realised 0.94 vs τ=0.95" beats a backtest table for comprehensibility.
 
-**Deliverables.**
-- [ ] `scripts/run_forward_coverage.py` (idempotent; safe to re-run weekly)
-- [ ] `reports/v1b_forward_coverage.md` (auto-updated)
+**Scryer-side dependency (operational SLA, not new development).**
 
-**Caveat.** Sample is tiny right now (~1–2 weekends). This deliverable's value compounds; do once, make it cheap to re-run.
+- Confirm `yahoo/equities_daily/v1` forward cron lands Monday-open data reliably by 14:30 UTC each Monday (NYSE open + 1h buffer). Today the cron exists but cadence is unclear from Soothsayer's vantage.
+- This becomes scryer-handoff item #1 in the prompt below.
 
-**Result:** _pending_
+**Soothsayer-side deliverables (do after scryer SLA confirmed).**
+- [x] `scripts/run_forward_coverage.py` (idempotent; safe to re-run weekly; Path 2 self-contained — re-derives the panel from scryer over a forward-extended window, applies the deployed M5 serve formula via `soothsayer.oracle` constants, and cross-checks 3 historical rows against the frozen `v1b_panel.parquet` before reporting forward numbers)
+- [x] `reports/v1b_forward_coverage.md` (auto-updated; first run 2026-05-03 with n=0 forward weekends — fri 2026-05-01 → mon 2026-05-04 not yet evaluable until Yahoo Monday cron lands ~14:30 UTC Tue)
+- [ ] Optional: a tiny launchd plist on Adam's machine to fire the runner Tuesday 09:00 local time.
+
+**Caveat.** Sample is small right now (~1 evaluable weekend). This deliverable's value compounds; do once, make it cheap to re-run.
+
+**Result:** _pending forward-tape accumulation_ (runner stood up 2026-05-03; first evaluable weekend = fri 2026-05-01 → mon 2026-05-04, populates on the 2026-05-05 Tuesday-morning re-run)
 
 **Decision:** _pending_
 
@@ -279,22 +286,27 @@ Reading: a MarginFi asset Bank holding equity_highbeta collateral that targets 9
 
 ## W6 — Halt-window subset coverage
 
-**Status:** Not started.
+**Status:** Gated on a new scryer dataset (intraday NBBO around halt events). Coarse-grained variant (using next daily close as the post-resume proxy) is Soothsayer-side and unblocked, but the precise per-halt analysis needs the new fetcher.
 
-**Question.** During NASDAQ halts (`nasdaq/halts` dataset), what's realized coverage of (a) Soothsayer's band and (b) incumbent oracles' published bands? Halts are exactly where Kamino's PriceHeuristic / staleness gates fail (Paper 3 §Structural argument), so empirical coverage in those windows is the direct numerical complement.
+**Question.** During NASDAQ halts (`nasdaq/halts` dataset), what's realised coverage of (a) Soothsayer's band and (b) incumbent oracles' published bands? Halts are exactly where Kamino's PriceHeuristic / staleness gates fail (Paper 3 §Structural argument), so empirical coverage in those windows is the direct numerical complement.
 
-**Protocol.**
-1. Join `nasdaq/halts` rows with oracle tapes (per-symbol, per-time-window).
-2. For each halt event, compute the band's coverage of the *first post-resume cash print*.
-3. Compare across oracles.
+**Why scryer-side.** Today's `nasdaq/halts` gives halt timestamps but no intraday cash prints. To compute "band's coverage of the first post-resume cash print" precisely, we need 1-min OHLCV bars for the affected symbol covering the halt window (e.g., −5min before halt to +30min after resume). This is a new scryer dataset, not analysis-side work.
 
-**Deliverables.**
-- [ ] `scripts/run_halt_coverage.py`
-- [ ] `reports/v1b_halt_coverage.md`
+**Scryer-side deliverable (new wishlist item).**
+
+Proposed scryer wishlist item #53: `nasdaq/halts_intraday/v1` or similar. 1-minute OHLCV around each halt event in `nasdaq/halts/v1`. Source recommendation: Yahoo intraday 1-min bars (free, ~60-day backfill window — adequate for going-forward halt coverage; older halts won't backfill). Alternative: Polygon free tier, if API key is available.
+
+This becomes scryer-handoff item #2 in the prompt below.
+
+**Soothsayer-side deliverables (do after scryer dataset lands).**
+- [ ] `scripts/run_halt_coverage.py` — joins `nasdaq/halts/v1` with `nasdaq/halts_intraday/v1` and the four oracle tapes; computes per-halt coverage and per-oracle width comparison.
+- [ ] `reports/v1b_halt_coverage.md` — paper-ready writeup; cross-links to Paper 3 §Structural.
+
+**Coarse-grained interim (Soothsayer-side, unblocked).** A Soothsayer-only variant using `yahoo/equities_daily` next-daily-close as the post-resume proxy is implementable today. Less precise than the intraday version (a halt at 14:30 ET resumes by 16:00 ET, but daily close is also at 16:00 ET — the proxy collapses for late-day halts). Could be a "v0 coarse" report while the scryer dataset is being built.
 
 **Cross-link.** This is the empirical complement to `reports/paper3_liquidation_policy/protocol_semantics.md`.
 
-**Result:** _pending_
+**Result:** _pending_ (scryer dataset, then Soothsayer analysis runner)
 
 **Decision:** _pending_
 
@@ -369,6 +381,38 @@ Three diagnostic findings:
 **Headline reframe.** The M6c "ceiling" of 271 bps at τ=0.95 (39% narrower than v1) is now correctly framed as a *data-accumulation-gated* future state, not a near-term deployment target. M6b2 (Lending-track, ships next per `M6_REFACTOR.md` Phase A) delivers ~50% of M6c's gain over M5 with no data dependency.
 
 **Decision: REJECT (Friday-close only); reopen as W8b (Sunday-Globex variant) or W8c (V3.1 F_tok variant) when the respective data surfaces are ready.**
+
+---
+
+## W9 — v3 per-symbol-calibration bake-off (C1 / C2 / C4 vs M5)
+
+**Status:** Complete 2026-05-03. Decision: **freeze M5 as Paper 1**; route candidates as roadmap evidence.
+
+**Trigger.** §10 robustness pass surfaced a bimodal per-symbol Kupiec failure on M5 (SPY/QQQ/GLD/TLT/AAPL bands too wide; TSLA/HOOD/MSTR too narrow; HOOD fails Kupiec at τ ∈ {0.68, 0.85, 0.95}). Hypothesis: (A) per-symbol scale heterogeneity is the dominant disease; (B) cross-sectional within-weekend common-mode is the orthogonal residual. Three candidate methodologies attack (A); none attack (B) directly.
+
+**Method.** Same panel, same train/OOS split (2023-01-01), same four served τ. δ-shift held at zero; c(τ) refit per variant. σ̂_sym(t) = trailing-26-week relative-residual std per symbol, strictly pre-Friday. Symbol-class mapping from the deployed M6b2 lending sidecar.
+
+**Result (pooled τ=0.95, 1,730 OOS rows):**
+
+| Variant | Realised | HW (bps) | Δ vs M5 | n_pass per-symbol Kupiec |
+|---|---:|---:|---:|---:|
+| M5 baseline | 0.9503 | 354.9 | — | 2/10 |
+| C1 LWC + regime | 0.9503 | 385.3 | +8.6% | **10/10** |
+| C2 M6b2 class | 0.9503 | **302.6** | **−14.7%** | 8/10 |
+| C4 stacked | 0.9555 | 379.6 | +7.0% | 9/10 |
+
+ρ_cross unchanged across all variants (0.249–0.280) — none of these address (B).
+
+**Decisions:**
+
+- **C1 LWC + regime — DEFER (lead future candidate, not adopted).** Best per-symbol calibration; pays 8.6% on width. Promote to Paper 1 §10.4 as v3 per-symbol-calibration lead candidate. Re-evaluate as a candidate v3 primitive after V3.2 rolling-rebuild pipeline + paper-grade walk-forward.
+- **C2 M6b2 class — HAND OFF (Paper 3 lending-track).** Already deployed for Lending profile. The −14.7% sharpness story belongs in Paper 3's per-class collateral-buffer narrative (Kamino/MarginFi reserve evaluation), not in Paper 1 main body. Paper 1 §10.4 mentions briefly.
+- **C4 stacked — REJECT.** Double-counts per-symbol scale (LWC standardises score; class cells already partition by scale). c(τ) degenerates to 1.000 at every τ. Pareto-dominated by both C1 and C2.
+- **M6a common-mode partial-out — already on hold (W8 rejected).** Independent gate on Friday-observable r̄_w predictor; Paper 1 §10.4 cross-references W8's deferral.
+
+**Decision rationale.** The bake-off ran *after* Paper 1's validation loop closed. Promoting C1 or C2 into the main paper methodology would invite a "how many variants did you try before selecting this?" review question. M5 is the validated calibration-transparent endpoint-band primitive; the bake-off is roadmap evidence informing v3 specialisation, not a retroactive paper revision.
+
+**Evidence.** `reports/v3_bakeoff.md`, `reports/tables/v3_bakeoff_{pooled,per_symbol,mechanism}.csv`, `scripts/run_v3_bakeoff.py`.
 
 ---
 

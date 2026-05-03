@@ -13,13 +13,29 @@
 //! to within floating-point identity on the same inputs + same artefact.
 
 use chrono::NaiveDate;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
-use soothsayer_oracle::Oracle;
+use soothsayer_oracle::{Oracle, Profile};
 
 mod payload;
 use payload::{borsh_bytes, from_price_point, PublishPayload};
+
+/// Mirror of `soothsayer_oracle::Profile` shaped for clap's ValueEnum.
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum CliProfile {
+    Lending,
+    Amm,
+}
+
+impl From<CliProfile> for Profile {
+    fn from(p: CliProfile) -> Self {
+        match p {
+            CliProfile::Lending => Profile::Lending,
+            CliProfile::Amm => Profile::Amm,
+        }
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "soothsayer", version, about = "Soothsayer oracle publisher")]
@@ -28,6 +44,12 @@ struct Cli {
     /// (default: data/processed/mondrian_artefact_v2.parquet).
     #[arg(long, global = true)]
     artefact: Option<PathBuf>,
+
+    /// Serving profile. Lending (M6b2) is the post-2026-05 default; AMM is
+    /// the legacy M5 single-profile path kept for parity refresh and the
+    /// AMM-track interim deployment until Phase B ships M6a-deployable.
+    #[arg(long, global = true, value_enum, default_value_t = CliProfile::Lending)]
+    profile: CliProfile,
 
     #[command(subcommand)]
     cmd: Command,
@@ -86,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let artefact_path = cli.artefact.unwrap_or_else(default_artefact);
 
-    let oracle = Oracle::load(&artefact_path)?;
+    let oracle = Oracle::load_with_profile(&artefact_path, cli.profile.into())?;
 
     match cli.cmd {
         Command::FairValue { symbol, as_of, target } => {

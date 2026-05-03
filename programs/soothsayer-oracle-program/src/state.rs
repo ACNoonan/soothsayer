@@ -80,15 +80,24 @@ pub struct PriceUpdate {
     /// Regime code: 0=normal, 1=long_weekend, 2=high_vol, 3=shock_flagged.
     pub regime_code: u8,
     /// Forecaster used for this band: 0=F1_emp_regime (v1, legacy receipts),
-    /// 1=F0_stale (v1, legacy receipts), 2=mondrian (M5 / v2 deployment).
-    /// Receipt field.
+    /// 1=F0_stale (v1, legacy receipts), 2=mondrian (M5 / v2 deployment +
+    /// M6b2 Lending dual-profile). Receipt field.
     pub forecaster_code: u8,
     /// Shared exponent for the fixed-point prices: real_price = value * 10^exponent.
     /// For USDC-like 6-decimal precision: exponent = -6. For asset prices
     /// scaled to 8 decimals: exponent = -8. Publisher chooses per its own
     /// precision target; -8 is the Soothsayer default.
     pub exponent: i8,
-    pub _pad0: [u8; 4],
+    /// Serving profile (M6_REFACTOR.md A4):
+    ///   0 = legacy single-profile receipt (pre-A4 publishes; treat as M5)
+    ///   1 = lending  (M6b2 per-symbol_class Mondrian)
+    ///   2 = amm      (M5 per-regime Mondrian; AMM-track interim)
+    /// Reuses the first byte of the prior `_pad0: [u8;4]` slot, so total
+    /// account size + every other field offset stays byte-identical with
+    /// pre-A4 layouts. Old in-flight `PriceUpdate` accounts decode cleanly
+    /// under the new consumer with `profile_code = 0`.
+    pub profile_code: u8,
+    pub _pad0: [u8; 3],
     /// What the consumer asked for, in basis points (9500 = 95%).
     pub target_coverage_bps: u16,
     /// What we actually served, in basis points (e.g. 9750 = 97.5%). This is
@@ -145,13 +154,20 @@ impl PriceUpdate {
 /// publish_slot, signer_epoch) are set by the program from tx context.
 ///
 /// Kept as a single AnchorSerialize struct so TS clients + Rust publisher
-/// share one schema.
+/// share one schema. Borsh-serialized size = 67 bytes (66 pre-A4 + 1 byte
+/// for `profile_code`). Padding bytes from the on-chain account layout
+/// (`_pad0`, `_pad1`) are NOT mirrored here — they're zero-filled by the
+/// program at write time.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct PublishPayload {
     pub version: u8,
     pub regime_code: u8,
     pub forecaster_code: u8,
     pub exponent: i8,
+    /// Serving profile (1 = lending, 2 = amm). Publishers MUST set this to
+    /// 1 or 2; the program rejects 0 (which is reserved for legacy in-flight
+    /// PriceUpdate accounts only).
+    pub profile_code: u8,
     pub target_coverage_bps: u16,
     pub claimed_served_bps: u16,
     pub buffer_applied_bps: u16,
@@ -179,6 +195,14 @@ pub const FORECASTER_F1_EMP_REGIME: u8 = 0;
 pub const FORECASTER_F0_STALE: u8 = 1;
 pub const FORECASTER_MONDRIAN: u8 = 2;
 pub const FORECASTER_RESERVED_3: u8 = 3;
+
+/// Serving-profile codes mirrored from `Profile` in
+/// `crates/soothsayer-oracle/src/types.rs`. Code `0` is reserved for
+/// legacy single-profile receipts emitted before A4; the program rejects
+/// `0` from new publishes.
+pub const PROFILE_LEGACY: u8 = 0;
+pub const PROFILE_LENDING: u8 = 1;
+pub const PROFILE_AMM: u8 = 2;
 
 /// Current schema version. Bump on any on-wire layout change.
 pub const PRICE_UPDATE_VERSION: u8 = 1;

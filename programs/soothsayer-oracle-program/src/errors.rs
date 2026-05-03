@@ -28,4 +28,7 @@ pub enum SoothsayerError {
 
     #[msg("unsupported payload version")]
     UnsupportedVersion, // 7
+
+    #[msg("unknown profile_code; must be 1 (lending) or 2 (amm) for new publishes")]
+    UnknownProfileCode, // 8
 }

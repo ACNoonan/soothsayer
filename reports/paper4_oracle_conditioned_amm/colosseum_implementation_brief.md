@@ -1,19 +1,37 @@
-# Paper 4 — Colosseum implementation brief (spot oracle-aware AMM)
+# BandAMM — Colosseum implementation brief (Soothsayer Stack L1.0 + L2.0 + L5.0)
 
-**Status:** research brief, drafted 2026-05-02. Input to the 8-day hackathon scope (deadline 2026-05-10).
+**Status:** research brief, drafted 2026-05-02; positioning aligned to Soothsayer Stack 2026-05-03 (W8 / `docs/product-stack.md` rewrite). Input to the 8-day hackathon scope (deadline 2026-05-10).
 **Audience:** Adam, scoping the devnet MVP + pitch deck.
-**Read first:** `reports/paper4_oracle_conditioned_amm/plan.md`, `reports/paper4_oracle_conditioned_amm/market-research.md`, `docs/product-stack.md`, `docs/product-spec.md`.
+**Read first:** `docs/product-stack.md` (strategic anchor), `reports/paper4_oracle_conditioned_amm/plan.md` (academic plan), `reports/paper4_oracle_conditioned_amm/market-research.md`, `docs/product-spec.md`.
 **Companion:** the implementation plan that flows from this brief should be drafted into `reports/paper4_oracle_conditioned_amm/colosseum_plan.md` (not yet written).
 
 ---
 
 ## Executive summary
 
-Soothsayer already publishes a calibrated band on-chain (`PriceUpdate` PDA per symbol via `soothsayer-oracle-program`; regime-routed via `soothsayer-router-program`). What does *not* yet exist is a spot DEX that *uses* the band as a first-class quote object rather than a point reference. That is the wedge.
+**Product positioning (the one-line pitch):**
 
-**Recommended 8-day MVP: a single-active-range "BandAMM" — a pool whose entire quoted range *is* the calibrated band `[L_τ, U_τ]`, with a band-breach surcharge fee outside it.** This is the simplest mechanism that consumes both edges + the receipt (`claimed_served_bps`, `regime_code`), is implementable in one ~600-line Anchor program, demonstrates visibly different behaviour from CPMM at weekend reopen, and routes Jupiter via the existing `jupiter-amm-interface`. Bigger mechanisms (am-AMM-style auctions, Angstrom-style ASS, FM-AMM batch clearing) are the right academic targets for Paper 4's published `g(·)` bound but are not 8-day-shippable on Solana without BAM Plugin SDK maturity.
+> **The first Solana AMM that's calibrated to be open when the underlying market is closed.**
 
-The pitch lead is *the LVR problem on tokenized equities*, not the academic bound. LVR literature (Milionis 2022, am-AMM 2024, Angstrom 2025, FM-AMM 2023) has reached the design point but no Solana production AMM has shipped a band-conditioned execution layer; xStocks volume is concentrated on oracle-blind CPMMs (Raydium ~90% share, ~$517M cumulative DEX volume by Jan 2026). The mechanism is intuitive in 30 seconds; the calibration receipts are the credibility wedge. **Hardest risks:** publisher cadence on devnet, xStock devnet mint availability, and counterfactual fidelity without the forward pool-state tape (scryer item 51 in flight).
+Soothsayer already publishes a calibrated band on-chain (`PriceUpdate` PDA per symbol via `soothsayer-oracle-program`; regime-routed via `soothsayer-router-program`). What does *not* yet exist anywhere — on Solana or any other chain — is an AMM that consumes a calibrated, audit-grade interval oracle as a first-class quote object rather than a point reference. That is the wedge, and the closed-market RWA window is where it matters.
+
+**The thesis in three claims:**
+
+1. **Closed-market RWAs are the underserved venue.** xStock LVR concentrates in halts, weekends, earnings, and gap-opens — exactly when the band widens to reflect uncertainty. Pyth-anchored AMMs (Lifinity) and proprietary prop AMMs (HumidiFi, Lifinity v3) optimise for fast-tape calm regimes; off-hours xStock quoting is unaddressed. We don't try to out-quote prop AMMs intraday — we are the AMM that's open and risk-priced when they aren't.
+2. **The band primitive is the foundation.** Paper 1 ships an OOS-Kupiec/Christoffersen-passing band at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$ with mean half-width 354.5 bps at $\tau=0.95$ (-20% vs v1 hybrid Oracle). No other Solana oracle publishes interval calibration at this rigour; no production AMM consumes one.
+3. **Each layer above the band has a structural moat tied to the calibration receipt.** Per-swap receipts emit the full band state — that is the institutional risk disclosure no other Solana AMM offers, and it is the truth signal that makes future layers (auction attribution, JIT-LP, audit dashboards) honest.
+
+**Recommended 8-day MVP — the BandAMM:** a single-active-range pool whose entire quoted range *is* the calibrated band $[L_\tau, U_\tau]$, with a band-breach surcharge fee outside it and a hard staleness/halt-mode refusal guard. Concretely this ships **L1.0 + L2.0 + L5.0** of the Soothsayer Stack architecture (cf. `docs/product-stack.md` §4): the live multi-cadence oracle (L1.0 — Friday-close M5/M6b2), the band-AMM core program (L2.0 — single-active-range, ~600-line Anchor program), and the audit-receipt verifier MVP (L5.0). It is implementable in 8 days, demonstrates visibly different behaviour from CPMM at weekend reopen, consumes both edges + the receipt fields (`claimed_served_bps`, `regime_code`, `publish_ts`), and routes Jupiter via the existing `jupiter-amm-interface` post-hackathon.
+
+**What we explicitly defer past the 8-day window** (see §3.7):
+- **L1.1 — Sunday-Globex republish (W8b)** — engineering-gated on scryer Sunday-evening fetcher; ~3-4 weeks; the strongest near-term moat for the AMM specifically.
+- **L1.2 — Intraday basis-risk band (Paper 5)** — research arc; 6-9 months; calibrates xStock-on-Solana vs underlying-on-NYSE residual.
+- **L2.1 — DLMM-bin curve** keyed to band edges (Meteora-pattern) — ~2 months post-hackathon.
+- **L3 — Auction layer** via Jito-restaking AVS for bundle attribution and LP rebates (Sorella-equivalent for Solana RWAs) — 12-18 months, gated on validator BD.
+- **L4 — Active layer** (Phoenix-CLOB halt-mode fallback, JIT-LP, POL bootstrapping) — 6-12 months.
+- **L6 — Distribution** (Jupiter aggregator, RFQ for size) — concurrent with L2.2.
+
+The pitch lead is *closed-market RWA LVR*, not the academic bound. LVR literature (Milionis 2022, am-AMM 2024, Angstrom 2025, FM-AMM 2023) has reached the design point of "interval-oracle-conditioned execution" but no Solana production AMM has shipped one; xStocks volume today concentrates on oracle-blind CPMMs (Raydium ~90% share, ~$517M cumulative DEX volume by Jan 2026). The mechanism is intuitive in 30 seconds; the calibration receipts are the credibility wedge. **Hardest risks:** publisher cadence on devnet, xStock devnet mint availability, and counterfactual fidelity without the forward pool-state tape (scryer item 51 in flight).
 
 ---
 
@@ -164,22 +182,24 @@ Evaluation against four hackathon criteria:
 | Differentiated vs. Lifinity / Pyth-anchored | partial | **strong** | partial | strong | weak |
 | Demo-able in 30 seconds | medium | **strong** | hard | hard | trivial |
 | Pitch alignment with Paper 4's B2/B3 | partial | **strong** | – | matches B3 | weak |
+| Lands closed-market positioning | partial | **strong** | partial | partial (auction is open-hours rent capture) | weak |
 
 **Choose mechanism (2) = "the band IS the active range," fused with mechanism (1) outside-band fee tier and a small dose of (5) as a defensive guard.** Concretely:
 
-- **Inside band:** swaps that leave the pool's effective price within `[L_τ, U_τ]` execute at the standard fee `f_in` (e.g., 5 bps).
+- **Inside band:** swaps that leave the pool's effective price within $[L_\tau, U_\tau]$ execute at the standard fee `f_in` (e.g., 5 bps).
 - **Outside band:** swaps that would push the effective price outside the band incur a surcharge `f_out(d, w)`, where `d` is the distance outside the band and `w` is the band width. Concretely: `f_out = f_in + α · clamp(d / w, 0, w_max)`. The surcharge revenue accrues to LPs.
-- **Receipt:** every swap event emits the band state at execution (`lower`, `upper`, `claimed_served_bps`, `regime_code`, `publish_slot`). This is the on-chain analogue of Paper 1's calibration receipt — same audit-chain story, applied to AMM execution.
-- **Guard (5):** if `now_ts - band.publish_ts > MAX_STALENESS` (e.g., 60s) the pool refuses to swap. Already-stable surface; one line of program logic.
+- **Receipt:** every swap event emits the band state at execution (`lower`, `upper`, `claimed_served_bps`, `regime_code`, `publish_ts`, `publish_slot`). This is the on-chain analogue of Paper 1's calibration receipt — same audit-chain story, applied to AMM execution. It is also the load-bearing primitive for the post-hackathon **L3 (auction layer)**: a Jito-restaking AVS attribution module reads these receipts to compute LP rebates.
+- **Guard (5):** if `now_ts - band.publish_ts > MAX_STALENESS` (e.g., 60s) the pool refuses to swap. Already-stable surface; one line of program logic. Generalises post-hackathon to *halt-mode refuse-to-trade* — refuse if `band.width > halt_threshold` regardless of staleness.
 
-**Why this is the strongest demo:**
+**Why this is the strongest demo for the closed-market positioning:**
 
-- **Visual narrative:** during a halt or weekend, the band tightens (Paper 1 §6.4 under the v2 / M5 deployment: ~110 bps at τ=0.68 normal, ~280 bps at τ=0.95 normal, ~558 bps at τ=0.95 high_vol — 19–20% narrower than the v1 hybrid Oracle at indistinguishable Kupiec calibration). The CPMM keeps quoting on stale Friday-close anchored reserves; the BandAMM's quoted range *moves with the band and tightens.* The receipt records that it did. This is the entire value prop in one chart.
+- **Visual narrative:** during a halt or weekend, the band tightens (Paper 1 §6.4 under the v2 / M5 deployment: ~110 bps at τ=0.68 normal, ~280 bps at τ=0.95 normal, ~558 bps at τ=0.95 high_vol — 19–20% narrower than the v1 hybrid Oracle at indistinguishable Kupiec calibration). The CPMM keeps quoting on stale Friday-close anchored reserves; the BandAMM's quoted range *moves with the band and tightens.* The receipt records that it did. This is the entire value prop in one chart, and **it is exactly the regime where the closed-market positioning lives** — the band is wide because the underlying market is closed, the BandAMM prices that uncertainty asymmetrically, the CPMM can't.
 - **Uses everything:** consumes `lower`, `upper`, `claimed_served_bps`, `regime_code`, `publish_ts` — none of those are wasted, none of them are point-only.
-- **Matches Paper 4 §6.2:** the Plugin spec is exactly "standard-fee band + scaled-fee tier outside." This isn't a hackathon-special; it *is* B2 minus the BAM auction layer (which is the post-2026 horizon and out of 8-day scope).
-- **Differentiated vs. Lifinity:** Lifinity quotes `Pyth.point + internal spread`. Soothsayer quotes `[L_τ, U_τ]` directly with empirical-coverage receipts. The talking point: "Lifinity guesses the spread; we publish the calibration."
+- **Matches Paper 4 §6.2:** the Plugin spec is exactly "standard-fee band + scaled-fee tier outside." This isn't a hackathon-special; it *is* B2 minus the BAM auction layer (which is the post-2026 horizon and out of 8-day scope, deferred to L3 in the Soothsayer Stack architecture).
+- **Differentiated vs. Lifinity:** Lifinity quotes `Pyth.point + internal spread`. Soothsayer quotes $[L_\tau, U_\tau]$ directly with empirical-coverage receipts. The talking point: "Lifinity guesses the spread; we publish the calibration. They sunset Dec 2026; we ship the closed-market wedge they didn't address."
+- **Differentiated vs. prop AMMs (HumidiFi, Lifinity v3):** they own a closed-source proprietary fair-value model optimised for fast-tape regimes. We publish an open, audited, multi-cadence band optimised for the closed-market regime they ignore. Different terrain, structural moat (calibration receipt → institutional risk disclosure).
 
-**Drop the auction (mechanism 4) for the hackathon.** It's the right academic target for Paper 4's `g(·)` and the right production target post-BAM-Plugin-SDK, but neither the auction primitive nor the BAM Plugin attestation surface are 8-day-shippable; faking either with a centralised sequencer hurts the pitch's audit-chain story.
+**Drop the auction (mechanism 4) for the hackathon.** It's the right academic target for Paper 4's $g(\cdot)$ and the right production target as **L3 of the Soothsayer Stack** (Jito-restaking AVS for bundle attribution; Sorella-equivalent for Solana RWAs). Neither the auction primitive nor BAM Plugin attestation surface nor the validator AVS are 8-day-shippable; faking either with a centralised sequencer hurts the pitch's audit-chain story.
 
 ### 3.2 Smallest reasonable Solana program scaffold
 
@@ -265,21 +285,31 @@ If R1 (publisher) or R2 (devnet mints) can't be resolved, escalate to cut line 5
 
 ### 3.7 What's *not* in this plan (deliberately)
 
+The hackathon ships **L1.0 + L2.0 + L5.0** of the Soothsayer Stack architecture. Everything below is explicitly post-hackathon, mapped to its target layer in `docs/product-stack.md` §4.
+
 - **No new scryer fetcher** for the hackathon. The demo data is the existing Soothsayer panel + `cme/intraday_1m`; nothing new is fetched outside scryer (CLAUDE.md hard rule §1).
-- **No `g(·)` derivation** — that's Paper 4 Phase B. The hackathon ships the mechanism; the bound is post-grant.
+- **No Sunday-Globex republish** — that's **L1.1 (W8b)**, engineering-gated on the scryer Sunday-evening futures fetcher; ~3-4 weeks post-hackathon.
+- **No intraday basis-risk band** — that's **L1.2 (Paper 5)**; 6-9 month research arc on `r_basis(t) = log(P_xStock_solana) - log(P_underlying_NYSE)`.
+- **No DLMM-bin curve** keyed to band edges — that's **L2.1**; ~2 months post-hackathon. Hackathon ships single-active-range, which is the simplest band-conditioned curve.
+- **No Jupiter integration** — that's **L2.2**; ~1 month post-hackathon. Hackathon ships the Anchor program; Jupiter discoverability waits.
+- **No auction layer / Jito-restaking AVS** — that's **L3**; 12-18 months gated on validator BD. The hackathon receipt design is forward-compatible (will accept `bundle_id` + attributed-profit fields when they arrive).
+- **No JIT-LP, Phoenix-CLOB fallback, POL bootstrapping** — that's **L4**; 6-12 months, sequencing flexible.
+- **No `g(·)` derivation** — that's Paper 4 Phase B (post-grant academic work). The hackathon ships the mechanism; the bound is post-grant.
 - **No production audit / formal verification** — devnet MVP only. README must say so.
 - **No Token-2022 transfer-hook handling** — start with classic SPL; Token-2022 is a v2 if Backed migrates xStock mints.
 - **No multi-pool routing logic** — one pool per (base, USDC) pair; no cross-pool path discovery.
 - **No oracle-update CPI** — the AMM is a pure consumer of the existing on-chain `PriceUpdate` PDA; no upstream dependency on the oracle program crate.
+- **No AMM-track methodology dependency** — the hackathon BandAMM consumes the Lending-track band (M6b2 or M5). AMM-track (M6a) is parked on the W8 result and reopens on W8b/W8c; that's a future width-tightening optimisation, not a hackathon dependency.
 
 ---
 
 ## Cross-references
 
-- `reports/paper4_oracle_conditioned_amm/plan.md` — academic plan; B2 mechanism is the production target this hackathon MVP is the minimal implementation of.
-- `reports/paper4_oracle_conditioned_amm/market-research.md` — Layer-1 (band-AMM) market sizing + LVR cite block; pitch-deck-grade.
-- `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md` — pipelines that, when they ship, give Paper 4 its empirical receipt; *not* on the hackathon critical path but on the post-hackathon clock.
-- `docs/product-stack.md` — the four-layer stack this AMM is the foundation of (band-AMM → band-perp → band-options → settlement).
+- `docs/product-stack.md` — **strategic anchor**; the Soothsayer Stack architecture this hackathon ships L1.0 + L2.0 + L5.0 of.
+- `reports/paper4_oracle_conditioned_amm/plan.md` — Paper 4 academic plan; B2 mechanism is the production target this hackathon MVP is the minimal implementation of.
+- `reports/paper4_oracle_conditioned_amm/market-research.md` — Layer-1 market sizing + LVR cite block; pitch-deck-grade.
+- `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md` — pipelines that, when they ship, unlock L1.1/L1.2/L3 in the post-hackathon roadmap.
+- `reports/methodology_history.md` — W8 (2026-05-03) AMM-track parking decision; M6b2 lending-track shipping cadence.
 - `docs/product-spec.md` — the band itself (Layer 0); the consumer-facing projections section §"Consumer-facing projections" lists the surfaces this AMM is the AMM-shaped instance of.
 - `programs/soothsayer-oracle-program/src/state.rs:75-119` — the `PriceUpdate` PDA layout the BandAMM reads.
 - `crates/soothsayer-consumer/src/lib.rs:97-150` — the `PriceBand` decoder + invariant validator the BandAMM imports.

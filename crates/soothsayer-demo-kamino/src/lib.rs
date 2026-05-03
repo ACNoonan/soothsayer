@@ -310,7 +310,9 @@ pub fn evaluate_with_flat_band(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soothsayer_consumer::{FORECASTER_F1_EMP_REGIME, REGIME_HIGH_VOL, REGIME_NORMAL};
+    use soothsayer_consumer::{
+        FORECASTER_F1_EMP_REGIME, PROFILE_LENDING, REGIME_HIGH_VOL, REGIME_NORMAL,
+    };
 
     /// Build a synthetic PriceBand with exponent = -8 (standard Soothsayer scale).
     fn make_band(
@@ -328,6 +330,7 @@ mod tests {
             regime_code: regime,
             forecaster_code: FORECASTER_F1_EMP_REGIME,
             exponent: -8,
+            profile_code: PROFILE_LENDING,
             target_coverage_bps: 9500,
             claimed_served_bps: claim_bps,
             buffer_applied_bps: 250,

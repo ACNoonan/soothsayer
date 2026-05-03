@@ -13,20 +13,24 @@ use soothsayer_consumer::{
     FORECASTER_F0_STALE, FORECASTER_F1_EMP_REGIME, FORECASTER_MONDRIAN, REGIME_HIGH_VOL,
     REGIME_LONG_WEEKEND, REGIME_NORMAL,
 };
-use soothsayer_oracle::types::{PricePoint, Regime};
+use soothsayer_oracle::types::{PricePoint, Profile, Regime};
 use thiserror::Error;
 
 /// Default precision for published prices: 10^-8 per fixed-point unit.
 pub const DEFAULT_EXPONENT: i8 = -8;
 
 /// Byte-for-byte representation of the on-chain `PublishPayload` — kept in
-/// sync with the Anchor program's state.rs.
+/// sync with the Anchor program's state.rs. Borsh-serialized size = 67
+/// bytes (66 pre-A4 + 1 byte for `profile_code`).
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PublishPayload {
     pub version: u8,
     pub regime_code: u8,
     pub forecaster_code: u8,
     pub exponent: i8,
+    /// Serving profile code: 1 = lending, 2 = amm. The on-chain program
+    /// rejects 0 from new publishes (reserved for legacy pre-A4 receipts).
+    pub profile_code: u8,
     pub target_coverage_bps: u16,
     pub claimed_served_bps: u16,
     pub buffer_applied_bps: u16,
@@ -95,10 +99,14 @@ pub fn forecaster_to_code(name: &str) -> u8 {
         // Legacy v1 receipts (paper 1 §7.4 hybrid forecaster).
         "F1_emp_regime" => FORECASTER_F1_EMP_REGIME,
         "F0_stale" => FORECASTER_F0_STALE,
-        // M5 / v2 deployment (paper 1 §7.7).
+        // M5 / v2 + M6b2 dual-profile (paper 1 §7.7, M6_REFACTOR.md).
         "mondrian" => FORECASTER_MONDRIAN,
         _ => 255, // unknown — consumer should reject
     }
+}
+
+pub fn profile_to_code(profile: Profile) -> u8 {
+    profile.code()
 }
 
 fn coverage_to_bps(c: f64) -> Result<u16, PayloadError> {
@@ -132,6 +140,7 @@ pub fn from_price_point(pp: &PricePoint) -> Result<PublishPayload, PayloadError>
         regime_code: regime_to_code(pp.regime),
         forecaster_code: forecaster_to_code(&pp.forecaster_used),
         exponent,
+        profile_code: profile_to_code(pp.profile),
         target_coverage_bps: coverage_to_bps(pp.target_coverage)?,
         claimed_served_bps: coverage_to_bps(pp.claimed_coverage_served)?,
         buffer_applied_bps: coverage_to_bps(pp.calibration_buffer_applied)?,
@@ -148,11 +157,12 @@ pub fn from_price_point(pp: &PricePoint) -> Result<PublishPayload, PayloadError>
 /// `PublishPayload`. Kept manually to avoid pulling in borsh as a heavy dep
 /// for the publisher binary; matches the anchor derivation exactly.
 pub fn borsh_bytes(payload: &PublishPayload) -> Vec<u8> {
-    let mut out = Vec::with_capacity(64);
+    let mut out = Vec::with_capacity(67);
     out.push(payload.version);
     out.push(payload.regime_code);
     out.push(payload.forecaster_code);
     out.push(payload.exponent as u8);
+    out.push(payload.profile_code);
     out.extend_from_slice(&payload.target_coverage_bps.to_le_bytes());
     out.extend_from_slice(&payload.claimed_served_bps.to_le_bytes());
     out.extend_from_slice(&payload.buffer_applied_bps.to_le_bytes());
@@ -169,7 +179,7 @@ pub fn borsh_bytes(payload: &PublishPayload) -> Vec<u8> {
 mod tests {
     use super::*;
     use chrono::NaiveDate;
-    use soothsayer_oracle::types::{PricePoint, PricePointDiagnostics};
+    use soothsayer_oracle::types::{PricePoint, PricePointDiagnostics, Profile};
 
     fn sample_price_point() -> PricePoint {
         PricePoint {
@@ -185,12 +195,15 @@ mod tests {
             forecaster_used: "mondrian".to_string(),
             sharpness_bps: 181.16653981260782,
             half_width_bps: 183.7710258147993,
+            profile: Profile::Amm,
             diagnostics: PricePointDiagnostics {
                 fri_close: 710.1400146484375,
                 served_target: 0.95,
                 c_bump: 1.300,
-                q_regime: 0.021530,
                 q_eff: 0.027989,
+                q_regime: Some(0.021530),
+                symbol_class: None,
+                b_class: None,
             },
         }
     }
@@ -239,6 +252,20 @@ mod tests {
     #[test]
     fn borsh_bytes_matches_publish_payload_wire_size() {
         let payload = from_price_point(&sample_price_point()).unwrap();
-        assert_eq!(borsh_bytes(&payload).len(), 66);
+        assert_eq!(borsh_bytes(&payload).len(), 67);
+    }
+
+    #[test]
+    fn from_price_point_propagates_amm_profile_code() {
+        let payload = from_price_point(&sample_price_point()).unwrap();
+        assert_eq!(payload.profile_code, soothsayer_consumer::PROFILE_AMM);
+    }
+
+    #[test]
+    fn from_price_point_propagates_lending_profile_code() {
+        let mut pp = sample_price_point();
+        pp.profile = Profile::Lending;
+        let payload = from_price_point(&pp).unwrap();
+        assert_eq!(payload.profile_code, soothsayer_consumer::PROFILE_LENDING);
     }
 }

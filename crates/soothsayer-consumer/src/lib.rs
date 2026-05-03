@@ -75,6 +75,59 @@ pub const FORECASTER_F1_EMP_REGIME: u8 = 0;
 pub const FORECASTER_F0_STALE: u8 = 1;
 pub const FORECASTER_MONDRIAN: u8 = 2;
 
+/// Serving-profile codes (M6_REFACTOR.md A4). Code 0 is reserved for
+/// pre-A4 in-flight `PriceUpdate` accounts whose `_pad0` byte 0 was zero.
+/// New publishes set 1 (lending) or 2 (amm).
+pub const PROFILE_LEGACY: u8 = 0;
+pub const PROFILE_LENDING: u8 = 1;
+pub const PROFILE_AMM: u8 = 2;
+
+/// Typed serving-profile view. Mirror of `Profile` in
+/// `crates/soothsayer-oracle/src/types.rs`, plus the `Legacy` variant
+/// for pre-A4 receipts.
+///
+/// Consumer responsibility: assert `band.profile()` matches the integration
+/// spec (e.g. a Kamino lending market should refuse a Profile::Amm read).
+/// Treating `Profile::Legacy` as a Lending receipt is acceptable on the
+/// historical pre-A4 deployment slot, but new integrations should reject it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Profile {
+    /// Pre-A4 single-profile receipt; semantically equivalent to a
+    /// pre-M6b2 M5 read.
+    Legacy,
+    /// M6b2 per-symbol_class Mondrian (Lending track).
+    Lending,
+    /// M5 per-regime Mondrian (AMM track interim).
+    Amm,
+}
+
+impl Profile {
+    pub fn from_code(code: u8) -> Option<Self> {
+        match code {
+            PROFILE_LEGACY => Some(Self::Legacy),
+            PROFILE_LENDING => Some(Self::Lending),
+            PROFILE_AMM => Some(Self::Amm),
+            _ => None,
+        }
+    }
+
+    pub fn to_code(self) -> u8 {
+        match self {
+            Self::Legacy => PROFILE_LEGACY,
+            Self::Lending => PROFILE_LENDING,
+            Self::Amm => PROFILE_AMM,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Legacy => "legacy",
+            Self::Lending => "lending",
+            Self::Amm => "amm",
+        }
+    }
+}
+
 pub const PRICE_UPDATE_VERSION: u8 = 1;
 
 /// Typed view over the `PriceUpdate` account data. All fields are primitives
@@ -85,6 +138,9 @@ pub struct PriceBand {
     pub regime_code: u8,
     pub forecaster_code: u8,
     pub exponent: i8,
+    /// Serving profile (0 = legacy/pre-A4, 1 = lending, 2 = amm). Use
+    /// [`Profile::from_code`] for the typed view.
+    pub profile_code: u8,
     pub target_coverage_bps: u16,
     pub claimed_served_bps: u16,
     pub buffer_applied_bps: u16,
@@ -132,6 +188,13 @@ impl PriceBand {
     pub fn symbol_str(&self) -> &str {
         let end = self.symbol.iter().position(|&b| b == 0).unwrap_or(self.symbol.len());
         core::str::from_utf8(&self.symbol[..end]).unwrap_or("")
+    }
+
+    /// Typed serving profile. Returns `None` if the on-chain `profile_code`
+    /// is not a value this SDK version recognises (forward-compat: a future
+    /// program upgrade could add code 3 etc.).
+    pub fn profile(&self) -> Option<Profile> {
+        Profile::from_code(self.profile_code)
     }
 
     /// Check the core band invariant: lower ≤ point ≤ upper.
@@ -210,7 +273,12 @@ pub fn decode_price_update(data: &[u8]) -> Result<PriceBand, DecodeError> {
     let regime_code = body[o]; o += 1;
     let forecaster_code = body[o]; o += 1;
     let exponent = body[o] as i8; o += 1;
-    o += 4; // _pad0
+    // M6_REFACTOR.md A4: byte 4 was formerly `_pad0[0]` (always zero on
+    // pre-A4 publishes). New publishes write the profile_code there.
+    // Old in-flight accounts naturally decode as profile_code = 0
+    // (Profile::Legacy).
+    let profile_code = body[o]; o += 1;
+    o += 3; // _pad0[1..4]
     let target_coverage_bps = u16::from_le_bytes([body[o], body[o+1]]); o += 2;
     let claimed_served_bps = u16::from_le_bytes([body[o], body[o+1]]); o += 2;
     let buffer_applied_bps = u16::from_le_bytes([body[o], body[o+1]]); o += 2;
@@ -229,7 +297,7 @@ pub fn decode_price_update(data: &[u8]) -> Result<PriceBand, DecodeError> {
     let signer_epoch = u64::from_le_bytes(body[o..o+8].try_into().unwrap());
 
     Ok(PriceBand {
-        version, regime_code, forecaster_code, exponent,
+        version, regime_code, forecaster_code, exponent, profile_code,
         target_coverage_bps, claimed_served_bps, buffer_applied_bps,
         symbol,
         point, lower, upper, fri_close,
@@ -274,8 +342,12 @@ const _: fn() = || {
 };
 
 #[cfg(test)]
+extern crate alloc;
+
+#[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn data_size_matches_hand_calc() {
@@ -295,6 +367,7 @@ mod tests {
     fn symbol_str_trims_null_padding() {
         let mut band = PriceBand {
             version: 1, regime_code: 0, forecaster_code: 0, exponent: -8,
+            profile_code: PROFILE_LENDING,
             target_coverage_bps: 9500, claimed_served_bps: 9750, buffer_applied_bps: 250,
             symbol: [0; 16],
             // At exponent=-8, each integer unit is 10^-8; $700 = 700 * 10^8 = 70_000_000_000
@@ -312,6 +385,7 @@ mod tests {
     fn invariant_check_passes_good() {
         let band = PriceBand {
             version: 1, regime_code: 0, forecaster_code: 0, exponent: -8,
+            profile_code: PROFILE_LENDING,
             target_coverage_bps: 9500, claimed_served_bps: 9750, buffer_applied_bps: 250,
             symbol: [0; 16],
             point: 700, lower: 680, upper: 720,
@@ -325,6 +399,7 @@ mod tests {
     fn invariant_check_rejects_inverted_band() {
         let band = PriceBand {
             version: 1, regime_code: 0, forecaster_code: 0, exponent: -8,
+            profile_code: PROFILE_LENDING,
             target_coverage_bps: 9500, claimed_served_bps: 9750, buffer_applied_bps: 250,
             symbol: [0; 16],
             point: 700, lower: 720, upper: 680,  // inverted — should be caught
@@ -332,5 +407,75 @@ mod tests {
             signer: [0; 32], signer_epoch: 0,
         };
         assert_eq!(band.validate_invariants(), Err(DecodeError::InvariantViolated));
+    }
+
+    /// Synthesize a full on-wire `PriceUpdate` account body (8-byte
+    /// discriminator + 128-byte struct) with `profile_code` placed at the
+    /// repurposed `_pad0[0]` slot. Used by the back-compat decode tests.
+    fn synth_account_bytes(profile_code: u8) -> Vec<u8> {
+        let mut data = Vec::with_capacity(8 + PRICE_UPDATE_DATA_SIZE);
+        data.extend_from_slice(&PRICE_UPDATE_DISCRIMINATOR);
+        data.push(1);                  // version
+        data.push(REGIME_NORMAL);      // regime_code
+        data.push(FORECASTER_MONDRIAN);// forecaster_code
+        data.push((-8i8) as u8);       // exponent
+        data.push(profile_code);       // _pad0[0] → profile_code
+        data.extend_from_slice(&[0u8; 3]); // _pad0[1..4]
+        data.extend_from_slice(&9500u16.to_le_bytes()); // target_coverage_bps
+        data.extend_from_slice(&9500u16.to_le_bytes()); // claimed_served_bps
+        data.extend_from_slice(&0u16.to_le_bytes());    // buffer_applied_bps
+        data.extend_from_slice(&[0u8; 2]);             // _pad1
+        let mut symbol = [0u8; 16];
+        symbol[..3].copy_from_slice(b"SPY");
+        data.extend_from_slice(&symbol);
+        data.extend_from_slice(&70_000_000_000i64.to_le_bytes()); // point
+        data.extend_from_slice(&69_000_000_000i64.to_le_bytes()); // lower
+        data.extend_from_slice(&71_000_000_000i64.to_le_bytes()); // upper
+        data.extend_from_slice(&71_000_000_000i64.to_le_bytes()); // fri_close
+        data.extend_from_slice(&0i64.to_le_bytes()); // fri_ts
+        data.extend_from_slice(&0i64.to_le_bytes()); // publish_ts
+        data.extend_from_slice(&0u64.to_le_bytes()); // publish_slot
+        data.extend_from_slice(&[0u8; 32]);          // signer
+        data.extend_from_slice(&0u64.to_le_bytes()); // signer_epoch
+        assert_eq!(data.len(), 8 + PRICE_UPDATE_DATA_SIZE);
+        data
+    }
+
+    #[test]
+    fn decode_legacy_account_yields_profile_zero() {
+        // Pre-A4 in-flight account: byte 4 was the first byte of `_pad0`,
+        // always zero. New consumer must decode it as PROFILE_LEGACY.
+        let bytes = synth_account_bytes(PROFILE_LEGACY);
+        let band = decode_price_update(&bytes).expect("decode ok");
+        assert_eq!(band.profile_code, PROFILE_LEGACY);
+        assert_eq!(band.profile(), Some(Profile::Legacy));
+    }
+
+    #[test]
+    fn decode_lending_account_yields_profile_lending() {
+        let bytes = synth_account_bytes(PROFILE_LENDING);
+        let band = decode_price_update(&bytes).expect("decode ok");
+        assert_eq!(band.profile_code, PROFILE_LENDING);
+        assert_eq!(band.profile(), Some(Profile::Lending));
+    }
+
+    #[test]
+    fn decode_amm_account_yields_profile_amm() {
+        let bytes = synth_account_bytes(PROFILE_AMM);
+        let band = decode_price_update(&bytes).expect("decode ok");
+        assert_eq!(band.profile_code, PROFILE_AMM);
+        assert_eq!(band.profile(), Some(Profile::Amm));
+    }
+
+    #[test]
+    fn unknown_future_profile_code_decodes_but_typed_view_is_none() {
+        // Forward-compat: a hypothetical profile_code = 9 from a future
+        // publish should not crash the decoder. The byte field round-trips,
+        // and the typed view returns None — the consumer can decide what
+        // to do.
+        let bytes = synth_account_bytes(9);
+        let band = decode_price_update(&bytes).expect("decode ok");
+        assert_eq!(band.profile_code, 9);
+        assert_eq!(band.profile(), None);
     }
 }

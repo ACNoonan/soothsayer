@@ -21,11 +21,14 @@ pub struct PriceUpdateLayout {
     /// Soothsayer's closed-market regime label: 0=normal, 1=long_weekend,
     /// 2=high_vol, 3=shock_flagged. Maps to our `closed_market_regime_code`.
     pub regime_code: u8,
-    /// 0=F1_emp_regime, 1=F0_stale.
+    /// 0=F1_emp_regime, 1=F0_stale, 2=mondrian.
     pub forecaster_code: u8,
     /// Fixed-point exponent applied to `point` / `lower` / `upper` / `fri_close`.
     pub exponent: i8,
-    pub _pad0: [u8; 4],
+    /// Serving profile (M6_REFACTOR.md A4): 0=legacy, 1=lending, 2=amm.
+    /// Repurposed first byte of the prior `_pad0: [u8;4]` slot.
+    pub profile_code: u8,
+    pub _pad0: [u8; 3],
     pub target_coverage_bps: u16,
     pub claimed_served_bps: u16,
     pub buffer_applied_bps: u16,
@@ -81,7 +84,8 @@ mod parity_canary {
         regime_code: u8,
         forecaster_code: u8,
         exponent: i8,
-        _pad0: [u8; 4],
+        profile_code: u8,
+        _pad0: [u8; 3],
         target_coverage_bps: u16,
         claimed_served_bps: u16,
         buffer_applied_bps: u16,
@@ -104,9 +108,10 @@ mod parity_canary {
         CanonicalPriceUpdate {
             version: 1,
             regime_code: 0, // normal
-            forecaster_code: 0, // F1_emp_regime
+            forecaster_code: 2, // mondrian (M5 / M6b2)
             exponent: -8,
-            _pad0: [0; 4],
+            profile_code: 1, // lending
+            _pad0: [0; 3],
             target_coverage_bps: 9500,
             claimed_served_bps: 9700,
             buffer_applied_bps: 200,
@@ -139,6 +144,7 @@ mod parity_canary {
         assert_eq!(canonical.regime_code, mirror.regime_code);
         assert_eq!(canonical.forecaster_code, mirror.forecaster_code);
         assert_eq!(canonical.exponent, mirror.exponent);
+        assert_eq!(canonical.profile_code, mirror.profile_code);
         assert_eq!(canonical._pad0, mirror._pad0);
         assert_eq!(canonical.target_coverage_bps, mirror.target_coverage_bps);
         assert_eq!(canonical.claimed_served_bps, mirror.claimed_served_bps);
@@ -163,7 +169,8 @@ mod parity_canary {
         //   regime_code   u8    1
         //   forecaster    u8    1
         //   exponent      i8    1   ← 4
-        //   _pad0       [u8;4]  4   ← 8
+        //   profile_code  u8    1   ← 5
+        //   _pad0       [u8;3]  3   ← 8
         //   target_cov   u16    2
         //   claimed     u16    2
         //   buffer       u16    2   ← 14
@@ -178,6 +185,8 @@ mod parity_canary {
         //   publish_slot  u64   8   ← 88
         //   signer     Pubkey  32   ← 120
         //   signer_epoch  u64   8   ← 128
+        // Total = 128, unchanged across the A4 wire-format upgrade
+        // (profile_code repurposes the first byte of the prior _pad0).
         let canonical = sample_canonical();
         let mut buf = Vec::new();
         canonical.serialize(&mut buf).unwrap();

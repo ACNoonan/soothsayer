@@ -116,7 +116,8 @@ def load_cme_factor(factor: str) -> pd.DataFrame:
     root = SCRYER_DATASET_ROOT / "cme" / "intraday_1m" / "v1" / f"symbol={factor}"
     if not root.exists():
         raise FileNotFoundError(f"CME factor not in scryer cache: {factor}")
-    d = ds.dataset(str(root), format="parquet", partitioning="hive")
+    files = [str(p) for p in sorted(root.rglob("*.parquet"))]
+    d = ds.dataset(files, format="parquet")
     tbl = d.to_table(columns=["ts", "high", "low", "close"])
     df = tbl.to_pandas()
     df["ts"] = pd.to_numeric(df["ts"], downcast="integer")
@@ -153,6 +154,44 @@ def cme_path_extrema(
     else:
         anchor = float(pre["close"].iloc[-1])
     return anchor, float(in_window["low"].min()), float(in_window["high"].max()), int(len(in_window))
+
+
+# --------------------------------------------------------------- 24/7 perp path
+
+def load_perp_ohlcv(underlier: str) -> pd.DataFrame:
+    """All 1m perp bars for `underlier` from cex_stock_perp/ohlcv/v1.
+
+    These are 24/7 perpetual futures backed by xStocks (Kraken Futures
+    PF_<sym>XUSD), so they price the underlier continuously over the
+    weekend without the basis-collapse problem of the futures-projected
+    factor. Sample begins 2025-12-22 for SPY/QQQ/GLD and 2026-02-16+ for
+    the rest.
+    """
+    root = SCRYER_DATASET_ROOT / "cex_stock_perp" / "ohlcv" / "v1" / f"underlier={underlier}"
+    cols = ["bar_open_ts", "high", "low", "close", "volume_base"]
+    if not root.exists():
+        return pd.DataFrame(columns=cols)
+    files = [str(p) for p in sorted(root.rglob("*.parquet"))]
+    if not files:
+        return pd.DataFrame(columns=cols)
+    d = ds.dataset(files, format="parquet")
+    tbl = d.to_table(columns=cols)
+    df = tbl.to_pandas()
+    df = df[(df["high"] > 0) & (df["low"] > 0)].sort_values("bar_open_ts").reset_index(drop=True)
+    df["bar_open_ts"] = pd.to_numeric(df["bar_open_ts"], downcast="integer")
+    return df
+
+
+def perp_path_extrema(
+    bars: pd.DataFrame,
+    fri_ts: date,
+    mon_ts: date,
+) -> tuple[float | None, float | None, int]:
+    start_utc, end_utc = weekend_window_utc(fri_ts, mon_ts)
+    w = bars[(bars["bar_open_ts"] >= start_utc) & (bars["bar_open_ts"] <= end_utc)]
+    if w.empty:
+        return None, None, 0
+    return float(w["low"].min()), float(w["high"].max()), int(len(w))
 
 
 # --------------------------------------------------------------- on-chain path
@@ -237,6 +276,45 @@ def eval_cme_path(panel: pd.DataFrame, served: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def eval_perp_path(panel: pd.DataFrame, served: pd.DataFrame) -> pd.DataFrame:
+    """Per-row coverage from cex_stock_perp 1m bars (consumer-relevant 24/7
+    proxy). The perp prices the underlier continuously, so the path is the
+    actual fair-value evolution rather than the band's own factor projection.
+    """
+    base = panel.merge(served, on=["symbol", "fri_ts"], suffixes=("", "_art"))
+    rows: list[dict] = []
+    for sym in ["SPY", "QQQ", "GLD", "AAPL", "TSLA", "HOOD", "MSTR", "GOOGL", "NVDA"]:
+        bars = load_perp_ohlcv(sym)
+        if bars.empty:
+            continue
+        sym_rows = base[base["symbol"] == sym]
+        for _, row in sym_rows.iterrows():
+            lo, hi, n_bars = perp_path_extrema(bars, row["fri_ts"], row["mon_ts"])
+            if lo is None or n_bars == 0:
+                continue
+            for tau in ANCHORS:
+                band_lo = float(row[f"lower_{tau}"])
+                band_hi = float(row[f"upper_{tau}"])
+                rows.append({
+                    "symbol": sym,
+                    "fri_ts": row["fri_ts"],
+                    "mon_ts": row["mon_ts"],
+                    "regime_pub": row["regime_pub"],
+                    "tau": tau,
+                    "n_bars": n_bars,
+                    "fri_close": float(row["fri_close"]),
+                    "mon_open": float(row["mon_open"]),
+                    "point": float(row["point"]),
+                    "band_lo": band_lo,
+                    "band_hi": band_hi,
+                    "perp_path_lo": lo,
+                    "perp_path_hi": hi,
+                    "endpoint_in_band": band_lo <= float(row["mon_open"]) <= band_hi,
+                    "path_in_band": (lo >= band_lo) and (hi <= band_hi),
+                })
+    return pd.DataFrame(rows)
+
+
 def eval_onchain_path(panel: pd.DataFrame, served: pd.DataFrame) -> pd.DataFrame:
     base = panel.merge(served, on=["symbol", "fri_ts"], suffixes=("", "_art"))
     rows: list[dict] = []
@@ -290,9 +368,16 @@ def aggregate(per_row: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
 # --------------------------------------------------------------------- output
 
 def write_markdown(
+    perp_pooled_by_tau: pd.DataFrame,
+    perp_pooled_by_tau_regime: pd.DataFrame,
+    perp_n_rows: int,
+    perp_n_weekends: int,
+    perp_date_range: tuple[date | None, date | None],
     cme_pooled_by_tau: pd.DataFrame,
     cme_pooled_by_tau_regime: pd.DataFrame,
+    cme_n_weekends: int,
     onchain_pooled: pd.DataFrame,
+    onchain_n_weekends: int,
     cme_observable_share: float,
     out_path: Path,
 ) -> None:
@@ -300,53 +385,97 @@ def write_markdown(
     lines.append("# §6.x Path coverage — endpoint vs intra-weekend\n")
     lines.append(
         "Endpoint coverage (§6.2) tests whether the realised Monday open lies "
-        "inside the served band. A DeFi consumer holding an xStock as collateral "
-        "is exposed at every block over the weekend, not only at Monday open. "
-        "This section reports two complementary *path-coverage* measures: the "
-        "fraction of weekends on which the underlier-equivalent price path stays "
-        "inside the served band over the entire prediction window "
-        "[Fri 16:00 ET, Mon 09:30 ET].\n"
+        "inside the served band. A DeFi consumer holding an xStock as "
+        "collateral is exposed at every block over the weekend, not only at "
+        "Monday open. This section reports the fraction of weekends on which a "
+        "24/7-traded reference for each symbol stays inside the served band "
+        "over the entire prediction window `[Fri 16:00 ET, Mon 09:30 ET]`.\n"
     )
-    lines.append("## CME-implied underlier path (full panel proxy)\n")
     lines.append(
-        "For each (symbol, weekend), the path is constructed from the per-symbol "
-        "futures factor (ES=F for equities, GC=F for GLD, ZN=F for TLT) by "
-        "scaling with `fri_close / F_anchor`. CME 1m bars cover Friday "
-        "09:30–17:00 ET and Sunday 18:00 ET through the rest of the week; the "
-        "Friday 17:00 ET → Sunday 18:00 ET Globex-dark window is unobservable. "
-        f"Mean fraction of the prediction window that is observable: "
-        f"`{cme_observable_share:.1%}`. MSTR post-2020-08 is excluded (BTC tape "
-        "absent from scryer cache). CME tape coverage starts 2018-01-05.\n"
+        "Three complementary references are used:\n\n"
+        "1. **Stock-perp 24/7 reference** (`cex_stock_perp/ohlcv/v1`). "
+        "Kraken Futures `PF_<sym>XUSD` perps backed by xStocks; price the "
+        "underlier continuously over the weekend. *Primary path measure.*\n"
+        "2. **On-chain xStock path** (`dex_xstock/swaps/v1`). The consumer-"
+        "experienced object on Solana. *Ground-truth check.*\n"
+        "3. **Factor-projected path** (CME 1m). Tests whether the band holds "
+        "against the band's own factor projection — a smoothness check on "
+        "the deployed point estimator, **not** a consumer-experienced "
+        "measure.\n"
+    )
+    lines.append("\n## (1) Stock-perp 24/7 reference (primary)\n")
+    if perp_pooled_by_tau.empty:
+        lines.append("\n_No perp/panel overlap — the perp tape begins after the artefact's last weekend._\n")
+    else:
+        d0, d1 = perp_date_range
+        lines.append(
+            f"Sample: {int(perp_pooled_by_tau['n'].iloc[0])} (symbol, weekend) "
+            f"pairs across {perp_n_weekends} unique calendar weekends, "
+            f"{d0} → {d1}. SPY/QQQ/GLD perps live since "
+            f"2025-12-22; AAPL/TSLA/HOOD/MSTR/GOOGL/NVDA since 2026-02-16+. "
+            f"TLT excluded (no perp listing). The sample is small but it is "
+            f"the right object — every reading is what a consumer would have "
+            f"observed on a 24/7 reference venue at that minute.\n"
+        )
+        lines.append("**Pooled by τ.**\n")
+        lines.append(perp_pooled_by_tau.to_markdown(index=False, floatfmt=".4f"))
+        if not perp_pooled_by_tau_regime.empty:
+            lines.append("\n\n**Pooled by τ × regime.**\n")
+            lines.append(perp_pooled_by_tau_regime.to_markdown(index=False, floatfmt=".4f"))
+    lines.append("\n\n## (2) On-chain xStock path (ground truth, post-launch slice)\n")
+    lines.append(
+        "On-chain xStock swaps from `dex_xstock/swaps/v1` give the "
+        "consumer-experienced object directly (no scaling). Sample is the "
+        "post-launch slice currently cached in scryer; this is the right "
+        "object for the DeFi consumer story but small-N until V3.1 / scryer "
+        "item 51 backfill matures.\n"
+    )
+    if onchain_pooled.empty:
+        lines.append(
+            f"\n_No on-chain weekend overlap with the panel ({onchain_n_weekends} weekends found)."
+            " The dex_xstock cache currently begins after the panel's last "
+            "Monday — the next artefact rebuild will pick this up._\n"
+        )
+    else:
+        lines.append(onchain_pooled.to_markdown(index=False, floatfmt=".4f"))
+    lines.append("\n\n## (3) Factor-projected path (CME 1m, smoothness check)\n")
+    lines.append(
+        "For each (symbol, weekend) the path is constructed from the per-"
+        "symbol futures factor (ES=F for equities, GC=F for GLD, ZN=F for "
+        "TLT) by scaling with `fri_close / F_anchor`. The band centre `point` "
+        "is itself a function of the factor return, so this measures whether "
+        "the band holds against the *projection's* trajectory — not whether "
+        "it holds against an independent observation of fair value. CME 1m "
+        "covers Friday 09:30–17:00 ET and Sunday 18:00 ET onwards; the "
+        "Friday 17:00 ET → Sunday 18:00 ET Globex-dark window is "
+        f"unobservable. Mean observable share: `{cme_observable_share:.1%}`. "
+        "MSTR post-2020-08 is excluded (BTC tape absent from scryer cache). "
+        "CME tape coverage starts 2018-01-05; the resulting panel is "
+        f"{cme_n_weekends} (symbol, weekend) rows.\n"
     )
     lines.append("**Pooled by τ.**\n")
     lines.append(cme_pooled_by_tau.to_markdown(index=False, floatfmt=".4f"))
     lines.append("\n\n**Pooled by τ × regime.**\n")
     lines.append(cme_pooled_by_tau_regime.to_markdown(index=False, floatfmt=".4f"))
-    lines.append("\n\n## On-chain xStock path (post-launch slice)\n")
-    lines.append(
-        "On-chain xStock swaps from `dex_xstock/swaps/v1` give the "
-        "consumer-experienced object directly (no scaling). Sample is the "
-        "post-launch slice currently cached in scryer; this is the right "
-        "object for DeFi consumer impact but small-N until V3.1 / scryer "
-        "item 51 backfill matures.\n"
-    )
-    if onchain_pooled.empty:
-        lines.append("\n_No on-chain weekend overlap with the panel — sample is shorter than one prediction window._\n")
-    else:
-        lines.append(onchain_pooled.to_markdown(index=False, floatfmt=".4f"))
     lines.append(
         "\n\n## Reading\n"
-        "- Endpoint coverage matches §6.2. Any positive `gap_pp` is the share "
-        "of weekends where the band held at Monday open but was punctured "
-        "at some point intra-weekend.\n"
-        "- The CME-path proxy is conservative against the band on observable "
-        "minutes only — the dark window is genuinely unobservable from CME, "
-        "so the true path-violation rate is **at least** the reported figure.\n"
-        "- Path-violation concentration in `high_vol` (cross-tab above) is "
-        "the load-bearing risk surface for Paper 3 lending policy.\n"
-        "- A consumer requiring path coverage at level τ rather than endpoint "
-        "coverage at level τ should consult the gap and either widen via the "
-        "circuit-breaker mechanism of §9.1 or step up to the next anchor.\n"
+        "- For (1) and (2), `gap_pp = endpoint_cov - path_cov`. Positive "
+        "`gap_pp` is the share of weekends where the band held at Monday "
+        "open but was punctured at some point intra-weekend. This is the "
+        "load-bearing risk for a DeFi consumer.\n"
+        "- For (3), `gap_pp` is typically *negative* — the projected path "
+        "stays inside the band by construction (the centre is the "
+        "projection); the residual surprise is concentrated at the Monday "
+        "open print. The signed gap diagnoses *where* coverage failures "
+        "occur (Monday open vs intra-weekend), not their absolute level.\n"
+        "- A consumer requiring path coverage at level τ rather than "
+        "endpoint coverage at level τ should consult the (1)/(2) gap and "
+        "either widen via the circuit-breaker mechanism of §9.1 or step up "
+        "to the next anchor.\n"
+        "- The full path-coverage validation requires (1)/(2) sample size "
+        "to mature; the present table establishes the methodology and the "
+        "first read on direction. Continued capture is tracked under "
+        "scryer item 51 and §10.1's V3.3.\n"
     )
     out_path.write_text("\n".join(lines))
 
@@ -360,7 +489,17 @@ def main() -> None:
 
     served = serve_bands(artefact)
 
-    print("[1/3] CME path proxy …", flush=True)
+    print("[1/4] Stock-perp 24/7 path …", flush=True)
+    perp_per_row = eval_perp_path(panel, served)
+    perp_n_weekends = perp_per_row["fri_ts"].nunique() if not perp_per_row.empty else 0
+    if not perp_per_row.empty:
+        perp_date_range = (perp_per_row["fri_ts"].min(), perp_per_row["fri_ts"].max())
+    else:
+        perp_date_range = (None, None)
+    print(f"      {len(perp_per_row)} rows ({perp_n_weekends} weekends, "
+          f"{perp_per_row['symbol'].nunique() if not perp_per_row.empty else 0} symbols)", flush=True)
+
+    print("[2/4] CME factor-projected path …", flush=True)
     cme_per_row = eval_cme_path(panel, served)
     print(f"      {len(cme_per_row)} rows ({cme_per_row['fri_ts'].nunique()} weekends, "
           f"{cme_per_row['symbol'].nunique()} symbols)", flush=True)
@@ -386,26 +525,38 @@ def main() -> None:
     cme_pooled_by_tau = aggregate(cme_per_row, ["tau"])
     cme_pooled_by_tau_regime = aggregate(cme_per_row, ["tau", "regime_pub"])
 
-    print("[2/3] On-chain xStock path …", flush=True)
+    perp_pooled_by_tau = aggregate(perp_per_row, ["tau"]) if not perp_per_row.empty else pd.DataFrame()
+    perp_pooled_by_tau_regime = (
+        aggregate(perp_per_row, ["tau", "regime_pub"]) if not perp_per_row.empty else pd.DataFrame()
+    )
+
+    print("[3/4] On-chain xStock path …", flush=True)
     onchain_per_row = eval_onchain_path(panel, served)
-    print(f"      {len(onchain_per_row)} rows ({onchain_per_row['fri_ts'].nunique() if not onchain_per_row.empty else 0} weekends)", flush=True)
+    onchain_n_weekends = onchain_per_row["fri_ts"].nunique() if not onchain_per_row.empty else 0
+    print(f"      {len(onchain_per_row)} rows ({onchain_n_weekends} weekends)", flush=True)
     onchain_pooled = (
         aggregate(onchain_per_row, ["symbol", "tau"])
         if not onchain_per_row.empty else pd.DataFrame()
     )
 
-    print("[3/3] Writing outputs …", flush=True)
+    print("[4/4] Writing outputs …", flush=True)
     out_dir = REPORTS / "tables"
     out_dir.mkdir(parents=True, exist_ok=True)
     cme_per_row.to_csv(out_dir / "path_coverage_cme_per_row.csv", index=False)
     cme_pooled_by_tau.to_csv(out_dir / "path_coverage_cme.csv", index=False)
     cme_pooled_by_tau_regime.to_csv(out_dir / "path_coverage_cme_by_regime.csv", index=False)
+    if not perp_per_row.empty:
+        perp_per_row.to_csv(out_dir / "path_coverage_perp_per_row.csv", index=False)
+        perp_pooled_by_tau.to_csv(out_dir / "path_coverage_perp.csv", index=False)
+        perp_pooled_by_tau_regime.to_csv(out_dir / "path_coverage_perp_by_regime.csv", index=False)
     if not onchain_per_row.empty:
         onchain_per_row.to_csv(out_dir / "path_coverage_onchain_per_row.csv", index=False)
         onchain_pooled.to_csv(out_dir / "path_coverage_onchain.csv", index=False)
 
     write_markdown(
-        cme_pooled_by_tau, cme_pooled_by_tau_regime, onchain_pooled,
+        perp_pooled_by_tau, perp_pooled_by_tau_regime, len(perp_per_row), perp_n_weekends, perp_date_range,
+        cme_pooled_by_tau, cme_pooled_by_tau_regime, len(cme_per_row),
+        onchain_pooled, onchain_n_weekends,
         obs_share, REPORTS / "v1b_path_coverage.md",
     )
     print(f"      observable share of window (CME): {obs_share:.1%}", flush=True)

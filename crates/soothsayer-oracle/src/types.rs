@@ -12,6 +12,43 @@ pub enum Regime {
     HighVol,
 }
 
+/// Serving profile. Both profiles share the M5 Mondrian architecture and
+/// wire format; they differ only in the conformal cell axis (per-class
+/// for Lending, per-regime for AMM) and the band formula (fri_close-
+/// relative for Lending, point-relative for AMM-legacy).
+///
+/// Discriminant values match the on-chain `profile_code` byte that A4
+/// adds to `PriceUpdate`: `Lending = 1`, `Amm = 2`. `0` is reserved for
+/// "legacy M5 single-profile receipt" — not produced by this crate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Profile {
+    Lending = 1,
+    Amm = 2,
+}
+
+impl Profile {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Lending => "lending",
+            Self::Amm => "amm",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "lending" => Some(Self::Lending),
+            "amm" => Some(Self::Amm),
+            _ => None,
+        }
+    }
+
+    /// Borsh-codable byte. Phase A4 wires this into `PriceUpdate.profile_code`.
+    pub fn code(&self) -> u8 {
+        *self as u8
+    }
+}
+
 impl Regime {
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -34,13 +71,15 @@ impl Regime {
 /// The Soothsayer oracle read. Stable fields are what protocols integrate
 /// against; `diagnostics` is human-consumable metadata.
 ///
-/// Field semantics under M5 (Mondrian split-conformal by regime, paper 1 §7.7):
+/// Field semantics under the dual-profile architecture (M5 + M6b2):
 ///   - `target_coverage`: what the consumer asked for (τ).
-///   - `calibration_buffer_applied`: δ(τ) — the OOS-fit τ-shift, the
+///   - `calibration_buffer_applied`: δ(τ) — the walk-forward τ-shift, the
 ///     structural successor to v1's `BUFFER_BY_TARGET` schedule.
 ///   - `claimed_coverage_served`: τ + δ(τ), the served band's claim.
-///   - `forecaster_used`: always "mondrian" under M5 (legacy field; on the
-///     wire this maps to FORECASTER_MONDRIAN = 2).
+///   - `forecaster_used`: "mondrian" under both profiles (legacy field;
+///     on the wire this maps to FORECASTER_MONDRIAN = 2).
+///   - `profile`: which conformal cell axis was used. Lending → per-class,
+///     AMM → per-regime. Wire-encoded as the `profile_code` byte (A4).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PricePoint {
     pub symbol: String,
@@ -55,9 +94,14 @@ pub struct PricePoint {
     pub forecaster_used: String,
     pub sharpness_bps: f64,
     pub half_width_bps: f64,
+    pub profile: Profile,
     pub diagnostics: PricePointDiagnostics,
 }
 
+/// Per-Friday diagnostics. Common fields (fri_close, served_target, c_bump,
+/// q_eff) are populated under both profiles; the cell-specific fields below
+/// are populated only under the matching profile so the JSON shape mirrors
+/// `src/soothsayer/oracle.py`'s diagnostics dict on each side.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PricePointDiagnostics {
     pub fri_close: f64,
@@ -65,10 +109,17 @@ pub struct PricePointDiagnostics {
     pub served_target: f64,
     /// `c(τ')`, the multiplicative OOS-fit bump applied to the trained quantile.
     pub c_bump: f64,
-    /// `q_r(τ')`, the per-regime trained conformal quantile.
-    pub q_regime: f64,
-    /// `c(τ') · q_r(τ')`, the effective relative half-width in residual units.
+    /// `c(τ') · b(cell, τ')`, the effective relative half-width in residual units.
     pub q_eff: f64,
+    /// AMM profile only: `q_r(τ')`, the per-regime trained conformal quantile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub q_regime: Option<f64>,
+    /// Lending profile only: the symbol's class label (e.g. "equity_index").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbol_class: Option<String>,
+    /// Lending profile only: `b(class, τ')`, the per-class trained quantile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub b_class: Option<f64>,
 }
 
 impl PricePoint {

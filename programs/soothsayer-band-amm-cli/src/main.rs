@@ -122,8 +122,13 @@ enum Cmd {
         buffer_applied_bps: u16,
         #[arg(long, default_value_t = 0)]
         regime_code: u8,
-        #[arg(long, default_value_t = 0)]
+        #[arg(long, default_value_t = 2)]
         forecaster_code: u8,
+        /// Serving profile code: 1 = lending, 2 = amm. Defaults to 2
+        /// (amm) since the band-amm CLI is the AMM-track demo path; the
+        /// Lending publisher uses `crates/soothsayer-publisher` instead.
+        #[arg(long, default_value_t = 2)]
+        profile_code: u8,
     },
 
     /// Initialize a BandAMM pool. The pool PDA is derived from
@@ -236,6 +241,7 @@ fn main() -> Result<()> {
             buffer_applied_bps,
             regime_code,
             forecaster_code,
+            profile_code,
         } => {
             run_publish_band(
                 &rpc,
@@ -250,6 +256,7 @@ fn main() -> Result<()> {
                 buffer_applied_bps,
                 regime_code,
                 forecaster_code,
+                profile_code,
             )?;
         }
         Cmd::InitPool {
@@ -495,6 +502,7 @@ fn run_publish_band(
     buffer_applied_bps: u16,
     regime_code: u8,
     forecaster_code: u8,
+    profile_code: u8,
 ) -> Result<()> {
     let symbol_padded = pad_symbol(symbol);
     let payload = oracle_ix::PublishPayload {
@@ -502,6 +510,7 @@ fn run_publish_band(
         regime_code,
         forecaster_code,
         exponent: BAND_EXPONENT,
+        profile_code,
         target_coverage_bps,
         claimed_served_bps,
         buffer_applied_bps,
@@ -728,15 +737,16 @@ fn run_seed_all(
 
     // Hand-picked SPY/QQQ bands centered around late-April 2026 reference
     // levels. Day-4 demo only — replace with publisher output in production.
+    // Pipeline demo: regime=normal(0), forecaster=mondrian(2), profile=amm(2).
     run_publish_band(
         rpc, wallet, state, "SPY",
         700.00, 689.50, 710.50,
-        9500, 9750, 250, 0, 0,
+        9500, 9750, 250, 0, 2, 2,
     )?;
     run_publish_band(
         rpc, wallet, state, "QQQ",
         480.00, 472.50, 487.50,
-        9500, 9750, 250, 0, 0,
+        9500, 9750, 250, 0, 2, 2,
     )?;
 
     let spyx = state.mint_pubkey("spyx_test").context("spyx mint")?;

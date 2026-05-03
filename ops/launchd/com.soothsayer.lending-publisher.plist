@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Soothsayer Lending-track on-chain publisher — macOS launchd template.
+
+  M6_REFACTOR.md Phase A5 step 2. This template fires the publish-batch
+  subcommand on a weekly cadence (Sunday 23:00 UTC), so the band is on chain
+  before Monday-open consumers wake up.
+
+  TEMPLATE — DO NOT INSTALL AS-IS. Replace the four placeholders below,
+  then copy to ~/Library/LaunchAgents/ and load with:
+
+      launchctl load -w ~/Library/LaunchAgents/com.soothsayer.lending-publisher.plist
+
+  Placeholders:
+    {{REPO_ROOT}}      absolute path to this repo (e.g. /Users/adamnoonan/Documents/soothsayer)
+    {{KEYPAIR_PATH}}   absolute path to the operator hot-key keypair JSON
+    {{RPC_URL}}        Solana RPC endpoint
+                       (devnet: https://api.devnet.solana.com,
+                        mainnet: tied to soothsayer Phase A8)
+    {{LOG_DIR}}        absolute log directory (e.g. /Users/adamnoonan/Library/Logs/soothsayer)
+
+  Cadence:
+    Sunday 23:00 UTC = Monday 00:00 UTC = 1h before US equity pre-market open
+    on the East-coast Monday. The on-chain `min_publish_interval_secs` floor
+    (PublisherConfig, default 30s) protects against accidental double-fires.
+
+  Cutover note: this is the LENDING-track publisher (profile_code = 1). When
+  Phase B ships the AMM-track (profile_code = 2), copy this plist with a new
+  Label + log filename + add `--profile amm` to the args list. Both daemons
+  use the same operator hot key and run in parallel.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.soothsayer.lending-publisher</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{REPO_ROOT}}/programs/soothsayer-lending-publisher/target/release/soothsayer-lending-publisher</string>
+        <string>--rpc-url</string>
+        <string>{{RPC_URL}}</string>
+        <string>--keypair</string>
+        <string>{{KEYPAIR_PATH}}</string>
+        <string>--publisher-bin</string>
+        <string>{{REPO_ROOT}}/target/release/soothsayer</string>
+        <string>--repo-root</string>
+        <string>{{REPO_ROOT}}</string>
+        <string>publish-batch</string>
+        <string>--target</string>
+        <string>0.95</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>{{REPO_ROOT}}</string>
+
+    <!-- Sunday 23:00 UTC. launchd interprets StartCalendarInterval keys as
+         the host's local time, so verify the host is UTC or adjust the Hour
+         value: e.g. Hour=18 + Weekday=0 in EST/EDT lands at the same UTC slot. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>23</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>{{LOG_DIR}}/lending-publisher.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{LOG_DIR}}/lending-publisher.err.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RUST_LOG</key>
+        <string>soothsayer_lending_publisher=info</string>
+        <key>SCRYER_DATASET_ROOT</key>
+        <string>/Users/adamnoonan/Library/Application Support/scryer/dataset</string>
+    </dict>
+</dict>
+</plist>

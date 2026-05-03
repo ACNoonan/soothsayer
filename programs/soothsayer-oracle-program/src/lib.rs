@@ -21,7 +21,7 @@ pub mod state;
 use errors::SoothsayerError;
 use state::{
     PriceUpdate, PublishPayload, PublisherConfig, SignerSet, PRICE_UPDATE_VERSION,
-    PUBLISHER_CONFIG_VERSION, SIGNER_SET_VERSION,
+    PROFILE_AMM, PROFILE_LENDING, PUBLISHER_CONFIG_VERSION, SIGNER_SET_VERSION,
 };
 
 // Valid placeholder program ID until deploy tooling rewrites it.
@@ -104,6 +104,13 @@ pub mod soothsayer_oracle_program {
             (-12..=0).contains(&payload.exponent),
             SoothsayerError::ExponentOutOfRange
         );
+        // M6_REFACTOR.md A4: new publishes MUST select a profile.
+        // Code 0 (PROFILE_LEGACY) is reserved for pre-A4 in-flight accounts
+        // and is not a valid publish-time value.
+        require!(
+            payload.profile_code == PROFILE_LENDING || payload.profile_code == PROFILE_AMM,
+            SoothsayerError::UnknownProfileCode
+        );
 
         // The symbol field on the payload must match the seed used for the PDA.
         // Anchor has already verified the PDA matches the accounts; we just
@@ -131,7 +138,8 @@ pub mod soothsayer_oracle_program {
         pu.regime_code = payload.regime_code;
         pu.forecaster_code = payload.forecaster_code;
         pu.exponent = payload.exponent;
-        pu._pad0 = [0; 4];
+        pu.profile_code = payload.profile_code;
+        pu._pad0 = [0; 3];
         pu.target_coverage_bps = payload.target_coverage_bps;
         pu.claimed_served_bps = payload.claimed_served_bps;
         pu.buffer_applied_bps = payload.buffer_applied_bps;
@@ -159,6 +167,7 @@ pub mod soothsayer_oracle_program {
             claimed_served_bps: pu.claimed_served_bps,
             regime_code: pu.regime_code,
             forecaster_code: pu.forecaster_code,
+            profile_code: pu.profile_code,
         });
         Ok(())
     }
@@ -305,6 +314,7 @@ pub struct Published {
     pub claimed_served_bps: u16,
     pub regime_code: u8,
     pub forecaster_code: u8,
+    pub profile_code: u8,
 }
 
 #[event]

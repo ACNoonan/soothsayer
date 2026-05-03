@@ -1,15 +1,21 @@
-//! Mondrian (M5) Oracle implementation — Rust port of `src/soothsayer/oracle.py`.
+//! Dual-profile (M5 + M6b2) Oracle implementation — Rust port of
+//! `src/soothsayer/oracle.py`.
 
 use chrono::NaiveDate;
 use polars::prelude::*;
 use std::path::Path;
 
 use crate::config::{
-    c_bump_for_target, delta_shift_for_target, regime_quantile_for, MAX_SERVED_TARGET,
-    MIN_SERVED_TARGET, MONDRIAN_FORECASTER,
+    c_bump_for_target, delta_shift_for_target, lending_c_bump_for,
+    lending_class_quantile_for, lending_delta_shift_for, regime_quantile_for, symbol_class_for,
+    MAX_SERVED_TARGET, MIN_SERVED_TARGET, MONDRIAN_FORECASTER,
 };
 use crate::error::{Error, Result};
-use crate::types::{PricePoint, PricePointDiagnostics, Regime};
+use crate::types::{PricePoint, PricePointDiagnostics, Profile, Regime};
+
+/// Default serving profile. Matches the Python `DEFAULT_PROFILE` in
+/// `src/soothsayer/oracle.py` — Lending is the deployable v3 winner.
+pub const DEFAULT_PROFILE: Profile = Profile::Lending;
 
 /// One row of the Mondrian artefact for a given (symbol, fri_ts).
 #[derive(Clone, Debug)]
@@ -21,31 +27,44 @@ struct ArtefactRow {
     point: f64,
 }
 
-/// The Soothsayer Oracle — Mondrian split-conformal by regime.
+/// The Soothsayer Oracle — dual-profile Mondrian split-conformal.
 ///
-/// Construct via [`Oracle::load`], then call [`Oracle::fair_value`].
-/// At consumer τ, the served band is
+/// Construct via [`Oracle::load`], then call [`Oracle::fair_value`]. The
+/// served band depends on the profile selected at load time:
 ///
 /// ```text
-///   τ' = τ + δ(τ)
-///   q  = c(τ') · q_r(τ')
-///   lower = point · (1 - q),  upper = point · (1 + q)
+///   τ' = τ + δ(τ)         (profile-specific δ schedule)
+///   q  = c(τ') · b_cell(τ')   (cell axis: regime for AMM, symbol_class for Lending)
+///
+///   AMM (legacy M5):     lower = point · (1 - q),     upper = point · (1 + q)
+///   Lending (M6b2):      lower = point - q · fri_close,
+///                        upper = point + q · fri_close
 /// ```
 ///
-/// where `point = fri_close · (1 + factor_ret)` is the §7.4 factor-adjusted
-/// Friday close (precomputed at artefact-build time), and the schedules
-/// `q_r(·)`, `c(·)`, `δ(·)` are the M5 deployment constants in
+/// where `point = fri_close · (1 + factor_ret)` is the §7.4 factor-
+/// adjusted Friday close (precomputed at artefact-build time). Schedules
+/// `b_cell(·)`, `c(·)`, `δ(·)` are the per-profile constants in
 /// [`crate::config`].
 pub struct Oracle {
     rows: Vec<ArtefactRow>,
+    profile: Profile,
 }
 
 impl Oracle {
-    /// Load the Mondrian artefact (`data/processed/mondrian_artefact_v2.parquet`
-    /// or whatever path is supplied).
+    /// Load the Mondrian artefact under the default profile (Lending).
     pub fn load(artefact_path: &Path) -> Result<Self> {
+        Self::load_with_profile(artefact_path, DEFAULT_PROFILE)
+    }
+
+    /// Load the Mondrian artefact (`data/processed/mondrian_artefact_v2.parquet`
+    /// or whatever path is supplied) under the given profile.
+    pub fn load_with_profile(artefact_path: &Path, profile: Profile) -> Result<Self> {
         let rows = load_artefact(artefact_path)?;
-        Ok(Self { rows })
+        Ok(Self { rows, profile })
+    }
+
+    pub fn profile(&self) -> Profile {
+        self.profile
     }
 
     /// Serve a calibrated band.
@@ -68,14 +87,56 @@ impl Oracle {
             .ok_or_else(|| Error::UnknownRegime(row.regime_pub.clone()))?;
 
         let tau_clipped = target_coverage.clamp(MIN_SERVED_TARGET, MAX_SERVED_TARGET);
-        let delta = delta_shift_for_target(tau_clipped);
-        let served_target = (tau_clipped + delta).min(MAX_SERVED_TARGET);
-        let c_bump = c_bump_for_target(served_target);
-        let q_regime = regime_quantile_for(&row.regime_pub, served_target);
-        let q_eff = c_bump * q_regime;
 
-        let lower = row.point * (1.0 - q_eff);
-        let upper = row.point * (1.0 + q_eff);
+        let (delta, served_target, c_bump, q_eff, lower, upper, diagnostics) = match self.profile {
+            Profile::Lending => {
+                let delta = lending_delta_shift_for(tau_clipped);
+                let served_target = (tau_clipped + delta).min(MAX_SERVED_TARGET);
+                let c_bump = lending_c_bump_for(served_target);
+                let cls = symbol_class_for(symbol)
+                    .ok_or_else(|| Error::UnknownSymbolClass(symbol.to_string()))?;
+                let b = lending_class_quantile_for(cls, served_target)
+                    .ok_or_else(|| Error::UnknownSymbolClass(cls.to_string()))?;
+                let q_eff = c_bump * b;
+                // Band relative to fri_close — exact match to the conformity
+                // score |mon_open - point| / fri_close used to fit b.
+                let lower = row.point - q_eff * row.fri_close;
+                let upper = row.point + q_eff * row.fri_close;
+                let diag = PricePointDiagnostics {
+                    fri_close: row.fri_close,
+                    served_target,
+                    c_bump,
+                    q_eff,
+                    q_regime: None,
+                    symbol_class: Some(cls.to_string()),
+                    b_class: Some(b),
+                };
+                (delta, served_target, c_bump, q_eff, lower, upper, diag)
+            }
+            Profile::Amm => {
+                let delta = delta_shift_for_target(tau_clipped);
+                let served_target = (tau_clipped + delta).min(MAX_SERVED_TARGET);
+                let c_bump = c_bump_for_target(served_target);
+                let q_regime = regime_quantile_for(&row.regime_pub, served_target);
+                let q_eff = c_bump * q_regime;
+                // Legacy M5 formula — band relative to point. Kept for
+                // byte-for-byte parity with deployed M5 receipts.
+                let lower = row.point * (1.0 - q_eff);
+                let upper = row.point * (1.0 + q_eff);
+                let diag = PricePointDiagnostics {
+                    fri_close: row.fri_close,
+                    served_target,
+                    c_bump,
+                    q_eff,
+                    q_regime: Some(q_regime),
+                    symbol_class: None,
+                    b_class: None,
+                };
+                (delta, served_target, c_bump, q_eff, lower, upper, diag)
+            }
+        };
+        let _ = (served_target, c_bump, q_eff); // already captured into PricePoint via diag
+
         let sharpness_bps = if row.fri_close == 0.0 {
             0.0
         } else {
@@ -88,7 +149,7 @@ impl Oracle {
             as_of,
             target_coverage,
             calibration_buffer_applied: delta,
-            claimed_coverage_served: served_target,
+            claimed_coverage_served: diagnostics.served_target,
             point: row.point,
             lower,
             upper,
@@ -96,13 +157,8 @@ impl Oracle {
             forecaster_used: MONDRIAN_FORECASTER.to_string(),
             sharpness_bps,
             half_width_bps,
-            diagnostics: PricePointDiagnostics {
-                fri_close: row.fri_close,
-                served_target,
-                c_bump,
-                q_regime,
-                q_eff,
-            },
+            profile: self.profile,
+            diagnostics,
         })
     }
 

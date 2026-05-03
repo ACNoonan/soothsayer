@@ -27,7 +27,9 @@ use solana_sdk::{
 use soothsayer_band_amm_program::{
     accounts as ix_accts, instruction as ix_data, InitializePoolParams, Swapped,
 };
-use soothsayer_consumer::{PriceBand, PRICE_UPDATE_DISCRIMINATOR, PRICE_UPDATE_VERSION};
+use soothsayer_consumer::{
+    PriceBand, PRICE_UPDATE_DISCRIMINATOR, PRICE_UPDATE_VERSION, PROFILE_AMM,
+};
 use spl_token::state::{Account as TokenAccountState, Mint as MintState};
 
 // ─────────────────────────────────── constants ───────────────────────────────
@@ -305,7 +307,8 @@ fn synth_price_update_data(b: &PriceBand) -> Vec<u8> {
     data.push(b.regime_code);
     data.push(b.forecaster_code);
     data.push(b.exponent as u8);
-    data.extend_from_slice(&[0u8; 4]); // _pad0
+    data.push(b.profile_code);             // M6_REFACTOR.md A4: was _pad0[0]
+    data.extend_from_slice(&[0u8; 3]);     // remaining _pad0[1..4]
     data.extend_from_slice(&b.target_coverage_bps.to_le_bytes());
     data.extend_from_slice(&b.claimed_served_bps.to_le_bytes());
     data.extend_from_slice(&b.buffer_applied_bps.to_le_bytes());
@@ -330,6 +333,7 @@ fn default_band(now_ts: i64) -> PriceBand {
         regime_code: 0,
         forecaster_code: 0,
         exponent: BAND_EXPONENT,
+        profile_code: PROFILE_AMM,
         target_coverage_bps: 9500,
         claimed_served_bps: 9750,
         buffer_applied_bps: 250,
@@ -757,6 +761,7 @@ async fn swap_event_matches_band_pda_at_publish_slot() {
         regime_code: 1,
         forecaster_code: 0,
         exponent: BAND_EXPONENT,
+        profile_code: PROFILE_AMM,
         target_coverage_bps: 9500,
         claimed_served_bps: 9612,
         buffer_applied_bps: 250,

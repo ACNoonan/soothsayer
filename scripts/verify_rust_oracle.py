@@ -1,11 +1,14 @@
 """
-Rust ↔ Python Oracle parity check (Mondrian / M5 deployment).
+Rust ↔ Python Oracle parity check — dual-profile (M5 + M6b2 Lending).
 
-For a random sample of (symbol, fri_ts) tuples from the M5 artefact, call
-both the Python `Oracle.fair_value` and the Rust `soothsayer fair-value` CLI
-and diff the key fields. The expectation is byte-exact agreement on the
-numeric output (point, lower, upper, sharpness_bps, claimed_served) and
-exact agreement on the string fields (regime, forecaster_used).
+For a random sample of (symbol, fri_ts) tuples from the Mondrian artefact,
+call both the Python `Oracle.fair_value` and the Rust `soothsayer fair-value`
+CLI under each profile (`lending`, `amm`) and diff the key fields. The
+expectation is byte-exact agreement on the consumer-facing numeric output
+(point, lower, upper, sharpness_bps, claimed_served) and exact agreement on
+the string fields (regime, forecaster_used, profile).
+
+Phase A3 target (M6_REFACTOR.md): 90/90 per profile.
 
 Run:
     cargo build --release -p soothsayer-publisher
@@ -46,14 +49,20 @@ STRING_FIELDS = [
     "forecaster_used",
     # regime is serialised as snake_case by both
 ]
-DIAGNOSTIC_NUMERIC = [
+DIAGNOSTIC_NUMERIC_COMMON = [
     "fri_close",
     "served_target",
     "c_bump",
-    "q_regime",
     "q_eff",
 ]
-DIAGNOSTIC_STRING: list[str] = []
+DIAGNOSTIC_NUMERIC_BY_PROFILE = {
+    "amm": ["q_regime"],
+    "lending": ["b_class"],
+}
+DIAGNOSTIC_STRING_BY_PROFILE = {
+    "amm": [],
+    "lending": ["symbol_class"],
+}
 
 
 def rust_bin() -> Path:
@@ -62,9 +71,9 @@ def rust_bin() -> Path:
     return RUST_BIN_DEBUG
 
 
-def run_rust(symbol: str, as_of: str, target: float) -> dict:
+def run_rust(symbol: str, as_of: str, target: float, profile: str) -> dict:
     out = subprocess.run(
-        [str(rust_bin()), "fair-value",
+        [str(rust_bin()), "--profile", profile, "fair-value",
          "--symbol", symbol, "--as-of", as_of, "--target", str(target)],
         cwd=REPO_ROOT, capture_output=True, text=True, check=True,
     )
@@ -111,7 +120,7 @@ def diff_fields(label: str, py_val, rs_val, tol: float | None = NUMERIC_TOL) -> 
     return []
 
 
-def compare(py: dict, rs: dict) -> list[str]:
+def compare(py: dict, rs: dict, profile: str) -> list[str]:
     mismatches = []
 
     # Consumer-facing numeric fields must match bit-for-bit (tol=0).
@@ -121,22 +130,71 @@ def compare(py: dict, rs: dict) -> list[str]:
         mismatches += diff_fields(f, py.get(f), rs.get(f))
     mismatches += diff_fields("regime", py.get("regime"), rs.get("regime"))
     mismatches += diff_fields("as_of", py.get("as_of"), rs.get("as_of"))
+    mismatches += diff_fields("profile", py.get("profile"), rs.get("profile"))
 
     # Diagnostic numeric fields: allow ≤1e-12 (ULP noise from op ordering).
     py_d = py.get("diagnostics", {})
     rs_d = rs.get("diagnostics", {})
-    for f in DIAGNOSTIC_NUMERIC:
+    for f in DIAGNOSTIC_NUMERIC_COMMON + DIAGNOSTIC_NUMERIC_BY_PROFILE[profile]:
         mismatches += diff_fields(f"diag.{f}", py_d.get(f), rs_d.get(f), tol=NUMERIC_TOL)
-    for f in DIAGNOSTIC_STRING:
+    for f in DIAGNOSTIC_STRING_BY_PROFILE[profile]:
         mismatches += diff_fields(f"diag.{f}", py_d.get(f), rs_d.get(f))
 
     return mismatches
 
 
+def _build_case_list(unique: pd.DataFrame, n_random: int) -> list[tuple[str, str]]:
+    """Deterministic random sample + per-symbol latest-Friday edge cases."""
+    random.seed(42)
+    sample = unique.sample(n=n_random, random_state=42).reset_index(drop=True)
+    edge_cases = []
+    for symbol in ["SPY", "GLD", "TLT", "MSTR", "HOOD"]:
+        sub = unique[unique["symbol"] == symbol]
+        if not sub.empty:
+            edge_cases.append((symbol, sub["fri_ts"].sort_values().iloc[-1]))
+    cases = [(row["symbol"], str(row["fri_ts"])) for _, row in sample.iterrows()]
+    cases += [(s, str(d)) for s, d in edge_cases]
+    return cases
+
+
+def _run_profile(profile: str, all_cases: list[tuple[str, str]],
+                 target_coverages: list[float]) -> tuple[int, int, int]:
+    """Run parity for one profile. Returns (cases_total, cases_with_mismatch,
+    total_field_diffs)."""
+    print(f"=== profile={profile} ===")
+    oracle = Oracle.load(profile=profile)
+    total = len(all_cases) * len(target_coverages)
+    total_mismatches = 0
+    cases_with_mismatch = 0
+    for i, (symbol, as_of) in enumerate(all_cases):
+        for tc in target_coverages:
+            try:
+                py = run_python(oracle, symbol, as_of, tc)
+                rs = run_rust(symbol, as_of, tc, profile)
+            except Exception as e:
+                print(f"  {symbol:<6} {as_of} target={tc}  ERROR: {e}")
+                total_mismatches += 1
+                continue
+            m = compare(py, rs, profile)
+            if m:
+                cases_with_mismatch += 1
+                total_mismatches += len(m)
+                print(f"  {symbol:<6} {as_of} target={tc:.2f}  MISMATCH ({len(m)}):")
+                for line in m:
+                    print(line)
+            else:
+                if (i * len(target_coverages)) % 30 == 0 and tc == target_coverages[0]:
+                    py_hw = py["half_width_bps"]
+                    cell = py["diagnostics"].get("symbol_class") or py["regime"]
+                    print(f"  {symbol:<6} {as_of} cell={cell:<14} target={tc:.2f}"
+                          f"→claim={py['claimed_coverage_served']:.3f} hw={py_hw:5.0f}bps  ✓")
+    return total, cases_with_mismatch, total_mismatches
+
+
 def main() -> int:
     if not rust_bin().exists():
         print(f"Rust binary not found at {rust_bin()}")
-        print("Run: cargo build -p soothsayer-publisher")
+        print("Run: cargo build --release -p soothsayer-publisher")
         return 2
 
     artefact = pd.read_parquet(ARTEFACT_PATH)
@@ -145,65 +203,31 @@ def main() -> int:
     print(f"Rust binary: {rust_bin()}")
     print()
 
-    # Pinned to AMM (M5-equivalent) until Phase A3 ships the Rust dual-profile
-    # path. Rust today only knows about the M5 regime-axis lookup; comparing
-    # Lending output here would always mismatch.
-    oracle = Oracle.load(profile="amm")
-
-    # Deterministic sample: 10 across various regimes, times, symbols
-    random.seed(42)
-    n_cases = int(sys.argv[1]) if len(sys.argv) > 1 else 20
-    sample = unique.sample(n=n_cases, random_state=42).reset_index(drop=True)
-
-    # Test a few edge cases deterministically too
-    edge_cases = []
-    for symbol in ["SPY", "GLD", "TLT", "MSTR", "HOOD"]:
-        sub = unique[unique["symbol"] == symbol]
-        if not sub.empty:
-            # Recent Friday (likely high-vol or normal)
-            edge_cases.append((symbol, sub["fri_ts"].sort_values().iloc[-1]))
-
-    all_cases = [(row["symbol"], str(row["fri_ts"])) for _, row in sample.iterrows()]
-    all_cases += [(s, str(d)) for s, d in edge_cases]
-
+    # Phase A3 target: 90/90 per profile. 30 cases × 3 anchors = 90.
+    n_random = int(sys.argv[1]) if len(sys.argv) > 1 else 25
+    all_cases = _build_case_list(unique, n_random)
     target_coverages = [0.68, 0.95, 0.99]
-    total = len(all_cases) * len(target_coverages)
-    print(f"Testing {len(all_cases)} (symbol, fri_ts) pairs × {len(target_coverages)} targets = {total} cases")
+    print(f"Testing {len(all_cases)} (symbol, fri_ts) pairs × "
+          f"{len(target_coverages)} targets = {len(all_cases)*len(target_coverages)} "
+          f"cases per profile")
     print()
 
-    total_mismatches = 0
-    cases_with_mismatch = 0
+    summary = {}
+    for profile in ("amm", "lending"):
+        total, cases_with_mm, field_diffs = _run_profile(profile, all_cases, target_coverages)
+        summary[profile] = (total, cases_with_mm, field_diffs)
+        print()
 
-    for i, (symbol, as_of) in enumerate(all_cases):
-        for tc in target_coverages:
-            try:
-                py = run_python(oracle, symbol, as_of, tc)
-                rs = run_rust(symbol, as_of, tc)
-            except Exception as e:
-                print(f"  {symbol:<6} {as_of} target={tc}  ERROR: {e}")
-                total_mismatches += 1
-                continue
-            m = compare(py, rs)
-            if m:
-                cases_with_mismatch += 1
-                total_mismatches += len(m)
-                print(f"  {symbol:<6} {as_of} target={tc:.2f}  MISMATCH ({len(m)}):")
-                for line in m:
-                    print(line)
-            else:
-                # success — print concise OK line
-                if (i * len(target_coverages)) % 10 == 0 and tc == target_coverages[0]:
-                    py_hw = py["half_width_bps"]
-                    print(f"  {symbol:<6} {as_of} regime={py['regime']:<12} fc={py['forecaster_used']:<15}  target={tc:.2f}→claim={py['claimed_coverage_served']:.3f} hw={py_hw:5.0f}bps  ✓")
-
-    print()
     print("=" * 60)
-    if total_mismatches == 0:
-        print(f"PASS: all {total} cases match byte-for-byte ✓")
-        return 0
-    else:
-        print(f"FAIL: {cases_with_mismatch}/{total} cases had mismatches, {total_mismatches} total field differences")
-        return 1
+    grand_pass = True
+    for profile, (total, cases_with_mm, field_diffs) in summary.items():
+        passed = total - cases_with_mm
+        status = "PASS" if field_diffs == 0 else "FAIL"
+        if field_diffs:
+            grand_pass = False
+        print(f"  profile={profile:<8}  {passed}/{total}  ({status})")
+    print("=" * 60)
+    return 0 if grand_pass else 1
 
 
 if __name__ == "__main__":

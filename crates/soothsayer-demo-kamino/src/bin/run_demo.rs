@@ -18,7 +18,8 @@
 
 use serde::Deserialize;
 use soothsayer_consumer::{
-    PriceBand, FORECASTER_F0_STALE, FORECASTER_F1_EMP_REGIME, REGIME_HIGH_VOL, REGIME_LONG_WEEKEND,
+    PriceBand, FORECASTER_F0_STALE, FORECASTER_F1_EMP_REGIME, PROFILE_LENDING, REGIME_HIGH_VOL,
+    REGIME_LONG_WEEKEND,
     REGIME_NORMAL, REGIME_SHOCK_FLAGGED,
 };
 use soothsayer_demo_kamino::{
@@ -100,6 +101,8 @@ fn build_band(b: &BandJson) -> PriceBand {
         regime_code: regime_code(&b.regime),
         forecaster_code: forecaster_code(&b.forecaster_used),
         exponent: FIXED_POINT_EXPONENT,
+        // Demo runs the Kamino lending integration; tag receipts as Lending.
+        profile_code: PROFILE_LENDING,
         target_coverage_bps: (b.target_coverage * 10_000.0).round() as u16,
         claimed_served_bps: (b.claimed_coverage_served * 10_000.0).round() as u16,
         buffer_applied_bps: (b.calibration_buffer_applied * 10_000.0).round() as u16,

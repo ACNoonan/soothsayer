@@ -132,6 +132,49 @@ Soothsayer-side future work after rows exist: pool-state reconstructor, path-awa
 
 ## 1. Recent decision log
 
+### 2026-05-03 — Paper 1 robustness pass + v3 bake-off; M5 frozen as Paper 1, v3 candidates routed as roadmap evidence
+
+**Trigger.** Paper-1 review pass enumerated eight reviewer-anticipated robustness gaps. After running them, three v3 methodology candidates were specced and bake-off-tested against M5 to inform §10 future-work routing. The bake-off ran *after* Paper 1's validation loop closed; this entry records the explicit decision to keep M5 as the Paper 1 primitive and route C1/C2/C4 as roadmap evidence rather than retroactive paper revision.
+
+**Robustness findings (`reports/v1b_paper1_robustness.md`, `reports/tables/v1b_robustness_*.csv`):**
+
+- **Vol-tertile sub-split refutes the "coarse classifier" diagnosis.** 5-cell sub-split of `normal` regime leaves Berkowitz LR unchanged (173.0 → 175.0) while widening τ=0.95 band by 9%. Lag-1 decomposition (`v1b_density_rejection_lag1_decomposition.csv`) confirms the AR(1) signal lives in *cross-sectional within-weekend* ordering (ρ_cross = 0.354, p<10⁻¹⁰⁰), not temporal-within-symbol (ρ_time = -0.032, p=0.18).
+- **Per-symbol calibration is bimodal.** SPY/QQQ/GLD/TLT/AAPL reject Berkowitz from variance compression (bands too wide); TSLA/HOOD/MSTR reject from variance expansion (bands too narrow); NVDA/GOOGL pass. **HOOD per-symbol Kupiec FAILS at τ ∈ {0.68, 0.85, 0.95}** (13.9% violation rate at τ=0.95); passes at τ=0.99. Disclosed in Paper 1 §6.4.1 / §9.4.
+- **Split-date sensitivity passes cleanly.** OOS-anchors {2021, 2022, 2023, 2024}: realised τ=0.95 ∈ {0.9507, 0.9502, 0.9503, 0.9504}, all Kupiec p > 0.86. "Lucky on 2023" foreclosed.
+- **LOSO shows moderate fragility.** Heavy-tail held-out tickers undercovered (MSTR 0.786, HOOD 0.856, TSLA 0.879); well-behaved tickers over-covered (SPY/TLT 1.000). Consistent with bimodal per-symbol pattern.
+- **Per-class deviation.** Equities 0.9386 at τ=0.95 (Kupiec p=0.06); GLD/TLT over-cover (FAIL too-wide). Same root cause as bimodality.
+- **GARCH(1,1) baseline fails Kupiec at τ ∈ {0.68, 0.95, 0.99}.** Textbook econometric default loses head-to-head; 9% sharper at τ=0.95 but undercovers (0.9254 vs M5's 0.9503).
+- **Path-fitted conformity (CME subset, n=3,861) mechanically validates.** Bands widen 5–10%; endpoint Kupiec preserved. Binding answer to §6.6 perp/on-chain gap still requires consumer-experienced sample.
+
+**v3 bake-off findings (`reports/v3_bakeoff.md`, `reports/tables/v3_bakeoff_*.csv`):**
+
+| Variant | τ=0.95 realised | HW (bps) | Δ vs M5 | per-symbol Kupiec pass | ρ_cross |
+|---|---:|---:|---:|---:|---:|
+| M5 | 0.9503 | 354.9 | — | 2/10 | 0.252 |
+| C1 LWC + regime | 0.9503 | 385.3 | +8.6% | **10/10** | 0.249 |
+| C2 M6b2 class | 0.9503 | 302.6 | **−14.7%** | 8/10 | 0.259 |
+| C4 stacked | 0.9555 | 379.6 | +7.0% | 9/10 | 0.280 |
+
+C1 wins per-symbol calibration; C2 wins sharpness. C4 over-corrects (double-counts per-symbol scale). None address ρ_cross — that remains M6a's province, gated on the Friday-observable r̄_w predictor (W8 rejected).
+
+**Decision.**
+
+1. **Freeze M5 as the Paper 1 calibration-transparent endpoint-band primitive.** Paper claim: "M5 is per-anchor calibrated, deployment-calibrated and walk-forward-stable, with disclosed per-symbol heterogeneity and full-distribution limits." C1/C2/C4 are *not* promoted into the main methodology — they ran outside the validation loop and would invite a "how many variants did you try?" review question.
+2. **Diagnostics that strengthen Paper 1 are folded in:** per-symbol bimodality (§6.4.1), split-date sensitivity (§6.3), LOSO fragility (§6.3 / §9.3), GARCH baseline (§6.4.2), per-class deviation (§6.4.3 short paragraph), path-fitted V3.3 mechanical validation (§10.1).
+3. **v3 candidates routed:**
+   - **C1 LWC** → Paper 1 §10.4 lead future candidate for per-symbol calibration; **not adopted in this paper**. Re-evaluate after V3.2 rolling-rebuild + paper-grade walk-forward.
+   - **C2 M6b2** → already deployed for Lending profile. Per-class collateral-buffer narrative belongs in **Paper 3** (lending policy), not Paper 1 main body.
+   - **C4 stacked** → **rejected** (Pareto-dominated; double-counts per-symbol scale). `VALIDATION_BACKLOG.md` W9 records the rejection.
+   - **M6a common-mode partial-out** → already on hold (W8 rejected). Brief mention in §10.4.
+4. **§10.2 revised:** "sub-regime granularity" demoted to a one-sentence "empirically refuted, recorded so the candidate is not re-suggested" note; full-distribution conformal (CQR) and conditional EVT remain as engineering-gated upgrades; the previous "common-mode partial-out — the lead candidate" framing was over-committed and has been pulled back.
+5. **New helper module** `src/soothsayer/backtest/calibration.py::{compute_score, train_quantile_table, fit_c_bump_schedule, serve_bands, fit_split_conformal}` — shared M5 fit/serve primitive used by `scripts/run_v1b_*.py` robustness runners and `scripts/run_v3_bakeoff.py`.
+
+**Evidence.** `reports/v1b_paper1_robustness.md` (robustness brief), `reports/v3_bakeoff.md` (bake-off brief), 8 + 3 CSVs under `reports/tables/v1b_robustness_*.csv` and `reports/tables/v3_bakeoff_*.csv`. Runners: `scripts/run_v1b_{per_symbol_diagnostics,vol_tertile,garch_baseline,split_sensitivity,loso,per_class,path_fitted_conformal}.py`, `scripts/run_v3_bakeoff.py`. Backlog entry: `VALIDATION_BACKLOG.md` W9.
+
+**Impact.** Paper 1 has a clean validation story (M5 + disclosed heterogeneity) and a credible v3 roadmap (§10.4) with C1 as lead per-symbol candidate. M5 stays deployed unchanged. M6b2 stays deployed for Lending profile, with Paper 3 as the natural empirical home. The dual-profile architecture is preserved.
+
+**Open work.** None methodologically-new beyond what was already on the roadmap (M6a r̄_w predictor Sunday-Globex variant W8b, V3.1 F_tok variant W8c, V3.2 rolling rebuild, V3.3 perp/on-chain sample maturation, full-distribution CQR upgrade).
+
 ### 2026-05-03 — Dual-profile methodology family architecturally locked (post-M5)
 
 **Trigger.** Two v3 leads quantified on 2026-05-02 in `VALIDATION_BACKLOG.md` W2-followup:
