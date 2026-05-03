@@ -173,7 +173,13 @@ pub enum DecodeError {
 ///
 /// Anchor computes this as `sha256("account:<TypeName>")[..8]`. Computed offline
 /// and embedded here to keep this crate no_std.
-pub const PRICE_UPDATE_DISCRIMINATOR: [u8; 8] = [149, 40, 25, 155, 47, 226, 14, 198];
+///
+/// Verified against the live `HfMaU9Qa54fp1V3uh11Qec81RgKUgzT6mxvFkmZ6V3LH`
+/// SPY PriceUpdate PDA on devnet (program `AgXLLTmUJEVh9EsJnznU1yJaUeE9Ufe7ZotupmDqa7f6`).
+/// The pre-2026-05-02 constant `[149, 40, 25, 155, 47, 226, 14, 198]` was
+/// internally consistent (synth tests round-tripped) but wrong on chain — the
+/// BandAMM swap path failed `BandRejected` until this was fixed.
+pub const PRICE_UPDATE_DISCRIMINATOR: [u8; 8] = [105, 54, 115, 246, 58, 216, 66, 178];
 
 /// Decode an on-chain `PriceUpdate` account's raw bytes into a typed [`PriceBand`].
 ///

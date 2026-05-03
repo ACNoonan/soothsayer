@@ -1,0 +1,72 @@
+{
+  "rpc_url": "https://devnet.helius-rpc.com/?api-key=c17300b7-e709-476c-9863-c2e7c0e0e520",
+  "wallet": "1vwLaJaLyqbAn8BxqKWs7CLHyozqy2Q9LmTqXLqtANA",
+  "band_amm_program": "7vjG4nuVcpotSBDHPQeonrzuvxbwgDddKzibeLASaqw8",
+  "oracle_program": "AgXLLTmUJEVh9EsJnznU1yJaUeE9Ufe7ZotupmDqa7f6",
+  "mints": {
+    "qqqx_test": {
+      "label": "QQQx_test",
+      "pubkey": "3WDGr1g8ueP1iFPkjz4jE5pHr4WsB6DuaypgmoFNR6Lb",
+      "decimals": 8
+    },
+    "spyx_test": {
+      "label": "SPYx_test",
+      "pubkey": "8dvG4TJrZQLnw6d9s1zJ39yp7SydkdmCSz16UzgkZMYa",
+      "decimals": 8
+    },
+    "usdc_test": {
+      "label": "USDC_test",
+      "pubkey": "4FavP7YJmPn5dWoqAJKVvGASRbNhpqkjEFSgQzBkmGo6",
+      "decimals": 6
+    }
+  },
+  "bands": {
+    "QQQ": {
+      "symbol": "QQQ",
+      "price_update": "9xe7jtfvTg4LXUEwS8ocM9NetfeLsvTd1PdNTRwzgByt",
+      "point": 480.0,
+      "lower": 472.5,
+      "upper": 487.5,
+      "target_coverage_bps": 9500,
+      "claimed_served_bps": 9750,
+      "regime_code": 0
+    },
+    "SPY": {
+      "symbol": "SPY",
+      "price_update": "HfMaU9Qa54fp1V3uh11Qec81RgKUgzT6mxvFkmZ6V3LH",
+      "point": 700.0,
+      "lower": 689.5,
+      "upper": 710.5,
+      "target_coverage_bps": 9500,
+      "claimed_served_bps": 9750,
+      "regime_code": 0
+    }
+  },
+  "pools": {
+    "QQQx-USDC": {
+      "label": "QQQx-USDC",
+      "symbol": "QQQ",
+      "base_mint": "3WDGr1g8ueP1iFPkjz4jE5pHr4WsB6DuaypgmoFNR6Lb",
+      "quote_mint": "4FavP7YJmPn5dWoqAJKVvGASRbNhpqkjEFSgQzBkmGo6",
+      "pool": "8YHgNWSANPMuMYA5QViwykj4Hj6jjF2HF987vBgR4Gpv",
+      "lp_mint": "2RbkjyPMLUkzczZHVDVRyBiEsf6Z7fqWTSowvqi49SWd",
+      "base_vault": "D5G5VgbHoxu7rTfemLmDE8RKLkn4Ypsj6shnoneWQgbY",
+      "quote_vault": "FLq7MJa9BYR8qo1x9eLmbSAXuLMcAx6ScrHqu7b38Zf4",
+      "price_update": "9xe7jtfvTg4LXUEwS8ocM9NetfeLsvTd1PdNTRwzgByt",
+      "deposited": false
+    },
+    "SPYx-USDC": {
+      "label": "SPYx-USDC",
+      "symbol": "SPY",
+      "base_mint": "8dvG4TJrZQLnw6d9s1zJ39yp7SydkdmCSz16UzgkZMYa",
+      "quote_mint": "4FavP7YJmPn5dWoqAJKVvGASRbNhpqkjEFSgQzBkmGo6",
+      "pool": "Af8nMX3r9jcPXttfHQh6QE89XvpZ92pMNHtwdeuhY6QC",
+      "lp_mint": "8AFxZR9tiy1HJZVYSsRVk5mYADnFhTJ9NhJXADtjL1Sw",
+      "base_vault": "52EYRC7u1CNNMxDASBKkpLJFuKwi3mqs1kBEgtrgNiEo",
+      "quote_vault": "4fnN5qFjWJer7JhCESLhYViZebttxhd2utERa4mPpsig",
+      "price_update": "HfMaU9Qa54fp1V3uh11Qec81RgKUgzT6mxvFkmZ6V3LH",
+      "deposited": false
+    }
+  },
+  "swaps": []
+}

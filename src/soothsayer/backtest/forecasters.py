@@ -81,6 +81,32 @@ def sigma_f0(panel: pd.DataFrame) -> pd.Series:
     return panel["fri_vol_20d"].astype(float) * _gap_scale(panel["gap_days"]) * panel["fri_close"].astype(float)
 
 
+# Equity tickers for which VIX is the appropriate implied-vol proxy. GLD/TLT
+# use GVZ/MOVE in F1's per-symbol switchboard; building an analogous F0_VIX
+# rung for them requires per-class unit conversion (MOVE→TLT via duration)
+# that is a v2 baseline — see §10 of paper 1.
+_F0_VIX_UNIVERSE = frozenset({"SPY", "QQQ", "AAPL", "GOOGL", "NVDA", "TSLA", "MSTR", "HOOD"})
+
+
+def sigma_f0_vix(panel: pd.DataFrame) -> pd.Series:
+    """F0_VIX sigma: VIX-implied Gaussian band, in price units.
+
+    σ_t = (VIX_t / 100) · √(extra_trading_days / 252) · P_{t-}
+
+    VIX is annualised in %. Converting to a 2-trading-day return std and
+    multiplying by Friday close gives a price-units 1σ. Equity-only —
+    GLD/TLT rows are masked out (NaN) because their proper vol indices
+    (GVZ %, MOVE bp/yield) require unit conversions outside this rung's
+    scope.
+    """
+    vix = panel["vix_fri_close"].astype(float)
+    extra_days = (panel["gap_days"].astype(int) - 3).clip(lower=0) + 1
+    sigma_ret = (vix / 100.0) * np.sqrt(extra_days.astype(float) / 252.0)
+    sigma = sigma_ret * panel["fri_close"].astype(float)
+    is_eq = panel["symbol"].isin(_F0_VIX_UNIVERSE)
+    return sigma.where(is_eq)
+
+
 def _rolling_residual_std(
     panel: pd.DataFrame,
     point_col: str,
@@ -419,6 +445,22 @@ def forecast_f0(panel: pd.DataFrame) -> pd.DataFrame:
         {
             "point": point_stale(panel),
             "sigma": sigma_f0(panel),
+        },
+        index=panel.index,
+    )
+
+
+def forecast_f0_vix(panel: pd.DataFrame) -> pd.DataFrame:
+    """F0_VIX Stale-hold + VIX-implied Gaussian sigma. Returns columns point, sigma.
+
+    The forward-curve-implied baseline ablation rung (paper 1 §7.1). Same
+    point estimate as F0_stale; sigma replaces the rolling 20-day realised
+    vol with VIX-implied vol scaled to the weekend horizon. Equity-only.
+    """
+    return pd.DataFrame(
+        {
+            "point": point_stale(panel),
+            "sigma": sigma_f0_vix(panel),
         },
         index=panel.index,
     )

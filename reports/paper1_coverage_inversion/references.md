@@ -287,6 +287,13 @@ Buckets:
 - **Why we cite it:** This is the modern parent literature for what our coverage-inversion primitive does at high $\tau$: a forecaster can be calibrated on average and still miscalibrated in the tail, which is precisely the failure mode our $\tau = 0.99$ ceiling (§9.1) describes. Allen et al. supply the formal framework that says this distinction matters and is measurable. Our weekend prediction-window setting is the financial-microstructure instantiation of their framework.
 - **Bucket:** calibration-conformal
 
+### [mcneil-frey-2000] McNeil, A. J., Frey, R. 2000. Estimation of tail-related risk measures for heteroscedastic financial time series: An extreme value approach.
+- **Venue:** Journal of Empirical Finance 7(3-4), 271–300
+- **URL / DOI:** https://doi.org/10.1016/S0927-5398(00)00012-8
+- **Contribution:** Two-stage conditional extreme value theory (CEVT) for heteroscedastic financial time series: fit a GARCH model to capture conditional volatility, then apply peaks-over-threshold GPD estimation to the standardised innovations. Targets the conditional-persistence structure that unconditional EVT ignores when applied directly to returns.
+- **Why we cite it:** Names the technically-correct EVT response to the conditional-volatility-persistence mechanism diagnosed by our Trial 1 (`reports/v1b_evt_pot_trial.md`); positions CEVT in §10.2 as the v2-territory follow-up to the unconditional GPD fit that we falsify as the headline-DQ fix at $\tau = 0.99$.
+- **Bucket:** calibration-conformal
+
 ---
 
 ## Bucket: model-risk-management

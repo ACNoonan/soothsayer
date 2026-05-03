@@ -20,6 +20,7 @@ exclude = [
     "programs/soothsayer-streams-relay-program",
     "programs/mock-chainlink-verifier-program",
     "programs/soothsayer-band-amm-program",
+    "programs/soothsayer-band-amm-cli",
 ]
 resolver = "2"
 

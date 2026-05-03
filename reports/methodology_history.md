@@ -126,6 +126,18 @@ Soothsayer-side future work after rows exist: pool-state reconstructor, path-awa
 
 ## 1. Recent decision log
 
+### 2026-05-02 — Paper 1 §7 forward-curve-implied baseline rung (F0_VIX)
+
+**Trigger.** Reviewer-defensibility critique on Paper 1 §7 ablation: the ladder includes A0 (20-day realised Gaussian) and A1+ (factor-switchboard + empirical quantile) but no standalone forward-curve-implied Gaussian rung. The "use VIX × z_τ × √(2/252) × P" baseline is what every reviewer is likely to ask for as the natural alternative to F1's per-symbol vol machinery.
+
+**Decision.** Land F0_VIX as a §7.1 rung between A0 and A1, plumb F0_VIX bounds into `v1b_bounds.parquet`, and serve B1 / B2 challenger cells in §7.4 (zero-buffer + deployed-buffer) on the OOS 2023+ slice. Equity-only — GLD/TLT use GVZ/MOVE in F1 and require per-class unit conversions for an analogous standalone baseline; that's a v2 candidate. Add a corresponding v2 architectural workstream (V2.4) for intra-weekend forward-signal updating from the Sunday 18:00 ET ES Globex reopen, distinct from the F\_tok V2.1 workstream. Add scryer wishlist item 52 for per-symbol implied vol from OPRA / Cboe.
+
+**Evidence.** `reports/paper1_coverage_inversion/07_ablation.md` (rung, serving cells, taxonomy); `reports/tables/v1b_ablation.csv`, `reports/tables/v1b_serving_ablation.csv`, `reports/tables/v1b_serving_ablation_bootstrap.csv`. Headline: F0_VIX raw is 49.3% sharper than A0 on equity-matched rows (n=4,719) but undercovers by 7.86pp; through the deployed serving stack (B2: 0.020 buffer) it realises 0.876 against τ=0.95 (Kupiec rejects p≈0); the bootstrap delta against C4 is +6.7pp coverage [+4.3, +9.1] at +88% width. Mechanism: index-level VIX systematically misprices single-stock weekend tails, particularly for high-beta names (NVDA / TSLA / MSTR).
+
+**Impact.** §7 is now closed against the canonical reviewer-asked baseline. The F0_VIX rung is disclosed-not-deployed; F1's per-symbol vol-indexing + log-log regression + empirical-quantile inversion is the load-bearing path from the natural baseline to a calibrated served band on freely-available data. No methodology-constants change.
+
+**Open work.** Stage1 bootstrap CIs for the new (A0 → A0_VIX) and (A0_VIX → A1) ladder pairs are pending the next `run_stage1_stats.py` completion; matched-pair point estimates landed via the per-row ablation parquet. Per-symbol IV ingest (scryer item 52) gates a future F0_singleIV rung in v2.
+
 ### 2026-05-02 — Operational compaction of methodology context
 
 **Trigger.** Agent startup context was dominated by historical methodology prose. The cost was operational: less context left for current work.

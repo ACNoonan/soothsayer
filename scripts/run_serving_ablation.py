@@ -46,7 +46,17 @@ CELLS = [
     ("C2", None, "zero"),                  # None → use REGIME_FORECASTER
     ("C3", "F1_emp_regime", "deployed"),
     ("C4", None, "deployed"),              # = the deployed Oracle
+    # F0_VIX challenger rungs (paper 1 §7.4): forward-curve-implied Gaussian
+    # baseline through the same surface inversion + buffer as the deployed
+    # forecasters. B1 mirrors C0 (zero buffer), B2 mirrors C3 (deployed buffer).
+    # Equity-only — bounds carry only the 8 equities, so the cell sample is
+    # smaller than C0–C4 by the GLD/TLT row count.
+    ("B1", "F0_VIX", "zero"),
+    ("B2", "F0_VIX", "deployed"),
 ]
+
+
+F0_VIX_EQUITY_UNIVERSE = frozenset({"SPY", "QQQ", "AAPL", "GOOGL", "NVDA", "TSLA", "MSTR", "HOOD"})
 
 
 def serve_cell(oracle: Oracle, panel_oos: pd.DataFrame, cell_name: str,
@@ -54,6 +64,10 @@ def serve_cell(oracle: Oracle, panel_oos: pd.DataFrame, cell_name: str,
     """Serve every (symbol, fri_ts) in OOS at `target` under this cell's config."""
     rows = []
     for _, w in panel_oos.iterrows():
+        # F0_VIX is equity-only — GLD/TLT bounds were not built for this
+        # forecaster (their proper vol indices are GVZ/MOVE; see §7.5).
+        if forecaster == "F0_VIX" and w["symbol"] not in F0_VIX_EQUITY_UNIVERSE:
+            continue
         if buffer_strategy == "zero":
             buffer_arg: float | None = 0.0
         else:
@@ -115,12 +129,24 @@ def cell_summary(served: pd.DataFrame, target: float) -> dict:
 
 def block_bootstrap_delta(serv_a: pd.DataFrame, serv_b: pd.DataFrame,
                            rng: np.random.Generator, n_resamples: int = N_BOOTSTRAP):
-    """Per-weekend block bootstrap on Δcoverage and Δsharpness% (b−a)."""
-    # Pivot to (fri_ts × symbol) grids so resampling by weekend keeps cross-
-    # sectional correlation intact.
-    weekends = sorted(set(serv_a["fri_ts"]).intersection(set(serv_b["fri_ts"])))
-    a_by_w = serv_a.set_index(["fri_ts", "symbol"])
-    b_by_w = serv_b.set_index(["fri_ts", "symbol"])
+    """Per-weekend block bootstrap on Δcoverage and Δsharpness% (b−a).
+
+    Restricts the comparison to the (fri_ts, symbol) intersection so cells with
+    different sample compositions (e.g., F0_VIX equity-only vs full hybrid
+    panel) are compared on the same rows. Within each bootstrap iteration we
+    resample weekends, then take all symbols common to both cells at each
+    sampled weekend.
+    """
+    keys_a = set(zip(serv_a["fri_ts"], serv_a["symbol"]))
+    keys_b = set(zip(serv_b["fri_ts"], serv_b["symbol"]))
+    common_keys = keys_a & keys_b
+    if not common_keys:
+        return np.array([]), np.array([])
+    a_filt = serv_a[serv_a.set_index(["fri_ts", "symbol"]).index.isin(common_keys)]
+    b_filt = serv_b[serv_b.set_index(["fri_ts", "symbol"]).index.isin(common_keys)]
+    weekends = sorted({w for w, _ in common_keys})
+    a_by_w = a_filt.set_index(["fri_ts", "symbol"])
+    b_by_w = b_filt.set_index(["fri_ts", "symbol"])
     deltas_cov = []
     deltas_sharp = []
     for _ in range(n_resamples):
@@ -178,7 +204,8 @@ def main() -> None:
         summary_rows.append({
             "cell": name,
             "policy": "F1 everywhere" if fc == "F1_emp_regime" else
-                      "F0 everywhere" if fc == "F0_stale" else "hybrid",
+                      "F0 everywhere" if fc == "F0_stale" else
+                      "F0_VIX everywhere" if fc == "F0_VIX" else "hybrid",
             "buffer_strategy": strat,
             "buffer_applied": s["buffer_applied"],
             **{k: v for k, v in s.items() if k != "buffer_applied"},
@@ -197,6 +224,10 @@ def main() -> None:
         ("C0", "C3", "buffer effect, no hybrid"),
         ("C2", "C4", "buffer effect, with hybrid"),
         ("C0", "C4", "total serving layer"),
+        # F0_VIX challenger comparisons (paper 1 §7.4)
+        ("B1", "B2", "F0_VIX buffer effect"),
+        ("B2", "C4", "F0_VIX buffered vs deployed Oracle"),
+        ("B2", "C3", "F0_VIX buffered vs F1-everywhere buffered"),
     ]
     rng = np.random.default_rng(RNG_SEED)
     bootstrap_rows = []

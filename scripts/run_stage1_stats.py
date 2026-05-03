@@ -135,6 +135,8 @@ def run_a_ladder_bootstrap() -> pd.DataFrame:
     rows = pd.read_parquet(DATA_PROCESSED / "v1b_ablation_rows.parquet")
     # Pairs exercise one knob at a time along the ladder, plus one B0 comparison.
     pairs = [
+        ("A0_f0_stale",      "A0_VIX_f0_vix"),      # swap σ source: 20d realised → VIX-implied
+        ("A0_VIX_f0_vix",    "A1_f1_emp"),          # factor-adj + empirical Q on top of VIX-Gaussian
         ("A0_f0_stale",      "A1_f1_emp"),          # factor-adj point + empirical quantiles
         ("A1_f1_emp",        "A2_f1_emp_vol"),      # VIX-scaled residuals
         ("A2_f1_emp_vol",    "A3_f1_ll_vix"),       # log-log VIX regression

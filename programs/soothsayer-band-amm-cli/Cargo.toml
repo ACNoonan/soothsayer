@@ -1,0 +1,45 @@
+[package]
+name = "soothsayer-band-amm-cli"
+description = "Devnet seeding + demo CLI for the BandAMM. Creates test mints, refreshes the soothsayer oracle PriceUpdate PDA, initializes pools, deposits liquidity, and runs demo swaps. Hackathon Day-4 scope."
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/ACNoonan/soothsayer"
+
+[[bin]]
+name = "soothsayer-band-amm"
+path = "src/main.rs"
+
+# Host-side only (not a workspace member; mirrors the program's exclusion).
+# Anchor instructions are wire-encoded by hand (8-byte discriminator + borsh
+# args) instead of importing the program crates — that keeps the dep tree small
+# and dodges anchor-lang's BPF feature gnarliness when host-compiled.
+[dependencies]
+anyhow = "1"
+borsh = { version = "1", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+solana-client = "2.2"
+solana-sdk = "2.2"
+spl-associated-token-account = { version = "6", features = ["no-entrypoint"] }
+spl-token = { version = "7", features = ["no-entrypoint"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+unused_must_use = "deny"
+
+[lints.clippy]
+or_fun_call = "deny"
+redundant_clone = "deny"
+
+# Standalone manifest — sibling Anchor programs are excluded from the
+# workspace at /Users/adamnoonan/Documents/soothsayer/Cargo.toml, and so is
+# this host CLI. See the `programs/` exclude list in the workspace root.
+[workspace]

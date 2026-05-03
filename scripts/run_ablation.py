@@ -4,8 +4,9 @@ Stage-1 ablation runs for the arXiv paper.
 Measures the incremental contribution of each knob in the F1_emp_regime
 forecaster by evaluating a ladder of variants that differ by one knob at a time:
 
-  A0  F0_stale            Gaussian baseline (no factor adj, no empirical quantile)
-  A1  F1_emp              + factor-adjusted point + empirical residual quantile
+  A0     F0_stale         Gaussian baseline (no factor adj, no empirical quantile)
+  A0_VIX F0_VIX           Friday-close + VIX-implied Gaussian (σ from forward curve, not 20d realised)
+  A1     F1_emp           + factor-adjusted point + empirical residual quantile
   A2  F1_emp_vol          + residual standardisation by VIX
   A3  F1_emp_ll_vix       + log-log VIX regression on |residual|
   A4  F1_emp_ll_volidx    + per-symbol vol index (VIX eq / GVZ gold / MOVE rates)
@@ -98,8 +99,15 @@ def _run_variant(name: str, panel: pd.DataFrame, compute_fn) -> tuple[pd.Series,
 
 
 def _variant_f0(panel: pd.DataFrame):
-    """A0: stale-hold + Gaussian CI."""
+    """A0: stale-hold + Gaussian CI from realised 20-day vol."""
     forecast = fc.forecast_f0(panel)
+    bounds = fc.gaussian_bounds(forecast, COVERAGE_LEVELS)
+    return forecast["point"], bounds
+
+
+def _variant_f0_vix(panel: pd.DataFrame):
+    """A0_VIX: stale-hold + Gaussian CI from VIX-implied vol (equity-only)."""
+    forecast = fc.forecast_f0_vix(panel)
     bounds = fc.gaussian_bounds(forecast, COVERAGE_LEVELS)
     return forecast["point"], bounds
 
@@ -166,6 +174,7 @@ def main() -> None:
     # ---- A-ladder: one knob at a time
     variants = [
         ("A0_f0_stale",       _variant_f0),
+        ("A0_VIX_f0_vix",     _variant_f0_vix),
         ("A1_f1_emp",         _variant_f1_emp),
         ("A2_f1_emp_vol",     _variant_f1_emp_vol),
         ("A3_f1_ll_vix",      lambda p: _variant_loglog(p, "vix_fri_close", ())),
