@@ -31,39 +31,27 @@ impl Regime {
     }
 }
 
-/// Diagnostics returned alongside a calibration surface inversion.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CalibrationDiag {
-    /// Which surface was consulted: "per_symbol" or "pooled".
-    pub calibration: String,
-    /// Bracketing claim levels used for the interpolation, if applicable.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bracketed: Option<(f64, f64)>,
-    /// Clip direction if the target was outside the grid ("above" or "below").
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub clipped: Option<String>,
-    /// Symbol's n_obs (when per_symbol fell back to pooled).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub symbol_n: Option<u32>,
-}
-
 /// The Soothsayer oracle read. Stable fields are what protocols integrate
 /// against; `diagnostics` is human-consumable metadata.
+///
+/// Field semantics under M5 (Mondrian split-conformal by regime, paper 1 §7.7):
+///   - `target_coverage`: what the consumer asked for (τ).
+///   - `calibration_buffer_applied`: δ(τ) — the OOS-fit τ-shift, the
+///     structural successor to v1's `BUFFER_BY_TARGET` schedule.
+///   - `claimed_coverage_served`: τ + δ(τ), the served band's claim.
+///   - `forecaster_used`: always "mondrian" under M5 (legacy field; on the
+///     wire this maps to FORECASTER_MONDRIAN = 2).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PricePoint {
     pub symbol: String,
     pub as_of: NaiveDate,
-    /// What the consumer asked for.
     pub target_coverage: f64,
-    /// The OOS buffer added to target before inversion.
     pub calibration_buffer_applied: f64,
-    /// The claimed quantile we actually served.
     pub claimed_coverage_served: f64,
     pub point: f64,
     pub lower: f64,
     pub upper: f64,
     pub regime: Regime,
-    /// Which forecaster's band we served — hybrid selection receipt.
     pub forecaster_used: String,
     pub sharpness_bps: f64,
     pub half_width_bps: f64,
@@ -73,20 +61,14 @@ pub struct PricePoint {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PricePointDiagnostics {
     pub fri_close: f64,
-    pub nearest_grid: f64,
-    pub buffered_target: f64,
-    pub requested_claimed_pre_clip: f64,
-    /// The regime→forecaster policy in effect at serve time.
-    pub regime_forecaster_policy: std::collections::BTreeMap<String, String>,
-    pub calibration: String, // "per_symbol" | "pooled"
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bracketed: Option<(f64, f64)>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub clipped: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realized_min: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realized_max: Option<f64>,
+    /// τ + δ(τ); the τ' that the conformal lookup actually used.
+    pub served_target: f64,
+    /// `c(τ')`, the multiplicative OOS-fit bump applied to the trained quantile.
+    pub c_bump: f64,
+    /// `q_r(τ')`, the per-regime trained conformal quantile.
+    pub q_regime: f64,
+    /// `c(τ') · q_r(τ')`, the effective relative half-width in residual units.
+    pub q_eff: f64,
 }
 
 impl PricePoint {

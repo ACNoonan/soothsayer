@@ -1,39 +1,29 @@
-//! Soothsayer Oracle — Rust serving layer.
+//! Soothsayer Oracle — Rust serving layer (Mondrian / M5 deployment).
 //!
-//! Loads the Python-produced calibration artifacts (`v1b_bounds.parquet`,
-//! `v1b_calibration_surface.csv`, `v1b_calibration_surface_pooled.csv`) and
-//! serves calibrated price bands via the hybrid per-regime forecaster +
-//! empirical-buffer inversion.
+//! Loads the Python-produced Mondrian artefact
+//! (`data/processed/mondrian_artefact_v2.parquet`) and serves calibrated
+//! price bands via per-regime conformal quantile + δ-shifted c(τ) bump.
 //!
 //! **Reference implementation:** `src/soothsayer/oracle.py`. This crate's
 //! [`Oracle::fair_value`] must produce byte-for-byte identical output to the
-//! Python `Oracle.fair_value` when given the same inputs and the same on-disk
-//! artifacts.
+//! Python `Oracle.fair_value` when given the same inputs and the same
+//! artefact. Twenty deployment scalars (12 trained per-regime quantiles,
+//! 4 OOS-fit `c(τ)` bumps, 4 walk-forward-fit `δ(τ)` shifts) live in
+//! [`config`].
 //!
-//! Architecture (v1b, 2026-04-24):
-//!
-//! 1. **Raw forecasters** (F1_emp_regime, F0_stale) produce bounds at a fine
-//!    claimed-coverage grid. Both already live in the bounds table.
-//! 2. **Calibration surface** maps (symbol, regime, forecaster, claimed) →
-//!    empirical realized coverage. Built by the Python backtest.
-//! 3. **Hybrid per-regime forecaster selection** — `REGIME_FORECASTER` picks
-//!    F1 in normal/long_weekend, F0 in high_vol where F1 stretches and F0's
-//!    already-wide Gaussian is efficient.
-//! 4. **Empirical calibration buffer** — the consumer-requested target is
-//!    bumped by 2.5pp before surface inversion to close the ~3pp OOS gap
-//!    measured in `reports/v1b_hybrid_validation.md`.
+//! See paper 1 §7.7 and `reports/methodology_history.md` (M5 entry) for the
+//! methodology validation that established these constants.
 
 pub mod config;
 pub mod error;
 pub mod oracle;
-pub mod surface;
 pub mod types;
 
 pub use config::{
-    buffer_for_target, default_buffer_by_target, default_regime_forecaster,
-    CALIBRATION_BUFFER_PCT, DEFAULT_FORECASTER, MAX_SERVED_TARGET,
+    c_bump_for_target, delta_shift_for_target, regime_quantile_for, C_BUMP_SCHEDULE,
+    DEFAULT_TARGET_COVERAGE, DELTA_SHIFT_SCHEDULE, MAX_SERVED_TARGET, MIN_SERVED_TARGET,
+    MONDRIAN_FORECASTER, REGIMES, REGIME_QUANTILE_TABLE, TARGET_ANCHORS,
 };
 pub use error::{Error, Result};
 pub use oracle::Oracle;
-pub use surface::{CalibrationSurface, PooledSurface};
-pub use types::{CalibrationDiag, PricePoint, Regime};
+pub use types::{PricePoint, PricePointDiagnostics, Regime};

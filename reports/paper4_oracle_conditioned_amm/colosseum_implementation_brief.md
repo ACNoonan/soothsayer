@@ -174,7 +174,7 @@ Evaluation against four hackathon criteria:
 
 **Why this is the strongest demo:**
 
-- **Visual narrative:** during a halt or weekend, the band tightens (Paper 1 §V1b: 166–540 bps half-width depending on regime). The CPMM keeps quoting on stale Friday-close anchored reserves; the BandAMM's quoted range *moves with the band and tightens.* The receipt records that it did. This is the entire value prop in one chart.
+- **Visual narrative:** during a halt or weekend, the band tightens (Paper 1 §6.4 under the v2 / M5 deployment: ~110 bps at τ=0.68 normal, ~280 bps at τ=0.95 normal, ~558 bps at τ=0.95 high_vol — 19–20% narrower than the v1 hybrid Oracle at indistinguishable Kupiec calibration). The CPMM keeps quoting on stale Friday-close anchored reserves; the BandAMM's quoted range *moves with the band and tightens.* The receipt records that it did. This is the entire value prop in one chart.
 - **Uses everything:** consumes `lower`, `upper`, `claimed_served_bps`, `regime_code`, `publish_ts` — none of those are wasted, none of them are point-only.
 - **Matches Paper 4 §6.2:** the Plugin spec is exactly "standard-fee band + scaled-fee tier outside." This isn't a hackathon-special; it *is* B2 minus the BAM auction layer (which is the post-2026 horizon and out of 8-day scope).
 - **Differentiated vs. Lifinity:** Lifinity quotes `Pyth.point + internal spread`. Soothsayer quotes `[L_τ, U_τ]` directly with empirical-coverage receipts. The talking point: "Lifinity guesses the spread; we publish the calibration."

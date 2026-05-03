@@ -233,7 +233,7 @@
         <span class="eyebrow"><span class="bar"></span>1 · the calibration claim</span>
         <h2>What the consumer asks for is what they <span class="em">empirically get.</span></h2>
       </div>
-      <p>For every consumer target τ from 0.50 to 0.99 in 0.01 increments, we serve the deployed Oracle on the OOS panel and compute realised coverage. A perfectly calibrated band lies on the diagonal. The four anchor points (0.68, 0.85, 0.95, 0.99) are where <code>BUFFER_BY_TARGET</code> is tuned; everything else is linear-interpolation off-grid.</p>
+      <p>For every consumer target τ from 0.50 to 0.99 in 0.01 increments, we serve the deployed v2 / M5 Oracle on the OOS panel and compute realised coverage. A perfectly calibrated band lies on the diagonal. The four anchor points (0.68, 0.85, 0.95, 0.99) are where the deployed schedules <code>C_BUMP_SCHEDULE</code> and <code>DELTA_SHIFT_SCHEDULE</code> are tuned; everything else is linear-interpolation off-grid.</p>
     </div>
     <div class="card">
       <div class="meta">D5 — Inter-anchor τ validation · 50 levels × 1,720 obs = 86,000 served bands · Kupiec passes at 47/50</div>
@@ -260,7 +260,7 @@
       <div class="cmp-cell">
         <div class="name">Soothsayer at τ = 0.95</div>
         <div class="stat g">95.0%</div>
-        <div class="meta" style="margin-top: 6px;">443 bps half-width · Kupiec p=1.000 · n=1,720</div>
+        <div class="meta" style="margin-top: 6px;">354 bps half-width · Kupiec p=0.956 · n=1,730</div>
       </div>
       <div class="cmp-cell">
         <div class="name">Pyth + naive ±1.96·conf</div>

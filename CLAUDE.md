@@ -33,14 +33,16 @@ If a user request would break these rules, name the rule and ask whether it is a
 
 Phase 0 validation is complete. Phase 1 is active: devnet / publish-path work, Paper 1 completion, Paper 3 draft, and forward data capture for Paper 4/Product-stack evidence.
 
-Current methodology:
+Current methodology (v2 / M5 — deployed):
 
 - Product: calibrated band primitive with receipts; downstream policy work consumes the band.
 - Default deployment target: `τ = 0.85`.
 - Paper 1 headline target: `τ = 0.95`.
-- Served range with strongest evidence: `τ ∈ [0.52, 0.98]`; `τ = 0.99` is a disclosed finite-sample tail ceiling.
-- Hybrid forecaster: `normal` + `long_weekend` use `F1_emp_regime`; `high_vol` uses `F0_stale`.
-- Buffer schedule: `{0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}`.
+- Served range: `τ ∈ [0.68, 0.99]`; M5 closes the v1 finite-sample tail ceiling at τ=0.99 at the cost of a 22% wider band.
+- Architecture: Mondrian split-conformal by `regime_pub` + factor-adjusted point + δ-shifted `c(τ)`. Twenty deployment scalars: 12 trained per-regime quantiles, 4 OOS-fit `c(τ)` bumps, 4 walk-forward-fit `δ(τ)` shifts. See `src/soothsayer/oracle.py` and `crates/soothsayer-oracle/src/config.rs`.
+- Deployment artefact: `data/processed/mondrian_artefact_v2.parquet` (per-Friday rows) + `data/processed/mondrian_artefact_v2.json` (audit-trail sidecar with the 20 scalars). Built by `scripts/build_mondrian_artefact.py`.
+- Wire format: `PriceUpdate` Borsh layout preserved across the v1 → M5 migration; `forecaster_code = 2` (FORECASTER_MONDRIAN) signals an M5 read.
+- Empirical headline: at τ=0.95 on the 2023+ OOS slice, realised $0.950$ with Kupiec $p = 0.956$, Christoffersen $p = 0.912$, mean half-width $354.5$ bps (20% narrower than the v1 hybrid Oracle at the same anchor and parameter budget). See `reports/methodology_history.md` (2026-05-02 M5 entry) and `reports/paper1_coverage_inversion/` §4 + §7.7.
 
 Paper 3 current framing:
 

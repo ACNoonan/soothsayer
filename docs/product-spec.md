@@ -1,7 +1,7 @@
 # Soothsayer — Product Specification
 
-**Date:** 2026-05-01 (restructured into Locked / Locked-pending / Open status sections)
-**Status:** Phase 1 — v1b methodology shipping; devnet deploy + Paper 1 to arXiv + Paper 3 first draft in progress.
+**Date:** 2026-05-XX (updated for v2 / M5 deployment)
+**Status:** Phase 1 — v2 / M5 Mondrian split-conformal-by-regime methodology shipping; devnet deploy + Paper 1 v2 to arXiv + Paper 3 first draft in progress.
 **Driver:** `scripts/smoke_oracle.py` (end-to-end demo)
 
 ## The product in one sentence
@@ -31,25 +31,26 @@ The band is the epistemic root. The consumable interface is a serving choice.
 Paper 1 establishes the root; Paper 3 evaluates the primary projection (policy);
 the others remain hypothesis until a gate fires.
 
-## Hybrid regime forecaster selection (added 2026-04-24)
+## v2 / M5 Mondrian split-conformal-by-regime architecture
 
-The v1b backtest + Christoffersen tests revealed that a single forecaster is not efficient across all regimes at matched realized coverage:
+The deployed v2 / M5 architecture is a Mondrian split-conformal predictor (Vovk et al. 2003) keyed on the regime classifier:
 
-- **Normal regime (65% of weekends):** F1_emp_regime at claim=0.975 delivers 95.0% realized with 257 bps half-width — 27% tighter than F0 at naive 0.95 claim (351 bps).
-- **Long-weekend regime (10%):** F1_emp_regime at claim=0.975 delivers 94.9% realized with 298 bps — 43% tighter than F0 (519 bps).
-- **High-vol regime (24%):** F1_emp_regime stretches to claim=0.984 to deliver ~95%, landing at ~540 bps; F0's Gaussian band is already wide enough that a lower claim (~0.90) delivers 95% realized at ≈480 bps — **F0 wins in high_vol by ~10% pooled, and up to 35% on specific symbols like SPY.**
+- **Point estimator.** Friday close × (1 + factor return), where the factor is asset-class-matched (ES/NQ/GC/ZN/BTC). See Paper 1 §4.1 + §5.4.
+- **Per-regime conformal quantile $q_r(\tau)$.** The empirical $\tau$-quantile of the absolute relative residual on the pre-2023 calibration set, stratified by regime $r \in \{\texttt{normal}, \texttt{long\_weekend}, \texttt{high\_vol}\}$. Twelve trained scalars (3 regimes × 4 anchors).
+- **OOS-fit multiplicative bump $c(\tau)$.** Smallest scalar such that pooled OOS realised coverage with effective quantile $c \cdot q_r$ matches the consumer's request at each anchor. Four scalars total (the v2 / M5 analogue of v1's `BUFFER_BY_TARGET`).
+- **Walk-forward $\delta(\tau)$ shift.** Smallest schedule that aligns walk-forward realised coverage with nominal at every anchor. Four scalars total. Deployed: $\{0.05, 0.02, 0.00, 0.00\}$ at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$.
 
-The Oracle consults a `REGIME_FORECASTER` map and serves whichever forecaster is tighter at matched realized coverage for the detected regime. `forecaster_used` is a first-class receipt field on every PricePoint.
+The Oracle's serving-time computation is a five-line lookup:
 
 ```python
-REGIME_FORECASTER = {
-    "normal":       "F1_emp_regime",  # in-sample 27% tighter than F0 at matched coverage
-    "long_weekend": "F1_emp_regime",  # in-sample 43% tighter
-    "high_vol":     "F0_stale",       # OOS ~19% tighter + Christoffersen pass
-}
+tau_prime = tau + delta_shift_for_target(tau)
+q_eff = c_bump_for_target(tau_prime) * regime_quantile_for(regime, tau_prime)
+lower = point * (1 - q_eff)
+upper = point * (1 + q_eff)
+# `forecaster_used` is the literal string "mondrian" (on-chain forecaster_code = 2)
 ```
 
-The hybrid's defense is twofold and evidence-tiered. **In-sample (2014–2022 backtest):** at matched realized coverage, F0 is ~10–35% tighter than F1 on high_vol because F1 stretches to cover while F0's already-wide Gaussian is efficient. **Out-of-sample (2023+):** the sharpness advantage narrows to ~19% (F0: 293 bps vs F1: 360 bps at roughly matched 92% realized), but the hybrid's primary serving-time contribution shifts to **Christoffersen independence**: F1 + buffer has clustered violations (p_ind = 0.033, rejected), while hybrid + buffer does not (p_ind = 0.086, not rejected). See `reports/v1b_ablation.md` for the full bootstrap.
+`forecaster_used` is preserved as a first-class receipt field on every PricePoint; under v2 / M5 it is constant `"mondrian"` (the wire-format `forecaster_code = 2` reuses the previously-reserved slot in the Borsh layout). At the consumer-facing target $\tau = 0.95$ on the 2023+ OOS slice, this delivers realised coverage $0.950$ at mean half-width $354.5$ bps — 20% narrower than the v1 hybrid Oracle at indistinguishable Kupiec calibration. See Paper 1 §6 + §7.7 for the full validation.
 
 ## Why this framing
 

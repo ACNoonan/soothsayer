@@ -65,9 +65,15 @@ impl Regime {
     }
 }
 
-/// Forecaster codes — keep in sync.
+/// Forecaster codes — keep in sync with `programs/soothsayer-oracle-program/src/state.rs`.
+///
+/// The v1 codes (0 = F1_emp_regime, 1 = F0_stale) are retained for receipts
+/// emitted by pre-M5 publishes. From M5 onward (paper 1 §7.7) the deployed
+/// code is FORECASTER_MONDRIAN; the v1 codes are still recognised here so
+/// historical PriceUpdate accounts decode cleanly.
 pub const FORECASTER_F1_EMP_REGIME: u8 = 0;
 pub const FORECASTER_F0_STALE: u8 = 1;
+pub const FORECASTER_MONDRIAN: u8 = 2;
 
 pub const PRICE_UPDATE_VERSION: u8 = 1;
 

@@ -1,12 +1,11 @@
 """
-Rust ↔ Python Oracle parity check.
+Rust ↔ Python Oracle parity check (Mondrian / M5 deployment).
 
-For a random sample of (symbol, fri_ts) tuples from the bounds table, call
+For a random sample of (symbol, fri_ts) tuples from the M5 artefact, call
 both the Python `Oracle.fair_value` and the Rust `soothsayer fair-value` CLI
 and diff the key fields. The expectation is byte-exact agreement on the
 numeric output (point, lower, upper, sharpness_bps, claimed_served) and
-exact agreement on the string fields (regime, forecaster_used, calibration,
-clipped).
+exact agreement on the string fields (regime, forecaster_used).
 
 Run:
     cargo build --release -p soothsayer-publisher
@@ -29,7 +28,7 @@ from soothsayer.oracle import Oracle  # noqa: E402
 
 RUST_BIN_DEBUG = REPO_ROOT / "target" / "debug" / "soothsayer"
 RUST_BIN_RELEASE = REPO_ROOT / "target" / "release" / "soothsayer"
-BOUNDS_PATH = REPO_ROOT / "data" / "processed" / "v1b_bounds.parquet"
+ARTEFACT_PATH = REPO_ROOT / "data" / "processed" / "mondrian_artefact_v2.parquet"
 
 # Fields we require to match exactly (numeric = bit-level; string = exact).
 NUMERIC_FIELDS = [
@@ -45,17 +44,16 @@ NUMERIC_FIELDS = [
 STRING_FIELDS = [
     "symbol",
     "forecaster_used",
-    # regime is serialized as snake_case by both
+    # regime is serialised as snake_case by both
 ]
 DIAGNOSTIC_NUMERIC = [
     "fri_close",
-    "nearest_grid",
-    "buffered_target",
-    "requested_claimed_pre_clip",
+    "served_target",
+    "c_bump",
+    "q_regime",
+    "q_eff",
 ]
-DIAGNOSTIC_STRING = [
-    "calibration",
-]
+DIAGNOSTIC_STRING: list[str] = []
 
 
 def rust_bin() -> Path:
@@ -131,8 +129,6 @@ def compare(py: dict, rs: dict) -> list[str]:
         mismatches += diff_fields(f"diag.{f}", py_d.get(f), rs_d.get(f), tol=NUMERIC_TOL)
     for f in DIAGNOSTIC_STRING:
         mismatches += diff_fields(f"diag.{f}", py_d.get(f), rs_d.get(f))
-    mismatches += diff_fields("diag.bracketed", py_d.get("bracketed"), rs_d.get("bracketed"), tol=NUMERIC_TOL)
-    mismatches += diff_fields("diag.clipped", py_d.get("clipped"), rs_d.get("clipped"))
 
     return mismatches
 
@@ -143,9 +139,9 @@ def main() -> int:
         print("Run: cargo build -p soothsayer-publisher")
         return 2
 
-    bounds = pd.read_parquet(BOUNDS_PATH)
-    unique = bounds[["symbol", "fri_ts"]].drop_duplicates().reset_index(drop=True)
-    print(f"Bounds rows: {len(bounds):,} total, {len(unique):,} unique (symbol, fri_ts)")
+    artefact = pd.read_parquet(ARTEFACT_PATH)
+    unique = artefact[["symbol", "fri_ts"]].drop_duplicates().reset_index(drop=True)
+    print(f"Artefact rows: {len(artefact):,} total, {len(unique):,} unique (symbol, fri_ts)")
     print(f"Rust binary: {rust_bin()}")
     print()
 

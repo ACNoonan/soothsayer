@@ -1,92 +1,95 @@
-# §4 — Methodology (draft)
+# §4 — Methodology (M5 / Mondrian deployment)
 
-This section instantiates the abstract setup of §3 with the concrete forecasters, surface, inversion procedure, and serving-time machinery used in our evaluation. The deployed implementation lives in `src/soothsayer/oracle.py` (Python) and `crates/soothsayer-oracle/src/{config,oracle}.rs` (Rust); the two are byte-for-byte verified by `scripts/verify_rust_oracle.py` (75/75 cases match) and we cite line-anchors in this section to make the artifact-paper correspondence explicit.
+This section instantiates the abstract setup of §3 with the concrete point estimator, conformal quantile fit, deployment-tuned schedules, and serving-time machinery of the M5 / Mondrian split-conformal-by-regime deployment. The deployed implementation lives in `src/soothsayer/oracle.py` (Python) and `crates/soothsayer-oracle/src/{config,oracle,types}.rs` (Rust); the two are byte-for-byte verified by `scripts/verify_rust_oracle.py` (90/90 cases match) and we cite line-anchors in this section to make the artifact-paper correspondence explicit.
 
-## 4.1 The forecaster pair $\mathcal{F}$
+The architecture has four ingredients: a point estimator $\hat P_{\text{Mon},r}$ for next Monday's open, a per-regime conformal quantile $q_r(\tau)$ trained on a held-out calibration set, an OOS-fit multiplicative bump $c(\tau)$ that closes the train-OOS distribution-shift gap, and a walk-forward-fit shift $\delta(\tau)$ that pushes per-split realised coverage above nominal so the deployed schedule is conservative. Twenty deployment scalars total (12 trained + 4 + 4); the §7 ablation shows the architecture is the *deployable* simpler baseline that survives the §7.6 constant-buffer stress test plus the §7.7 head-to-head against the v1 surface-plus-buffer Oracle.
 
-Our evaluation uses two base forecasters $\mathcal{F} = \{\texttt{F0\_stale},\ \texttt{F1\_emp\_regime}\}$. Both emit, for every $(s, t, q)$ with $q$ on the claimed-coverage grid $\mathcal{Q}$ defined in §4.2, a band $[L^f_t(s; q),\ U^f_t(s; q)]$.
+## 4.1 The point estimator $\hat P_{\text{Mon},r}$
 
-**$\texttt{F0\_stale}$** — the stale-hold Gaussian baseline. Point estimate $\hat P^{\text{F0}}_t = P_{t^-}(s)$ (Friday close held forward). Conditional sigma $\sigma^{\text{F0}}_t = \hat\sigma^{\text{20d}}_t \cdot \sqrt{\ell_t} \cdot P_{t^-}(s)$ where $\hat\sigma^{\text{20d}}_t$ is the rolling 20-trading-day daily-return standard deviation at Friday close and $\sqrt{\ell_t}$ is a calendar-gap scaling ($\sqrt{1}$ for a standard Friday→Monday weekend, $\sqrt{2}$ for a 4-day weekend, $\sqrt{3}$ for 5-day, etc.). Bands are constructed parametrically: $L^{\text{F0}}_t(s; q) = \hat P^{\text{F0}}_t - z_q \cdot \sigma^{\text{F0}}_t$ and analogously for $U$, where $z_q = \Phi^{-1}\!\bigl(\tfrac{1+q}{2}\bigr)$. F0 is the methodological analog of a Chainlink-style stale `price` feed wrapped with a vol-scaled Gaussian — the "what does the simplest principled baseline look like" comparator.
+The deployed point estimator is the §7.4 factor switchboard:
 
-**$\texttt{F1\_emp\_regime}$** — the factor-switchboard / log-log volatility-regime / empirical-quantile forecaster. Three components:
+$$\hat P_{\text{Mon},t}(s) \;=\; P_{\text{Fri},t}(s) \cdot \bigl(1 + r^{\text{factor}}_t(s)\bigr),$$
 
-1. *Point estimate.* $\hat P^{\text{F1}}_t = P_{t^-}(s) \cdot (1 + r^{\text{factor}}_t(s))$ where $r^{\text{factor}}_t(s)$ is the weekend return of the per-symbol conditioning factor (E-mini S&P futures `ES=F` for the seven equities, gold futures `GC=F` for `GLD`, 10-year treasury futures `ZN=F` for `TLT`, BTC for `MSTR` post-2020-08). Section 5.4 specifies `FACTOR_BY_SYMBOL` in full.
+where $r^{\text{factor}}_t(s)$ is the weekend return of the per-symbol conditioning factor (E-mini S&P futures `ES=F` for the seven equities; gold futures `GC=F` for `GLD`; 10-year treasury futures `ZN=F` for `TLT`; BTC for `MSTR` post-2020-08; full registry in §5.4). The point estimator is *not* the product — protocols integrate against the band, not the point — but it is the input whose residual distribution the conformal quantile is fit on.
 
-2. *Conditional sigma.* For each $(s, t)$ we fit a per-symbol log-log regression on the prior 156-weekend window:
-$$\log|\varepsilon_\tau| \;=\; \alpha + \beta \log v_\tau(s) + \gamma_\text{earn} \cdot \mathrm{earn}_\tau(s) + \gamma_\text{long} \cdot \ell_\tau \;+\; \xi_\tau,\quad \tau \in [t-156,\ t-1],$$
-where $\varepsilon_\tau = \log\bigl(P_\tau(s) / \hat P^{\text{F1}}_\tau\bigr)$ is the return-residual of F1's point estimate and $v_\tau(s)$ is the per-symbol implied-volatility index (VIX for equities, GVZ for `GLD`, MOVE for `TLT` — see §5.4). Regressors with zero in-window variance are silently dropped from that fit (avoids singular matrices when a ticker has no in-window earnings observations). The implied conditional sigma at $t$ is $\sigma^{\text{F1}}_t = \exp(\hat\alpha + \hat\beta \log v_t(s) + \hat\gamma_\text{earn} \cdot \mathrm{earn}_t(s) + \hat\gamma_\text{long} \cdot \ell_t)$.
+We considered eight point-estimator variants in early development (§7.1–§7.5; the v1 hybrid forecaster ladder). The factor-switchboard variant survived empirical pruning as the cleanest input for the residual-quantile fit; richer variants (the v1 log-log VIX / earnings-flag / long-weekend-flag layers) widened the residual quantile by absorbing structure into $\hat P$ rather than into the per-regime quantile. §7.7 shows the cleanly-pruned point estimator is what M5 deploys; the additional v1 machinery is over-engineering relative to the regime classifier.
 
-3. *Empirical-quantile bands.* In-window residuals are standardised by the regression-implied sigma, $z_\tau = \varepsilon_\tau / \sigma_\tau^{\text{F1, hist}}$. Bands at claimed quantile $q$ are $L^{\text{F1}}_t(s; q) = \hat P^{\text{F1}}_t \cdot \exp\!\bigl(z_{(1-q)/2} \cdot \sigma^{\text{F1}}_t\bigr)$ and analogously for $U$ at $z_{(1+q)/2}$, where $z_{(\cdot)}$ are empirical quantiles of the in-window standardised residuals. There is no Gaussian assumption on the residuals; non-zero median residuals propagate into the band without distortion (see §6.6 for the bias-absorption derivation). The earnings and long-weekend regressors enter as level shifts in $\log\sigma$ — they widen or tighten the conditional sigma deterministically without altering the residual distribution itself.
+## 4.2 Mondrian split-conformal by regime
 
-The pair $\mathcal{F}$ is deliberately small. We considered eight forecaster variants in early development (§7 reports the ablation matrix); the final pair survived empirical pruning. F0 is retained not as a deployed default but as the high-volatility fallback in the hybrid serving policy of §4.4.
+Conformity score: relative absolute residual
 
-## 4.2 Calibration surface and claimed-quantile grid
+$$s_t(s) \;=\; \frac{\bigl|P_{\text{Mon},t}(s) - \hat P_{\text{Mon},t}(s)\bigr|}{P_{\text{Fri},t}(s)}.$$
 
-The claimed-coverage grid is $\mathcal{Q} = \{0.50, 0.60, 0.68, 0.75, 0.80, 0.85, 0.90, 0.925, 0.95, 0.975, 0.99, 0.995, 0.997, 0.999\}$ — fourteen points concentrated near the high-coverage end where consumers operate. The grid's upper tail was extended from a $0.995$ cap to $\{0.997, 0.999\}$ in our 2026-04-25 revision after the buffer-tuning sweep showed serving at $\tau \ge 0.99$ benefited from finer grid resolution at the tail (see `reports/v1b_extended_grid.md`).
+Mondrian taxonomy: weekends partition into three regimes $r \in \{\texttt{normal}, \texttt{long\_weekend}, \texttt{high\_vol}\}$ via the regime classifier $\rho(\mathcal{F}_t)$ specified in §5.5. The trained per-regime conformal quantile is
 
-For each base forecaster $f \in \mathcal{F}$ we materialise the bounds at every $(s, t, q) \in \mathcal{S} \times \mathcal{T}_\mathrm{hist} \times \mathcal{Q}$ into a long-form table persisted at `data/processed/v1b_bounds.parquet`. The empirical calibration surface
-$$S^f(s, r, q) \;=\; \frac{1}{|\mathcal{T}_{s,r}|} \sum_{\tau \in \mathcal{T}_{s,r}} \mathbf{1}\!\bigl[\,L^f_\tau(s; q) \le P_\tau(s) \le U^f_\tau(s; q)\,\bigr]$$
-is computed from this table, with $\mathcal{T}_{s,r} = \{\tau \in \mathcal{T}_\mathrm{hist} : \text{symbol}(\tau) = s,\ \rho(\mathcal{F}_\tau(s)) = r\}$.
+$$q_r(\tau) \;=\; \mathrm{Q}^+\!\bigl(\{s_\tau\}_{\tau \in \mathcal{T}_\text{train},\,\rho(\mathcal{F}_\tau) = r},\ \tau\bigr),$$
 
-A pooled fallback surface $\bar S^f(\cdot, r, q)$, computed with the symbol axis collapsed, is materialised alongside. At serve time, the per-symbol surface is consulted first; the pooled surface is used when $|\mathcal{T}_{s,r}| < n_\text{min}$ for the active rolling window. The pooled-fallback path is exposed in the receipt as a `calibration` field with values `per_symbol` or `pooled`, so a consumer can identify which surface produced their served band.
+the standard split-CP finite-sample $(1-\alpha)(n+1)$-th rank quantile (where $\alpha = 1 - \tau$, $n$ is the regime's training-set size, $\mathrm{Q}^+$ is the higher-rank empirical quantile). The deployed grid has four anchors $\tau \in \mathcal{T}_\text{anch} = \{0.68, 0.85, 0.95, 0.99\}$ and three regimes, yielding twelve trained scalars.
 
-## 4.3 Inversion, per-target buffer, and the served quantile
+Calibration set: $\mathcal{T}_\text{train} = \{t : t < \text{2023-01-01}\}$ — 4,266 weekend rows across 466 weekends, which decomposes by regime to 2,774 rows (normal), 440 (long_weekend), 1,052 (high_vol). The per-(regime, $\tau$) bin therefore carries $N \approx 440$–$2{,}774$ observations supporting one quantile estimate, comfortably above the $N \approx 50$–$300$ thresholds where Mondrian conformal becomes noisy (the per-(symbol, regime) Mondrian rung M3, §7.7.2, fails Christoffersen for exactly this sample-size reason).
 
-Given a consumer-chosen target $\tau \in (0, 1)$, the served claimed quantile is determined in three steps:
+The deployed values of $q_r(\tau)$ are listed in `data/processed/mondrian_artefact_v2.json` (the audit-trail sidecar) and hardcoded in `src/soothsayer/oracle.py:REGIME_QUANTILE_TABLE` and `crates/soothsayer-oracle/src/config.rs:REGIME_QUANTILE_TABLE`, for byte-for-byte traceability between paper, audit artefact, and serving code.
 
-1. *Per-target buffer.* The consumer's $\tau$ is shifted by an empirical buffer:
-$$\tilde\tau \;=\; \min\!\bigl(\tau + b(\tau),\ \tau_\text{max}\bigr),\quad \tau_\text{max} = 0.999,$$
-where $b(\tau)$ is the value of the deployed buffer schedule:
-$$b \in \{(0.68 \mapsto 0.045),\ (0.85 \mapsto 0.045),\ (0.95 \mapsto 0.020),\ (0.99 \mapsto 0.010)\}$$
-with linear interpolation between anchors and flat extrapolation outside $[0.68, 0.99]$. The buffer is exposed in the receipt as `calibration_buffer_applied`. The four-anchor schedule was tuned on the OOS 2023+ slice as the smallest buffer per anchor satisfying realised-within-0.5pp of target plus Kupiec $p_{uc} > 0.10$ plus Christoffersen $p_{ind} > 0.05$ — see `reports/v1b_buffer_tune.md` for the sweep.
+## 4.3 OOS-fit $c(\tau)$ bump and walk-forward $\delta(\tau)$ shift
 
-*Buffer-schedule monotonicity.* The deployed schedule $b(\tau)$ is monotonically *decreasing* in $\tau$ (0.045 → 0.045 → 0.020 → 0.010 across the four anchors), which on a quick reading inverts the intuition that a more extreme target should require more conservatism. The intuition is correct; the apparent inversion is an artifact of where in the inversion path the conservatism lives. The claimed-coverage grid $\mathcal{Q}$ was extended in 2026-04-25 to include $\{0.997, 0.999\}$ specifically to give the surface inversion finer resolution near the tail (§4.2), and the per-(symbol, regime) calibration surface absorbs the bulk of the high-$\tau$ correction through this inversion path; the buffer is the residual marginal correction remaining *after* inversion. As $\tau \to 1$, the inversion is doing more of the work — pushing $q_\text{served}$ further out toward $0.999$ — so the marginal residual buffer is smaller, not larger. Bandwidth confirms the ordering is direction-correct: served mean half-width on the OOS slice is monotonically *increasing* in $\tau$ ($135.9 / 251.1 / 456.0 / 580.8$ bps at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$; see §6.4). The buffer is the marginal correction; the band-width is the realised conservatism, and that does scale up with $\tau$.
+A naive deployment of the trained $q_r(\tau)$ on the 2023+ OOS slice undercovers by 6–14pp at every $\tau \le 0.95$ (M2 row of §7.7.2), the same distribution-shift mechanism §7.6 identified for a global constant-buffer baseline. The fix is two deployment-tuned schedules:
 
-The schedule is also cross-split-stable. The walk-forward sweep of `reports/v1b_walkforward.md` (also reported in §6.4) refits the surface and the per-anchor buffer on six expanding-window train/test splits spanning 2019-01 through 2025-01 under the same selection criterion: at $\tau = 0.95$ the cross-split mean buffer is $0.019$ ($\sigma = 0.017$), reproducing the deployed $0.020$ to within rounding; at $\tau = 0.85$ the cross-split mean is $0.025$ ($\sigma = 0.022$) and the deployed $0.045$ is $\geq 1\sigma$ above the mean by deliberate choice, with the walk-forward-tighter alternative disclosed and rejected during tuning in favor of safe-direction conservatism. Buffer monotonicity is therefore a property of the inversion architecture, not a tuning artefact of the 2023+ deployment slice.
+**Multiplicative bump $c(\tau)$.** For each anchor $\tau \in \mathcal{T}_\text{anch}$, $c(\tau)$ is the smallest $c \in [1, 5]$ such that pooled OOS realised coverage with effective quantile $c \cdot q_r(\tau)$ matches the consumer's request:
 
-2. *Surface inversion.* The buffered target is mapped to a claimed quantile by inverting $S^f(s, r, \cdot)$. Off-grid targets are resolved by linear interpolation between the bracketing claimed-grid points. The bracketing pair is exposed in the diagnostic as `bracketed`.
+$$c(\tau) \;=\; \arg\min \bigl\{ c \ge 1 \;:\; \mathbb{E}_{\text{OOS}}\!\left[\mathbf{1}\bigl(s_t \le c \cdot q_{\rho(\mathcal{F}_t)}(\tau)\bigr)\right] \ge \tau \bigr\}.$$
 
-3. *Bound lookup.* The served band is read from the bounds table at $q_\text{served}$. The two natural alternatives — interpolating the bounds rather than the surface, or rounding $q_\text{served}$ to the nearest grid point and serving that band — were tested in early development; the surface-interpolation, bound-lookup approach was chosen because it preserves the deterministic correspondence between $q_\text{served}$ (which is in the receipt) and the actual band edges (which the consumer can verify against the persisted bounds parquet).
+Four scalars total, matching the v1 Oracle's `BUFFER_BY_TARGET` parameter budget exactly. Deployed values: $c(0.68) = 1.498,\ c(0.85) = 1.455,\ c(0.95) = 1.300,\ c(0.99) = 1.076$. Off-anchor $\tau$ are linearly interpolated between adjacent anchors and clamped at the schedule endpoints. The bump is the M5 structural successor to v1's per-target additive buffer.
 
-## 4.4 Hybrid regime-to-forecaster policy
+**Walk-forward shift $\delta(\tau)$.** A plain $c(\tau)$ fit to the pooled OOS slice produces per-split realised coverage that scatters around nominal — passes Kupiec on the pooled fit by construction, but undercovers in roughly half the splits and overcovers in the other half. The deployed schedule pushes serving to the conservative side via a $\tau$-shift: instead of serving $c(\tau) \cdot q_r(\tau)$, the deployed Oracle serves $c(\tau + \delta(\tau)) \cdot q_r(\tau + \delta(\tau))$, where the $\delta(\tau)$ schedule is selected from the sweep $\delta \in \{0.00, 0.01, \dots, 0.07\}$ as the smallest schedule aligning walk-forward realised coverage with nominal at every anchor (§7.7.4). Deployed values: $\delta(0.68) = 0.05,\ \delta(0.85) = 0.02,\ \delta(0.95) = 0.00,\ \delta(0.99) = 0.00$. The shift is the M5 analogue of v1's deployment-tuned BUFFER_BY_TARGET conservative overshoot — both are 4-scalar OOS-fit schedules; both push the deployed band to the safe side of nominal coverage.
 
-The serving layer consults a per-regime forecaster map:
-$$\texttt{REGIME\_FORECASTER} \;=\; \{\texttt{normal} \to \texttt{F1\_emp\_regime},\ \texttt{long\_weekend} \to \texttt{F1\_emp\_regime},\ \texttt{high\_vol} \to \texttt{F0\_stale}\}.$$
+The $c(\tau)$ and $\delta(\tau)$ schedules are deployment-tuned on the same 2023+ slice that §6 evaluates the served band on. The §6.4 walk-forward block is the empirical mitigation (six-split walk-forward of the conformal fit + bump fit + shift selection passes Kupiec at every anchor). §9.4 carries the wider disclosure of the OOS-tuning provenance.
 
-The choice of $f^\star(r)$ for each $r$ is justified empirically in §7 (in-sample bandwidth at matched coverage) and §6.4 (out-of-sample Christoffersen independence). The policy is static — it is fixed pre-deployment and exposed as a constant in `oracle.py:REGIME_FORECASTER` rather than being re-derived from data at serve time. A consumer reading the `regime` and `forecaster_used` fields of the `PricePoint` can verify the policy was applied as documented.
+## 4.4 Serving-time band construction
+
+Given a consumer-chosen target $\tau \in (0, 1)$ at $(s, t)$, the served band is constructed in five steps:
+
+1. *Look up the regime and point.* Read $r = \rho(\mathcal{F}_t)$ and $\hat P_{\text{Mon},t}(s)$ from the per-Friday artefact `data/processed/mondrian_artefact_v2.parquet`. The regime is computed offline at artefact-build time; $\hat P_{\text{Mon},t}$ is the precomputed factor-switchboard point.
+
+2. *Apply the $\delta$-shift.* $\tau' = \min\bigl(\tau + \delta(\tau),\ 0.99\bigr)$, where $\delta(\tau)$ is the schedule of §4.3 with linear interpolation off-anchor.
+
+3. *Look up the effective quantile.* $q_\text{eff} = c(\tau') \cdot q_r(\tau')$, with $c$ and $q_r$ also linearly interpolated off-anchor.
+
+4. *Construct the band.* $\text{lower} = \hat P_{\text{Mon},t} \cdot (1 - q_\text{eff}),\ \text{upper} = \hat P_{\text{Mon},t} \cdot (1 + q_\text{eff})$, and $\text{point} = \hat P_{\text{Mon},t}$.
+
+5. *Emit the receipt.* The served band's claimed coverage is $\tau'$; the consumer's request is $\tau$; the OOS-fit shift is $\delta(\tau)$; the regime is $r$; the receipt's `forecaster_used` is the literal string `mondrian` (on-chain `forecaster_code` = 2, in `crates/soothsayer-consumer/src/lib.rs:FORECASTER_MONDRIAN`). The diagnostics expose $c(\tau')$, $q_r(\tau')$, $q_\text{eff}$, and Friday close.
+
+The serving-time computation is therefore a five-line lookup against the per-Friday artefact + the three constant schedules. There is no surface inversion, no bracketing interpolation in claimed-coverage space, no per-symbol fallback, and no scalar buffer override — the v1 architecture's complexity is collapsed into the per-regime conformal table.
 
 ## 4.5 The PricePoint receipt
 
-Every oracle read returns a `PricePoint` exposing nine fields beyond the band itself:
+Every oracle read returns a `PricePoint` exposing the band plus eight receipt fields:
 
 | Field | Source | Used by |
 |---|---|---|
-| `target_coverage` | request | echoed for audit |
-| `calibration_buffer_applied` | $b(\tau)$ from §4.3 | reproducing the buffered $\tilde\tau$ |
-| `claimed_coverage_served` | $q_\text{served}$ from §4.3 | identifies the band's claimed quantile |
-| `forecaster_used` | $f^\star(r)$ from §4.4 | identifies which $S^f$ was inverted |
-| `regime` | $r = \rho(\mathcal{F}_t)$ from §5.5 | identifies the surface bucket |
-| `sharpness_bps` | $(U - L)/(2 \cdot P_{t^-})$ in bp | consumer's instantaneous capital-efficiency cost |
-| `diagnostics.calibration` | `per_symbol` or `pooled` | identifies whether the fallback was used |
-| `diagnostics.bracketed` | bracketing $\mathcal{Q}$ pair | verifies the inversion interpolation |
-| `diagnostics.regime_forecaster_policy` | full $\texttt{REGIME\_FORECASTER}$ | snapshot of the deployed policy |
+| `target_coverage` | request $\tau$ | echoed for audit |
+| `calibration_buffer_applied` | $\delta(\tau)$ from §4.3 | reproducing $\tau'$ |
+| `claimed_coverage_served` | $\tau'$ from §4.4 step 2 | the served band's claim |
+| `forecaster_used` | constant `mondrian` | wire `forecaster_code = 2` |
+| `regime` | $r = \rho(\mathcal{F}_t)$ from §5.5 | identifies the conformal-table row |
+| `sharpness_bps` | $(U - L)/(2 \cdot P_\text{Fri})$ in bp | consumer's instantaneous capital-efficiency cost |
+| `diagnostics.served_target` | $\tau'$ | identifies the conformal-table column |
+| `diagnostics.{c_bump,q_regime,q_eff}` | $c(\tau'),\ q_r(\tau'),\ q_\text{eff}$ | reproducing the band edges |
 
-Together these fields fully specify how a given $(s, t, \tau)$ request was resolved: a third party with the surface CSV (`reports/tables/v1b_calibration_surface.csv`) and the bounds parquet can reconstruct the served band from the receipt alone. This is the operational instantiation of property P1 (auditability) of §3.4.
+A third party with the audit-trail sidecar (`data/processed/mondrian_artefact_v2.json`) and the per-Friday artefact can reconstruct the served band from the receipt alone: read $\hat P$, $r$ from the artefact at $(s, t)$; read $\tau'$ and $q_\text{eff}$ from the receipt; verify $\text{lower} = \hat P (1 - q_\text{eff})$ and $\text{upper} = \hat P (1 + q_\text{eff})$ to floating-point precision. This is the operational instantiation of property P1 (auditability) of §3.4.
 
 ## 4.6 Implementation and reproducibility
 
 The deployed Oracle is implemented in two languages with byte-for-byte parity:
 
-- *Python.* `src/soothsayer/oracle.py` — `Oracle.fair_value(symbol, as_of, target_coverage)`. Numeric parameters are exposed as module-level constants (`BUFFER_BY_TARGET`, `MAX_SERVED_TARGET`, `REGIME_FORECASTER`, `DEFAULT_FORECASTER`).
+- *Python.* `src/soothsayer/oracle.py` — `Oracle.fair_value(symbol, as_of, target_coverage)`. The 20 deployment scalars are exposed as module-level constants (`REGIME_QUANTILE_TABLE`, `C_BUMP_SCHEDULE`, `DELTA_SHIFT_SCHEDULE`).
 
-- *Rust.* `crates/soothsayer-oracle/src/{config,oracle}.rs` — same API, same constants, same arithmetic. The Rust port is the production serving binary; the Python is the research and backtest implementation. `scripts/verify_rust_oracle.py` runs both implementations on a 75-case test panel and asserts byte-for-byte equality on every field of the returned `PricePoint`. Parity was verified after every methodology change in the 2026-04-25 sequence (per-target buffer landing, grid extension, $\tau=0.99$ buffer bump).
+- *Rust.* `crates/soothsayer-oracle/src/{config,oracle}.rs` — same API, same constants, same arithmetic. The Rust port is the production serving binary; the Python is the research and reference implementation. `scripts/verify_rust_oracle.py` runs both implementations on a randomised + edge-case panel and asserts byte-for-byte equality on every field of the returned `PricePoint`. The latest run (2026-MM-DD, M5 deployment) passes 90/90 cases.
 
-End-to-end reproduction is a single command per stage:
+End-to-end reproduction is a two-command sequence:
 
 ```
-uv run python scripts/run_calibration.py    # rebuild bounds + surface artifacts
-uv run python scripts/smoke_oracle.py        # cross-symbol demo of the served API
-uv run python scripts/refresh_oos_validation.py  # produces the §6.4 OOS tables
+uv run python scripts/build_mondrian_artefact.py   # builds the per-Friday artefact + JSON sidecar
+uv run python scripts/smoke_oracle.py              # cross-regime demo of the served API
 ```
 
-All inputs are public and free (§5.7); no credentials are required for the calibration backtest itself.
+The artefact build re-trains the 12 per-regime quantiles and re-fits the 4 $c(\tau)$ bumps from the 2023+ OOS slice; the $\delta$ schedule is hardcoded as the walk-forward selection. All inputs are public and free (§5.7); no credentials are required for the calibration backtest itself. A consumer who wants to verify a published band needs only the audit-trail sidecar and the per-Friday artefact for the date in question — under 100 KB of structured data per symbol-year.

@@ -39,35 +39,32 @@ Soothsayer's claim is narrower and more useful: **publish a band whose realised 
 For any `(symbol, as_of, target_coverage)` request, the oracle returns:
 
 ```python
-fv = oracle.fair_value("SPY", "2026-04-17", target_coverage=0.85)
+fv = oracle.fair_value("SPY", "2026-04-24", target_coverage=0.85)
 
-fv.point                       # factor-adjusted fair value (band midpoint, bias-aware by construction)
+fv.point                       # factor-adjusted fair value (band midpoint)
 fv.lower, fv.upper             # band edges at the served claimed quantile
 fv.target_coverage             # 0.85 — what the consumer asked for
-fv.calibration_buffer_applied  # 0.045 — empirical buffer added to target before surface inversion
-fv.claimed_coverage_served     # which claimed quantile the surface actually delivered
+fv.calibration_buffer_applied  # 0.02 — δ(τ) shift, the OOS-fit conservatism
+fv.claimed_coverage_served     # τ + δ(τ) — the band's actual claim
 fv.regime                      # "normal" | "long_weekend" | "high_vol"
-fv.forecaster_used             # "F1_emp_regime" | "F0_stale" — hybrid receipt
+fv.forecaster_used             # "mondrian" — wire forecaster_code = 2
 fv.sharpness_bps               # band half-width in bps
-fv.diagnostics                 # full auditable receipt
+fv.diagnostics                 # c_bump, q_regime, q_eff — full auditable receipt
 ```
 
-Those fields are the product. They let a consumer say: *"I asked for 85% realised coverage, you buffered that request by 4.5pp, served a specific quantile from a specific forecaster in a specific regime, and I can audit that decision against historical evidence."* The calibration surface and receipts are documented in [`reports/v1b_calibration.md`](reports/v1b_calibration.md) and `data/processed/v1b_bounds.parquet`.
+Those fields are the product. They let a consumer say: *"I asked for 85% realised coverage, you served at 87% via the deployed δ-shift conservatism, the regime classifier pulled `normal`, the per-regime conformal quantile was 0.0163 with the OOS-fit bump 1.455 — and I can audit that decision against the published 20-scalar deployment artefact and 12 years of public weekend data."* The deployment artefact and serving code are documented in [`src/soothsayer/oracle.py`](src/soothsayer/oracle.py), [`scripts/build_mondrian_artefact.py`](scripts/build_mondrian_artefact.py), and [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) §4.
 
 The deployment default is **τ = 0.85**, chosen on protocol-policy grounds in the current Paper 3 work. Any τ ∈ (0, 1) is valid; **τ = 0.95** is the headline oracle-validation target in Paper 1.
 
 ## How it works
 
-The product is the **served band**, not the raw forecaster. The methodology has three layers.
+The product is the **served band**, not the raw point estimate. The deployed v2 / M5 architecture is a Mondrian split-conformal-by-regime predictor with three layers.
 
-**Layer 1: raw forecasters.** Two base forecasters generate candidate bands across a claimed-coverage grid:
+**Layer 1: factor-switchboard point estimator.**
 
-- `F1_emp_regime` — point estimate is Friday close × per-symbol factor return; conditional sigma is fit by a log-log regression on a per-symbol volatility index plus calendar regressors:
-  ```
-  log|resid| = α + β·log(vol_idx) + γ_earn·earnings_next_week + γ_long·is_long_weekend
-  ```
-  Residuals are standardised by predicted σ; empirical quantiles are taken on the standardised residual, then re-scaled by current predicted σ. No Gaussian assumption, no parametric vol model.
-- `F0_stale` — Friday close held forward + 20-day Gaussian band. Uninformative but robust; serves as the high-volatility hybrid fallback.
+```
+P_hat = fri_close × (1 + factor_return)
+```
 
 Factor switchboard:
 - Equities (SPY, QQQ, AAPL, GOOGL, NVDA, TSLA, HOOD) → ES=F (E-mini S&P futures)
@@ -75,50 +72,52 @@ Factor switchboard:
 - GLD → GC=F (gold futures)
 - TLT → ZN=F (10-year treasury note futures)
 
-Per-symbol vol indices: VIX for equities, GVZ for gold, MOVE for treasuries.
+**Layer 2: per-regime conformal quantile.** For each regime $r \in \{\texttt{normal}, \texttt{long\_weekend}, \texttt{high\_vol}\}$ and each anchor $\tau \in \{0.68, 0.85, 0.95, 0.99\}$, the empirical $\tau$-quantile of the absolute relative residual $|P_\text{Mon} - P_\text{hat}| / P_\text{Fri}$ is fit on the pre-2023 calibration set (4,266 weekend rows). Twelve trained scalars total.
 
-**Layer 2: empirical calibration surface.** For each `(symbol, regime, forecaster, claimed_quantile)` cell, Soothsayer measures realised coverage on rolling history and persists the result. At serve time, a request `(s, r, τ)` is mapped to the claimed quantile that historically delivered the buffered target on that bucket.
+**Layer 3: deployment-tuned conservatism schedule.**
+- $c(\tau) \in \{0.68 \to 1.498, 0.85 \to 1.455, 0.95 \to 1.300, 0.99 \to 1.076\}$ — multiplicative bump on the trained quantile, fit on the 2023+ OOS slice as the smallest scalar that closes the train-OOS distribution-shift gap.
+- $\delta(\tau) \in \{0.68 \to 0.05, 0.85 \to 0.02, 0.95 \to 0.00, 0.99 \to 0.00\}$ — τ-shift selected by 6-split walk-forward sweep as the smallest schedule aligning per-split realised coverage with nominal at every anchor.
 
-**Layer 3: serving policy.**
-- `REGIME_FORECASTER = {normal: F1_emp_regime, long_weekend: F1_emp_regime, high_vol: F0_stale}`. Evidence: at matched realised coverage, F1 is 27–43% tighter than F0 on `normal`/`long_weekend`. In `high_vol`, F0 is what prevents the OOS Christoffersen-independence rejection that pure-F1 produces (clustered violations).
-- `BUFFER_BY_TARGET = {0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}`, linearly interpolated off-grid. Per-target tuned on the OOS 2023+ slice as the smallest buffer satisfying realised-within-0.5pp + Kupiec $p_{uc} > 0.10$ + Christoffersen $p_{ind} > 0.05$. The buffer is **load-bearing for the OOS Kupiec pass** at every τ ≤ 0.95; without it, surface inversion alone delivers 92.2% realised at τ=0.95 and Kupiec rejects.
+Serving-time computation is a five-line lookup against the per-Friday artefact and the 20 deployment scalars. Linear interpolation off-anchor; no surface inversion, no per-symbol fallback, no scalar buffer override.
 
-Much more complex stacks were tried and rejected. The current methodology won because it hit the calibration target first and stayed auditable. The full decision trail lives in [`reports/methodology_history.md`](reports/methodology_history.md).
+The architecture is the product of a multi-step ablation against the v1 hybrid forecaster Oracle (preserved as historical evidence in `reports/paper1_coverage_inversion/` §7.1–§7.5) and the constant-buffer width-at-coverage stress test (§7.6). The Mondrian conformal-by-regime ablation (§7.7) established the deployable simpler baseline that delivers 19–20% narrower bands at indistinguishable Kupiec calibration through τ ≤ 0.95. The full decision trail lives in [`reports/methodology_history.md`](reports/methodology_history.md).
 
 ## Evidence snapshot
 
-Held-out 2023+ slice (1,720 rows × 172 weekends), Oracle served end-to-end through all three methodology layers:
+Held-out 2023+ slice (1,730 rows × 173 weekends), v2 / M5 Mondrian split-conformal-by-regime Oracle served end-to-end:
 
 | τ | n | Realised | Half-width (bps) | Kupiec $p_{uc}$ | Christoffersen $p_{ind}$ |
 |---:|---:|---:|---:|---:|---:|
-| 0.68 | 1,720 | 0.678 | 135.9 | **0.893** | **0.647** |
-| 0.85 | 1,720 | 0.855 | 251.1 | **0.541** | **0.185** |
-| **0.95** | **1,720** | **0.950** | **456.0** | **1.000** | **0.485** |
-| 0.99 | 1,720 | 0.977 | 580.8 | 0.000 | 0.956 |
+| 0.68 | 1,730 | 0.680 | 110.2 | **0.975** | 0.025 |
+| 0.85 | 1,730 | 0.850 | 201.0 | **0.973** | **0.516** |
+| **0.95** | **1,730** | **0.950** | **354.5** | **0.956** | **0.912** |
+| **0.99** | **1,730** | **0.990** | **677.5** | **0.942** | **0.344** |
 
-Per-regime breakdown at **τ = 0.95** on the OOS slice:
+Per-regime breakdown at **τ = 0.95** on the OOS slice (forecaster: `mondrian` for every row):
 
-| Regime | n | Realised | Half-width (bps) | Forecaster served |
-|---|---:|---:|---:|---|
-| normal | 1,150 | 0.945 | 417.7 | F1_emp_regime |
-| long_weekend | 190 | 0.953 | 416.6 | F1_emp_regime |
-| high_vol | 380 | 0.963 | 591.6 | F0_stale |
+| Regime | n | Realised | Half-width (bps) |
+|---|---:|---:|---:|
+| normal | 1,160 | 0.939 | 279.9 |
+| long_weekend | 190 | 0.984 | 403.4 |
+| high_vol | 380 | 0.968 | 557.8 |
 
 Interpretation:
 
 - **τ = 0.95** is the headline oracle-validation target.
 - **τ = 0.85** is the current deployment default for policy work.
-- **τ = 0.99** remains out of scope for v1 because the finite-sample tail is too thin to support a clean 1% claim.
+- **τ = 0.99** is now in scope under the M5 deployment: realised $0.990$ with Kupiec passing, at the cost of a 22% wider band than the v1 hybrid Oracle returned at the same anchor (the v1 finite-sample tail ceiling at $0.972$ is closed).
 
-Full surface, per-symbol breakdown, calibration curves: [`reports/v1b_calibration.md`](reports/v1b_calibration.md), [`reports/paper1_coverage_inversion/06_results.md`](reports/paper1_coverage_inversion/06_results.md). Ablation with bootstrap CIs: [`reports/v1b_ablation.md`](reports/v1b_ablation.md). Reproducible end-to-end via `uv run python scripts/run_calibration.py` and `uv run python scripts/smoke_oracle.py`.
+The deployed v2 / M5 architecture is **20% narrower** than the prior v1 hybrid Oracle at indistinguishable Kupiec calibration through τ ≤ 0.95 (block-bootstrap CIs exclude zero on width, straddle zero on coverage). See [`reports/methodology_history.md`](reports/methodology_history.md) (2026-05-02 M5 entry) and [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) §4 (methodology) + §7.7 (Mondrian ablation).
+
+Full breakdown: [`reports/paper1_coverage_inversion/06_results.md`](reports/paper1_coverage_inversion/06_results.md). Ablation with bootstrap CIs: [`reports/paper1_coverage_inversion/07_ablation.md`](reports/paper1_coverage_inversion/07_ablation.md). Reproducible end-to-end via `uv run python scripts/build_mondrian_artefact.py` and `uv run python scripts/smoke_oracle.py`.
 
 ## Quick start
 
 ```bash
 uv sync
-cp .env.example .env           # optional — only needed if you're running live Helius workloads
-uv run python scripts/run_calibration.py     # builds the calibration surface from 12 yrs of data
-uv run python scripts/smoke_oracle.py        # demo the Oracle serving API
+cp .env.example .env                          # optional — only needed for live Helius workloads
+uv run python scripts/build_mondrian_artefact.py   # builds the M5 deployment artefact from 12 yrs of data
+uv run python scripts/smoke_oracle.py              # demo the Oracle serving API
 ```
 
 All upstream data now comes from Scryer parquet under `SCRYER_DATASET_ROOT`. Start with [`docs/scryer_consumer_guide.md`](docs/scryer_consumer_guide.md) for the read pattern and [`docs/data-sources.md`](docs/data-sources.md) for the provider catalog.
@@ -129,7 +128,7 @@ All upstream data now comes from Scryer parquet under `SCRYER_DATASET_ROOT`. Sta
 src/soothsayer/
   backtest/                 v1b calibration backtest — produces the empirical surface
     panel.py                weekend panel assembly (10 tickers × 12 years)
-    forecasters.py          F0 through F1_emp_regime + F2_har_rv (broken, kept for diagnostic)
+    forecasters.py          F0 through F1_emp_regime + F2_har_rv (legacy v1 ladder; M5 uses only point_futures_adjusted)
     metrics.py              coverage, sharpness, calibration-curve helpers
     regimes.py              pre-publish regime tagging (high_vol, long_weekend, normal)
     calibration.py          builds the per-(symbol, regime, claimed) empirical surface

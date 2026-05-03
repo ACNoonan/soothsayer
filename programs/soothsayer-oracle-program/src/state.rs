@@ -79,7 +79,9 @@ pub struct PriceUpdate {
     pub version: u8,
     /// Regime code: 0=normal, 1=long_weekend, 2=high_vol, 3=shock_flagged.
     pub regime_code: u8,
-    /// Forecaster used for this band: 0=F1_emp_regime, 1=F0_stale. Receipt field.
+    /// Forecaster used for this band: 0=F1_emp_regime (v1, legacy receipts),
+    /// 1=F0_stale (v1, legacy receipts), 2=mondrian (M5 / v2 deployment).
+    /// Receipt field.
     pub forecaster_code: u8,
     /// Shared exponent for the fixed-point prices: real_price = value * 10^exponent.
     /// For USDC-like 6-decimal precision: exponent = -6. For asset prices
@@ -169,9 +171,13 @@ pub const REGIME_HIGH_VOL: u8 = 2;
 pub const REGIME_SHOCK_FLAGGED: u8 = 3;
 
 /// Forecaster codes mirrored from Python/Rust `forecaster_used`.
+///
+/// Codes 0 and 1 are v1 receipts (F1_emp_regime + F0_stale, the hybrid
+/// per-regime forecaster); code 2 is the M5 / v2 deployment (Mondrian
+/// split-conformal by regime; paper 1 §7.7). Code 3 is reserved.
 pub const FORECASTER_F1_EMP_REGIME: u8 = 0;
 pub const FORECASTER_F0_STALE: u8 = 1;
-pub const FORECASTER_RESERVED_2: u8 = 2;
+pub const FORECASTER_MONDRIAN: u8 = 2;
 pub const FORECASTER_RESERVED_3: u8 = 3;
 
 /// Current schema version. Bump on any on-wire layout change.

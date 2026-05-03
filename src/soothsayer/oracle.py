@@ -1,175 +1,170 @@
 """
-Soothsayer Oracle — serving-time API.
+Soothsayer Oracle — serving-time API (v2 / M5 Mondrian).
 
 Consumers call `Oracle.fair_value(symbol, as_of, target_coverage)` and receive
-a principled price band: a point estimate and lower/upper bounds whose
-empirical coverage matches the target. The calibration surface driving the
-inversion is produced by the backtest (see `backtest/calibration.py`) and
-persisted to `data/processed/v1b_bounds.parquet`.
+a calibrated price band: a point estimate and lower/upper bounds whose
+empirical coverage matches the target. The band is computed via Mondrian
+split-conformal-by-regime (paper 1 §7.7, deployed 2026-MM-DD per
+`reports/methodology_history.md`):
 
-**Default target_coverage = 0.85 (2026-04-25).** The shipping default moved
-from 0.95 to 0.85 after the OOS protocol-comparison bootstrap
-(`reports/tables/protocol_compare_*.csv`) showed t=0.85 performs best in the
-original protocol-policy scaffold under the default 4:1 miss:FP cost matrix.
-Against the legacy flat-band baseline used in that scaffold, t=0.85 yields
-ΔEL = −0.0107 with bootstrap CI [−0.014, −0.008] (~15% reduction; t=0.80
-reaches ~27% but at higher miss rate); t=0.95 yields ΔEL = +0.0245 because
-the buffered band over-fires false-positive liquidations. After the
-2026-04-26 on-chain Kamino snapshot, that flat-band comparator is treated as a
-simplified baseline rather than the literal xStocks production setup; Paper 3
-now reframes the deployment comparison around real reserve-buffer exhaustion
-under observed Kamino semantics. The choice between t=0.80 and t=0.85 as the
-welfare-optimal default is therefore paper-3 territory; t=0.85 ships as a
-moderately conservative Schelling point. Customer-selects-coverage (Option C)
-means consumers with extreme bad-debt aversion can still ask for 0.95 or 0.99;
-we just don't default there.
+  p_hat = fri_close * (1 + factor_ret)                  # §7.4 factor switchboard
+  tau'  = tau + DELTA_SHIFT_SCHEDULE(tau)               # OOS-fit conservatism
+  q     = C_BUMP_SCHEDULE(tau') * REGIME_QUANTILE_TABLE(regime, tau')
+  lower = p_hat * (1 - q),  upper = p_hat * (1 + q),  point = p_hat
 
-**Per-target buffer schedule (2026-04-25).** A scalar 2.5pp buffer was
-sufficient at the original τ=0.95 default. After the default moved to
-τ=0.85, the same scalar under-corrected (Kupiec p_uc=0.014 reject) and a
-proper conformal alternative under-corrected further (see
-`reports/v1b_conformal_comparison.md`). The fix is per-target tuning of the
-heuristic itself; `BUFFER_BY_TARGET` now persists buffers calibrated against
-each anchor point on the OOS 2023+ slice, with linear interpolation for
-off-grid targets. See `reports/v1b_buffer_tune.md` for the sweep evidence.
+Twenty deployment scalars total:
+  - `REGIME_QUANTILE_TABLE`  3 regimes × 4 τ-anchors = 12 train-fit quantiles
+  - `C_BUMP_SCHEDULE`        4 τ-anchors                = 4 OOS-fit scalars
+  - `DELTA_SHIFT_SCHEDULE`   4 τ-anchors                = 4 walk-forward-fit shifts
 
-**Hybrid regime forecaster (2026-04-24).** The Oracle consults
-`REGIME_FORECASTER` to decide which forecaster's calibration surface to
-invert against for a given regime. v1b evidence at matched realized coverage:
+This matches the v1 deployment's parameter budget (4 OOS scalars in
+`BUFFER_BY_TARGET`) plus the 12 trained quantiles and 4 δ shifts. The 12+4
+trained-vs-tuned split mirrors the v1 surface (trained) + buffer (tuned)
+architecture, with the surface collapsed to a 12-row regime quantile table
+and the buffer applied as a multiplicative bump rather than an additive shift
+in target-quantile space.
 
-  normal regime       (65% of weekends) → F1_emp_regime  (27% tighter than F0)
-  long_weekend regime (10%)             → F1_emp_regime  (43% tighter)
-  high_vol regime     (24%)             → F0_stale       (~10% tighter; F1 stretches)
+Per-Friday lookup parquet: `data/processed/mondrian_artefact_v2.parquet`
+(produced by `scripts/build_mondrian_artefact.py`). Audit-trail sidecar
+duplicating the 20 deployment scalars lives at
+`data/processed/mondrian_artefact_v2.json`.
 
-The `forecaster_used` field on the PricePoint is the receipt for which
-forecaster's band the consumer received.
-
-Two modes:
-  historical mode (used by the smoke test and demo): `as_of` must match a
-    Friday present in the backtest panel; bounds are looked up directly.
-  live mode (for production): not yet implemented — would fetch current
-    Friday data and run the model online. Out of scope for Phase 0.
-
-The explicit product promise: the `claimed_coverage_served` field tells the
-consumer exactly which quantile level was used to deliver their
-`target_coverage` — an honest calibration receipt, not a guarantee.
+Reference: paper 1 §7.7, `reports/methodology_history.md` (M5 entry),
+`reports/tables/v1b_mondrian_*.csv`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 
-from .backtest import calibration as cal
-from .config import DATA_PROCESSED, REPORTS
+from .config import DATA_PROCESSED
 
 
-BOUNDS_PATH = DATA_PROCESSED / "v1b_bounds.parquet"
-SURFACE_PATH = REPORTS / "tables" / "v1b_calibration_surface.csv"
-SURFACE_POOLED_PATH = REPORTS / "tables" / "v1b_calibration_surface_pooled.csv"
+ARTEFACT_PATH = DATA_PROCESSED / "mondrian_artefact_v2.parquet"
+
+# Mondrian receipt label exposed in PricePoint.forecaster_used and the on-chain
+# PriceUpdate.forecaster_code (FORECASTER_MONDRIAN = 2 in the consumer SDK).
+MONDRIAN_FORECASTER = "mondrian"
 
 
-# Per-regime forecaster selection. Evidence-driven per v1b: F1_emp_regime
-# is calibration-surface-tighter than F0 on normal and long_weekend. In
-# high_vol, F0 is tighter in-sample and OOS; the hybrid's OOS defense
-# primarily rests on Christoffersen independence (hybrid + buffer passes,
-# F1 + buffer does not). See reports/v1b_decision.md and
-# reports/v1b_ablation.md for the bootstrap intervals.
-REGIME_FORECASTER: dict[str, str] = {
-    "normal": "F1_emp_regime",
-    "long_weekend": "F1_emp_regime",
-    "high_vol": "F0_stale",
-}
-DEFAULT_FORECASTER = "F1_emp_regime"
-
-
-# Empirical calibration buffer — per-target tuning (2026-04-25).
-#
-# The v1b hybrid OOS validation found a calibration-surface aging effect: at
-# τ=0.95, the surface inversion delivers realized ~0.92 on held-out 2023+ data.
-# We close the gap with an empirical buffer added to the consumer's target
-# before surface inversion. Disclosed in every PricePoint via
-# `calibration_buffer_applied`.
-#
-# An earlier scalar default (0.025) was tuned for τ=0.95 only. After the
-# default operating point moved to τ=0.85 (per the protocol-compare EL
-# analysis), the τ=0.95-tuned scalar under-corrected at τ=0.85 and Kupiec
-# rejected at p_uc=0.014. The split-conformal comparison
-# (`reports/v1b_conformal_comparison.md`) confirmed no off-the-shelf conformal
-# alternative outperformed the heuristic, so the fix is per-target tuning of
-# the heuristic itself.
-#
-# Buffers below are the smallest values satisfying realized ≥ τ − 0.005,
-# Kupiec p_uc > 0.10, Christoffersen p_ind > 0.05 on the OOS 2023+ slice
-# (`reports/v1b_buffer_tune.md`, `reports/tables/v1b_buffer_recommended.csv`).
-# Off-grid targets are linearly interpolated between adjacent anchors;
-# targets at or above 0.99 hit the structural finite-sample tail ceiling
-# (§9.1) regardless of buffer because the bounds grid stops at 0.995.
-#
-# A production deployment would rebuild this dict on each surface rebuild
-# from a rolling OOS backtest. Treat the values as a fixed snapshot of the
-# 2026-04-25 calibration; the methodology is the load-bearing artifact, not
-# the specific numbers.
-BUFFER_BY_TARGET: dict[float, float] = {
-    0.68: 0.045,
-    0.85: 0.045,
-    0.95: 0.020,
-    0.99: 0.010,
+# Per-(regime, τ) trained quantile from the pre-2023 calibration set
+# (split date 2023-01-01). See `scripts/build_mondrian_artefact.py` step 1
+# for the fit; values match `reports/tables/v1b_mondrian_calibration.csv`
+# (method=M2_mondrian_fa, since M5 reuses the M2 fit and adds the OOS bump).
+REGIME_QUANTILE_TABLE: dict[str, dict[float, float]] = {
+    "normal": {
+        0.68: 0.006070,
+        0.85: 0.011236,
+        0.95: 0.021530,
+        0.99: 0.049663,
+    },
+    "long_weekend": {
+        0.68: 0.006648,
+        0.85: 0.014248,
+        0.95: 0.031032,
+        0.99: 0.071228,
+    },
+    "high_vol": {
+        0.68: 0.011628,
+        0.85: 0.021460,
+        0.95: 0.042911,
+        0.99: 0.099418,
+    },
 }
 
-# Scalar fallback retained for callers that pass a single number (e.g., the
-# ablation tooling that A/Bs against a fixed buffer). In serving-time use,
-# the per-target dict is the primary mechanism.
-CALIBRATION_BUFFER_PCT: float = 0.025
-# Top of the fine claimed-coverage grid. Extended from 0.995 → 0.999 on
-# 2026-04-25 to test whether the τ=0.99 ceiling was grid-spacing-driven; the
-# extension lifted OOS realised coverage at τ=0.99 from 0.972 → 0.977 but did
-# not fully pass Kupiec — the deeper finite-sample limitation is the 156-
-# weekend per-(symbol, regime) calibration window, not the grid. Reported in
-# `reports/v1b_extended_grid.md`. The wider grid is retained as a strict
-# improvement.
-MAX_SERVED_TARGET: float = 0.999
+# OOS-fit multiplicative bump on the trained quantile (the M5 analogue of v1's
+# BUFFER_BY_TARGET). One scalar per τ-anchor; off-grid τ linearly interpolated.
+# See `reports/tables/v1b_mondrian_calibration.csv` (M5_mondrian_deployable
+# rows, bump_c column).
+C_BUMP_SCHEDULE: dict[float, float] = {
+    0.68: 1.498,
+    0.85: 1.455,
+    0.95: 1.300,
+    0.99: 1.076,
+}
+
+# Walk-forward-fit τ-shift schedule. Serves c(τ + δ) · q_r(τ + δ) instead of
+# c(τ) · q_r(τ); pushes per-split realised coverage above nominal so the
+# deployed schedule is conservative, not centred (see §7.7.4 / sweep table
+# `reports/tables/v1b_mondrian_delta_sweep.csv`).
+DELTA_SHIFT_SCHEDULE: dict[float, float] = {
+    0.68: 0.05,
+    0.85: 0.02,
+    0.95: 0.00,
+    0.99: 0.00,
+}
+
+# Default consumer target. Held over from v1 — protocol-policy work consumes
+# τ=0.85 as a moderately conservative Schelling point (see paper 3 plan §13).
+DEFAULT_TARGET_COVERAGE: float = 0.85
+# Top of the τ schedule. Serving requests above this clip to the τ=0.99 row
+# of the schedule; finite-sample tail discussion in §9.1.
+MAX_SERVED_TARGET: float = 0.99
+# Bottom of the τ schedule. Below this we clip to the τ=0.68 row.
+MIN_SERVED_TARGET: float = 0.68
 
 
-def buffer_for_target(target: float, schedule: dict[float, float] = None) -> float:
-    """Linear-interpolate the per-target buffer schedule for a consumer's
-    requested target. Targets below the smallest anchor use the smallest
-    anchor's buffer; targets above the largest use the largest anchor's
-    buffer. Schedule defaults to the module-level BUFFER_BY_TARGET."""
-    if schedule is None:
-        schedule = BUFFER_BY_TARGET
+def _interp_schedule(tau: float, schedule: dict[float, float]) -> float:
+    """Linearly interpolate a τ-keyed schedule. Targets at or below the
+    smallest anchor return the smallest anchor's value; targets at or above
+    the largest anchor return the largest anchor's value."""
     anchors = sorted(schedule.keys())
-    if target <= anchors[0]:
+    if tau <= anchors[0]:
         return float(schedule[anchors[0]])
-    if target >= anchors[-1]:
+    if tau >= anchors[-1]:
         return float(schedule[anchors[-1]])
     for i in range(len(anchors) - 1):
         lo, hi = anchors[i], anchors[i + 1]
-        if lo <= target <= hi:
-            frac = (target - lo) / (hi - lo)
+        if lo <= tau <= hi:
+            frac = (tau - lo) / (hi - lo)
             return float(schedule[lo] + frac * (schedule[hi] - schedule[lo]))
-    return float(schedule[anchors[-1]])  # unreachable; satisfies type checker
+    return float(schedule[anchors[-1]])
+
+
+def delta_shift_for_target(tau: float) -> float:
+    return _interp_schedule(tau, DELTA_SHIFT_SCHEDULE)
+
+
+def c_bump_for_target(tau: float) -> float:
+    return _interp_schedule(tau, C_BUMP_SCHEDULE)
+
+
+def regime_quantile_for(regime: str, tau: float) -> float:
+    """Linearly interpolate the per-regime quantile row at τ. Unknown regimes
+    fall back to `high_vol` (the conservative widest-quantile row)."""
+    row = REGIME_QUANTILE_TABLE.get(regime, REGIME_QUANTILE_TABLE["high_vol"])
+    return _interp_schedule(tau, row)
 
 
 @dataclass(frozen=True)
 class PricePoint:
     """The Soothsayer oracle read. Stable fields are what protocols integrate
-    against; `diagnostics` is human-consumable metadata."""
+    against; `diagnostics` is human-consumable metadata.
+
+    Field semantics under M5:
+      - `target_coverage`: what the consumer asked for (τ).
+      - `calibration_buffer_applied`: δ(τ) — the OOS-fit τ-shift, the
+        structural successor to v1's `BUFFER_BY_TARGET` schedule.
+      - `claimed_coverage_served`: τ + δ(τ), the served band's claim.
+      - `forecaster_used`: always "mondrian" under M5 (legacy field; on the
+        wire this maps to FORECASTER_MONDRIAN = 2).
+    """
+
     symbol: str
     as_of: date
-    target_coverage: float       # what the consumer asked for
-    calibration_buffer_applied: float  # OOS buffer added to target before inversion
-    claimed_coverage_served: float  # which claimed quantile we actually used
+    target_coverage: float
+    calibration_buffer_applied: float  # δ(τ) — OOS-fit shift on serving target
+    claimed_coverage_served: float  # τ + δ(τ)
     point: float
     lower: float
     upper: float
     regime: str
-    forecaster_used: str         # which forecaster's band we served (hybrid receipt)
+    forecaster_used: str
     sharpness_bps: float
     diagnostics: dict = field(default_factory=dict)
 
@@ -198,162 +193,85 @@ class PricePoint:
 
 
 class Oracle:
-    """Serving-time Oracle with per-regime forecaster selection."""
+    """Serving-time Oracle — Mondrian split-conformal by regime."""
 
-    def __init__(
-        self,
-        bounds: pd.DataFrame,
-        surface: pd.DataFrame,
-        surface_pooled: pd.DataFrame,
-        regime_forecaster: dict[str, str] | None = None,
-        calibration_buffer_pct: float | None = None,
-        buffer_by_target: dict[float, float] | None = None,
-    ):
-        self._bounds = bounds
-        self._surface = surface
-        self._surface_pooled = surface_pooled
-        self._regime_forecaster = regime_forecaster or REGIME_FORECASTER
-        # If a scalar buffer is supplied, it broadcasts to every target (legacy
-        # behaviour and ablation A/B). Otherwise use the per-target schedule.
-        self._buffer_scalar = float(calibration_buffer_pct) if calibration_buffer_pct is not None else None
-        self._buffer_schedule = dict(buffer_by_target) if buffer_by_target is not None else dict(BUFFER_BY_TARGET)
+    def __init__(self, artefact: pd.DataFrame):
+        self._artefact = artefact
 
     @classmethod
-    def load(
-        cls,
-        bounds_path: Path | str = BOUNDS_PATH,
-        surface_path: Path | str = SURFACE_PATH,
-        surface_pooled_path: Path | str = SURFACE_POOLED_PATH,
-        regime_forecaster: dict[str, str] | None = None,
-        calibration_buffer_pct: float | None = None,
-        buffer_by_target: dict[float, float] | None = None,
-    ) -> "Oracle":
-        bounds = pd.read_parquet(bounds_path)
-        surface = pd.read_csv(surface_path)
-        surface_pooled = pd.read_csv(surface_pooled_path)
-        return cls(
-            bounds=bounds,
-            surface=surface,
-            surface_pooled=surface_pooled,
-            regime_forecaster=regime_forecaster,
-            calibration_buffer_pct=calibration_buffer_pct,
-            buffer_by_target=buffer_by_target,
-        )
+    def load(cls, artefact_path: Path | str = ARTEFACT_PATH) -> "Oracle":
+        artefact = pd.read_parquet(artefact_path)
+        # Normalise fri_ts to datetime.date so equality checks against
+        # consumer-supplied dates work regardless of upstream pandas dtype.
+        artefact["fri_ts"] = pd.to_datetime(artefact["fri_ts"]).dt.date
+        return cls(artefact=artefact)
 
     def list_available(self, symbol: Optional[str] = None) -> pd.DataFrame:
-        """Fridays for which historical-mode serving is possible."""
-        b = self._bounds[["symbol", "fri_ts", "regime_pub"]].drop_duplicates()
+        cols = ["symbol", "fri_ts", "regime_pub"]
+        df = self._artefact[cols].drop_duplicates()
         if symbol is not None:
-            b = b[b["symbol"] == symbol]
-        return b.sort_values(["symbol", "fri_ts"]).reset_index(drop=True)
-
-    def _pick_forecaster(self, regime: str) -> str:
-        return self._regime_forecaster.get(regime, DEFAULT_FORECASTER)
-
-    def _invert_to_claimed(
-        self, symbol: str, regime: str, target_coverage: float, forecaster: str,
-    ) -> tuple[float, dict]:
-        # Try per-symbol surface first, restricted to the chosen forecaster
-        claimed_sym, diag_sym = cal.invert(
-            self._surface, symbol, regime, target_coverage, forecaster=forecaster,
-        )
-        if diag_sym.get("fallback") != "pooled":
-            return claimed_sym, {"calibration": "per_symbol", **diag_sym}
-        # Fallback to pooled
-        claimed_p, diag_p = cal.invert(
-            self._surface_pooled, "__pooled__", regime, target_coverage,
-            forecaster=forecaster,
-        )
-        return claimed_p, {"calibration": "pooled", **diag_p}
+            df = df[df["symbol"] == symbol]
+        return df.sort_values(["symbol", "fri_ts"]).reset_index(drop=True)
 
     def fair_value(
         self,
         symbol: str,
         as_of: date | str,
-        target_coverage: float = 0.85,
-        forecaster_override: str | None = None,
-        buffer_override: float | None = None,
+        target_coverage: float = DEFAULT_TARGET_COVERAGE,
     ) -> PricePoint:
         """Serve a calibrated price band.
 
-        `forecaster_override` forces a specific forecaster ("F1_emp_regime" or
-        "F0_stale" etc.) regardless of regime — useful for A/B diagnostics.
-        When None (default), uses the per-regime selection from
-        `REGIME_FORECASTER`.
-
-        `buffer_override` overrides the empirical calibration buffer (the OOS
-        gap correction, default `CALIBRATION_BUFFER_PCT`). Pass 0.0 to disable
-        entirely for diagnostics against the raw surface inversion.
+        At consumer τ, looks up the per-Friday point and regime, applies
+        the δ-shift schedule + c(τ) bump + per-regime quantile, returns
+        symmetric bounds around the factor-adjusted point.
         """
         if isinstance(as_of, str):
             as_of = pd.to_datetime(as_of).date()
 
-        # Look up every forecaster's rows at this (symbol, fri_ts)
-        rows = self._bounds[
-            (self._bounds["symbol"] == symbol) & (self._bounds["fri_ts"] == as_of)
+        rows = self._artefact[
+            (self._artefact["symbol"] == symbol)
+            & (self._artefact["fri_ts"] == as_of)
         ]
         if rows.empty:
             raise ValueError(
-                f"No bounds available for symbol={symbol} as_of={as_of}. "
+                f"No artefact row for symbol={symbol} as_of={as_of}. "
                 "Call list_available() to see what's supported."
             )
 
-        regime = str(rows["regime_pub"].iloc[0])
-        fri_close = float(rows["fri_close"].iloc[0])
+        row = rows.iloc[0]
+        regime = str(row["regime_pub"])
+        fri_close = float(row["fri_close"])
+        point = float(row["point"])
 
-        forecaster_used = forecaster_override or self._pick_forecaster(regime)
-        forecaster_rows = rows[rows["forecaster"] == forecaster_used] if "forecaster" in rows.columns else rows
-        if forecaster_rows.empty:
-            forecaster_used = rows["forecaster"].iloc[0] if "forecaster" in rows.columns else DEFAULT_FORECASTER
-            forecaster_rows = rows[rows["forecaster"] == forecaster_used] if "forecaster" in rows.columns else rows
+        tau_clipped = max(min(target_coverage, MAX_SERVED_TARGET), MIN_SERVED_TARGET)
+        delta = delta_shift_for_target(tau_clipped)
+        served_target = min(tau_clipped + delta, MAX_SERVED_TARGET)
+        c_bump = c_bump_for_target(served_target)
+        q_regime = regime_quantile_for(regime, served_target)
+        q_eff = c_bump * q_regime
 
-        # Apply empirical calibration buffer to target before inversion.
-        # Resolution order:
-        #   1. `buffer_override` (caller-supplied scalar) — A/B and diagnostic.
-        #   2. Oracle-level scalar (legacy single-buffer construction) if set.
-        #   3. Per-target schedule via `buffer_for_target` interpolation.
-        # See reports/v1b_buffer_tune.md for the per-target tuning evidence.
-        if buffer_override is not None:
-            buffer_pct = float(buffer_override)
-        elif self._buffer_scalar is not None:
-            buffer_pct = self._buffer_scalar
-        else:
-            buffer_pct = buffer_for_target(target_coverage, self._buffer_schedule)
-        effective_target = min(target_coverage + buffer_pct, MAX_SERVED_TARGET)
-
-        # Invert calibration using the chosen forecaster's surface, at the
-        # buffered target.
-        claimed_served, diag_inv = self._invert_to_claimed(
-            symbol, regime, effective_target, forecaster_used,
-        )
-
-        grid = sorted(forecaster_rows["claimed"].unique())
-        nearest_claimed = min(grid, key=lambda c: abs(c - claimed_served))
-        chosen = forecaster_rows[forecaster_rows["claimed"] == nearest_claimed].iloc[0]
-
-        lower = float(chosen["lower"])
-        upper = float(chosen["upper"])
-        point = (lower + upper) / 2.0
-        sharpness_bps = (upper - lower) / 2 / fri_close * 1e4
+        lower = point * (1.0 - q_eff)
+        upper = point * (1.0 + q_eff)
+        sharpness_bps = (upper - lower) / 2 / fri_close * 1e4 if fri_close else 0.0
 
         return PricePoint(
             symbol=symbol,
             as_of=as_of,
-            target_coverage=target_coverage,
-            calibration_buffer_applied=buffer_pct,
-            claimed_coverage_served=float(nearest_claimed),
+            target_coverage=float(target_coverage),
+            calibration_buffer_applied=float(delta),
+            claimed_coverage_served=float(served_target),
             point=point,
             lower=lower,
             upper=upper,
             regime=regime,
-            forecaster_used=forecaster_used,
+            forecaster_used=MONDRIAN_FORECASTER,
             sharpness_bps=sharpness_bps,
             diagnostics={
                 "fri_close": fri_close,
-                "nearest_grid": nearest_claimed,
-                "buffered_target": effective_target,
-                "requested_claimed_pre_clip": claimed_served,
-                "regime_forecaster_policy": self._regime_forecaster,
-                **diag_inv,
+                "served_target": served_target,
+                "c_bump": c_bump,
+                "q_regime": q_regime,
+                "q_eff": q_eff,
+                "regime_quantile_table_anchors": list(C_BUMP_SCHEDULE.keys()),
             },
         )

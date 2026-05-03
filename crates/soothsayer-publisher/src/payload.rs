@@ -10,8 +10,8 @@
 
 use serde::{Deserialize, Serialize};
 use soothsayer_consumer::{
-    FORECASTER_F0_STALE, FORECASTER_F1_EMP_REGIME, REGIME_HIGH_VOL, REGIME_LONG_WEEKEND,
-    REGIME_NORMAL,
+    FORECASTER_F0_STALE, FORECASTER_F1_EMP_REGIME, FORECASTER_MONDRIAN, REGIME_HIGH_VOL,
+    REGIME_LONG_WEEKEND, REGIME_NORMAL,
 };
 use soothsayer_oracle::types::{PricePoint, Regime};
 use thiserror::Error;
@@ -92,8 +92,11 @@ pub fn regime_to_code(regime: Regime) -> u8 {
 
 pub fn forecaster_to_code(name: &str) -> u8 {
     match name {
+        // Legacy v1 receipts (paper 1 §7.4 hybrid forecaster).
         "F1_emp_regime" => FORECASTER_F1_EMP_REGIME,
         "F0_stale" => FORECASTER_F0_STALE,
+        // M5 / v2 deployment (paper 1 §7.7).
+        "mondrian" => FORECASTER_MONDRIAN,
         _ => 255, // unknown — consumer should reject
     }
 }
@@ -167,37 +170,27 @@ mod tests {
     use super::*;
     use chrono::NaiveDate;
     use soothsayer_oracle::types::{PricePoint, PricePointDiagnostics};
-    use std::collections::BTreeMap;
 
     fn sample_price_point() -> PricePoint {
         PricePoint {
             symbol: "SPY".to_string(),
             as_of: NaiveDate::from_ymd_opt(2026, 4, 17).unwrap(),
             target_coverage: 0.95,
-            calibration_buffer_applied: 0.025,
-            claimed_coverage_served: 0.99,
+            calibration_buffer_applied: 0.0,
+            claimed_coverage_served: 0.95,
             point: 700.0755895327402,
             lower: 687.2102286091069,
             upper: 712.9409504563733,
             regime: Regime::Normal,
-            forecaster_used: "F1_emp_regime".to_string(),
+            forecaster_used: "mondrian".to_string(),
             sharpness_bps: 181.16653981260782,
             half_width_bps: 183.7710258147993,
             diagnostics: PricePointDiagnostics {
                 fri_close: 710.1400146484375,
-                nearest_grid: 0.99,
-                buffered_target: 0.975,
-                requested_claimed_pre_clip: 0.988921875,
-                regime_forecaster_policy: BTreeMap::from([
-                    ("high_vol".to_string(), "F0_stale".to_string()),
-                    ("long_weekend".to_string(), "F1_emp_regime".to_string()),
-                    ("normal".to_string(), "F1_emp_regime".to_string()),
-                ]),
-                calibration: "per_symbol".to_string(),
-                bracketed: Some((0.975, 0.99)),
-                clipped: None,
-                realized_min: None,
-                realized_max: None,
+                served_target: 0.95,
+                c_bump: 1.300,
+                q_regime: 0.021530,
+                q_eff: 0.027989,
             },
         }
     }

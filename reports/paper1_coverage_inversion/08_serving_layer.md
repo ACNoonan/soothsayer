@@ -7,23 +7,23 @@ The methodology of §4 is implemented as a four-component serving stack designed
 We separate *training* (Python) from *serving* (Rust + Solana).
 
 ```
-Python (model + train)               Rust (serve)
-----------------------              ------------------
-scripts/run_calibration.py            soothsayer-oracle (lib)
-  -> v1b_bounds.parquet      -->      -> Oracle::fair_value()
-  -> v1b_calibration_surface.csv         (hybrid + buffer + inversion)
-  -> v1b_calibration_surface_pooled.csv
-                                      soothsayer-publisher (CLI)
-                                      -> prepare-publish -> on-chain payload
-                                      
-                                      soothsayer-oracle-program (Anchor)
-                                      -> publish() -> PriceUpdate PDA
-                                      
-                                      soothsayer-consumer (no_std SDK)
-                                      -> decode_price_update(&[u8])
+Python (train)                          Rust (serve)
+----------------------                  --------------------
+scripts/build_mondrian_artefact.py        soothsayer-oracle (lib)
+  -> mondrian_artefact_v2.parquet  -->    -> Oracle::fair_value()
+  -> mondrian_artefact_v2.json              (Mondrian conformal lookup)
+
+                                          soothsayer-publisher (CLI)
+                                          -> prepare-publish -> on-chain payload
+
+                                          soothsayer-oracle-program (Anchor)
+                                          -> publish() -> PriceUpdate PDA
+
+                                          soothsayer-consumer (no_std SDK)
+                                          -> decode_price_update(&[u8])
 ```
 
-The Python `Oracle` (`src/soothsayer/oracle.py`) is the canonical specification. It both (a) produces the calibration artefacts consumed by every downstream serving component and (b) is the executable reference for the inversion algorithm. A change to the methodology — a new buffer schedule, a new regime, a grid extension — is implemented in Python first, validated end-to-end against the §6 OOS panel, and then ported to Rust under the byte-for-byte parity contract of §8.5. No model logic is duplicated between the two implementations: the training pipeline materialises the surface and bounds table once offline; the serving stack reads them.
+The Python `Oracle` (`src/soothsayer/oracle.py`) is the canonical specification. It both (a) produces the per-Friday lookup artefact consumed by every downstream serving component and (b) is the executable reference for the M5 conformal-lookup algorithm. A change to the methodology — a new $c(\tau)$ schedule, a new regime row, a per-Friday point recompute — is implemented in Python first, validated end-to-end against the §6 OOS panel, and then ported to Rust under the byte-for-byte parity contract of §8.5. No model logic is duplicated between the two implementations: the training pipeline materialises the per-Friday rows and the 20 deployment scalars once offline; the serving stack reads them. The 20 scalars (12 trained per-regime quantiles, 4 OOS-fit $c(\tau)$ bumps, 4 walk-forward-fit $\delta(\tau)$ shifts) are hardcoded in both `oracle.py` and `crates/soothsayer-oracle/src/config.rs` and mirrored into the JSON sidecar; the per-Friday rows live in the parquet artefact.
 
 ## 8.2 The Rust crate stack
 
@@ -31,9 +31,9 @@ Four crates plus one Anchor program, with deliberately narrow responsibilities.
 
 | Crate | Purpose | Lines | Tests |
 |---|---|---:|---:|
-| `soothsayer-oracle` | Library: loads the Python artefacts, exposes `Oracle::fair_value` with byte-exact equivalence to Python | ~600 | included in parity harness |
-| `soothsayer-publisher` | CLI binary `soothsayer`: serves single reads, lists available `(symbol, fri_ts)` pairs, prepares on-chain publish payloads | ~500 | 6/6 unit tests |
-| `soothsayer-consumer` | `no_std`, minimal-dep SDK for downstream protocols: decodes the on-chain `PriceUpdate` PDA into a typed `PriceBand` view | ~300 | 5/5 unit tests |
+| `soothsayer-oracle` | Library: loads the Mondrian artefact, exposes `Oracle::fair_value` with byte-exact equivalence to Python | ~330 | 4/4 unit tests + parity harness |
+| `soothsayer-publisher` | CLI binary `soothsayer`: serves single reads, lists available `(symbol, fri_ts)` pairs, prepares on-chain publish payloads | ~440 | 6/6 unit tests |
+| `soothsayer-consumer` | `no_std`, minimal-dep SDK for downstream protocols: decodes the on-chain `PriceUpdate` PDA into a typed `PriceBand` view | ~330 | 5/5 unit tests |
 | `soothsayer-demo-kamino` | Reference Kamino-style consumer integration: consumes a `PriceBand` and emits `Safe / Caution / Liquidate` decisions | ~400 | included in integration tests |
 | `soothsayer-oracle-program` (Anchor) | On-chain program: `initialize`, `publish`, `set_paused`, `rotate_signer_set` | ~400 | scaffolded, devnet deployment one command away |
 
@@ -65,9 +65,9 @@ The `PriceUpdate` account layout is informed by the Pyth-Network September-2021 
 ```
 PriceUpdate (128 bytes data + 8-byte Anchor discriminator):
 
-  version              u8         schema version, currently 1
+  version              u8         schema version, currently 1 (preserved across v1 → M5)
   regime_code          u8         0=normal, 1=long_weekend, 2=high_vol
-  forecaster_code      u8         0=F1_emp_regime, 1=F0_stale
+  forecaster_code      u8         0=F1_emp_regime (legacy v1), 1=F0_stale (legacy v1), 2=mondrian (M5 / deployed)
   exponent             i8         shared across price fields, default -8
   _pad0                [u8; 4]
   
@@ -101,22 +101,24 @@ The full publish payload serialises to 66 bytes; the on-chain account is 128 byt
 
 ## 8.5 Byte-for-byte parity verification
 
-`scripts/verify_rust_oracle.py` runs the Python `Oracle.fair_value` and the Rust `soothsayer fair-value` binary on the same `(symbol, fri_ts, target_coverage)` triples and asserts byte-exact agreement on the numeric output (point, lower, upper, sharpness_bps, claimed_served, calibration_buffer_applied) plus exact agreement on the string fields (regime, forecaster_used, calibration, clipped, bracketed). The current panel covers 75 cases: a deterministic sample of 25 random `(symbol, fri_ts)` pairs from the bounds table, plus explicit edge cases for SPY, GLD, TLT, MSTR, and HOOD at their most-recent Friday, served at three targets each ($\tau \in \{0.68, 0.95, 0.99\}$). **75/75 cases pass** as of the most recent re-run.
+`scripts/verify_rust_oracle.py` runs the Python `Oracle.fair_value` and the Rust `soothsayer fair-value` binary on the same `(symbol, fri_ts, target_coverage)` triples and asserts byte-exact agreement on the numeric output (point, lower, upper, sharpness_bps, claimed_served, calibration_buffer_applied) plus exact agreement on the string fields (regime, forecaster_used). The current panel covers 90 cases: a deterministic sample of 25 random `(symbol, fri_ts)` pairs from the Mondrian artefact, plus explicit edge cases for SPY, GLD, TLT, MSTR, and HOOD at their most-recent Friday, served at three targets each ($\tau \in \{0.68, 0.95, 0.99\}$). **90/90 cases pass** as of the most recent re-run on the M5 deployment.
 
-The parity harness is invoked after every methodology change. The 2026-04-25 sequence — per-target buffer landing (replacing the scalar 0.025), grid extension to {0.997, 0.999} with `MAX_SERVED_TARGET = 0.999`, and the $\tau = 0.99$ buffer bump from 0.005 to 0.010 — was applied to Python first, then ported to Rust; in each case the parity harness was re-run and re-verified before the change was considered shipped. The harness is the operational guarantee that the on-chain published bands correspond to the methodology evaluated in §6 and ablated in §7. It is also the contract that allows a consumer to verify a served `PricePoint` against the published surface artefact without trusting either the Python or the Rust implementation in isolation: the two implementations produce identical output on identical inputs.
+The parity harness is invoked after every methodology change. The v1 → M5 migration — replacing the calibration surface + per-target additive buffer with the Mondrian conformal lookup + multiplicative $c(\tau)$ bump + walk-forward $\delta(\tau)$ shift — was applied to Python first, then ported to Rust; the parity harness was re-run and re-verified before the change was considered shipped. The harness is the operational guarantee that the on-chain published bands correspond to the methodology evaluated in §6 and ablated in §7. It is also the contract that allows a consumer to verify a served `PricePoint` against the published Mondrian artefact without trusting either the Python or the Rust implementation in isolation: the two implementations produce identical output on identical inputs.
+
+**Wire format invariance across v1 → M5.** The on-chain `PriceUpdate` Borsh layout (§8.4) is unchanged across the migration: the 128-byte data layout, the 8-byte Anchor discriminator, the integer-basis-points coverage encoding, and the absolute-fixed-point price encoding all preserve byte-for-byte. The only on-wire change is the relabelling of the previously-reserved `forecaster_code = 2` slot from `FORECASTER_RESERVED_2` to `FORECASTER_MONDRIAN`. Pre-M5 PriceUpdate accounts therefore decode cleanly under M5 consumers (codes 0 and 1 are still recognised); post-M5 PriceUpdate accounts emit code 2 in the receipt. Downstream consumers that branch on `forecaster_code` (e.g., for risk-tier-specific haircuts) need only add a code-2 case to inherit the deployed M5 bands.
 
 ## 8.6 Reproduction and end-to-end serve path
 
 End-to-end reproduction is a small number of commands per stage:
 
 ```
-# Train (Python, ~1 min warm cache, ~15 min cold)
+# Train (Python, ~1 min warm cache, ~5 min cold under M5 — much faster than v1)
 uv sync
-uv run python scripts/run_calibration.py
+uv run python scripts/build_mondrian_artefact.py
 
 # Serve (Rust, single read)
 cargo build --release -p soothsayer-publisher
-./target/release/soothsayer fair-value --symbol SPY --as-of 2026-04-17 --target 0.85
+./target/release/soothsayer fair-value --symbol SPY --as-of 2026-04-24 --target 0.85
 
 # Verify Rust <-> Python parity (~30 s)
 PYTHONUNBUFFERED=1 uv run python scripts/verify_rust_oracle.py

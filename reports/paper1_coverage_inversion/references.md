@@ -249,7 +249,14 @@ Buckets:
 - **Venue:** Springer, Boston, MA; ISBN 978-0-387-00152-4
 - **URL / DOI:** https://doi.org/10.1007/b106715
 - **Contribution:** The book-length foundation of conformal prediction. Introduces split / full / inductive conformal predictors and proves distribution-free finite-sample marginal validity under exchangeability.
-- **Why we cite it:** Our empirical calibration buffer is an ad-hoc heuristic; split-conformal would replace it with a finite-sample coverage guarantee. Direct future-work reference.
+- **Why we cite it:** Our deployed v2 / M5 architecture is a Mondrian split-conformal predictor (per-regime conformal quantile + multiplicative OOS-fit bump + walk-forward shift); this is its book-length theoretical substrate.
+- **Bucket:** calibration-conformal
+
+### [vovk-mondrian-2003] Vovk, V., Lindsay, D., Nouretdinov, I., Gammerman, A. 2003. Mondrian confidence machine.
+- **Venue:** On-Line Compression Modelling project working paper
+- **URL / DOI:** http://www.alrw.net/old/04.pdf (canonical introduction; also discussed in vovk-book-2005 §4.5)
+- **Contribution:** Generalises split-conformal prediction to category-wise (Mondrian) calibration: separate conformal quantiles per category preserve finite-sample marginal validity within each category under within-category exchangeability, allowing a coarser overall calibration to absorb structural between-category variation.
+- **Why we cite it:** The deployed v2 / M5 architecture is a Mondrian split-conformal predictor with categories indexed by the regime classifier $\rho$. This is the direct theoretical citation for the §4.2 / §7.7 formalism.
 - **Bucket:** calibration-conformal
 
 ### [shafer-vovk-2008] Shafer, G., Vovk, V. 2008. A tutorial on conformal prediction.

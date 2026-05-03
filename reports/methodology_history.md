@@ -20,14 +20,20 @@ Product progression:
 - **v1 — calibrated event stream.** Consumer-configured threshold events with calibration receipts; gated on Paper 3.
 - **v2 — parameterized decision SDK.** Client-side Rust/TS library for cost-weighted recommendations; 2027 track.
 
-### Current methodology constants
+### Current methodology constants (v2 / M5)
 
+- Architecture: Mondrian split-conformal by regime + factor-adjusted point + δ-shifted `c(τ)`.
 - Default deployment target: `τ = 0.85`.
 - Headline Paper 1 validation target: `τ = 0.95`.
-- Served range: deployment-quality evidence is strongest for `τ ∈ [0.52, 0.98]`; `τ = 0.99` remains disclosed as a finite-sample tail ceiling.
-- Hybrid forecaster: `normal` and `long_weekend` use `F1_emp_regime`; `high_vol` uses `F0_stale`.
-- Buffer schedule: `{0.68: 0.045, 0.85: 0.045, 0.95: 0.020, 0.99: 0.010}` with linear interpolation off-grid.
-- Code truth: `src/soothsayer/oracle.py`, `crates/soothsayer-oracle/src/{config,oracle}.rs`, and `data/processed/v1b_bounds.parquet`.
+- Served range: `τ ∈ [0.68, 0.99]`; M5 closes the v1 finite-sample tail ceiling at τ=0.99 at the cost of a 22% wider band.
+- Forecaster: single `mondrian` lookup (wire `forecaster_code = 2`); no per-regime forecaster choice.
+- `REGIME_QUANTILE_TABLE` (12 trained scalars, pre-2023 calibration set):
+  - normal: `{0.68: 0.006070, 0.85: 0.011236, 0.95: 0.021530, 0.99: 0.049663}`
+  - long_weekend: `{0.68: 0.006648, 0.85: 0.014248, 0.95: 0.031032, 0.99: 0.071228}`
+  - high_vol: `{0.68: 0.011628, 0.85: 0.021460, 0.95: 0.042911, 0.99: 0.099418}`
+- `C_BUMP_SCHEDULE` (4 OOS-fit scalars on the 2023+ slice): `{0.68: 1.498, 0.85: 1.455, 0.95: 1.300, 0.99: 1.076}`.
+- `DELTA_SHIFT_SCHEDULE` (4 walk-forward-fit shifts): `{0.68: 0.05, 0.85: 0.02, 0.95: 0.00, 0.99: 0.00}`.
+- Code truth: `src/soothsayer/oracle.py`, `crates/soothsayer-oracle/src/{config,oracle}.rs`, `data/processed/mondrian_artefact_v2.parquet` (per-Friday rows), and `data/processed/mondrian_artefact_v2.json` (audit-trail sidecar). v1 bounds parquet (`v1b_bounds.parquet`) and v1 oracle code path are deprecated; v1 diagnostic scripts archived under `scripts/v1_archive/`.
 
 ### Validated empirical claims
 
@@ -125,6 +131,56 @@ Soothsayer-side future work after rows exist: pool-state reconstructor, path-awa
 ---
 
 ## 1. Recent decision log
+
+### 2026-05-XX — M5 / v2 deployment shipped; v1 hybrid Oracle retired
+
+**Trigger.** Completion of `M5_REFACTOR.md` working doc following the 2026-05-02 M5 validation entry below. After re-evaluating the Colosseum constraint (the user is no longer firmly committed to a 2026-05-10 hackathon submission), the staged migration was collapsed: M5 deploys directly with no v1 transition window.
+
+**Decision.** Deployed the v2 / M5 architecture (Mondrian split-conformal by regime + factor-adjusted point + δ-shifted `c(τ)`) end-to-end. v1 hybrid forecaster Oracle (F1_emp_regime + per-target additive buffer + per-regime forecaster choice) is retired; v1 calibration-surface API (`compute_calibration_surface`, `pooled_surface`, `invert`) deleted from `src/soothsayer/backtest/calibration.py`; v1 Oracle constructor signature replaced with single-arg artefact load; v1 diagnostic and validation scripts moved to `scripts/v1_archive/` (24 scripts) under a deprecation banner.
+
+**Code changes.**
+
+- Python serving: `src/soothsayer/oracle.py` rewritten (~210 lines) around `REGIME_QUANTILE_TABLE` + `C_BUMP_SCHEDULE` + `DELTA_SHIFT_SCHEDULE` module constants; `Oracle.fair_value` is now a 5-line lookup. `band_evaluator.py` unchanged (constructor signature compatible).
+- Python build: new `scripts/build_mondrian_artefact.py` train-fits the 12 quantiles + 4 c(τ) scalars from the panel + writes `data/processed/mondrian_artefact_v2.parquet` (per-Friday rows) + `mondrian_artefact_v2.json` (audit-trail sidecar).
+- Rust serving: `crates/soothsayer-oracle/src/{config,oracle,types}.rs` rewritten; `surface.rs` deleted. Single `Oracle::load(artefact_path)` entry point; output byte-identical to Python on 90/90 parity cases (`scripts/verify_rust_oracle.py`).
+- Wire format: **byte-identical across the v1 → M5 migration.** `PriceUpdate` Borsh layout unchanged; `forecaster_code = 2` slot relabelled `FORECASTER_RESERVED_2 → FORECASTER_MONDRIAN` in `programs/soothsayer-oracle-program/src/state.rs` and `crates/soothsayer-consumer/src/lib.rs`. Existing v1 PriceUpdate accounts (codes 0/1) decode cleanly under M5 consumers.
+- Publisher CLI: `--surface` and `--pooled` args dropped; default artefact path is `data/processed/mondrian_artefact_v2.parquet`. PrepPublish + payload encoder updated to emit `forecaster_code = 2` for `forecaster_used = "mondrian"`.
+
+**Paper / docs cascade.**
+
+- Paper 1 (`reports/paper1_coverage_inversion/`): §0 abstract rewritten; §1 introduction headline numbers updated (354 bps at τ=0.95, 0.990 realised at τ=0.99); §4 methodology rewritten around Mondrian; §5 split-section description updated; §6 results regenerated at M5 numbers (per-regime, pooled, walk-forward, density tests); §7 ablation re-framed (§7.1–§7.5 retained as v1-historical, §7.5 taxonomy updated to mark each component as inherited / cosmetic / removed under M5; §7.6 stress test retained; §7.7 Mondrian ablation retained as the architecture-justification ablation); §8 serving-layer prose updated (90/90 parity, wire-format invariance disclosure); §9 limitations updated (§9.1 tail ceiling closed, §9.4 OOS-tuning provenance restated for c(τ)+δ(τ), §9.5 Berkowitz / DQ disclosure restated, §9.6 hybrid policy retired, §9.7 90/90 parity); §10 future work re-sequenced as v3 items; §11 conclusion restated under M5; §2.3 + references.md updated with Mondrian split-conformal citations.
+- Paper 3 (`reports/paper3_liquidation_policy/protocol_semantics.md`): worked example numerics regenerated for SPY 2026-04-24 at M5 widths; per-reserve flip-threshold table updated to per-regime widths.
+- Paper 4 (`reports/paper4_oracle_conditioned_amm/`): `devnet_artefacts.json` updated with M5-derived SPY/QQQ bands and `forecaster_code = 2`; `colosseum_implementation_brief.md` narrative updated for M5 widths.
+- Top-level docs: `README.md` evidence snapshot regenerated; `CLAUDE.md` Current State replaces v1 constants with M5; `docs/product-spec.md` hybrid-forecaster section replaced with M5 description; `docs/v1.5-deployment-spec.md` marked superseded; `reports/bear_case.md` gates 2.A and 3.E updated to "PARTIAL — v2 / M5 closes". Landing page (`landing/{index,dashboard}.html`) headline numbers and methodology blocks updated.
+
+**Empirical headline (unchanged from 2026-05-02 validation).** OOS 2023+ slice (1,730 rows × 173 weekends): at τ=0.95, realised 0.950 with Kupiec p=0.956, Christoffersen p=0.912, mean half-width 354.5 bps — 20% narrower than the v1 Oracle's 443.5 bps at indistinguishable Kupiec calibration (block-bootstrap CIs exclude zero on width, straddle zero on coverage). At τ=0.99, M5 hits realised 0.990 with Kupiec p=0.942 (closes the v1 finite-sample tail ceiling at 0.972 at the cost of a 22% wider band). 6-split walk-forward passes Kupiec at every anchor (per-anchor p=0.43, 0.37, 0.36, 0.32). Berkowitz LR=173.1 and DQ at τ=0.95 (stat=32.1, p=5.7e-6) both reject — same per-anchor-only calibration profile as v1.
+
+**Working doc deleted.** `M5_REFACTOR.md` removed from repo root; this methodology log entry is the deployment receipt.
+
+**Open work — v3.** Full-distribution conformal upgrade to close the Berkowitz / DQ rejections (§10.1 V3.5); rolling artefact rebuild on a live deployment window (§10.1 V3.2); MEV-aware consumer-experienced coverage (§10.1 V3.3); intra-weekend forward-signal updating (§10.1 V3.4); F_tok forecaster gated on V5 tape accumulation (§10.1 V3.1).
+
+### 2026-05-02 — M5 deployable Mondrian validated as v2 methodology candidate
+
+**Trigger.** Reviewer-defensibility critique of the F1_emp_regime + per-target buffer schedule: §7.6 (constant-buffer baseline, 2026-05-02) showed the deployed Oracle is 11–12% wider than a coverage-matched constant buffer at every τ ≤ 0.95, with the entire pooled width premium concentrated in the high_vol regime. The natural follow-up question — "would Mondrian split-conformal by `regime_pub` give the same coverage at narrower width without the factor switchboard / log-log VIX / earnings / long-weekend forecaster machinery?" — was tested head-to-head against the deployed Oracle on the identical OOS 2023+ slice.
+
+**Decision.** Validate but defer. M5 is the v2 methodology target; deployment migration is scheduled post-2026-05-10 (Colosseum hackathon delivers under current v1 Oracle to preserve hackathon timeline). This entry records the empirical case and the deferral reason, not a deployment switch. Working doc with task-level checklist: `M5_REFACTOR.md` (root), to be deleted on completion.
+
+**Evidence.** Five comparison variants tested, all on the same OOS 2023+ panel (1,730 rows × 173 weekends) the §7.4 serving-layer matrix evaluates the deployed Oracle on. The deployable variant — M5: train-fit per-regime conformal quantile + factor-adjusted point + per-target c(τ) bump tuned on OOS, 12 trained scalars + 4 OOS scalars (matching the Oracle's BUFFER_BY_TARGET parameter budget) — under the 6-split expanding-window walk-forward + δ-shift schedule {0.68: 0.05, 0.85: 0.02, 0.95: 0.00, 0.99: 0.00}:
+
+| τ | M5 test realised | M5 test hw (bps) | Oracle test hw (bps) | M5 width advantage |
+|---:|---:|---:|---:|---|
+| 0.68 | 0.672 (Kupiec p=0.43) | 124 | 186 | −33% |
+| 0.85 | 0.832 (p=0.37) | 215 | 287 | −25% |
+| 0.95 | 0.943 (p=0.36) | 357 | 526 | −32% |
+| 0.99 | 0.991 (p=0.32) | 746 | 609 | +22% (M5 hits target where Oracle hits structural ceiling) |
+
+Berkowitz (LR=173, ρ̂=0.31) and DQ at τ=0.95 (DQ=32) both reject for M5 — same per-anchor-only calibration profile as the deployed Oracle (per §6 abstract). M5 doesn't fix the density-test rejection; it doesn't make it worse either.
+
+Tables: `reports/tables/v1b_constant_buffer_*.csv` (the §7.6 baseline that prompted this), `reports/tables/v1b_mondrian_calibration.csv`, `reports/tables/v1b_mondrian_oos.csv`, `reports/tables/v1b_mondrian_by_regime.csv`, `reports/tables/v1b_mondrian_bootstrap.csv`, `reports/tables/v1b_mondrian_walkforward*.csv`, `reports/tables/v1b_oracle_walkforward*.csv`, `reports/tables/v1b_mondrian_density_tests.csv`, `reports/tables/v1b_mondrian_delta_sweep.csv`. Scripts: `scripts/run_constant_buffer_baseline.py`, `scripts/run_mondrian_regime_baseline.py`, `scripts/run_mondrian_walkforward_pit.py`, `scripts/run_mondrian_delta_sweep.py`.
+
+**Impact.** **No methodology-constants change in §0 of this file.** Current Oracle (v1: F1_emp_regime + hybrid + buffer schedule) remains deployed and remains the basis for Paper 1's headline numbers (τ=0.95: half-width 443 bps, realised 0.950, p_uc=1.000) and the Colosseum 2026-05-10 submission. M5 is staked as a v2 candidate: per-regime Mondrian conformal quantile + factor-adjusted point + δ-shifted c(τ) bump, ~20% narrower at matched OOS calibration, simpler implementation (~50 lines of serving code vs ~300), strict improvement at τ=0.99 (passes Kupiec where v1 hits the bounds-grid ceiling at 0.972). The diagnosis: the regime classifier `regime_pub` is the load-bearing piece of v1; the F1_emp_regime forecaster machinery on top of it (log-log VIX / per-symbol vol index / earnings flag / long-weekend flag) is over-engineering relative to a per-regime conformal quantile lookup.
+
+**Open work.** Tracked in `M5_REFACTOR.md`. Phases: (1) no-regrets disclosure now (this entry + Paper 1 §7.7 + abstract footnote — the latter two deferred); (2) Colosseum delivery 2026-05-10 under v1; (3) post-Colosseum Python+Rust Oracle rewrite + parity test refresh; (4) Paper 1 v2 + Paper 3 numerical updates + devnet artefact regen. The wire format (`PriceUpdate` Borsh layout in `crates/soothsayer-consumer`) is preserved across the migration — only published *values* change. Paper 4 (Colosseum AMM) is methodology-agnostic in its consumer interface.
 
 ### 2026-05-02 — Paper 1 §7 forward-curve-implied baseline rung (F0_VIX)
 

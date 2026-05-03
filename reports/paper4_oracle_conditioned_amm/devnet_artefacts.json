@@ -21,25 +21,28 @@
     }
   },
   "bands": {
+    "_m5_note": "Bands below reflect the v2 / M5 Mondrian split-conformal-by-regime deployment as of fri_ts=2026-04-24. Wire format (PriceUpdate Borsh layout) is byte-identical to the prior v1 deployment; only the published values change. forecaster_code=2 (FORECASTER_MONDRIAN), claimed_served_bps=9500 (no delta-shift at tau=0.95).",
     "QQQ": {
       "symbol": "QQQ",
       "price_update": "9xe7jtfvTg4LXUEwS8ocM9NetfeLsvTd1PdNTRwzgByt",
-      "point": 480.0,
-      "lower": 472.5,
-      "upper": 487.5,
+      "point": 662.9803,
+      "lower": 644.4242,
+      "upper": 681.5365,
       "target_coverage_bps": 9500,
-      "claimed_served_bps": 9750,
-      "regime_code": 0
+      "claimed_served_bps": 9500,
+      "regime_code": 0,
+      "forecaster_code": 2
     },
     "SPY": {
       "symbol": "SPY",
       "price_update": "HfMaU9Qa54fp1V3uh11Qec81RgKUgzT6mxvFkmZ6V3LH",
-      "point": 700.0,
-      "lower": 689.5,
-      "upper": 710.5,
+      "point": 712.9725,
+      "lower": 693.0171,
+      "upper": 732.9279,
       "target_coverage_bps": 9500,
-      "claimed_served_bps": 9750,
-      "regime_code": 0
+      "claimed_served_bps": 9500,
+      "regime_code": 0,
+      "forecaster_code": 2
     }
   },
   "pools": {

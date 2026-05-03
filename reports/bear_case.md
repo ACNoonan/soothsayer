@@ -57,7 +57,7 @@
 
 | # | Gate | Evidence required | Verdict | Last checked |
 |---|---|---|---|---|
-| 2.A | Regime model beats stale-Pyth + constant buffer on width-at-fixed-coverage | Ablation across full panel; report avg width at τ=0.85, 0.95 | OPEN | 2026-05-02 |
+| 2.A | Regime model beats stale-Pyth + constant buffer on width-at-fixed-coverage | Ablation across full panel; report avg width at τ=0.85, 0.95 | **PARTIAL — v2 / M5 closes** | 2026-05-XX |
 | 2.B | Regime model beats VIX-implied band on width-at-fixed-coverage | Same; one-parameter VIX-scaled baseline | OPEN | 2026-05-02 |
 | 2.C | Forward capture grows N ≥ 40 weekends with empirical coverage holding ±2 pp of target across regimes | Methodology_history.md tracking | OPEN | 2026-05-02 |
 | 2.D | Walk-forward coverage stays within ±2 pp of target | `v1b_walkforward.md` refresh on extended panel | PARTIAL | 2026-05-02 |
@@ -95,7 +95,7 @@
 | 3.B | LP onboards to a band-aware AMM in non-trivial size | Mainnet TVL > $1M post-hackathon | OPEN | 2026-05-02 |
 | 3.C | Documented OEV recapture (not savings claim) on a live or replay tape | Auction tape vs realised arb gap | OPEN | 2026-05-02 |
 | 3.D | Solana DEX team requests band-aware bin / curve policy | Public engagement, RFC, integration discussion | OPEN | 2026-05-02 |
-| 3.E | Band width is empirically tight enough during normal regime that an LP would prefer it over fixed-spread | LP profitability simulation | OPEN | 2026-05-02 |
+| 3.E | Band width is empirically tight enough during normal regime that an LP would prefer it over fixed-spread | LP profitability simulation | **PARTIAL — v2 / M5 normal-regime hw 280 bps at τ=0.95 (was 418 bps under v1)** | 2026-05-XX |
 
 ### Strengthening signals (would harden bear)
 

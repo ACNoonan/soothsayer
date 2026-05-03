@@ -87,12 +87,12 @@ Per the snapshot 2026-04-27 (`data/processed/kamino_xstocks_snapshot_20260427.js
 
 ## 3. Decision-flip arithmetic — worked example (SPYx, weekend 2026-04-24)
 
-Using the panel in [`reports/kamino_xstocks_weekend_20260424.md`](../kamino_xstocks_weekend_20260424.md):
+Using the panel in [`reports/kamino_xstocks_weekend_20260424.md`](../kamino_xstocks_weekend_20260424.md), under the deployed v2 / M5 architecture (Mondrian split-conformal by regime, see Paper 1 §4 + §7.7):
 
-- Friday close `P_fri = $713.94`
-- Monday open `P_mon = $713.17` (realized −10.8 bps)
-- Soothsayer τ=0.85 half-width: 131.2 bps → `P_lower = $713.94 × (1 − 0.01312) = $704.57`
-- Soothsayer τ=0.95 half-width: 207.1 bps → `P_lower = $713.94 × (1 − 0.02071) = $699.16`
+- Friday close `P_fri = $713.94`; M5 factor-adjusted point `P_hat = $712.97` (regime = normal)
+- Monday open `P_mon = $713.17` (realized −10.8 bps from Friday close)
+- Soothsayer τ=0.85 half-width: 163.5 bps → `P_lower = $712.97 × (1 − 0.01635) = $701.31`
+- Soothsayer τ=0.95 half-width: 279.9 bps → `P_lower = $712.97 × (1 − 0.02799) = $692.91`
 - Pyth-regular publishes the Friday-close conf (~0 bps weekend; see `docs/sources/oracles/pyth_regular.md` §3); MarginFi-style `P − conf` ≈ `P_fri`.
 
 A near-origination borrower opens with 1 SPYx collateral at LTV=73%, so `debt_USDC = 521.18`.
@@ -100,8 +100,8 @@ A near-origination borrower opens with 1 SPYx collateral at LTV=73%, so `debt_US
 | Policy | Read price | Effective LTV | Decision (pad=1pp) |
 |---|---:|---:|---|
 | Kamino-incumbent | $713.94 (Scope stale-held) | 73.00% | **Safe** |
-| Soothsayer τ=0.85 | $704.57 | 73.97% | **Caution** |
-| Soothsayer τ=0.95 | $699.16 | 74.54% | **Caution** |
+| Soothsayer τ=0.85 | $701.31 | 74.31% | **Caution** |
+| Soothsayer τ=0.95 | $692.91 | 75.21% | **Caution** |
 | Pyth-conf-haircut (k=1) | ≈ $713.94 | 73.00% | **Safe** |
 
 On this specific weekend with a small realized move (−10.8 bps), soothsayer flips the borrower to Caution while Kamino-incumbent stays Safe; neither liquidates. **Outcome:** soothsayer's *unnecessary-caution cost* applies (borrower flagged but not actually breaching the threshold post-realization), while Kamino's missed-liquidation cost is zero (no breach occurred).
@@ -124,20 +124,20 @@ For a near-origination borrower at Friday close, the soothsayer band half-width 
 hw_flip_pct = 1 − P_crit / P_origination = 1 − loanToValuePct / liquidationThresholdPct
 ```
 
-| Symbol | hw_flip_pct (= adverse-move buffer) | Soothsayer τ=0.85 typical hw | Soothsayer τ=0.95 typical hw | Verdict |
+| Symbol | hw_flip_pct (= adverse-move buffer) | Soothsayer τ=0.85 typical hw (M5) | Soothsayer τ=0.95 typical hw (M5) | Verdict |
 |---|---:|---:|---:|---|
-| SPYx | 2.67% | ~1.31% | ~2.07% | **τ=0.95 is close but does not flip; τ=0.85 stays Safe** |
-| QQQx | 2.78% | ~1.38% | ~2.78% | **τ=0.95 lands at the flip exactly** — boundary case |
-| TSLAx | 15.38% | ~4.81% | ~10.16% | both well inside, no flip |
-| GOOGLx | 14.29% | ~1.78% | ~2.64% | both well inside |
-| NVDAx | 15.38% | ~3.38% | ~8.24% | both well inside |
-| AAPLx | 20.00% | ~1.57% | ~3.26% | both well inside |
-| MSTRx | 25.00% | ~5.53% | ~13.49% | both inside |
-| HOODx | 25.00% | ~11.55% | ~14.94% | both inside |
+| SPYx | 2.67% | ~1.64% (normal) | ~2.80% (normal) | **τ=0.95 lands at the flip threshold ($P_\text{lower}$ within ~10 bps); τ=0.85 stays Caution-only** |
+| QQQx | 2.78% | ~1.64% (normal) | ~2.80% (normal) | **τ=0.95 lands at the flip threshold ($P_\text{lower}$ within ~10 bps)** |
+| TSLAx | 15.38% | ~3.12% (high_vol) | ~5.58% (high_vol) | both well inside, no flip |
+| GOOGLx | 14.29% | ~1.64% (normal) | ~2.80% (normal) | both well inside |
+| NVDAx | 15.38% | ~3.12% (high_vol) | ~5.58% (high_vol) | both well inside |
+| AAPLx | 20.00% | ~1.64% (normal) | ~2.80% (normal) | both well inside |
+| MSTRx | 25.00% | ~3.12% (high_vol) | ~5.58% (high_vol) | both inside |
+| HOODx | 25.00% | ~3.12% (high_vol) | ~5.58% (high_vol) | both inside |
 
-(Typical half-widths from `reports/kamino_xstocks_weekend_20260424.md` §2; per-weekend variability not aggregated here — each weekend is a fresh draw.)
+(Typical half-widths under v2 / M5 are *per-regime* rather than per-symbol — the deployed Mondrian conformal lookup pools across symbols within each regime, see Paper 1 §4.2 + §7.7. Per-Friday variability not aggregated here — each weekend is a fresh draw and the regime that fires that weekend determines the served width.)
 
-**Interpretation.** Soothsayer's band at τ=0.95 lands at QQQx's flip threshold exactly and gets close on SPYx. **For the other 6 reserves, soothsayer's band lower bound at any reasonable τ does *not* mechanically force a Liquidate decision when Kamino reads Safe** — the buffers are too wide. The policy value-add elsewhere comes from the *Caution* zone (early warning), not from the Liquidate flip.
+**Interpretation.** Under v2 / M5, all `normal`-regime symbols share the same served half-width (~280 bps at τ=0.95) and all `high_vol`-regime symbols share another (~560 bps at τ=0.95). On `normal`-regime weekends, soothsayer's band at τ=0.95 lands within ~10 bps of the flip threshold for SPYx and QQQx — typical normal-regime weekends are at the flip boundary, not above it, so the Liquidate verdict is decided by which Friday's specific price ratio the band edges interact with rather than by the typical-width comparison alone. **For the high_vol-regime tickers, soothsayer's band at any reasonable τ does *not* mechanically force a Liquidate decision when Kamino reads Safe** — the per-reserve buffers (15–25%) are too wide relative to the typical M5 high_vol half-width (5.6% at τ=0.95). The policy value-add for the heavy-tail tickers comes from the *Caution* zone (early warning), not from the Liquidate flip.
 
 This is a cleaner statement than the plan's §3 framing. Paper 3's policy claim should be:
 

@@ -905,10 +905,10 @@
           <div class="m-item">
             <span class="n">03</span>
             <div class="body">
-              <div class="h">Hybrid + per-target buffer</div>
-              <div class="p">REGIME_FORECASTER picks F1 in normal / long-weekend (where it's 27–43% tighter at matched coverage) and F0 in high_vol (where it prevents the OOS Christoffersen-independence rejection that pure-F1 produces). BUFFER_BY_TARGET = {0.68→0.045, 0.85→0.045, 0.95→0.020, 0.99→0.010}, linearly interpolated.</div>
+              <div class="h">Mondrian conformal-by-regime + δ-shifted c(τ)</div>
+              <div class="p">The deployed v2 / M5 architecture is Mondrian split-conformal by regime: a per-regime conformal quantile q_r(τ) trained on pre-2023 weekends, served after a multiplicative OOS-fit bump c(τ) and a walk-forward-fit shift δ(τ). C_BUMP_SCHEDULE = {0.68→1.498, 0.85→1.455, 0.95→1.300, 0.99→1.076}; DELTA_SHIFT_SCHEDULE = {0.68→0.05, 0.85→0.02, 0.95→0.00, 0.99→0.00}, linearly interpolated. The v1 hybrid forecaster Oracle is preserved as historical evidence in Paper 1 §7.1–§7.5.</div>
             </div>
-            <span class="ref">REGIME_FORECASTER</span>
+            <span class="ref">REGIME_QUANTILE_TABLE</span>
           </div>
           <div class="m-item">
             <span class="n">04</span>
