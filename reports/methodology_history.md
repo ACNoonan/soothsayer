@@ -132,6 +132,103 @@ Soothsayer-side future work after rows exist: pool-state reconstructor, path-awa
 
 ## 1. Recent decision log
 
+### 2026-05-03 — Dual-profile methodology family architecturally locked (post-M5)
+
+**Trigger.** Two v3 leads quantified on 2026-05-02 in `VALIDATION_BACKLOG.md` W2-followup:
+
+- **M6a — common-mode residual partial-out (upper bound).** β̂=0.811, R²(train)=0.278, R²(OOS)=0.255 against the leave-one-out weekend-mean residual. Cross-sectional within-weekend ρ on the signed residual drops 0.41 → 0.07. At τ=0.95 OOS half-width 309 bps vs M5's 355 bps (-13%). Caveat: r̄_w^(−i) is Monday-derived; deployable M6a needs a Friday-observable forward predictor (R²(forward) ≥ 0.4 gate).
+- **M6b2 — per-class Mondrian (deployable).** Conformal cell partitioned by symbol_class (6 cells: equity_index, equity_meta, equity_highbeta, equity_recent, gold, bond) instead of by regime. At τ=0.95 OOS half-width 304 bps vs M5's 355 bps (-14%) at matched coverage. M6b1 (per-symbol, 10 cells) gives -16% at τ=0.95 but pays +6% at τ=0.99 (HOOD's thin tail); M6b3 (class × regime, 18 cells) is wider than M6b2 (sample dilution). M6b2 is the chosen variant.
+- **M6c — stacked.** M6a + M6b2 stack with efficiency ≈ 0.87 at τ ∈ {0.85, 0.95}. Combined OOS half-width at τ=0.95 is 271 bps — 24% narrower than M5, 39% narrower than v1.
+
+The W2-followup also mapped 22 items in the planned product stack (`docs/product-stack.md`) to the two leads: 8 cleanly map to AMM-track (M6a-based), 8 to Lending-track (M6b2-based), 4 want both (event stream, decision SDK, settlement licensing), 8 are profile-agnostic infrastructure. No item is left without a clean assignment.
+
+**Decision.** Architecturally lock a **dual-profile methodology family** for the post-M5 rollout. One methodology family (factor-adjusted point + Mondrian split-conformal + δ-shifted c(τ) bump) shared across both profiles; profiles differ only in (a) score residualisation and (b) conformal cell partition. Two parallel publishers, two parallel parquet venues, same `PriceUpdate` Borsh wire format with a new `profile_code` byte (`1` = Lending, `2` = AMM). Working doc with the staged rollout: `M6_REFACTOR.md` (root, to be deleted on completion).
+
+Sequence:
+
+1. **Phase A — Lending-track (M6b2) shipping.** Ships next. Direct Kamino/Paper-3 win. Wire-format-compatible. Layered W4 (asymmetric quantile pair) sub-axis on top, gated on the base Lending-track artefact build.
+2. **Phase B — AMM-track (M6a-deployable) shipping.** Gated on `VALIDATION_BACKLOG.md` W8 (r̄_w forward predictor prototype) achieving R²(forward) ≥ 0.4. Below the gate, Phase B defers; above the gate, AMM-track ships and unlocks Layer 1 (Band-AMM) + Layer 4 AMM-licensee pricing-tier differentiation.
+
+**Evidence.**
+
+- `reports/v1b_m6a_common_mode_partial_out.md`, `reports/tables/v1b_m6a_common_mode_oos.csv`, `reports/tables/v1b_m6a_common_mode_fit.csv`.
+- `reports/v1b_m6b_per_symbol_class_mondrian.md`, `reports/tables/v1b_m6b_per_symbol_class_oos.csv`, `reports/tables/v1b_m6b_per_cell_quantiles.csv`.
+- `reports/v1b_m6c_combined.md`, `reports/tables/v1b_m6c_combined_oos.csv`.
+- `reports/v1b_density_rejection_localization.md` — W2 prerequisite finding that surfaced both leads.
+
+**Impact.** No change to deployed §0 state today (M5 single-profile remains live). §0 will update on Phase A completion (Lending-track shipped) and again on Phase B completion (AMM-track shipped). Paper 1 §10 future work re-sequences from "v3 items" to a structured M6 family + dual-profile rollout. Paper 3 protocol_semantics worked example will be regenerated under M6b2 widths during Phase A. Paper 4 inherits the M6a / AMM-track once Phase B ships.
+
+**Open work.**
+
+- `M6_REFACTOR.md` — Phase A (Lending-track) checklist; Phase B (AMM-track) checklist gated on W8.
+- `VALIDATION_BACKLOG.md` — W4 (asymmetric layer) re-staged as Lending-track sub-axis; W8 (r̄_w forward predictor) opened.
+- `docs/product-stack.md` — refreshed with the dual-profile architecture and per-layer track assignment.
+
+### 2026-05-03 — W8 result: Friday-close r̄_w predictor rejected; AMM-track shipping deferred
+
+**Trigger.** Same-day execution of `VALIDATION_BACKLOG.md` W8 prototype. The architectural decision earlier today gated AMM-track shipping (Phase B of `M6_REFACTOR.md`) on a Friday-observable predictor of r̄_w achieving R²(forward) ≥ 0.40. W8 tested that gate.
+
+**Decision.** **Reject** at the Friday-close-only feature set; AMM-track shipping deferred indefinitely until either (a) a Sunday-Globex republish architecture is engineered (W8b, ~3–4 weeks gated on a scryer Sunday-evening futures fetcher) or (b) V3.1 F_tok data accumulates ≥150 weekends of post-launch xStock cross-section (W8c, ETA Q3–Q4 2026). No change to today's earlier dual-profile architectural lock — Lending-track shipping (Phase A) proceeds as planned.
+
+**Evidence.** `reports/v1b_r_bar_forward_predictor.md`, `data/processed/r_bar_predictor_v1.json`, `scripts/run_r_bar_forward_predictor.py`. Six model variants tested on 458 train + 173 OOS weekends (split at 2023-01-01):
+
+| Model | Features | R²(train) | R²(OOS) |
+|---|---|---:|---:|
+| M0_ar1 | r_bar_lag1 | 0.003 | **0.005** |
+| M1_vol_ols | macro vol level + Δ (6 features) | 0.079 | −0.060 |
+| M2_full_ridge10 | full Friday-observable set (13 features), α=10 | 0.111 | −0.050 |
+
+All non-AR models go negative on OOS — they overfit on TRAIN, predict worse than the train-mean on OOS. Cross-sectional within-weekend ρ on the OOS PITs after r̄_w_hat partial-out is essentially unchanged: raw 0.4147 → after 0.4134.
+
+**Three diagnostic findings.**
+
+1. **r̄_w has no autoregressive structure week-over-week.** R²(M0_ar1) ≈ 0.005. Common-mode residuals don't persist past a single weekend.
+2. **Friday-close macro vol features overfit.** Non-trivial R²(train) ≈ 0.08–0.11; negative R²(OOS) across all regularisations. The vol features predict TRAIN noise.
+3. **factor_ret already absorbs nearly all of what Friday state can predict.** What remains in r̄_w is approximately unpredictable from currently-observable Friday state. This is a feature, not a bug — it confirms factor_ret is doing its job — but it forces the architecture pivot below.
+
+**Architectural pivot.** Earlier today's dual-profile lock framed M6c (271 bps at τ=0.95, 39% narrower than v1) as the "ceiling" achievable if a forward predictor of r̄_w landed. W8 now sets the lower bound on that ceiling: under current data, the deployable AMM-track gain is ≈0%, not 13%, because the predictor can't extract signal beyond what factor_ret already extracts. The headline reframe:
+
+- **Today (Lending-track shipping next).** M6b2 delivers ~50% of the M6c ceiling over M5 with no data dependency. -14% half-width at τ=0.95 vs M5; -31% vs v1. Direct Kamino/Paper-3 win.
+- **Future (AMM-track).** Either a Sunday-Globex republish architecture (engineering) or V3.1 F_tok signal accumulation (data-gated, ≥6 months) reopens W8. Until one fires, AMM-track stays parked.
+
+**Updated `M6_REFACTOR.md` Phase B status.** Deferred indefinitely with two re-opened paths (W8b Sunday-Globex, W8c V3.1 F_tok) tracked in the backlog. Phase B's deliverable checklist remains documented as a reference for whichever predictor path clears the gate first.
+
+**Paper / docs cascade.**
+
+- `reports/paper1_coverage_inversion/10_future_work.md` — V3.4 entry on M6 family should now read: "M6b2 (per-class Mondrian) is the deployable v3 winner; M6a (common-mode partial-out) is the documented upper bound, deployable only when forward signal accumulates beyond Friday-close state." Defer the §10 update until Phase A ships.
+- `reports/paper4_oracle_conditioned_amm/` — narrative needs an honest "AMM-track band has Friday-close cadence today; Sunday-republish cadence is the deployment ceiling" line rather than overclaiming the M6c gain.
+
+**Open work.**
+
+- `VALIDATION_BACKLOG.md` W8b (Sunday-Globex republish predictor) — opens when scryer adds a Sunday-evening futures snapshot fetcher.
+- `VALIDATION_BACKLOG.md` W8c (V3.1 F_tok-based predictor) — opens when V5 tape reaches ≥150 weekends.
+- Both are gated on data/engineering external to today's analysis. No active work on Phase B until one fires.
+
+### 2026-05-03 — W4 result: symmetric M6b2 stays on wire; auxiliary one-sided table adopted for lending consumers
+
+**Trigger.** Same-day execution of `VALIDATION_BACKLOG.md` W4. The dual-profile lock earlier today staged W4 as a Lending-track sub-axis to test whether the residual distribution per `symbol_class` is asymmetric enough to justify replacing the symmetric `b_sym` band with an asymmetric `(q_low, q_high)` pair.
+
+**Decision.** Two-question split:
+
+- **Q1 — Replace symmetric with asymmetric on the wire?** **No (Disclose-not-deploy).** Pooled width-delta at τ=0.95 = +2% (asymmetric is *wider* at matched two-sided coverage). Materially-asymmetric cells: 2 of 21 (10%). Per-class TRAIN skewness is real and substantial (`equity_meta` skew = −1.80, `gold` = −2.32, `equity_index` = −0.90, `equity_highbeta` = −0.97), but the equal-tail asymmetric rule reallocates between tails rather than shrinking total band.
+- **Q2 — Publish auxiliary per-class one-sided quantile table for lending consumers?** **Yes (Adopt as auxiliary).** Headline at τ_one = 0.95: lending-consumer buffers shrink **14–39%** vs the symmetric `b_sym(0.95)` they read today. The symmetric two-sided band over-covers the consumer's one-sided contract (e.g., equity_highbeta: symmetric 451 bps for what's actually a 97.5% one-sided guarantee, vs the auxiliary `q_low_one(0.95) = 275 bps` for the consumer's specified 95% one-sided guarantee — same statistical contract, 39% less collateral).
+
+**Evidence.** `reports/v1b_w4_asymmetric_coverage_lending.md`, `reports/tables/v1b_w4_asymmetric_per_class_tau.csv`, `reports/tables/v1b_w4_asymmetric_one_sided.csv`, `reports/tables/v1b_w4_skewness_train.csv`, `scripts/run_asymmetric_coverage.py`.
+
+OOS realised one-sided coverage validates: at τ_one=0.95 the auxiliary q_low_one delivers 0.90–0.97 across classes (within sample-size CIs of 0.95), while the symmetric `b_sym(0.95)` over-covers at 0.93–0.99.
+
+**Impact.**
+
+- **Wire format unchanged.** Published `lower` / `upper` continue to be `point ± b_sym(class, τ)·fri_close`. Existing consumers see no breaking change.
+- **`M6_REFACTOR.md` Phase A7 redirected.** Original scope was "two-sided asymmetric pair on the wire"; new scope is "auxiliary one-sided per-(symbol_class, τ_one, side) table in the artefact JSON sidecar + consumer SDK accessor." Effort drops from ~3 days to ~half-day.
+- **Paper 3 §Structural narrative upgrade.** The auxiliary table replaces Kamino's ad-hoc per-reserve buffer setup with calibrated per-(symbol_class, τ_one, side) receipts. MarginFi assets-vs-liabilities maps cleanly to `q_low_one` / `q_high_one` at the consumer's specified one-sided τ. This is the strongest empirical Paper 3 lever from the W2 → W4 chain.
+
+**Open work.**
+
+- Phase A1 (other agent in flight) extends to emit the auxiliary table — scope is documented in the W4 deliverables list. Wire format work in A4 is unchanged.
+- Paper 3 worked-example regeneration is queued for Phase A6 once the artefact builder lands.
+- Q1's negative result is documented in `reports/v1b_w4_asymmetric_coverage_lending.md` §Decision; no further W4-style asymmetric work on the AMM-track or other profiles unless a future workstream re-opens it.
+
 ### 2026-05-XX — M5 / v2 deployment shipped; v1 hybrid Oracle retired
 
 **Trigger.** Completion of `M5_REFACTOR.md` working doc following the 2026-05-02 M5 validation entry below. After re-evaluating the Colosseum constraint (the user is no longer firmly committed to a 2026-05-10 hackathon submission), the staged migration was collapsed: M5 deploys directly with no v1 transition window.

@@ -231,13 +231,6 @@ Buckets:
 - **Why we cite it:** The single most-cited statement of the calibration-versus-sharpness tradeoff that §2.3 and our ablation (§7) implicitly use. Essential reference.
 - **Bucket:** calibration-conformal
 
-### [gneiting-katzfuss-2014] Gneiting, T., Katzfuss, M. 2014. Probabilistic forecasting.
-- **Venue:** Annual Review of Statistics and Its Application 1, 125–151
-- **URL / DOI:** https://doi.org/10.1146/annurev-statistics-062713-085831
-- **Contribution:** Survey of probabilistic forecasting, formalising prediction-space calibration notions and reviewing PIT histograms, CRPS, logarithmic score, and sharpness measures.
-- **Why we cite it:** A modern pedagogical reference to which we point readers for the broader calibration framework beyond the specific tests we run; completes the evaluation-framework lineage.
-- **Bucket:** calibration-conformal
-
 ### [brier-1950] Brier, G. W. 1950. Verification of forecasts expressed in terms of probability.
 - **Venue:** Monthly Weather Review 78(1), 1–3
 - **URL / DOI:** https://doi.org/10.1175/1520-0493(1950)078<0001:VOFEIT>2.0.CO;2
@@ -257,13 +250,6 @@ Buckets:
 - **URL / DOI:** http://www.alrw.net/old/04.pdf (canonical introduction; also discussed in vovk-book-2005 §4.5)
 - **Contribution:** Generalises split-conformal prediction to category-wise (Mondrian) calibration: separate conformal quantiles per category preserve finite-sample marginal validity within each category under within-category exchangeability, allowing a coarser overall calibration to absorb structural between-category variation.
 - **Why we cite it:** The deployed v2 / M5 architecture is a Mondrian split-conformal predictor with categories indexed by the regime classifier $\rho$. This is the direct theoretical citation for the §4.2 / §7.7 formalism.
-- **Bucket:** calibration-conformal
-
-### [shafer-vovk-2008] Shafer, G., Vovk, V. 2008. A tutorial on conformal prediction.
-- **Venue:** Journal of Machine Learning Research 9, 371–421
-- **URL / DOI:** https://jmlr.org/papers/v9/shafer08a.html
-- **Contribution:** Accessible tutorial introduction to conformal prediction, focusing on the split-conformal construction and non-conformity scores.
-- **Why we cite it:** A pedagogical pointer for readers unfamiliar with conformal methods; supports our flagged future-work direction.
 - **Bucket:** calibration-conformal
 
 ### [romano-cqr-2019] Romano, Y., Patterson, E., Candès, E. J. 2019. Conformalized quantile regression.

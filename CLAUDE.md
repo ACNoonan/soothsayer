@@ -44,6 +44,8 @@ Current methodology (v2 / M5 — deployed):
 - Wire format: `PriceUpdate` Borsh layout preserved across the v1 → M5 migration; `forecaster_code = 2` (FORECASTER_MONDRIAN) signals an M5 read.
 - Empirical headline: at τ=0.95 on the 2023+ OOS slice, realised $0.950$ with Kupiec $p = 0.956$, Christoffersen $p = 0.912$, mean half-width $354.5$ bps (20% narrower than the v1 hybrid Oracle at the same anchor and parameter budget). See `reports/methodology_history.md` (2026-05-02 M5 entry) and `reports/paper1_coverage_inversion/` §4 + §7.7.
 
+Post-M5 direction (2026-05-03, architecturally locked, not yet deployed): dual-profile methodology family. Lending-track (M6b2 per-class Mondrian) ships next; AMM-track (M6a-deployable common-mode partial-out) gated on a Friday-observable r̄_w forward predictor. Both profiles share this M5 architecture and wire format; they differ only in (a) score residualisation and (b) conformal cell partition. Working doc: `M6_REFACTOR.md` (root). Architecture: `docs/product-stack.md` "Dual-profile methodology family" section + per-layer track assignment table. Decision record: `reports/methodology_history.md` (2026-05-03 entry).
+
 Paper 3 current framing:
 
 - Three claims: Geometric, Structural, Empirical.

@@ -8,7 +8,7 @@
 
 **Source of truth for current state:** `reports/methodology_history.md` §0.
 
-**Sibling working doc:** `M5_REFACTOR.md` (M5 deployment migration; orthogonal to this backlog).
+**Sibling working doc:** `M6_REFACTOR.md` (post-M5 dual-profile rollout — Lending-track M6b2 + AMM-track M6a). `M5_REFACTOR.md` was deleted on completion 2026-05-XX (see `reports/methodology_history.md` deployment receipt).
 
 ---
 
@@ -22,15 +22,19 @@ After the 2026-05-02 M5 Mondrian win, the question was: *what other tests should
 
 ---
 
-## Priority ranking (2026-05-02)
+## Priority ranking (2026-05-03 — post-W8-decision)
 
-1. **W1 — Incumbent oracle band coverage head-to-head.** Highest ROI; data already on disk; directly addresses "compared to incumbents" framing for Colosseum + Paper 1 reviewers. **In flight.**
-2. **W2 — Berkowitz / DQ rejection localization.** Both v1 and M5 reject density tests; finding the source could drive a v3 forecaster.
-3. **W3 — Regime classifier audit.** M5 makes `regime_pub` load-bearing; classifier robustness now a methodology question, not a feature-engineering choice.
-4. **W4 — Asymmetric / one-sided coverage.** Direct empirical input to Paper 3 (P-conf vs P+conf).
-5. **W5 — Live forward-tape realized coverage.** Reviewer-immune. Grows over time; cheap to set up.
-6. **W6 — Halt-window subset coverage.** Direct numerical complement to Paper 3 §Structural.
-7. **W7 — Cross-class Mondrian (class × regime).** Possible M5+ rung; cheap.
+1. ~~**W1 — Incumbent oracle band coverage head-to-head.**~~ Complete 2026-05-02. Adopt as recurring artefact.
+2. ~~**W2 — Berkowitz / DQ rejection localization.**~~ Complete 2026-05-02. Adopt as v3 forecaster leads + Paper 1 §9 disclosure upgrade.
+3. ~~**W2-followup — v3 leads quantified (M6a, M6b, M6c).**~~ Complete 2026-05-02. Adopt M6b2 as Lending-track; adopt M6a-deployable as AMM-track conditionally on W8.
+4. ~~**W8 — r̄_w forward predictor prototype.**~~ Complete 2026-05-03. Reject at Friday-close-only feature set; AMM-track shipping deferred indefinitely until Sunday-Globex republish architecture (W8b, engineering-gated) or V3.1 F_tok data accumulation (W8c, data-gated).
+5. ~~**W4 — Asymmetric / one-sided coverage.**~~ Complete 2026-05-03. Q1 (two-sided asymmetric on wire) Disclose-not-deploy; Q2 (auxiliary one-sided per-class table) Adopt — handed off to other agent's Phase A1 artefact builder + ~hour of consumer SDK work. Direct Paper 3 §Structural narrative upgrade.
+6. **W3 — Regime classifier audit.** M5 makes `regime_pub` load-bearing on AMM-track (Lending-track uses `symbol_class`); classifier robustness is now an AMM-track-specific methodology question, deferred alongside AMM-track shipping.
+7. **W5 — Live forward-tape realized coverage.** Reviewer-immune. Grows over time; cheap to set up.
+8. **W6 — Halt-window subset coverage.** Direct numerical complement to Paper 3 §Structural.
+9. **W7 — Cross-class Mondrian (class × regime).** Subsumed by M6b3 in W2-followup; tested and rejected (sample dilution beats partition gain). Strike.
+10. **W8b — Sunday-Globex republish predictor (deferred).** Re-evaluate W8 with ES/NQ Sunday 18:00 ET reopen returns added to the feature set. Requires a scryer fetcher for Sunday-evening futures snapshots first. ~3–4 weeks total once scryer item lands.
+11. **W8c — V3.1 F_tok-based predictor (deferred).** Re-evaluate W8 with the on-chain xStock cross-section as the predictor's primary feature. Data-gated on V3.1 F_tok tape accumulation (≥150 weekends; ETA Q3–Q4 2026).
 
 ---
 
@@ -200,27 +204,51 @@ Realised coverage matches τ-target across all variants at all anchors (sample-s
 
 ---
 
-## W4 — Asymmetric / one-sided coverage
+## W4 — Asymmetric / one-sided coverage (Lending-track sub-axis)
 
-**Status:** Not started.
+**Status:** Complete 2026-05-03. **Decision: Q1 Disclose-not-deploy (two-sided asymmetric pair); Q2 Adopt as auxiliary (one-sided per-class quantile table).** Redirects `M6_REFACTOR.md` Phase A7 from "asymmetric two-sided wire-format pair" to "auxiliary one-sided lending-consumer table in the artefact JSON sidecar."
 
-**Question.** Bands are symmetric `±hw`, but xStock weekend returns are likely skewed (left-tail heavier on equities; right-tail heavier on MSTR/TSLA). If realized coverage at τ=0.95 nominal is 0.95 *pooled* but, say, 0.91 left-tail / 0.99 right-tail, the protocol implication is concrete: P-conf and P+conf should not be equal.
+**Question.** Bands are symmetric `±hw`, but xStock weekend returns are likely skewed (left-tail heavier on equities; right-tail heavier on MSTR/TSLA). If realized coverage at τ=0.95 nominal is 0.95 *pooled* but, say, 0.91 left-tail / 0.99 right-tail, the protocol implication is concrete: MarginFi's P-conf and P+conf should not be equal, and band-perp's long vs short liquidation buffers should not be equal.
+
+**Why Lending-track only.** The asymmetric pair `(q_low(τ), q_high(τ))` matters specifically for products that take *different* positions on the upper vs lower bound. Lending: assets use the lower bound, liabilities use the upper. Band-perp: long liquidation tied to lower, short liquidation tied to upper. Single-underlier options inherit the asymmetry from the underlying. The AMM-track (LP region sizing across the universe) doesn't see asymmetry as load-bearing — pooled width drives LP economics, and the AMM-track's M6a partial-out is a symmetric correction. The asymmetric pair is therefore a clean Lending-track sub-axis and not a separate methodology family.
 
 **Protocol.**
-1. Decompose realized coverage at each τ into `cov_left = P(truth ≥ point − hw)` and `cov_right = P(truth ≤ point + hw)`.
-2. Test `H0: cov_left = cov_right` per τ.
-3. If rejected, compute the implied asymmetric quantile pair `(q_low(τ), q_high(τ))` from the empirical residual distribution per regime.
-4. Quantify the width premium over a symmetric band at matched two-sided coverage.
-
-**Why this matters.** Direct input to Paper 3 §Structural — MarginFi semantics already are asymmetric (P-conf, P+conf). If our band is symmetric while the residual distribution isn't, the Paper 3 worked example is partly misspecified.
+1. Decompose realized coverage at each τ into `cov_left = P(truth ≥ point − hw)` and `cov_right = P(truth ≤ point + hw)`, both pooled and per `symbol_class`.
+2. Test `H0: cov_left = cov_right` per (τ, symbol_class).
+3. Where rejected, compute the asymmetric quantile pair `(q_low(τ), q_high(τ))` from per-class signed residual distribution (uses the same pre-2023 calibration set as the M6b2 b's).
+4. Quantify the width-premium over a symmetric band at matched two-sided coverage; quantify the asymmetric-aware width gain at matched one-sided τ.
+5. Wire format: no change. The `lower` and `upper` fields in `PriceUpdate` already carry the two sides independently — W4 just changes how they're computed in the artefact build.
 
 **Deliverables.**
-- [ ] `scripts/run_asymmetric_coverage.py`
-- [ ] `reports/v1b_asymmetric_coverage.md`
+- [x] `scripts/run_asymmetric_coverage.py` — analysis runner; reports per-(τ, symbol_class) cov_left vs cov_right + the implied asymmetric pair + the one-sided lending-consumer view.
+- [x] `reports/v1b_w4_asymmetric_coverage_lending.md` — paper-ready writeup with two-question decision split.
+- [x] `reports/tables/v1b_w4_asymmetric_per_class_tau.csv`, `v1b_w4_asymmetric_one_sided.csv`, `v1b_w4_skewness_train.csv`.
+- [ ] **Q2 deliverable (handoff to other agent's Phase A1 work):** extend `scripts/build_m6b2_lending_artefact.py` to emit `LENDING_QUANTILE_ONE_SIDED_LOW` and `LENDING_QUANTILE_ONE_SIDED_HIGH` keyed by `(symbol_class, tau_one)` in the artefact JSON sidecar. 24 additional scalars (6 classes × 2 anchors × 2 sides; `equity_recent` τ=0.95-only per cell-size gate). Wire format: no change.
+- [ ] Consumer SDK accessor in `crates/soothsayer-consumer`: `one_sided_quantile(symbol_class, tau, side)` reading from the auxiliary table.
+- [ ] Paper 3 §Structural worked example: regenerate at one-sided q_low / q_high widths.
 
-**Result:** _pending_
+**Result.** Two questions, two answers:
 
-**Decision:** _pending_
+**Q1 — Replace symmetric `b_sym(class, τ)` with asymmetric `(q_low, q_high)` at two-sided τ?** **No.** Materially-asymmetric cells: 2/21 (10%, below the 25% adoption threshold). Pooled `width_delta_pct` at τ=0.95 = +2% (asymmetric is *wider* at matched two-sided coverage). Equal-tail asymmetric reallocates between tails but doesn't shrink total band. Only `bond` shows clearly asymmetric tail violations on OOS (left 6.4% vs right 2.3% at τ=0.95). Per-class skewness is real on TRAIN — `equity_meta` skew = −1.80, `gold` = −2.32, `equity_index` = −0.90 — but doesn't translate to a tighter two-sided band.
+
+**Q2 — Publish auxiliary per-class one-sided quantiles for lending consumers?** **Yes.** Headline at τ_one = 0.95 (the lending-consumer-facing target):
+
+| symbol_class | sym `b_two`(0.95) bps | one-sided q_low bps | asset Δ | one-sided q_high bps | liability Δ |
+|---|---:|---:|---:|---:|---:|
+| equity_index | 169 | 102 | **−39%** | 135 | **−20%** |
+| equity_meta | 232 | 150 | **−35%** | 169 | **−27%** |
+| equity_highbeta | 451 | 275 | **−39%** | 313 | **−31%** |
+| equity_recent | 463 | 408 | **−12%** | 227 | **−51%** |
+| gold | 145 | 127 | **−12%** | 95 | **−35%** |
+| bond | 132 | 113 | **−14%** | 95 | **−28%** |
+
+Reading: a MarginFi asset Bank holding equity_highbeta collateral that targets 95% downside confidence currently reads the symmetric `b_sym(0.95) = 451 bps`, which is actually a 97.5% one-sided guarantee. With the auxiliary table, the Bank reads `q_low_one(equity_highbeta, 0.95) = 275 bps` and gets exactly the 95% one-sided contract it specified — **39% narrower buffer at the same statistical guarantee**. OOS realised lower coverage validates: 0.92 (within sample-size CI of the 0.95 target), vs the symmetric band's 0.97 over-cover.
+
+**Decision: Disclose-not-deploy (Q1) + Adopt as auxiliary (Q2).**
+
+- **Q1 strike from `M6_REFACTOR.md` Phase A7's original scope.** The published `lower` / `upper` continue to be the symmetric `point ± b_sym(class, τ)·fri_close`. No wire-format change. No two-sided asymmetric publish.
+- **Q2 redirects Phase A7 to the auxiliary one-sided table.** Implementation: ~half-day on the artefact builder + ~hour on the consumer SDK accessor + the Paper 3 worked-example refresh.
+- **Paper 3 §Structural narrative upgrade:** the auxiliary table replaces ad-hoc Kamino reserve-buffer set-up with calibrated per-(symbol_class, τ_one, side) receipts. MarginFi assets-vs-liabilities maps cleanly to `q_low_one` / `q_high_one`. This is the strongest empirical Paper 3 lever from the W2-W4 chain.
 
 ---
 
@@ -274,24 +302,73 @@ Realised coverage matches τ-target across all variants at all anchors (sample-s
 
 ## W7 — Cross-class Mondrian (class × regime)
 
-**Status:** Not started.
+**Status:** Subsumed by W2-followup M6b3 variant; tested and rejected 2026-05-02. Strike from active list.
 
-**Question.** Mondrian by `regime` pools equities, GLD, TLT, BTC. They have very different residual distributions. Does Mondrian by `(class, regime)` tighten further?
+**Result.** `scripts/run_m6b_per_symbol_class_mondrian.py` evaluated M6b3 (`Mondrian(symbol_class × regime)`, 18 cells with regime-fallback for n<30 cells) on the OOS 2023+ panel. At τ=0.95: half-width 320 bps vs M6b2's 304 bps — M6b3 is **wider** than M6b2 despite the finer partition. Sample-dilution beats partition-gain at the available train sample size. M6b2 (`Mondrian(symbol_class)`, 6 cells) is the correct choice.
+
+**Decision: Reject.** No methodology log entry needed beyond the W2-followup record. M6b3 is documented as a tested-and-dropped variant in `reports/v1b_m6b_per_symbol_class_mondrian.md`.
+
+---
+
+## W8 — r̄_w forward predictor prototype (AMM-track shipping gate)
+
+**Status:** Complete 2026-05-03. **Decision: REJECT** at the Friday-close-only feature set; AMM-track shipping deferred until Sunday-Globex republish architecture or V3.1 F_tok data accumulates.
+
+**Question.** M6a's upper-bound width gain (-13% at τ=0.95) uses the leave-one-out weekend-mean residual r̄_w^(−i), which is Monday-derived. To deploy AMM-track, we need a Friday-observable predictor of r̄_w with R²(forward) ≥ 0.4 against the realized r̄_w on a TRAIN/OOS split. Below that threshold, the deployable M6a width gain is too small to justify the engineering cost; above it, AMM-track ships and unlocks Layer 1 (Band-AMM) + Layer 4 AMM-licensee tier.
+
+**Hypotheses for the predictor (cheap to test).**
+
+1. **CME ES/NQ Sunday-Globex implied weekend gap.** Friday close → Sunday 18:00 ET futures reopen → Monday cash open. The futures track the index move continuously over the weekend; by Monday cash open the futures-implied gap is a strong signal. Soothsayer publishes at *Friday* close, so the relevant question is: how much of `r̄_w` is predictable from *Friday-close* futures state alone (without Sunday Globex peeking)? Likely some — futures already trade Friday late; the Friday-close ES quote already reflects forward-looking information. Cong et al. and the M6a `factor_ret` precedent suggest yes.
+2. **VIX/skew change Friday close vs prior week.** Common-mode dispersion correlates with vol-regime change. Test ΔVIX, ΔGVZ, ΔMOVE as features.
+3. **Sector rotation indicators.** XLK/XLF/XLE relative-strength change Friday close vs prior week. If sector dispersion is accelerating, common-mode `r̄_w` is more predictable.
+4. **Macro release calendar.** Fed minutes, CPI, NFP, FOMC adjacent weekends have wider expected `r̄_w`. Categorical feature.
+5. **Soothsayer-v5 tape signal (post-V3.1).** Once on-chain xStock prices have ≥150 weekends of coverage (V3.1 F_tok gate), the cross-sectional mean of weekend xStock drift is a near-perfect proxy for `r̄_w`. Today's sample (≈30 weekends) is too small.
 
 **Protocol.**
-1. Define class buckets: `equity_high_beta` (NVDA, TSLA, MSTR, HOOD), `equity_index` (SPY, QQQ), `single_stock_meta` (AAPL, GOOGL), `gold` (GLD), `bond` (TLT), `crypto` (BTC?). Verify against `src/soothsayer/universe.py`.
-2. Re-run M5 on the `(class, regime)` partition; report width and coverage per cell.
-3. Compare to current M5 (regime-only).
 
-**Why this matters.** If it tightens, that's an M5+ rung for v2 deployment. If it doesn't, that's a strong "pooling justified" footnote that pre-empts the obvious reviewer critique.
+1. Feature-engineering pass on the v1b_panel: assemble candidate Friday-observable features (ES/NQ ret, GC/ZN/BTC ret, VIX/GVZ/MOVE level + change, fri_vol_20d index, sector spreads if available in scryer).
+2. OLS regression of `r̄_w` on the feature set on the TRAIN slice (pre-2023). Report R²(train), R²(OOS) on the 2023+ slice. Stepwise feature selection to maximize OOS R².
+3. Cross-validate with regularization (Ridge) to handle multicollinearity in the macro-vol features.
+4. Gate: `R²(OOS) ≥ 0.4` against `r̄_w`. Stretch: `R²(OOS) ≥ 0.6` (would deliver ≥80% of M6a's upper-bound gain).
+5. Sanity-check: Berkowitz on M6a-deployable PITs (using `r̄_w_hat` instead of `r̄_w^(−i)`) — cross-sectional ρ should drop materially below 0.41. Expected: ρ ≈ 0.41 × (1 − R²(OOS)) under linear partial-out.
+
+**Why this matters.** Direct gate on AMM-track deployment. Below R²=0.4, M6a is "interesting upper bound" only and `M6_REFACTOR.md` Phase B defers indefinitely (or reframes as "wait for V3.1 F_tok signal accumulation"). Above R²=0.4, AMM-track ships under `M6_REFACTOR.md` Phase B and Layer 1 / Layer 4 AMM-licensee tier go live.
 
 **Deliverables.**
-- [ ] `scripts/run_mondrian_class_x_regime.py`
-- [ ] `reports/tables/v1b_mondrian_class_x_regime.csv`
 
-**Result:** _pending_
+- [x] `scripts/run_r_bar_forward_predictor.py` — feature engineering + OLS/Ridge fit + R²(train/OOS) reporting + cross-sectional-ρ sanity check. Outputs predictor coefficients to `data/processed/r_bar_predictor_v1.json`.
+- [x] `reports/v1b_r_bar_forward_predictor.md` — paper-ready writeup with the gate decision.
+- [x] Negative-result log entry in `reports/methodology_history.md` (extended 2026-05-03 entry).
 
-**Decision:** _pending_
+**Result.** Sample: 458 train weekends + 173 OOS weekends, dependent variable r̄_w with std ≈ 0.010 train / 0.011 OOS. Six model variants tested:
+
+| ID | Features | R²(train) | R²(OOS) |
+|---|---|---:|---:|
+| M0_ar1 | r_bar_lag1 | 0.003 | **0.005** |
+| M1_vol_ols | macro vol level + Δ (6 features) | 0.079 | −0.060 |
+| M1_vol_ridge1 | M1 + α=1 | 0.079 | −0.060 |
+| M2_full_ols | M0 ∪ M1 ∪ panel/calendar/regime (13 features) | 0.112 | −0.057 |
+| M2_full_ridge1 | M2 + α=1 | 0.112 | −0.058 |
+| M2_full_ridge10 | M2 + α=10 | 0.111 | −0.050 |
+
+All non-trivial models (M1, M2) have negative OOS R² — they overfit on TRAIN and predict worse than the train mean on OOS. The autoregressive baseline (M0_ar1) has R²(OOS) = 0.005, effectively zero. Cross-sectional within-weekend ρ on OOS PITs barely moves: raw ρ = 0.4147 → after partial-out ρ = 0.4134 (the predictor brings essentially no information beyond what factor_ret already absorbs).
+
+Three diagnostic findings:
+
+1. **r̄_w has no autoregressive structure week-over-week.** R²(M0_ar1) ≈ 0.005 means the prior-weekend common-mode residual carries effectively no signal about the next weekend's. This is consistent with a martingale residual that the factor_ret point already partials out at the per-row level.
+2. **Friday-close macro vol features overfit.** R²(train) is non-trivial (~0.08–0.11) for the vol family but R²(OOS) is negative across all regularisation strengths. The vol features predict TRAIN noise, not OOS signal.
+3. **The factor-adjusted point is doing more work than expected.** factor_ret (futures-implied weekend gap) absorbs nearly all of what Friday-close macro state can predict about r̄_w. What remains in r̄_w is approximately unpredictable from currently-observable Friday state.
+
+**Decision: REJECT at the current data surface.** AMM-track is not deployable from Friday-close-only state with the v1b_panel feature set.
+
+**Architectural implication for `M6_REFACTOR.md` Phase B.** Phase B is **deferred indefinitely** under current data. Two roadmap paths forward, neither blocked on each other:
+
+- **Path 1 — Sunday-Globex republish architecture.** ES/NQ Sunday 18:00 ET reopen. By Sunday evening the futures-implied Monday gap is a strong predictor of r̄_w (likely R²(OOS) > 0.5 ex-ante). Requires: (a) a scryer fetcher for Sunday-evening futures snapshots, (b) a Soothsayer publisher daemon that re-publishes the band Sunday at Globex reopen with the AMM-track applied, (c) consumer documentation that AMM-track has a "Friday-close + Sunday-republish" cadence, distinct from Lending-track's Friday-close-only cadence. This is the cleanest path; engineering-gated, ~3–4 weeks of work including scryer items.
+- **Path 2 — V3.1 F_tok signal accumulation.** On-chain xStock cross-section on `soothsayer_v5/tape` is a near-perfect proxy for r̄_w by construction (the cross-sectional mean of weekend xStock drift is ≈ r̄_w). Today (~30 weekends since launch) is too small for the predictor to fit reliably. ETA Q3–Q4 2026 once ≥ 150 weekends accumulate. Data-gated, no engineering required until the gate fires.
+
+**Headline reframe.** The M6c "ceiling" of 271 bps at τ=0.95 (39% narrower than v1) is now correctly framed as a *data-accumulation-gated* future state, not a near-term deployment target. M6b2 (Lending-track, ships next per `M6_REFACTOR.md` Phase A) delivers ~50% of M6c's gain over M5 with no data dependency.
+
+**Decision: REJECT (Friday-close only); reopen as W8b (Sunday-Globex variant) or W8c (V3.1 F_tok variant) when the respective data surfaces are ready.**
 
 ---
 

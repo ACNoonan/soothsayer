@@ -145,7 +145,10 @@ def main() -> int:
     print(f"Rust binary: {rust_bin()}")
     print()
 
-    oracle = Oracle.load()
+    # Pinned to AMM (M5-equivalent) until Phase A3 ships the Rust dual-profile
+    # path. Rust today only knows about the M5 regime-axis lookup; comparing
+    # Lending output here would always mismatch.
+    oracle = Oracle.load(profile="amm")
 
     # Deterministic sample: 10 across various regimes, times, symbols
     random.seed(42)

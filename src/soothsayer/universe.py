@@ -11,7 +11,10 @@ module is implemented — left as None here so the file stays a single source of
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+
+from .config import DATA_PROCESSED
 
 
 @dataclass(frozen=True)
@@ -63,3 +66,38 @@ XSTOCK_MINTS: dict[str, str] = {
 USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 USDC_DECIMALS = 6
 XSTOCK_DECIMALS = 8
+
+
+# --- Lending-profile symbol_class mapping (M6b2) ----------------------------
+# Single source of truth = the artefact JSON sidecar produced by
+# `scripts/build_m6b2_lending_artefact.py`. Keying is on the *underlying*
+# ticker (SPY, QQQ, ...) — same key set the conformal cells were trained on.
+# `symbol_class_for(...)` accepts both forms so callers holding xStock symbols
+# (SPYx) and callers holding underlyings (SPY) hit the same lookup.
+
+LENDING_ARTEFACT_JSON_PATH = DATA_PROCESSED / "m6b2_lending_artefact_v1.json"
+
+
+def _load_symbol_class_map() -> dict[str, str]:
+    if not LENDING_ARTEFACT_JSON_PATH.exists():
+        return {}
+    sidecar = json.loads(LENDING_ARTEFACT_JSON_PATH.read_text())
+    return dict(sidecar.get("symbol_class_mapping", {}))
+
+
+SYMBOL_CLASS_MAP: dict[str, str] = _load_symbol_class_map()
+
+
+def symbol_class_for(symbol: str) -> str | None:
+    """Resolve symbol → symbol_class. Accepts either an underlying ticker
+    ('SPY') or its xStock form ('SPYx'). Returns None for unknown symbols."""
+    if symbol in SYMBOL_CLASS_MAP:
+        return SYMBOL_CLASS_MAP[symbol]
+    xs = BY_SYMBOL.get(symbol)
+    if xs is not None and xs.underlying in SYMBOL_CLASS_MAP:
+        return SYMBOL_CLASS_MAP[xs.underlying]
+    if symbol.endswith("x"):
+        underlying = symbol[:-1]
+        if underlying in SYMBOL_CLASS_MAP:
+            return SYMBOL_CLASS_MAP[underlying]
+    return None

@@ -21,6 +21,49 @@ This is not a roadmap commitment. It is a **direction-of-travel**, useful for de
 
 Each row consumes the calibrated band. Each row also depends on the rows above it being live or imminent — band-perp needs a band-AMM to hedge against; band-options need both spot and perp depth; settlement licensing is dispositionally orthogonal to the AMM stack but practically gated on the band being on-chain in production.
 
+## Dual-profile methodology family (post-M5)
+
+Different consumers want different properties from the band. Layer 1 (Band-AMM) cares about *common-mode responsiveness* — calm weekend → tighter LP region → more throughput; shock weekend → wider band → more LVR protection. Lending consumers (Kamino, MarginFi) and per-asset products (Layer 2 perp, Layer 3 single-underlier options) care about *per-asset width re-allocation* — SPYx tighter than MSTRx, with a calibrated receipt that reserve-buffer config can read directly. M6 leads (`reports/v1b_m6a_common_mode_partial_out.md`, `reports/v1b_m6b_per_symbol_class_mondrian.md`, `reports/v1b_m6c_combined.md`) confirm both axes deliver real width reductions over M5 at matched coverage on the OOS 2023+ panel — and that they are *mostly orthogonal* (~0.87 stacking efficiency at τ ∈ {0.85, 0.95}).
+
+The post-M5 rollout therefore runs **two profiles in parallel under one methodology family**, sharing the factor-adjusted point, regime classifier, scryer data spine, and `PriceUpdate` Borsh wire format. Profiles differ only in (a) score residualisation and (b) conformal cell partition. See `M6_REFACTOR.md` for the staged rollout and `reports/methodology_history.md` for the dated decision log.
+
+| Track | Methodology | Cell axis | Score | Best for | Deploy state |
+|---|---|---|---|---|---|
+| **Lending-track** | M6b2 | symbol_class (6 cells) | `\|r\|` | per-asset products: lending, perp, single-underlier options/vaults | shipping next per `M6_REFACTOR.md` Phase A |
+| **AMM-track** | M6a | regime (3 cells) | `\|r − β·r̄_w\|` | universe-aggregate products: Band-AMM, portfolio vaults, common-mode-aware indexes | gated on r̄_w forward predictor; see `VALIDATION_BACKLOG.md` W8 |
+
+Both tracks publish under `forecaster_code = 2` (`mondrian`); the `profile_code` byte in the receipt distinguishes (`profile_code = 1` Lending, `profile_code = 2` AMM). Same Borsh layout, byte-identical on the rest of the wire.
+
+### Per-layer track assignment
+
+| Stack item | Track | Why |
+|---|---|---|
+| **Layer 0 — Oracle (the band itself)** | publishes both | Layer 0 *is* the methodology. Two parallel publisher daemons; two parallel parquet venues. |
+| **Layer 1 — Band-AMM (spot)** | **AMM-track** | LP-region sizing is a universe-aggregate concern; common-mode responsiveness is the LVR-aware claim. |
+| **Layer 2 — Band-perp** | **Lending-track** | Single-asset; mark = band midpoint, liquidation buffer = band edges; τ=0.99 safety margin. |
+| **Layer 3 — Band-options (single-underlier)** | **Lending-track** | Implied vol from per-asset band width. |
+| **Layer 3 — Band-vaults (portfolio)** | **AMM-track** | Sells/buys band-edge volatility across the universe → common-mode responsive. |
+| **Layer 4 — Settlement / index licensing** | both, licensed separately | Per-asset licensees → Lending-track; common-mode-signal licensees → AMM-track. Pricing-tier differentiation. |
+| Lending integration (Kamino, Paper 3) | **Lending-track** | Per-class half-width feeds per-reserve buffer config directly. |
+| MarginFi integration | **Lending-track** + W4 asymmetric layer | Per-Bank consumer; W4 asymmetric quantile pair maps to assets-vs-liabilities P-conf/P+conf. |
+| Calibrated event stream (v1 product, gated on Paper 3) | both | Per-asset thresholds → Lending; portfolio thresholds → AMM. |
+| Decision SDK (v2 product, 2027) | both | `recommend(symbol, tau, cost_curve, profile=AMM \| Lending)`. |
+| Policy mapping (Safe / Caution / Liquidate) | **Lending-track** | Per-reserve. |
+| Layer 0 router (open-hours upstream aggregation) | profile-agnostic | Layer 0 infra — routes upstream price, doesn't itself produce a band. |
+| Pyth equity poster, Chainlink Streams relay program | profile-agnostic | Layer 0 infra. |
+| xStock universe / Backed corp-actions integration | profile-agnostic | Universe definition. |
+| Path-aware truth labelling (Paper 4) | profile-aware *validator* | Validates either profile against consumer-experienced prices. |
+| Counterfactual replay engine (Paper 4) | profile-aware *comparator* | A/B-tests profiles for any future product. |
+| Bundle-attribution labels (Paper 4) | profile-aware analytics | MEV/Jito attribution differs by profile. |
+| Pool-state reconstructor (Paper 4) | profile-agnostic | Infrastructure. |
+| Reserve-buffer evaluation (Paper 3 active work) | **Lending-track** | Per-class. |
+| Dynamic-bonus / `D_repaid` fit (Paper 3 active work) | **Lending-track** | Per-asset elasticity. |
+| Cross-protocol propagation (MarginFi cascade) | **Lending-track** | Both protocols are lending-style. |
+| CEX in-market reference tape (scryer item 51) | profile-agnostic | Truth labeller input. |
+| BAM validator-client labelling (scryer item 51) | profile-agnostic | Settlement-determinism analysis. |
+
+Of ~22 stack items, 8 map to AMM-track, 8 to Lending-track, 4 to both, 8 are profile-agnostic infrastructure. No item is left without a clean assignment — the two-profile partition does real work across the planned stack.
+
 ## What each layer is *not*, and what we do not build
 
 - **Layer 0 (Oracle).** Not a price predictor. Soothsayer makes no claim to minimum-variance forecasting; the contribution is the calibration receipt, not the point estimate. We do not compete with Pyth on aggregation latency or with Chainlink on integration breadth.
