@@ -166,7 +166,7 @@ uv run python scripts/run_v1b_loso.py
 uv run python scripts/run_v1b_per_class.py
 uv run python scripts/run_v1b_path_fitted_conformal.py
 
-# 6. §10.4 v3 candidate bake-off.
+# 6. §10.4 next-generation candidate bake-off.
 uv run python scripts/run_v3_bakeoff.py
 
 # 7. Build all six figures.
@@ -199,7 +199,7 @@ The deployed serving stack has three independent implementations of the M5 looku
 
 1. **Python reference.** `src/soothsayer/oracle.py::Oracle.fair_value`. Reads `data/processed/mondrian_artefact_v2.parquet` for the per-Friday `(symbol, fri_close, point, regime_pub)` tuple; the 20 scalars are hard-coded module constants.
 2. **Rust serving crate.** `crates/soothsayer-oracle/src/oracle.rs::Oracle::fair_value`. Same parquet, same 20 hard-coded scalars (in `config.rs`); independent implementation of the interpolation and serving formula.
-3. **On-chain publisher.** `programs/soothsayer-oracle-program/`. The Rust crate is consumed by an Anchor program that emits `PriceUpdate` PDAs whose Borsh layout was preserved across the v1 → M5 migration (`forecaster_code = 2` signals a Mondrian read); a downstream `soothsayer-consumer` no_std crate decodes the PDA and reconstructs `(point, lower, upper, claimed_coverage_served)` from the wire bytes.
+3. **On-chain publisher.** `programs/soothsayer-oracle-program/`. The Rust crate is consumed by an Anchor program that emits `PriceUpdate` PDAs whose Borsh layout was preserved across the migration from the prior hybrid Oracle to M5 (`forecaster_code = 2` signals a Mondrian read); a downstream `soothsayer-consumer` no_std crate decodes the PDA and reconstructs `(point, lower, upper, claimed_coverage_served)` from the wire bytes.
 
 `scripts/verify_rust_oracle.py` runs a 90-case probe across (10 symbols × 9 weekends) and asserts identical `(point, lower, upper)` between paths 1 and 2 to within float precision (max abs diff < 1e-10 on a normalised band). The Anchor integration test (`programs/soothsayer-oracle-program/tests/`) extends the parity check to path 3 by decoding the on-chain PDA after a publish call.
 

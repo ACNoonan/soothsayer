@@ -1,6 +1,6 @@
 # §9 — Limitations
 
-This section enumerates the assumptions under which the claims of §3.4 hold, the failure modes the backtest exposed, and the domain boundaries outside which we make no assertion. Most items correspond to explicit deferrals; each points forward to §10. The strongest open issues — Berkowitz / DQ rejections, no live deployment window, and the OOS-tuned $c(\tau)$ + $\delta(\tau)$ schedule provenance — are the empirical map of what a v3 system should improve.
+This section enumerates the assumptions under which the claims of §3.4 hold, the failure modes the backtest exposed, and the domain boundaries outside which we make no assertion. Most items correspond to explicit deferrals; each points forward to §10. The strongest open issues — Berkowitz / DQ rejections, no live deployment window, and the OOS-tuned $c(\tau)$ + $\delta(\tau)$ schedule provenance — are the empirical map of what a next-generation system should improve.
 
 ## 9.1 Shock-tertile empirical ceiling
 
@@ -30,11 +30,11 @@ The `calibration_buffer_applied` field carries $\delta(\tau)$ as a first-class r
 
 The served band is *per-anchor calibrated* (Kupiec passes at every $\tau$, Christoffersen passes at $\tau \ge 0.85$) but *not full-distribution calibrated* (Berkowitz LR $= 173.1$; DQ at $\tau = 0.95$ $p = 5.7 \times 10^{-6}$).
 
-**Localising the rejection.** §6.3.1 decomposes the lag-1 alternative: the AR(1) signal lives in the *cross-sectional within-weekend* ordering ($\hat\rho_\text{cross} = 0.354$, $p < 10^{-100}$), not the temporal-within-symbol ordering ($\hat\rho_\text{time} = -0.032$, $p = 0.18$). A vol-tertile sub-split of `normal` regime (5 cells) leaves Berkowitz LR essentially unchanged ($173 \to 175$) while widening $\tau = 0.95$ band by $9\%$ — finer regime granularity is not the lever. The residual is common-mode within a weekend that the $(\rho, s)$ factor switchboard does not fully partial out, and a single $(r, \tau)$-keyed multiplier mis-allocates across heterogeneous symbols (§6.4.1's bimodal pattern). M5 ships with these rejections disclosed; §10.4 enumerates the v3 candidates that target each.
+**Localising the rejection.** §6.3.1 decomposes the lag-1 alternative: the AR(1) signal lives in the *cross-sectional within-weekend* ordering ($\hat\rho_\text{cross} = 0.354$, $p < 10^{-100}$), not the temporal-within-symbol ordering ($\hat\rho_\text{time} = -0.032$, $p = 0.18$). A vol-tertile sub-split of `normal` regime (5 cells) leaves Berkowitz LR essentially unchanged ($173 \to 175$) while widening $\tau = 0.95$ band by $9\%$ — finer regime granularity is not the lever. The residual is common-mode within a weekend that the $(\rho, s)$ factor switchboard does not fully partial out, and a single $(r, \tau)$-keyed multiplier mis-allocates across heterogeneous symbols (§6.4.1's bimodal pattern). M5 ships with these rejections disclosed; §10.4 enumerates the §10 candidate architectures that target each.
 
-**Per-symbol disclosure.** Per-symbol Berkowitz / Kupiec on M5 OOS PITs is *bimodal* (§6.4.1): SPY/QQQ/GLD/TLT/AAPL reject from variance compression (bands too wide, $0$–$1\%$ violation rate at $\tau = 0.95$); TSLA/HOOD/MSTR reject from variance expansion (bands too narrow, $11$–$16\%$ violation rate); NVDA, GOOGL pass. **HOOD specifically fails per-symbol Kupiec at $\tau \in \{0.68, 0.85, 0.95\}$** (violation rate $13.9\%$ at $\tau = 0.95$ vs nominal $5\%$); HOOD passes at $\tau = 0.99$ (violation rate $2.3\%$, $p = 0.138$). Cold-start heavy-tail symbols are the load-bearing per-symbol failure mode: HOOD has the shortest history (~73 train rows), and the deployed schedule is fit on a panel where heavy-tail tickers drive the conformity quantile. Production deployments that face HOOD-equivalent newly-listed tickers should treat the per-symbol claim as deferred until V3.2's rolling rebuild and the §10.4 per-symbol-calibration candidates land.
+**Per-symbol disclosure.** Per-symbol Berkowitz / Kupiec on M5 OOS PITs is *bimodal* (§6.4.1): SPY/QQQ/GLD/TLT/AAPL reject from variance compression (bands too wide, $0$–$1\%$ violation rate at $\tau = 0.95$); TSLA/HOOD/MSTR reject from variance expansion (bands too narrow, $11$–$16\%$ violation rate); NVDA, GOOGL pass. **HOOD specifically fails per-symbol Kupiec at $\tau \in \{0.68, 0.85, 0.95\}$** (violation rate $13.9\%$ at $\tau = 0.95$ vs nominal $5\%$); HOOD passes at $\tau = 0.99$ (violation rate $2.3\%$, $p = 0.138$). Cold-start heavy-tail symbols are the load-bearing per-symbol failure mode: HOOD has the shortest history (~73 train rows), and the deployed schedule is fit on a panel where heavy-tail tickers drive the conformity quantile. Production deployments that face HOOD-equivalent newly-listed tickers should treat the per-symbol claim as deferred until the rolling artefact rebuild and the §10.4 per-symbol-calibration candidates land.
 
-A protocol consuming Soothsayer at a single $\tau$ on a regime-pooled cell is served by the per-anchor pooled guarantee; one wanting per-symbol or full-distribution calibration must accept the disclosed residual or wait for v3.
+A protocol consuming Soothsayer at a single $\tau$ on a regime-pooled cell is served by the per-anchor pooled guarantee; one wanting per-symbol or full-distribution calibration must accept the disclosed residual or wait for the §10 candidates.
 
 ## 9.5 No live deployment window
 
@@ -46,7 +46,7 @@ The empirical claims of §6 are backtested, not live. The shipped Rust serving l
 
 **Endpoint vs path coverage.** §6.6 quantifies the gap on a 24/7 stock-perp slice ($n = 118$ symbol-weekends): at $\tau = 0.95$, the raw perp-path gap is $14.4$pp, decomposing after three robustness checks to a residual ${\sim}7$–$10$pp of genuine intra-weekend shortfall, concentrated in `normal` weekends and approximately closed by stepping up to $\tau = 0.99$. The served contract remains the endpoint claim.
 
-**MEV and execution-aware coverage.** A consumer transacting at a worse price than the band's mid (front-running, sandwich, block-builder reordering) experiences an *effective* coverage that may differ from §6.6's perp/on-chain path coverage near band edges. Measuring this requires Solana mempool-or-bundle granularity plus a consumer-behaviour model; documented as v3 work (§10.1's V3.3).
+**MEV and execution-aware coverage.** A consumer transacting at a worse price than the band's mid (front-running, sandwich, block-builder reordering) experiences an *effective* coverage that may differ from §6.6's perp/on-chain path coverage near band edges. Measuring this requires Solana mempool-or-bundle granularity plus a consumer-behaviour model; documented as next-generation work (§10.1 (the path-fitted conformity score)).
 
 ## 9.7 No optimal liquidation-policy benchmark
 
@@ -64,6 +64,6 @@ Three concerns that do *not* apply, plus one known data-gated gap:
 
 - **Oracle manipulation.** Coverage transparency is orthogonal to integrity. Soothsayer is designed to be read alongside an adversarially-robust feed, not as its replacement.
 - **Latency.** The serving-time Oracle is a five-line lookup; nothing in the coverage-inversion mechanism requires a live forecast computation.
-- **On-chain xStock TWAP not consumed.** Cong et al. [cong-tokenized-2025] document off-hour returns on tokenised stocks anticipate Monday opens. Our base forecaster does not read this; the V5 forward-cursor tape supplies the data but only ~30 weekends of post-launch history exist (§10.1's V3.1).
+- **On-chain xStock TWAP not consumed.** Cong et al. [cong-tokenized-2025] document off-hour returns on tokenised stocks anticipate Monday opens. Our base forecaster does not read this; the V5 forward-cursor tape supplies the data but only ~30 weekends of post-launch history exist (§10.1 (the on-chain xStock TWAP forecaster)).
 
 These limitations are disclosures, not retractions. Each has a concrete follow-up in §10.

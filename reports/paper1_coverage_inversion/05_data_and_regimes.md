@@ -6,7 +6,7 @@ This section specifies the symbol universe, the weekend-panel construction, the 
 
 We evaluate on $K = 10$ symbols spanning three asset classes: eight US equities (SPY, QQQ, AAPL, GOOGL, NVDA, TSLA, HOOD, MSTR), tokenised gold (GLD), and tokenised long rates (TLT). The eight equity tickers are the underliers of the SPYx, QQQx, AAPLx, GOOGLx, NVDAx, TSLAx, HOODx, and MSTRx tokens deployed on Solana mainnet (Backed Finance; mint addresses verified in `docs/v5-tape.md`). GLD and TLT are RWA generalisation anchors — they share the closed-market structure with the equities (NYSE hours) but exercise different factors and vol indices, so a primitive that calibrates well across all three classes generalises to a broader closed-market RWA universe than equity-only evaluation would justify.
 
-We do not use the on-chain xStock prices themselves as input or evaluation target. Backtest target prices are the *underlying-venue* (NYSE) Monday opens, fetched from Yahoo Finance. The on-chain xStock TWAP is deferred to v2 (`docs/v2.md` §V2.1) once the V5 tape accumulates ≥ 150 weekends post-launch.
+We do not use the on-chain xStock prices themselves as input or evaluation target. Backtest target prices are the *underlying-venue* (NYSE) Monday opens, fetched from Yahoo Finance. The on-chain xStock TWAP is deferred to §10.1's on-chain-TWAP forecaster candidate, once the forward-cursor tape accumulates ≥ 150 weekends post-launch.
 
 ## 5.2 Weekend panel construction
 
@@ -44,7 +44,7 @@ Sample sizes on the 5,986-weekend panel: normal 3,924 (65.6%), high_vol 1,432 (2
 
 A separate post-hoc tertile labeler tags each weekend by realised-move z-score (calm / normal / shock); this `realized_bucket` is *not* a regime in the §3.1 sense — it depends on the realised target — and is used only for diagnostic stratification (the shock-tertile coverage ceiling reported in §9.1).
 
-We considered two refinements that were tested and dropped: a sub-regime split of `normal` into `post_shock` / `calm` / `range_bound`, and an FOMC/CPI/NFP macro-event regressor. Neither lifted shock-tertile coverage measurably; the implied-vol indices already absorb that signal. Sub-regime granularity is retained as a v2 candidate (§10).
+We considered two refinements that were tested and dropped: a sub-regime split of `normal` into `post_shock` / `calm` / `range_bound`, and an FOMC/CPI/NFP macro-event regressor. Neither lifted shock-tertile coverage measurably; the implied-vol indices already absorb that signal. Sub-regime granularity is retained as a next-generation candidate (§10).
 
 ## 5.6 Train/test split
 
@@ -57,11 +57,11 @@ Split date **2023-01-01**: weekends with `fri_ts < 2023-01-01` are calibration, 
 
 The 12 trained per-regime quantiles (§4.2) are fit from the calibration set and held *fixed* throughout OOS evaluation: no information from the 2023+ slice enters the trained quantile table. The 4 $c(\tau)$ bumps and 4 $\delta(\tau)$ shifts (§4.3) are deployment-tuned on the same OOS slice — disclosed in §9.3 and partially closed by the six-split walk-forward (§7.2.4).
 
-The 2023-01-01 split is conservative: it places the 2023 banking turbulence and the 2024–2025 macro transition in the held-out slice, exposing the trained quantile to material out-of-sample regime shifts. Under v2 / M5, HOOD enters the per-regime quantile fit pooled across symbols within each regime (the trained quantile does not stratify by symbol — see §4.2), so the calibration thinness for HOOD is absorbed into the pooled regime bin rather than producing a per-symbol fallback. The §7.2.2 M3 row confirms further per-symbol stratification thins each cell to $N \approx 50$–$300$ and degrades Christoffersen.
+The 2023-01-01 split is conservative: it places the 2023 banking turbulence and the 2024–2025 macro transition in the held-out slice, exposing the trained quantile to material out-of-sample regime shifts. Under M5, HOOD enters the per-regime quantile fit pooled across symbols within each regime (the trained quantile does not stratify by symbol — see §4.2), so the calibration thinness for HOOD is absorbed into the pooled regime bin rather than producing a per-symbol fallback. The §7.2.2 M3 row confirms further per-symbol stratification thins each cell to $N \approx 50$–$300$ and degrades Christoffersen.
 
 ## 5.7 Provenance and reproducibility
 
-All Phase 0 equity inputs are read from Scryer parquet: `yahoo/equities_daily/v1` for daily OHLCV and `yahoo/earnings/v1` for the earnings-calendar flag. No credentials are required for the consumer path in soothsayer; upstream fetch, retry, and schema ownership live in the sibling Scryer repo.
+All Phase 0 equity inputs are read from Scryer parquet: `yahoo/equities_daily/the prior hybrid Oracle` for daily OHLCV and `yahoo/earnings/the prior hybrid Oracle` for the earnings-calendar flag. No credentials are required for the consumer path in soothsayer; upstream fetch, retry, and schema ownership live in the sibling Scryer repo.
 
 The end-to-end calibration backtest runs under fifteen minutes from a cold cache, under one minute warm. Reproduction:
 
