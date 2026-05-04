@@ -44,6 +44,7 @@ SECTION_ORDER = [
     "09_limitations.md",
     "10_future_work.md",
     "11_conclusion.md",
+    "12_appendix_reproducibility.md",
 ]
 
 # Map references.md "### [key] Author. Year. Title." entries → BibTeX @misc.
@@ -230,6 +231,23 @@ def concat_sections(defined_keys: set[str]) -> str:
     return "\n\n".join(parts)
 
 
+def ensure_figures_symlink() -> None:
+    """Create `build/figures -> ../figures` so the relative `figures/...`
+    image refs in the section markdown resolve under pdflatex's CWD (the
+    build dir). Idempotent."""
+    link = BUILD_DIR / "figures"
+    target = Path("../figures")
+    if link.is_symlink():
+        if link.readlink() == target:
+            return
+        link.unlink()
+    elif link.exists():
+        raise RuntimeError(
+            f"{link} exists and is not a symlink; refuse to overwrite."
+        )
+    link.symlink_to(target)
+
+
 def run_pandoc(md_path: Path, tex_path: Path) -> None:
     """Invoke pandoc to produce paper.tex."""
     template = BUILD_DIR / "pandoc-template.tex"
@@ -321,6 +339,8 @@ def main() -> None:
     if shutil.which("pandoc") is None:
         print("\n✗ pandoc not found. Install with: brew install pandoc")
         sys.exit(1)
+
+    ensure_figures_symlink()
 
     print(f"\nRunning pandoc → {tex_path.name} ...")
     run_pandoc(md_concat, tex_path)

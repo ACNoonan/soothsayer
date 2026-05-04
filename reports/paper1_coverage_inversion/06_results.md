@@ -41,11 +41,15 @@ Quantile fit on pre-2023 weekends; Oracle served on the 2023+ slice (1{,}730 row
 
 **The $\tau = 0.95$ row is the primary oracle-validation operating result.** Realised coverage is exactly $0.950$ (Kupiec $p_{uc} = 0.956$, Christoffersen $p_{ind} = 0.912$); at $\tau = 0.99$, M5 hits $0.990$, closing the v1 tail ceiling at $0.972$. Mean half-width at $\tau = 0.95$ is **354.5 bps** — 20% narrower than v1's 443.5 (CI $-23.9\%$ to $-15.6\%$); per-regime $279.9 / 403.4 / 557.8$ bps. Christoffersen rejects only at $\tau = 0.68$ ($p_{ind} = 0.025$); §6.4.1 localises the residual to a *bimodal* per-symbol calibration error rather than a temporal-clustering story.
 
+![Calibration curves on the 1{,}730-row 2023+ OOS slice. M5 (this paper, blue) tracks the $45^\circ$ diagonal across the served range $\tau \in [0.68, 0.99]$; the constant-buffer baseline (F0\_stale, vermilion) over-covers throughout (over-conservative Gaussian wrap on $\sigma_{20d}$); v1 hybrid (orange) follows M5 closely until $\tau \approx 0.97$ where it caps at $0.972$ — the v1 finite-sample tail ceiling that M5 closes. Star marks the headline $\tau = 0.95$ result.\label{fig:calibration}](figures/fig2_calibration.pdf)
+
 **Walk-forward stability.** Re-running conformal + bump + shift selection on six expanding-window splits (fractions 0.2–0.7) with the deployed $\delta$ schedule: walk-forward coverage matches nominal at every anchor (Kupiec $p$ = 0.43, 0.37, 0.36, 0.32 at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$); per-split mean half-width 124 / 215 / 357 / 746 bps tracks the full-OOS-fit 110 / 201 / 354 / 677 to within +13% / +7% / +1% / +10%. The schedule is not idiosyncratic to the 2023+ slice but does not upgrade the result to purely held-out end-to-end (§10.1's V3.2 is the upgrade path).
 
 **Split-date sensitivity.** Repeating the M5 fit (quantile table re-trained, $c(\tau)$ re-fit per split, $\delta$ schedule held at deployed values) at four OOS-split anchors {2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01} delivers realised $\tau = 0.95$ coverage of $\{0.9507,\ 0.9502,\ 0.9503,\ 0.9504\}$ — within $\pm 0.05$pp of nominal at every anchor; Kupiec $p \in \{0.864, 0.961, 0.956, 0.947\}$ and Christoffersen $p \in \{0.293, 0.666, 0.921, 0.887\}$ all pass; mean half-width $\{397.3, 371.4, 354.6, 388.9\}$ bps varies $\pm 5\%$ around the deployed value. The headline does not depend on the 2023-01-01 split anchor (`reports/tables/v1b_robustness_split_sensitivity.csv`).
 
 **Leave-one-symbol-out CV.** Hardens the schedule provenance more than the 6-split walk-forward. Holding out each of the ten symbols' rows from train + OOS fits and evaluating $\tau = 0.95$ on the held-out symbol's post-2023 slice: 8 of 10 LOSO bands are within $\pm 5$pp of nominal; mean realised $0.943$, std $0.076$. The schedule shows moderate fragility to held-out heavy-tail tickers (MSTR $0.786$, HOOD $0.856$, TSLA $0.879$) — symptom of the per-symbol bimodality §6.4 reports — and over-covers the well-behaved tail (SPY $1.000$, TLT $1.000$, GLD $0.994$). A single-multiplier compromise that the M6b2 lending profile rejects on principle (`reports/tables/v1b_robustness_loso.csv`).
+
+![Walk-forward and split-date stability of the deployed schedule. **(a)** Six-split expanding-window walk-forward at four $\tau$ anchors: realised coverage on each test fold (markers) tracks nominal (dotted lines) at every anchor; bars are 95% binomial CIs. **(b)** Split-date sensitivity at four OOS-anchors {2021, 2022, 2023, 2024} with the quantile table re-trained and $c(\tau)$ re-fit per split: realised $\tau = 0.95$ coverage holds at $\{0.951, 0.950, 0.950, 0.950\}$ across anchors; the deployed split (yellow band) is not idiosyncratic.\label{fig:stability}](figures/fig3_stability.pdf)
 
 This validates the oracle's coverage contract at $\tau = 0.95$. It does *not* prove $\tau = 0.95$ is the welfare-optimal operating point; that is Paper 3.
 
@@ -61,7 +65,9 @@ M5 pools the conformity score across symbols within each regime; the M3 ablation
 
 ### 6.4.1 Per-symbol diagnostics — bimodal calibration error
 
-Per-symbol Kupiec at $\tau = 0.95$ on the deployed band, paired with the per-symbol Berkowitz LR from M5 OOS PITs (`reports/tables/v1b_robustness_per_symbol.csv`):
+Per-symbol Kupiec at $\tau = 0.95$ on the deployed band, paired with the per-symbol Berkowitz LR from M5 OOS PITs (`reports/tables/v1b_robustness_per_symbol.csv`); Figure \ref{fig:per-symbol} visualises the bimodality.
+
+![Per-symbol bimodality on the 2023+ OOS slice. Each ticker appears at its M5-PIT variance $\hat\sigma^2_z$ (x) and per-symbol Kupiec $p$-value at $\tau = 0.95$ (y, log scale). Two failure modes appear: SPY/QQQ/GLD/TLT/AAPL reject from variance compression ($\hat\sigma^2_z \ll 1$, bands too wide, near-zero violation rate, orange down-triangles); TSLA/HOOD/MSTR reject from variance expansion ($\hat\sigma^2_z > 1.5$, bands too narrow, $11$–$16\%$ violation rate, blue up-triangles). NVDA and GOOGL pass both at the deployed schedule. The pattern is the canonical "common multiplier on heterogeneous tails" failure of a single-cell-multiplier conformal at this granularity.\label{fig:per-symbol}](figures/fig4_per_symbol.pdf)
 
 | Symbol | $n_\text{oos}$ | viol. rate | Kupiec $p$ | Berkowitz LR | $\hat{\sigma}^2_z$ |
 |---|---:|---:|---:|---:|---:|
@@ -110,6 +116,8 @@ We measure what consumers receive from deployed alternatives via two reconstruct
 
 The naive textbook 95% wrap returns 10.2% — under-calibrated by ≈10× as a consumer-supplied band. The smallest $k$ delivering ≥ 95% is $k \approx 50$ (279.5 bps); on the regime-matched M5 comparator (279.9 bps) Pyth+50× is *width-equivalent at matched coverage*. Per-symbol availability is uneven (SPY 69%, QQQ 65%, TLT 59%, TSLA 25%; AAPL/GOOGL/HOOD/NVDA 0% — Pyth's RH equity feeds did not publish before 2024). The Soothsayer differentiator on this panel is the calibration receipt, not the bandwidth.
 
+![Coverage versus mean half-width across methods at the four served $\tau \in \{0.68, 0.85, 0.95, 0.99\}$ (vertical dotted lines). M5 (blue stars) and v1 hybrid (orange circles) are at full panel ($n = 1{,}730$); GARCH(1,1) baseline (vermilion squares) is the textbook econometric default; Pyth $\pm k\!\cdot\!\mathrm{conf}$ (green diamonds, $n = 265$) is the consumer-supplied wrap that achieves the claimed coverage at the smallest $k$ on the available subset; Chainlink Streams (purple, $n = 87$) is the manual mid$\,\pm\,k\%$ wrap on the marker-aware-decoded sample. M5 sits on the calibration-vs-sharpness Pareto frontier at every served $\tau$; GARCH undercovers at $\tau \in \{0.95, 0.99\}$ despite slightly tighter bands; Pyth and Chainlink subsets cover comparable widths but on small, heterogeneous samples (§6.5 caveats).\label{fig:pareto}](figures/fig5_pareto.pdf)
+
 **Chainlink Data Streams v10 / v11.** v10 (Tokenized Asset, `0x000a`) carries no `bid`/`ask`/confidence on the wire — band-less by construction [chainlink-v10]. v11 (RWA Advanced, `0x000b`) adds `bid`, `ask`, `mid`. Marker-aware classifier on a 26-report weekend scan:
 
 | Symbol (n) | Pattern | Wire `bid` | Wire `ask` | Implied spread |
@@ -133,6 +141,8 @@ The §6.3 result is *endpoint coverage*: realised Monday open lies inside the se
 | 0.99 | 118 | 1.000 | 0.966 | $+3.4$ |
 
 At $\tau = 0.95$ the raw perp path stays inside the band for $0.839$ of weekends — a $14.4$pp gap concentrated in `normal` weekends ($+18.2$pp, $n = 66$) rather than `high_vol` ($+8.9$pp, $n = 45$), consistent with `high_vol`'s wider band absorbing path noise. The gap collapses to $+3.4$pp at $\tau = 0.99$ — stepping up one anchor approximately closes it. Sample is small (binomial CI on the $\tau = 0.95$ pooled gap is $\pm 6$pp); the test is directional. Continued capture is tracked under scryer item 51 and §10.1's V3.3.
+
+![Path coverage gap on the 24/7 stock-perp reference. **(a)** Endpoint coverage (blue) tracks nominal across $\tau \in \{0.68, 0.85, 0.95, 0.99\}$ (and over-covers at low $\tau$); path coverage (vermilion) — the fraction of weekends where the perp 1m bar high/low stay inside the served band over the full $[\text{Fri 16:00, Mon 09:30}]$ window — runs $26.3$/$18.6$/$14.4$/$3.4$pp behind. The gap collapses at $\tau = 0.99$. **(b)** At $\tau = 0.95$ the gap concentrates in `normal` weekends ($+18.2$pp, $n = 66$) rather than `high_vol` ($+8.9$pp, $n = 45$). Sample is small ($n = 118$ symbol-weekends across 19 calendar weekends, 2025-12 to 2026-04); the read is directional and §10.1's V3.3 path-fitted variant is the methodology fix.\label{fig:path-coverage}](figures/fig6_path_coverage.pdf)
 
 ### 6.6.1 Robustness of the perp-path gap
 
