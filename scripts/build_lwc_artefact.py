@@ -3,8 +3,10 @@ Build the M6 (Locally-Weighted Conformal) deployment artefact.
 
 The M6 Oracle serves a band as
 
-    σ̂_sym(t)   = trailing K=26 weekend std of relative residual for the symbol
-                  (strictly pre-Friday, requires ≥ 8 past obs)
+    σ̂_sym(t)   = pre-Friday relative-residual scale per symbol (variant-
+                  dependent: EWMA HL=8 weekends as of 2026-05-04 σ̂ promotion;
+                  K=26 trailing window prior to that). Both rules require
+                  ≥ 8 past obs.
     score      = |mon_open - point| / (fri_close · σ̂_sym(t))     standardised
     point      = fri_close · (1 + factor_ret)                     §7.4 switchboard
     τ'         = τ + δ_LWC(τ)
@@ -17,25 +19,34 @@ score. Outputs:
 
   - data/processed/lwc_artefact_v1.parquet
         per-Friday lookup rows: symbol, fri_ts, regime_pub, fri_close,
-        point, sigma_hat_sym_pre_fri  (+ scryer-style metadata)
+        point, sigma_hat_sym_pre_fri  (+ scryer-style metadata).
+        The `sigma_hat_sym_pre_fri` column always holds the active variant's
+        σ̂ value — readers (Oracle, smoke, freeze) need not change when the
+        variant rule changes. The sidecar's `_lwc_variant` field records
+        which σ̂ rule produced the column.
 
   - data/processed/lwc_artefact_v1.json
         audit-trail sidecar with the 12 trained quantiles q_r^LWC(τ),
-        4 OOS-fit c_LWC(τ) bumps, 4 δ_LWC(τ) shifts, and
-        n_train / n_oos / dropped-warm-up counts. Constants here are the
-        single source of truth loaded by `src/soothsayer/oracle.py` at
-        module import for the LWC serving path.
+        4 OOS-fit c_LWC(τ) bumps, 4 δ_LWC(τ) shifts, the σ̂ rule
+        descriptor, and n_train / n_oos / dropped-warm-up counts. Constants
+        here are the single source of truth loaded by `src/soothsayer/oracle.py`
+        at module import for the LWC serving path.
 
 References:
-  - reports/v3_bakeoff.md (Candidate 1) — the bake-off that validated LWC
-    as the M6 candidate. Headline at τ=0.95 (δ=0): realised 0.9503,
-    HW 385.3 bps, c=1.069, Kupiec p=0.956.
-  - reports/tables/v1b_lwc_delta_sweep.csv (this file's δ source).
-  - M6_REFACTOR.md Phase 1.
+  - reports/m6_sigma_ewma.md — Phase 5 σ̂ EWMA promotion (2026-05-04).
+    Headline: EWMA HL=8 narrows pooled half-width by 3.83% at τ=0.95 vs
+    the K=26 baseline AND clears split-date Christoffersen at every
+    (split × τ) at α=0.05 (baseline rejected at 2021/2022 × τ=0.95).
+  - reports/v3_bakeoff.md (Candidate 1) — original LWC validation against
+    M5; reproduced byte-for-byte on the K=26 σ̂ rule.
+  - reports/tables/v1b_lwc_delta_sweep.csv (baseline δ source).
+  - reports/tables/sigma_ewma_*_delta_sweep.csv (EWMA δ source).
+  - M6_REFACTOR.md Phase 1 + Phase 5.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import date, datetime, timezone
 
@@ -46,6 +57,7 @@ from soothsayer.backtest.calibration import (
     SIGMA_HAT_K,
     SIGMA_HAT_MIN,
     add_sigma_hat_sym,
+    add_sigma_hat_sym_ewma,
     compute_score_lwc,
 )
 from soothsayer.config import DATA_PROCESSED
@@ -57,6 +69,32 @@ REGIMES = ("normal", "long_weekend", "high_vol")
 SCHEMA_VERSION = "lwc.v1"
 ARTEFACT_PARQUET = DATA_PROCESSED / "lwc_artefact_v1.parquet"
 ARTEFACT_JSON = DATA_PROCESSED / "lwc_artefact_v1.json"
+
+# σ̂ variant catalogue. Phase 5 added EWMA HL=8 as the canonical variant
+# (M6_REFACTOR.md §5; reports/m6_sigma_ewma.md). The K=26 baseline remains
+# buildable for archival reproduction of the v3 bake-off receipts.
+SIGMA_VARIANT_CANONICAL = "ewma_hl8"
+SIGMA_VARIANTS: dict[str, dict] = {
+    "baseline_k26": {
+        "method": "trailing_window",
+        "K_weekends": int(SIGMA_HAT_K),
+        "half_life_weekends": None,
+        "description": (
+            "trailing-K weekend std of relative residual per symbol; "
+            "strictly pre-Friday (uses only fri_ts' < fri_ts)"
+        ),
+    },
+    "ewma_hl8": {
+        "method": "ewma",
+        "K_weekends": None,
+        "half_life_weekends": 8,
+        "description": (
+            "EWMA std of relative residual per symbol with weekend "
+            "half-life HL=8 (decay λ = 0.5 ** (1/8)); strictly pre-Friday "
+            "(uses only fri_ts' < fri_ts); requires ≥ 8 past obs"
+        ),
+    },
+}
 
 # δ-shift schedule selected from `reports/tables/v1b_lwc_delta_sweep.csv`.
 # Selection criterion (mirrors M5): smallest δ such that pooled walk-forward
@@ -103,7 +141,41 @@ def _fit_c_bump(
     return float(grid[-1])
 
 
+def _add_sigma_variant(panel: pd.DataFrame, variant: str) -> tuple[pd.DataFrame, str]:
+    """Compute σ̂ per `variant` and write it under `sigma_hat_sym_pre_fri`.
+
+    Returns (panel_with_column, raw_column_name). The Oracle reads from
+    `sigma_hat_sym_pre_fri` regardless of variant; the `_lwc_variant` field
+    in the JSON sidecar tells consumers which rule produced it."""
+    if variant == "baseline_k26":
+        out = add_sigma_hat_sym(panel, K=SIGMA_HAT_K, min_obs=SIGMA_HAT_MIN)
+        raw_col = "sigma_hat_sym_pre_fri"
+        return out, raw_col
+    if variant == "ewma_hl8":
+        out = add_sigma_hat_sym_ewma(panel, half_life=8, min_obs=SIGMA_HAT_MIN)
+        raw_col = "sigma_hat_sym_ewma_pre_fri_hl8"
+        # Surface the EWMA value under the canonical column the Oracle reads.
+        out["sigma_hat_sym_pre_fri"] = out[raw_col]
+        return out, raw_col
+    raise ValueError(
+        f"Unknown σ̂ variant {variant!r}. Choices: {list(SIGMA_VARIANTS)}"
+    )
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--variant", choices=list(SIGMA_VARIANTS),
+        default=SIGMA_VARIANT_CANONICAL,
+        help="σ̂ rule. Default %(default)r is the canonical M6 variant since "
+             "the 2026-05-04 Phase 5 promotion. Pass `baseline_k26` to "
+             "reproduce the original v3-bakeoff receipts.",
+    )
+    args = parser.parse_args()
+    variant = args.variant
+    variant_info = SIGMA_VARIANTS[variant]
+    print(f"σ̂ variant: {variant}  ({variant_info['description']})", flush=True)
+
     panel_path = DATA_PROCESSED / "v1b_panel.parquet"
     if not panel_path.exists():
         raise FileNotFoundError(
@@ -121,11 +193,11 @@ def main() -> None:
         1.0 + panel["factor_ret"].astype(float)
     )
 
-    # σ̂_sym(t): trailing K=26 weekend rel-resid std, strictly pre-Friday,
-    # requires ≥ SIGMA_HAT_MIN past obs. Rows below the warm-up boundary
-    # get NaN and are excluded from train + OOS.
-    panel = add_sigma_hat_sym(panel, K=SIGMA_HAT_K, min_obs=SIGMA_HAT_MIN)
-    panel["score"] = compute_score_lwc(panel)
+    # σ̂_sym(t): variant-dependent pre-Friday symbol-scale (see SIGMA_VARIANTS).
+    # Rows below the warm-up boundary (< SIGMA_HAT_MIN past obs) get NaN and
+    # are excluded from train + OOS.
+    panel, sigma_raw_col = _add_sigma_variant(panel, variant)
+    panel["score"] = compute_score_lwc(panel, scale_col="sigma_hat_sym_pre_fri")
 
     n_pre_filter = len(panel)
     mask = panel["score"].notna() & panel["sigma_hat_sym_pre_fri"].notna()
@@ -199,14 +271,17 @@ def main() -> None:
         "_fetched_at": datetime.now(timezone.utc).isoformat(),
         "_source": "scripts/build_lwc_artefact.py",
         "methodology_version": "M6_LWC",
+        "_lwc_variant": variant,
         "split_date": SPLIT_DATE.isoformat(),
         "targets": list(TARGETS),
         "regimes": list(REGIMES),
         "sigma_hat": {
-            "K_weekends": int(SIGMA_HAT_K),
+            "method": variant_info["method"],
+            "K_weekends": variant_info["K_weekends"],
+            "half_life_weekends": variant_info["half_life_weekends"],
             "min_past_obs": int(SIGMA_HAT_MIN),
-            "rule": "trailing-K weekend std of relative residual per symbol; "
-                    "strictly pre-Friday (uses only fri_ts' < fri_ts)",
+            "rule": variant_info["description"],
+            "raw_column": sigma_raw_col,
         },
         "regime_quantile_table": {
             r: {f"{tau:.2f}": quantile_table[r][tau] for tau in TARGETS}
