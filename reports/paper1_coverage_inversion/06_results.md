@@ -41,11 +41,22 @@ Quantile fit on pre-2023 weekends; Oracle served on the 2023+ slice (1{,}730 row
 
 **The $\tau = 0.95$ row is the primary oracle-validation operating result.** Realised coverage is exactly $0.950$ (Kupiec $p_{uc} = 0.956$, Christoffersen $p_{ind} = 0.912$); at $\tau = 0.99$, M5 hits $0.990$, closing the v1 tail ceiling at $0.972$. Mean half-width at $\tau = 0.95$ is **354.5 bps** — 20% narrower than v1's 443.5 (CI $-23.9\%$ to $-15.6\%$); per-regime $279.9 / 403.4 / 557.8$ bps. Christoffersen rejects only at $\tau = 0.68$ ($p_{ind} = 0.025$); §6.4.1 localises the residual to a *bimodal* per-symbol calibration error rather than a temporal-clustering story.
 
+**Realised-move tertile decomposition at $\tau = 0.95$.** Stratifying the OOS slice by post-hoc realised-move $|z|$-score tertile (`reports/tables/v1b_prework_tertile.csv`) closes the loop between the §6.3 pooled headline and the §9.1 shock-tertile ceiling:
+
+| tertile ($n$)     | realised | half-width (bps) | Kupiec $p$ |
+|---|---:|---:|---:|
+| calm   (497)      | 1.0000   | 340.2 | $0$ (over-covers) |
+| normal (601)      | 0.9917   | 351.5 | $0$ (over-covers) |
+| **shock** (632)   | **0.8718** | 368.9 | $0$ (under-covers) |
+| **pooled** (1{,}730) | **0.9503** | **354.6** | **0.956** |
+
+Half-width is approximately flat across tertiles (340–369 bps), so the band does not widen in shock periods — it just misses more often. The shock-tertile floor is the §9.1 disclosure made empirical: $87.2\%$ realised coverage on $n = 632$ shock-tertile weekends at nominal $\tau = 0.95$, materially below nominal but $\sim 7$pp above the conservative $80\%$ ceiling §9.1 prior reported. Calm- and normal-tertile over-coverage averages out the shock-tertile shortfall to deliver pooled $0.950$.
+
 ![Calibration curves on the 1{,}730-row 2023+ OOS slice. M5 (this paper, blue) tracks the $45^\circ$ diagonal across the served range $\tau \in [0.68, 0.99]$; the constant-buffer baseline (F0\_stale, vermilion) over-covers throughout (over-conservative Gaussian wrap on $\sigma_{20d}$); v1 hybrid (orange) follows M5 closely until $\tau \approx 0.97$ where it caps at $0.972$ — the v1 finite-sample tail ceiling that M5 closes. Star marks the headline $\tau = 0.95$ result.\label{fig:calibration}](figures/fig2_calibration.pdf)
 
 **Walk-forward stability.** Re-running conformal + bump + shift selection on six expanding-window splits (fractions 0.2–0.7) with the deployed $\delta$ schedule: walk-forward coverage matches nominal at every anchor (Kupiec $p$ = 0.43, 0.37, 0.36, 0.32 at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$); per-split mean half-width 124 / 215 / 357 / 746 bps tracks the full-OOS-fit 110 / 201 / 354 / 677 to within +13% / +7% / +1% / +10%. The schedule is not idiosyncratic to the 2023+ slice but does not upgrade the result to purely held-out end-to-end (§10.1's V3.2 is the upgrade path).
 
-**Split-date sensitivity.** Repeating the M5 fit (quantile table re-trained, $c(\tau)$ re-fit per split, $\delta$ schedule held at deployed values) at four OOS-split anchors {2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01} delivers realised $\tau = 0.95$ coverage of $\{0.9507,\ 0.9502,\ 0.9503,\ 0.9504\}$ — within $\pm 0.05$pp of nominal at every anchor; Kupiec $p \in \{0.864, 0.961, 0.956, 0.947\}$ and Christoffersen $p \in \{0.293, 0.666, 0.921, 0.887\}$ all pass; mean half-width $\{397.3, 371.4, 354.6, 388.9\}$ bps varies $\pm 5\%$ around the deployed value. The headline does not depend on the 2023-01-01 split anchor (`reports/tables/v1b_robustness_split_sensitivity.csv`).
+**Split-date sensitivity.** Repeating the M5 fit (quantile table re-trained, $c(\tau)$ re-fit per split, $\delta$ schedule held at the deployed walk-forward-fit values) at four OOS-split anchors {2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01} delivers realised $\tau = 0.95$ coverage of $\{0.9507,\ 0.9502,\ 0.9503,\ 0.9504\}$ — Kupiec $p \in \{0.864, 0.961, 0.956, 0.947\}$ and Christoffersen $p \in \{0.293, 0.666, 0.921, 0.887\}$ all pass; mean half-width $\{397.3, 371.4, 354.6, 388.9\}$ bps varies $\pm 5\%$ around the deployed value. The four-decimal-place agreement on realised coverage is what the $c(\tau)$ refit is *for* — pooled OOS Kupiec is the fit's selection criterion — so the diagnostic content is the half-width range and the per-split Christoffersen pass, not the realised-coverage tightness. With $\delta$ held fixed across split anchors, this is a sensitivity of the $c(\tau)$ component alone; the LOSO read below is the more informative provenance check (`reports/tables/v1b_robustness_split_sensitivity.csv`).
 
 **Leave-one-symbol-out CV.** Hardens the schedule provenance more than the 6-split walk-forward. Holding out each of the ten symbols' rows from train + OOS fits and evaluating $\tau = 0.95$ on the held-out symbol's post-2023 slice: 8 of 10 LOSO bands are within $\pm 5$pp of nominal; mean realised $0.943$, std $0.076$. The schedule shows moderate fragility to held-out heavy-tail tickers (MSTR $0.786$, HOOD $0.856$, TSLA $0.879$) — symptom of the per-symbol bimodality §6.4 reports — and over-covers the well-behaved tail (SPY $1.000$, TLT $1.000$, GLD $0.994$). A single-multiplier compromise that the M6b2 lending profile rejects on principle (`reports/tables/v1b_robustness_loso.csv`).
 
@@ -84,6 +95,8 @@ Per-symbol Kupiec at $\tau = 0.95$ on the deployed band, paired with the per-sym
 
 The pattern is *bimodal*: large-cap equities and the RWA anchors (SPY, QQQ, GLD, TLT) reject from variance compression ($\hat{\sigma}^2_z \ll 1$, bands too wide, near-zero violation rate); heavy-tail tickers (TSLA, HOOD, MSTR) reject from variance expansion ($\hat{\sigma}^2_z > 1.5$, bands too narrow, $11$–$16\%$ violation rate). NVDA and GOOGL pass both. The mechanism is a single $(r, \tau)$-keyed multiplier mis-calibrating symbols whose residual scale deviates from the regime average in opposing directions — the canonical "common multiplier on heterogeneous tails" failure. HOOD per-symbol Kupiec specifically: fails at $\tau \in \{0.68, 0.85, 0.95\}$, *passes* at $\tau = 0.99$ (violation rate $2.3\%$, Kupiec $p = 0.138$); the deployed $\tau = 0.99$ tail is wide enough for HOOD's residual. M5 carries this disclosure; §10.4 names the v3 candidates that target it.
 
+**MSTR-removed panel sensitivity.** A 9-symbol re-fit excluding MSTR (the heaviest-tail ticker, $\hat{\sigma}^2_z = 2.10$) leaves pooled $\tau = 0.95$ realised coverage essentially unchanged ($0.9503 \to 0.9505$, $\Delta = +0.03$pp) while shrinking mean half-width by $10.0\%$ ($354.6 \to 319.1$ bps; `reports/tables/v1b_prework_mstr_sensitivity.csv`). The reading is the same bimodality at panel level: MSTR's residual scale anchors the fitted $c(0.95) = 1.300$ bump, so removing the symbol releases $\sim 10\%$ of the deployed band's width with no coverage cost on the remaining nine symbols. The 2020-08-01 factor pivot for MSTR (§5.4) is therefore not a load-bearing modeling choice for the headline, but the symbol's heavy tail is doing visible work on the deployed schedule.
+
 ### 6.4.2 GARCH(1,1) baseline
 
 The textbook econometric default for a time-varying interval at $\tau$ is per-symbol GARCH(1,1) on log Friday-to-Monday returns with Gaussian innovations, fit on the pre-2023 train and recursive $\hat\sigma_t$ over OOS (`reports/tables/v1b_robustness_garch_baseline.csv`). Head-to-head on the 1{,}730-row OOS slice:
@@ -95,7 +108,7 @@ The textbook econometric default for a time-varying interval at $\tau$ is per-sy
 | 0.95 | $\mathbf{0.9254}$ / $322.2$ / $\mathbf{0.000}$ | $\mathbf{0.9503}$ / $354.6$ / $\mathbf{0.956}$ |
 | 0.99 | $\mathbf{0.9630}$ / $423.7$ / $\mathbf{0.000}$ | $\mathbf{0.9902}$ / $677.7$ / $\mathbf{0.942}$ |
 
-GARCH delivers ~9% sharper bands at $\tau = 0.95$ but **fails Kupiec at $\tau \in \{0.68, 0.95, 0.99\}$**, the textbook tail-mis-coverage failure of Gaussian-innovation GARCH. The $\tau = 0.99$ shortfall is severe (96.30% vs nominal 99%). M5 dominates on calibration at three of four anchors; the two methods are at parity at $\tau = 0.85$.
+A nominal-anchor comparison at $\tau = 0.95$ would read GARCH at $322.2$ bps and M5 at $354.6$ bps and infer GARCH is ~9% sharper. That comparison is unfair: GARCH realises $0.9254$ at the same nominal claim while M5 realises $0.9503$, so the two are at different points on the coverage–width curve. **At matched 95% realised coverage** (GARCH re-served at the smallest $\tau_\text{nominal}$ delivering OOS realised $\ge 0.95$, found at $\tau_\text{nominal} = 0.981$ on the same OOS slice; `reports/tables/v1b_prework_garch_matched.csv`), GARCH's mean half-width is $385.7$ bps — **8.8% wider than M5's $354.6$ bps at the same realised coverage.** GARCH also fails Kupiec at $\tau \in \{0.68, 0.95, 0.99\}$ on the nominal grid (the textbook tail-mis-coverage failure of Gaussian innovations); the matched-coverage exercise establishes that the calibration failure does not buy bandwidth, it costs bandwidth.
 
 ### 6.4.3 Per-asset-class deviation
 
@@ -103,7 +116,14 @@ Pooled OOS coverage stratified by asset class shows the per-symbol bimodality of
 
 ## 6.5 Comparison to incumbent oracle surfaces
 
-We measure what consumers receive from deployed alternatives via two reconstructions: a regular-Pyth Hermes-derived band (265 obs, 2024+) and a Chainlink Data Streams v10/v11 reconstruction. RedStone Live is excluded (no confidence/dispersion field on the public REST gateway, §9.6); Pyth Pro / Blue Ocean is excluded on access and window grounds. Caveats: sample CIs are wide; composition is skewed toward large-cap normal-regime weekends (compare to Soothsayer's 279.9 bps normal-regime half-width); wrap multipliers below are *consumer-supplied* — neither incumbent publishes them.
+We measure what consumers receive from deployed alternatives across three reconstructions: a regular-Pyth Hermes-derived band (265 obs, 2024+), a Chainlink Data Streams v10/v11 reconstruction (87 obs, frozen 2026-02-06 → 2026-04-17), and a forward-cursor RedStone Live tape ($n = 12$, 2026-04-26+); Pyth Pro / Blue Ocean is excluded on access and window grounds. Caveats: sample CIs are wide; composition is skewed toward large-cap normal-regime weekends (compare to Soothsayer's 279.9 bps normal-regime half-width); wrap multipliers are *consumer-supplied* — none of the three incumbents publishes a calibration claim a consumer can read directly.
+
+| Surface | Sample | xStock coverage | Wire band? | Caveats (full §9.6) |
+|---|---|---|---|---|
+| Pyth regular (Hermes archive) | $n = 265$, 2024+ | SPY 69%, QQQ 65%, TLT 59%, TSLA 25%; AAPL/GOOGL/HOOD/NVDA 0% | $(\text{price},\, \mathrm{conf})$, dispersion-only | 2024- RH equity feeds did not publish |
+| Chainlink Streams v10 | $n = 87$ frozen panel | SPY/QQQ/TSLA mapped | no `bid`/`ask` on wire (§6.5.2) | band-less by construction |
+| Chainlink Streams v11 | $n = 87$ frozen panel | SPY/QQQ/TSLA mapped, NVDA partial | wire `bid`/`ask` carry synthetic `.01` suffix at 100% incidence on 3/4 mapped (§6.5.2) | requires manual mid$\pm k\%$ wrap |
+| RedStone Live (REST) | $n = 12$ forward tape | underlier prices only — SPY, QQQ, MSTR; **empty on TSLA, NVDA, HOOD, GOOGL, AAPL**; 33d stale on AAPL at query time | no calibration object on the wire | 30d retention cap; only forward-collected weekends enter |
 
 **Pyth (regular surface) — consumer wrap $\text{price} \pm k \cdot \text{conf}$.** Pyth's `(price, conf)` is documented as a publisher-dispersion diagnostic, not a probability statement [pyth-conf]; Pyth Pro inherits the same aggregation.
 
@@ -156,7 +176,7 @@ Three confounds inherent in the perp tape (`reports/v1b_path_coverage_robustness
 | (B) Volume floor `volume_base > 10.0` | $7.1$ | $n = 42$ ($2.1\%$) |
 | (C) Sustained crossing, 5m / 15m rolling median | $12.7$ | violations not single-print noise |
 
-Roughly $4$pp of the headline is start-of-window perp-spot basis; ${\sim}95\%$ of perp bars carry near-zero `volume_base`, and the volume-filtered subsample reads $7.1$pp at the cost of small $n$. The residual after all three is approximately **$7$–$10$pp of genuine intra-weekend path-coverage shortfall**. The structural component — running-max stochastically dominates endpoint, so endpoint-fit conformity scores cannot deliver path coverage at the same $\tau$ — accounts for some unknown share; the remainder is method-correctable in v3 via a path-fitted conformity score (§10.1's V3.3). At $\tau = 0.99$ every variant's gap is $\le 3.4$pp.
+Roughly $4$pp of the headline is start-of-window perp-spot basis; ${\sim}95\%$ of perp bars carry near-zero `volume_base`, and the heaviest-volume subsample (volume floor $> 10.0$, $n = 42$ — the lower bound of the cited range) reads $7.1$pp at the cost of small sample size. The residual after all three is approximately **$7$–$10$pp of genuine intra-weekend path-coverage shortfall**, with the lower bound supported by $n = 42$ and the upper bound by $n = 63$ (volume floor $> 1.0$). The structural component — running-max stochastically dominates endpoint, so endpoint-fit conformity scores cannot deliver path coverage at the same $\tau$ — accounts for some unknown share; the remainder is method-correctable in v3 via a path-fitted conformity score (§10.1's V3.3). At $\tau = 0.99$ every variant's gap is $\le 3.4$pp.
 
 ### 6.6.2 Other references and takeaway
 
