@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  M6 LWC forward-tape harness — Phase 4.4 launchd agent.
+
+  Fires every Tuesday at 09:30 local time. By that hour, scryer's
+  upstream cadence (Mon 22:00 UTC equities-daily, Mon 23:00 UTC
+  earnings, Tue 06:00 UTC CME intraday, Tue 22:30 UTC CBOE indices)
+  has either (a) already landed yesterday's data including Monday's
+  bar, or (b) will land within hours. The wrapper script's SLA check
+  flags any runner that's missed its 25h SLA, but the harness still
+  runs — the collector + evaluator handle missing-data gracefully.
+
+  Install (once):
+      cp launchd/com.adamnoonan.soothsayer.forward-tape.plist ~/Library/LaunchAgents/
+      launchctl load -w ~/Library/LaunchAgents/com.adamnoonan.soothsayer.forward-tape.plist
+
+  Verify it's loaded:
+      launchctl list | grep com.adamnoonan.soothsayer
+
+  Trigger an immediate run (for testing — does not skip the schedule):
+      launchctl start com.adamnoonan.soothsayer.forward-tape
+
+  Unload (e.g., before deleting the file):
+      launchctl unload ~/Library/LaunchAgents/com.adamnoonan.soothsayer.forward-tape.plist
+
+  Logs land at:
+      ~/Library/Logs/soothsayer-forward-tape.log
+
+  Per Adam's global memory: launchd is the canonical recurring-task
+  scheduler on this machine. /schedule, CronCreate, and similar
+  Claude-managed schedulers are explicitly avoided.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.adamnoonan.soothsayer.forward-tape</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/adamnoonan/Documents/soothsayer/scripts/run_forward_tape_harness.sh</string>
+    </array>
+
+    <!-- Tuesday at 09:30 local time. launchd weekday: Sunday=0, Monday=1,
+         Tuesday=2, ... Saturday=6. 09:30 local ≈ 13:30 UTC EDT or
+         14:30 UTC EST — both well after scryer's Tue 06:00 UTC CME
+         fire and the prior night's equities + earnings + cboe fires. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>2</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <!-- Run if the Mac was asleep at the scheduled time. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- Don't keep alive once finished — single-shot per fire. -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- Capture launchd-side stderr (the wrapper's own stdout/stderr
+         redirect into the log file inside the script). -->
+    <key>StandardOutPath</key>
+    <string>/Users/adamnoonan/Library/Logs/soothsayer-forward-tape.launchd.out</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/adamnoonan/Library/Logs/soothsayer-forward-tape.launchd.err</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/adamnoonan/Documents/soothsayer</string>
+
+    <!-- Inherit a clean PATH; the wrapper script extends it explicitly
+         to find `uv`. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/adamnoonan/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>
