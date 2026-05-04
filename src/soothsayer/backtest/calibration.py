@@ -1,5 +1,6 @@
 """
-Calibration helpers for the M5 (Mondrian split-conformal by regime) build.
+Calibration helpers for the M5 (Mondrian split-conformal by regime) build
+and the M6 (Locally-Weighted Conformal) build.
 
 Under v2 (paper 1 §7.7), the deployed Oracle reads
 `data/processed/mondrian_artefact_v2.parquet` and serves a band via
@@ -15,8 +16,15 @@ and the §10 robustness checks both share (`scripts/run_v1b_*` scripts):
   - fit_c_bump_schedule  -- smallest c with mean(score ≤ b·c) ≥ τ on OOS
   - serve_bands          -- vectorised serving formula for a (cell, τ) grid
 
-`cell_col` is the conformal partition: "regime_pub" for the AMM profile and
-"vol_tertile_cell" for the §10.2 vol-tertile sub-split robustness check.
+It also exposes the M6 (LWC) primitives that share the same shape:
+
+  - add_sigma_hat_sym         -- pre-Friday trailing relative-residual std
+  - compute_score_lwc         -- standardised score |y - p̂| / (fri_close · σ̂)
+  - train_lwc_quantile_table  -- finite-sample CP quantile on standardised scores
+  - serve_bands_lwc           -- vectorised LWC serve, de-standardising back
+
+`cell_col` is the conformal partition: "regime_pub" for the AMM/M6 profile
+and "vol_tertile_cell" for the §10.2 vol-tertile sub-split robustness check.
 
 The legacy `build_bounds_table` is retained for archived v1 diagnostic
 scripts under `scripts/v1_archive/`.
@@ -33,6 +41,14 @@ import pandas as pd
 # Default M5 budget: four served τ anchors. Match
 # `scripts/build_mondrian_artefact.py` and `src/soothsayer/oracle.py`.
 DEFAULT_TAUS: tuple[float, ...] = (0.68, 0.85, 0.95, 0.99)
+
+# M6 (LWC) σ̂_sym window. Trailing K=26 weekend observations of relative
+# residual std per symbol, requiring at least SIGMA_HAT_MIN past obs.
+# Validated in `reports/v3_bakeoff.md` (Candidate 1) — the warm-up filter
+# drops ~80 rows at panel start. Both constants must match the bake-off
+# values exactly so the M6 quantiles reproduce the bake-off receipts.
+SIGMA_HAT_K: int = 26
+SIGMA_HAT_MIN: int = 8
 
 
 def compute_score(panel: pd.DataFrame) -> pd.Series:
@@ -191,6 +207,198 @@ def serve_bands(
         upper = point.values * (1.0 + q_eff)
         out[tau] = pd.DataFrame(
             {"lower": lower, "upper": upper}, index=panel.index
+        )
+    return out
+
+
+# ----------------------------------------------------------- M6 (LWC) helpers
+
+
+def add_sigma_hat_sym(
+    panel: pd.DataFrame,
+    K: int = SIGMA_HAT_K,
+    min_obs: int = SIGMA_HAT_MIN,
+) -> pd.DataFrame:
+    """Add `rel_resid` and `sigma_hat_sym_pre_fri` columns to `panel`.
+
+    `sigma_hat_sym_pre_fri[i]` is the standard deviation of the trailing K
+    relative residuals for that symbol, computed strictly from rows with
+    `fri_ts' < fri_ts[i]`. Rows with fewer than `min_obs` past observations
+    get NaN (the warm-up boundary).
+
+    Returns a new DataFrame with the original ordering preserved (sorted
+    intermediately by (symbol, fri_ts) for the rolling window, then
+    reindexed back to the input order).
+
+    Mirrors `add_sigma_hat` in `scripts/run_v3_bakeoff.py` — the function
+    that produced the C1 LWC numerics in `reports/v3_bakeoff.md`."""
+    work = panel.copy()
+    work["rel_resid"] = (
+        (work["mon_open"].astype(float)
+         - work["fri_close"].astype(float) * (1.0 + work["factor_ret"].astype(float)))
+        / work["fri_close"].astype(float)
+    )
+    sigma = np.full(len(work), np.nan)
+    # groupby preserves the original row labels in `idx` even after a sort.
+    sorted_view = work.sort_values(["symbol", "fri_ts"])
+    for _, idx in sorted_view.groupby("symbol", sort=False).groups.items():
+        sub = sorted_view.loc[idx]
+        rr = sub["rel_resid"].to_numpy(float)
+        for i, src_idx in enumerate(idx):
+            lo = max(0, i - K)
+            past = rr[lo:i]
+            past = past[np.isfinite(past)]
+            if past.size < min_obs:
+                continue
+            sigma[src_idx] = float(np.std(past, ddof=1))
+    work["sigma_hat_sym_pre_fri"] = sigma
+    return work
+
+
+def compute_score_lwc(panel: pd.DataFrame) -> pd.Series:
+    """M6 conformity score: relative absolute residual standardised by σ̂_sym.
+
+    score_lwc = |mon_open - point| / (fri_close · σ̂_sym_pre_fri)
+
+    `panel` must already have a `sigma_hat_sym_pre_fri` column (call
+    `add_sigma_hat_sym` first). Rows with NaN / non-positive σ̂ return NaN."""
+    point = panel["fri_close"].astype(float) * (
+        1.0 + panel["factor_ret"].astype(float)
+    )
+    abs_resid_rel = (
+        (panel["mon_open"].astype(float) - point).abs()
+        / panel["fri_close"].astype(float)
+    )
+    sigma = panel["sigma_hat_sym_pre_fri"].astype(float)
+    out = abs_resid_rel / sigma
+    out[~(sigma > 0)] = np.nan
+    return out
+
+
+def train_lwc_quantile_table(
+    panel: pd.DataFrame,
+    train_mask: pd.Series | np.ndarray,
+    regime_col: str = "regime_pub",
+    scale_col: str = "sigma_hat_sym_pre_fri",
+    anchors: tuple[float, ...] = DEFAULT_TAUS,
+    score_col: str = "score_lwc",
+) -> dict[str, dict[float, float]]:
+    """Per-regime finite-sample CP quantile q_r^LWC(τ) on standardised scores.
+
+    Inputs:
+      - panel: must have `regime_col` and `score_col`. If `score_col` is not
+        present, the function computes it from `mon_open / fri_close /
+        factor_ret / scale_col`.
+      - train_mask: row mask (boolean Series or ndarray) selecting the training
+        slice. Same convention as M5's `panel_train` argument.
+      - regime_col: cell axis. M6 uses "regime_pub" (3 cells), matching M5's
+        AMM profile.
+      - scale_col: column holding σ̂_sym (default "sigma_hat_sym_pre_fri").
+        Used only if `score_col` is absent (we'd then need it to compute the
+        standardised score). When `score_col` is present, this argument is
+        not read.
+      - anchors: served τ grid.
+
+    Returns a {regime → {τ → q_r^LWC(τ)}} dict, identical shape to
+    `train_quantile_table`. The serve-time half-width is `q · σ̂ · fri_close`."""
+    work = panel.copy()
+    if score_col not in work.columns:
+        if scale_col not in work.columns:
+            raise ValueError(
+                f"Neither score_col={score_col!r} nor scale_col={scale_col!r} "
+                "found in panel. Run add_sigma_hat_sym() first or pass a panel "
+                "with the score column already computed."
+            )
+        work[score_col] = compute_score_lwc(work)
+    if isinstance(train_mask, pd.Series):
+        train_mask = train_mask.to_numpy(bool)
+    train = work[np.asarray(train_mask, dtype=bool)]
+    return train_quantile_table(
+        train, cell_col=regime_col, taus=anchors, score_col=score_col
+    )
+
+
+def serve_bands_lwc(
+    panel: pd.DataFrame,
+    quantile_table: dict[str, dict[float, float]],
+    c_bump_schedule: dict[float, float],
+    cell_col: str = "regime_pub",
+    scale_col: str = "sigma_hat_sym_pre_fri",
+    taus: tuple[float, ...] = DEFAULT_TAUS,
+    delta_shift_schedule: dict[float, float] | None = None,
+) -> dict[float, pd.DataFrame]:
+    """Apply the M6 (LWC) serving formula across `taus`.
+
+    For each τ:
+        τ' = τ + δ(τ)
+        q_eff = c(τ') · q_cell^LWC(τ')                       (unitless)
+        half_width = q_eff · σ̂_sym(t) · fri_close            (price units)
+        lower / upper = point ∓ half_width                   (point = factor-adjusted)
+
+    Symmetric formula relative to fri_close — matches the conformity score
+    `|mon_open - point| / (fri_close · σ̂)` used to fit q. Returns
+    `{τ: DataFrame(lower, upper)}` keyed by `panel.index`.
+
+    `delta_shift_schedule` defaults to the deployed M6 LWC schedule
+    (`oracle.LWC_DELTA_SHIFT_SCHEDULE`); pass an empty dict to suppress
+    δ-shift (the in-sample reading)."""
+    if delta_shift_schedule is None:
+        from soothsayer.oracle import LWC_DELTA_SHIFT_SCHEDULE
+        delta_shift_schedule = LWC_DELTA_SHIFT_SCHEDULE
+
+    point = panel["fri_close"].astype(float) * (
+        1.0 + panel["factor_ret"].astype(float)
+    )
+    fri_close = panel["fri_close"].astype(float).to_numpy()
+    sigma = panel[scale_col].astype(float).to_numpy()
+    cells = panel[cell_col].astype(str).to_numpy()
+    out: dict[float, pd.DataFrame] = {}
+    anchors = sorted(c_bump_schedule.keys())
+
+    def _interp(table: dict[float, float], x: float) -> float:
+        if x <= anchors[0]:
+            return float(table[anchors[0]])
+        if x >= anchors[-1]:
+            return float(table[anchors[-1]])
+        for i in range(len(anchors) - 1):
+            lo, hi = anchors[i], anchors[i + 1]
+            if lo <= x <= hi:
+                frac = (x - lo) / (hi - lo)
+                return float(table[lo] + frac * (table[hi] - table[lo]))
+        return float(table[anchors[-1]])
+
+    for tau in taus:
+        delta = float(delta_shift_schedule.get(tau, 0.0))
+        served = min(tau + delta, anchors[-1])
+        c = _interp(c_bump_schedule, served)
+        b_per_row = np.array(
+            [quantile_table.get(c_, {}).get(served, np.nan) for c_ in cells],
+            dtype=float,
+        )
+        # Off-grid τ within the per-cell row: linearly interpolate.
+        if not np.all(np.isfinite(b_per_row)):
+            for cell, row in quantile_table.items():
+                if served not in row:
+                    table_anchors = sorted(row.keys())
+                    if not table_anchors:
+                        continue
+                    if served <= table_anchors[0]:
+                        v = row[table_anchors[0]]
+                    elif served >= table_anchors[-1]:
+                        v = row[table_anchors[-1]]
+                    else:
+                        for i in range(len(table_anchors) - 1):
+                            lo, hi = table_anchors[i], table_anchors[i + 1]
+                            if lo <= served <= hi:
+                                frac = (served - lo) / (hi - lo)
+                                v = row[lo] + frac * (row[hi] - row[lo])
+                                break
+                    b_per_row[cells == cell] = v
+        q_eff = c * b_per_row
+        half = q_eff * sigma * fri_close
+        out[tau] = pd.DataFrame(
+            {"lower": point.values - half, "upper": point.values + half},
+            index=panel.index,
         )
     return out
 

@@ -76,8 +76,14 @@ impl Regime {
 ///   - `calibration_buffer_applied`: δ(τ) — the walk-forward τ-shift, the
 ///     structural successor to v1's `BUFFER_BY_TARGET` schedule.
 ///   - `claimed_coverage_served`: τ + δ(τ), the served band's claim.
-///   - `forecaster_used`: "mondrian" under both profiles (legacy field;
-///     on the wire this maps to FORECASTER_MONDRIAN = 2).
+///   - `forecaster_used`: "mondrian" under both M5 / M6b2 profiles (legacy
+///     field; on the wire this maps to FORECASTER_MONDRIAN = 2).
+///     Code 3 is reserved for FORECASTER_LWC (the M6 Locally-Weighted
+///     Conformal serving path). The Python sibling `Oracle.fair_value_lwc()`
+///     ships ahead of the Rust port; the Rust LWC implementation lands in
+///     Phase 5 of `M6_REFACTOR.md` (gated on Adam's hand-off). Wire-format
+///     invariance: existing M5 consumers must decode an LWC PriceUpdate
+///     account without crashing — only the `forecaster_code` byte changes.
 ///   - `profile`: which conformal cell axis was used. Lending → per-class,
 ///     AMM → per-regime. Wire-encoded as the `profile_code` byte (A4).
 #[derive(Clone, Debug, Serialize, Deserialize)]
