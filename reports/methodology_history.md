@@ -132,6 +132,34 @@ Soothsayer-side future work after rows exist: pool-state reconstructor, path-awa
 
 ## 1. Recent decision log
 
+### 2026-05-04 — M6 σ̂ promoted from K=26 trailing window to EWMA HL=8 (Phase 5)
+
+**Trigger.** Phase 2 §11 discussion-list item 2 flagged that LWC has split-date Christoffersen rejections at τ=0.95 at the 2021 + 2022 anchors (p = 0.0065 / 0.0016) — the per-symbol scale series was slowly-varying, so a calm streak under-estimated σ̂ going into vol shocks and violations clustered at regime boundaries. M6_REFACTOR.md Phase 5 specced an EWMA σ̂ prototype to test whether shortening the effective memory closes the rejection.
+
+**Variants tested.** Three pure EWMA half-lives (HL ∈ {6, 8, 12} weekends, λ = 0.5^(1/HL)) plus one convex blend (`0.5 · σ̂_K26 + 0.5 · σ̂_EWMA_HL8`). All five variants share the K=26 baseline's warm-up rule (≥ 8 past obs); evaluable rows are identical at 5,916 / 5,996 (80 dropped at panel start). Driver: `scripts/run_sigma_ewma_variants.py`. Full evidence: `reports/m6_sigma_ewma.md`.
+
+**Findings (15 cells × 5 variants of split-date Christoffersen + per-symbol Berkowitz / Kupiec + bootstrap CI on width):**
+
+- **EWMA HL=8 is the only variant with zero split-date Christoffersen rejections at α=0.05** across the 16-cell (4 splits × 4 τ) grid. The two cells the brief was targeting (2021 / 2022 × τ=0.95) jump from p ∈ {0.0065, 0.0016} → {0.1153, 0.1861}. HL=6 has 3 rejections at τ=0.68 (memory too short); HL=12 has 1 rejection at 2021 × τ=0.85; the convex blend has 0 rejections but is dominated by HL=8 on margins.
+- **Per-symbol Kupiec at τ=0.95 stays 10/10** under HL=8 (baseline 10/10) — no symbol crosses the α=0.05 threshold. The pre-existing per-symbol Berkowitz outliers (TLT, TSLA, GOOGL) split: GOOGL clears at α=0.01 under HL=8 (LR 14.45 → 10.24); TLT and TSLA still reject (cross-sectional common-mode, σ̂-rule-orthogonal).
+- **Pooled half-width at τ=0.95: 385.3 → 370.6 bps (-3.83%).** Block-bootstrap 95-CI upper on Δhw% across all τ = +0.25% (max at τ=0.68; ≤ 0% at τ=0.85/0.95/0.99). Promotion gate: ≤ +5%. Coverage-neutral (Δrealised CI straddles zero everywhere).
+
+**Decision.** Promote EWMA HL=8 as the canonical M6 σ̂ rule. The promotion criterion (split-date Christoffersen + per-symbol Kupiec ≥ 8/10 + bootstrap-95-CI hw upper ≤ +5%) passes uniquely at HL=8.
+
+**Operational changes (2026-05-04).**
+
+1. `src/soothsayer/backtest/calibration.py` — added `add_sigma_hat_sym_ewma`, `add_sigma_hat_sym_blend`; `compute_score_lwc` gained a `scale_col` parameter. SIGMA_HAT_K=26 still exposed for archival.
+2. `scripts/build_lwc_artefact.py` — `--variant {baseline_k26, ewma_hl8}` flag (default `ewma_hl8`). Sidecar gains `_lwc_variant`, `sigma_hat.method`, `sigma_hat.half_life_weekends`, `sigma_hat.raw_column`.
+3. `data/processed/lwc_artefact_v1.{parquet,json}` rebuilt under HL=8. The Oracle's read-path column name (`sigma_hat_sym_pre_fri`) is preserved; only what populates it changed.
+4. New canonical freeze `data/processed/lwc_artefact_v1_frozen_20260504.{json,parquet}` (sha 7b86d17a76912aa0…). K=26 freeze archived to `lwc_artefact_v1_archive_baseline_k26_20260504.{json,parquet}` (renamed outside the `_frozen_*` glob so forward-tape auto-discovery picks the new freeze unambiguously).
+5. Smoke (`scripts/smoke_oracle.py --forecaster lwc`) + 11 non-bot pytest passes. M5 forecaster path byte-for-byte unchanged.
+
+**Evidence.** `reports/m6_sigma_ewma.md` (full pack); `reports/tables/sigma_ewma_summary.csv`, `sigma_ewma_split_sensitivity.csv`, `sigma_ewma_per_symbol.csv`, `sigma_ewma_bootstrap.csv`, and 5 `sigma_ewma_<variant>_delta_sweep.csv`. Driver: `scripts/run_sigma_ewma_variants.py`.
+
+**Impact.** Paper-revision-ready evidence pack for the σ̂ swap is in place. Phase 6 (sample-size simulation) and Phase 7 (Rust port) will consume the EWMA HL=8 implementation. Wire format unchanged — `forecaster_code = 3` reservation still holds; the canonical M6 read path is variant-agnostic at the parquet column level.
+
+**Open work.** TLT / TSLA Berkowitz remain rejected at α=0.01 — cross-sectional common-mode, M6a territory (W8 r̄_w predictor still gating). 2021 × τ=0.99 Kupiec rejection (p≈0.018) persists across all variants — small-sample artefact at the tail-edge anchor. Phase 6 will test whether HL=8 generalises as N shrinks toward HOOD's regime (~200 weekends) and toward newly-listed-symbol admission thresholds.
+
 ### 2026-05-03 — Paper 1 robustness pass + v3 bake-off; M5 frozen as Paper 1, v3 candidates routed as roadmap evidence
 
 **Trigger.** Paper-1 review pass enumerated eight reviewer-anticipated robustness gaps. After running them, three v3 methodology candidates were specced and bake-off-tested against M5 to inform §10 future-work routing. The bake-off ran *after* Paper 1's validation loop closed; this entry records the explicit decision to keep M5 as the Paper 1 primitive and route C1/C2/C4 as roadmap evidence rather than retroactive paper revision.

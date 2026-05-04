@@ -196,7 +196,7 @@ These are the cells where the comparison flips against M6, surfaced for the pape
 
 1. **Pooled half-width at τ=0.95: +30.7 bps wider** (CI [+12, +49] excludes zero). This is the well-documented +8.6% width tax noted in `reports/v3_bakeoff.md` for the per-symbol-calibration trade-off. M6 still passes Kupiec at the same significance level (p=0.956 for both), so this is a sharpness loss not a calibration loss.
 
-2. **Christoffersen p drops at every τ.** M5's per-anchor Christoffersen is 0.34–0.92; LWC's is 0.10–1.00 with a worst-case of 0.10 (τ=0.68 pooled). On the split-sensitivity table (§5), LWC rejects Christoffersen at τ=0.95 for the 2021 (p=0.007) and 2022 (p=0.002) splits where M5 didn't. **Why:** LWC tightens *unconditional* per-symbol calibration, but introduces some lag-1 clustering in violations because σ̂_sym(t) is itself slowly-varying — a long calm streak under-estimates σ̂ going into a vol shock, producing a cluster of violations. This is a *new*, milder rejection pattern that replaces M5's per-symbol bimodality.
+2. **Christoffersen p drops at every τ.** M5's per-anchor Christoffersen is 0.34–0.92; LWC's is 0.10–1.00 with a worst-case of 0.10 (τ=0.68 pooled). On the split-sensitivity table (§5), LWC rejects Christoffersen at τ=0.95 for the 2021 (p=0.007) and 2022 (p=0.002) splits where M5 didn't. **Why:** LWC tightens *unconditional* per-symbol calibration, but introduces some lag-1 clustering in violations because σ̂_sym(t) is itself slowly-varying — a long calm streak under-estimates σ̂ going into a vol shock, producing a cluster of violations. This is a *new*, milder rejection pattern that replaces M5's per-symbol bimodality. **Resolved 2026-05-04 (Phase 5 σ̂ EWMA promotion):** under the canonical EWMA HL=8 σ̂, the 2021 / 2022 split-date Christoffersen rejections at τ=0.95 clear (p ∈ {0.0065, 0.0016} → {0.1153, 0.1861}); 0 rejections across the full 16-cell (split × τ) grid. See `reports/m6_sigma_ewma.md`.
 
 3. **Shock-tertile floor barely improves.** M5: 87.18% at τ=0.95 on the shock tertile; LWC: 87.82%, an improvement of only +0.64pp. The §9.1 shock-tertile ceiling is *not* a per-symbol-scale story — it's the cross-sectional common-mode that M6a (partial-out) targets, not M6 (LWC). The §9.1 narrative survives unchanged.
 
@@ -223,7 +223,25 @@ While pooled width at τ=0.95 is +30.7 bps under M6, the per-symbol re-allocatio
 
 For consumers who care about per-symbol precision (lending consumers, single-name-options consumers), the per-symbol re-allocation is the headline — not the pooled +8.6%.
 
-## 13. Files produced this phase
+## 13. Newly-listed-symbol admission (Phase 6 evidence)
+
+Production guidance for adding a new symbol to the M6 panel: how many calibration weekends does the symbol need before it can be admitted without breaking the per-symbol Kupiec headline?
+
+Source: Phase 6 simulation sample-size sweep (`scripts/run_simulation_size_sweep.py`, `reports/m6_simulation_study.md` §7). Sweep grid N ∈ {80, 100, 150, 200, 300, 400, 600} weekends per symbol, four DGPs, 100 Monte Carlo reps per cell, σ̂ rule = K=26 (Phase 3 convention; EWMA HL=8 only relaxes these thresholds further). N=600 cells reproduce the Phase 3 sim_summary byte-for-byte (regression check passes).
+
+| Regime assumption | Minimum N (weekends) | Expected per-symbol Kupiec pass-rate at N | Notes |
+|---|---:|---:|---|
+| Stationary scale (DGP A) | 80 | ≥ 0.95 (sim: 1.000) | Pure scale heterogeneity; admission is essentially σ̂-only. |
+| Slow drift (DGP C) | 80 | ≥ 0.95 (sim: 0.998) | Trailing-K σ̂ absorbs slow drift before it accumulates. |
+| Single recent regime change (DGP D) | 80 | ≥ 0.95 (sim: 1.000) | σ̂ absorbs structural breaks within ~13 weekends. |
+| Regime-switching (DGP B) | 600 (strict) / 200 (relaxed) | 0.976 (strict) / 0.938 (relaxed) | σ̂-rule-orthogonal: EWMA HL=8 (post-Phase-5 deployed) produces the same strict threshold — HL=8 N=600 pass-rate = 0.986, +1pp vs K=26's 0.976; intermediate-N differences within Monte Carlo noise. See `reports/m6_simulation_study.md` §7.6. |
+| Conservative "no-harm" floor (any DGP) | 80 | ≥ M5 asymptotic (0.31) | LWC dominates M5 at every N in every DGP. |
+
+**Recommended deployment threshold for Soothsayer-style equity-oracle panels: N ≥ 200 weekends (~3.5 years of weekend data).** This clears 0.94 pass-rate even under the regime-switching DGP B and sits comfortably above 0.95 under the stationary DGPs. The strict 0.95 threshold under DGP B (N ≥ 600) is **σ̂-rule-orthogonal** — re-simulated under the post-Phase-5 EWMA HL=8 σ̂ in `reports/m6_simulation_study.md` §7.6, the threshold stays at N=600 (HL=8 N=600 pass-rate = 0.986 vs K=26's 0.976; intermediate-N differences within Monte Carlo noise). The bottleneck is stochastic OOS regime-mixture across symbols, not σ̂'s tracking lag, so faster-reacting σ̂ rules don't help on this axis.
+
+HOOD's empirical N≈218 (246 listed weekends, 28 dropped at the σ̂ warm-up) sits at the relaxed-threshold band. HOOD's per-symbol Kupiec p at τ=0.95 in the 2023+ OOS slice is **0.552** — passes α=0.05 cleanly. The simulation predicts at N=200 a 0.94–0.99 pass-rate range across DGPs; HOOD's empirical value is consistent with that range. The §6.4.1 disclosure "HOOD is the noisy-but-passing edge case" is mechanism-validated by the simulation.
+
+## 14. Files produced this phase
 
 | Phase | Script | Output |
 |---|---|---|
@@ -236,6 +254,8 @@ For consumers who care about per-symbol precision (lending consumers, single-nam
 | 2.7 | `scripts/run_v1b_vol_tertile.py` | `reports/tables/{v1b_robustness,m6_lwc_robustness}_vol_tertile.csv` |
 | 2.8 | `scripts/aggregate_m5_m6_bootstrap.py` | `reports/tables/m5_vs_m6_bootstrap.csv` |
 | 2.9 | `scripts/run_m6_pooled_oos_tables.py` | `reports/tables/m6_pooled_oos.csv`, `reports/tables/m6_realised_move_tertile.csv` |
+| 5 (σ̂ EWMA) | `scripts/run_sigma_ewma_variants.py` | `reports/tables/sigma_ewma_{summary,split_sensitivity,per_symbol,bootstrap}.csv`, `sigma_ewma_<variant>_delta_sweep.csv` × 5 |
+| 6 (sample-size sweep) | `scripts/run_simulation_size_sweep.py` | `reports/tables/sim_size_sweep_{per_symbol_kupiec,summary,admission_thresholds}.csv`, `reports/figures/sim_size_curves.{pdf,png}` |
 
 To regenerate everything from scratch:
 
