@@ -50,6 +50,16 @@ DEFAULT_TAUS: tuple[float, ...] = (0.68, 0.85, 0.95, 0.99)
 SIGMA_HAT_K: int = 26
 SIGMA_HAT_MIN: int = 8
 
+# Phase 5 EWMA σ̂ variant — fast-reacting σ̂ aimed at the 2021/2022 split-date
+# Christoffersen rejections (M6_REFACTOR.md §5). Half-life HL_WEEKENDS sets the
+# weekend-decay rate λ via λ = 0.5 ** (1 / HL). Same warm-up rule as the K=26
+# baseline (≥ SIGMA_HAT_MIN past obs) so variants share evaluable rows.
+SIGMA_HAT_EWMA_HALF_LIVES: tuple[int, ...] = (6, 8, 12)
+# Convex-blend variant: α · σ̂_K26 + (1−α) · σ̂_EWMA_HL8 with α=0.5 (smoothing
+# knob exploratory point, matches Phase 5.1 brief).
+SIGMA_HAT_BLEND_ALPHA: float = 0.5
+SIGMA_HAT_BLEND_HL: int = 8
+
 
 def compute_score(panel: pd.DataFrame) -> pd.Series:
     """M5 conformity score: relative absolute residual.
@@ -255,13 +265,103 @@ def add_sigma_hat_sym(
     return work
 
 
-def compute_score_lwc(panel: pd.DataFrame) -> pd.Series:
+def add_sigma_hat_sym_ewma(
+    panel: pd.DataFrame,
+    half_life: int,
+    min_obs: int = SIGMA_HAT_MIN,
+) -> pd.DataFrame:
+    """Add `rel_resid` and `sigma_hat_sym_ewma_pre_fri_hl{N}` columns to `panel`.
+
+    EWMA estimator on per-symbol relative residuals with weekend half-life
+    `half_life`. The decay rate is λ = 0.5 ** (1 / half_life) so observations
+    `half_life` weekends in the past contribute half the weight of the most
+    recent. Strictly pre-Friday: σ̂[i] uses only rows with `fri_ts' < fri_ts[i]`.
+    Rows with fewer than `min_obs` past observations get NaN (warm-up boundary;
+    same rule as `add_sigma_hat_sym` so variants are comparable on identical
+    rows).
+
+    The reported σ̂ is the EWMA *standard deviation* — sqrt of the weighted
+    mean of squared residuals (residuals already have ~zero mean by the §7.4
+    factor switchboard, so no de-meaning step). Mirrors the conventional
+    RiskMetrics-style EWMA volatility estimator used in financial-econometrics
+    backtests.
+
+    Validates the Phase 5 σ̂ fast-reacting variant brief (M6_REFACTOR.md §5.1).
+    """
+    if half_life <= 0:
+        raise ValueError(f"half_life must be positive, got {half_life}")
+    work = panel.copy()
+    if "rel_resid" not in work.columns:
+        work["rel_resid"] = (
+            (work["mon_open"].astype(float)
+             - work["fri_close"].astype(float) * (1.0 + work["factor_ret"].astype(float)))
+            / work["fri_close"].astype(float)
+        )
+    decay = 0.5 ** (1.0 / float(half_life))
+    sigma = np.full(len(work), np.nan)
+    sorted_view = work.sort_values(["symbol", "fri_ts"])
+    for _, idx in sorted_view.groupby("symbol", sort=False).groups.items():
+        sub = sorted_view.loc[idx]
+        rr = sub["rel_resid"].to_numpy(float)
+        for i, src_idx in enumerate(idx):
+            past = rr[:i]
+            past = past[np.isfinite(past)]
+            if past.size < min_obs:
+                continue
+            # Weights decay backwards from the most recent past observation:
+            # weight[t-1] = 1, weight[t-2] = decay, weight[t-3] = decay**2, ...
+            ages = np.arange(past.size - 1, -1, -1, dtype=float)
+            weights = decay ** ages
+            weights /= weights.sum()
+            mean_sq = float(np.sum(weights * past * past))
+            sigma[src_idx] = float(np.sqrt(mean_sq))
+    work[f"sigma_hat_sym_ewma_pre_fri_hl{half_life}"] = sigma
+    return work
+
+
+def add_sigma_hat_sym_blend(
+    panel: pd.DataFrame,
+    alpha: float = SIGMA_HAT_BLEND_ALPHA,
+    half_life: int = SIGMA_HAT_BLEND_HL,
+    K: int = SIGMA_HAT_K,
+    min_obs: int = SIGMA_HAT_MIN,
+) -> pd.DataFrame:
+    """Convex blend of K-window σ̂ and EWMA σ̂.
+
+    σ̂_blend = α · σ̂_K + (1 − α) · σ̂_EWMA_HL
+
+    Adds `sigma_hat_sym_blend_pre_fri_a{a}_hl{N}` to `panel`. Both component
+    σ̂s are pre-Friday and share the `min_obs` warm-up rule so the blend is
+    well-defined whenever both components are. Convex with α ∈ [0, 1]; α=0.5
+    matches the Phase 5.1 exploratory point."""
+    if not 0.0 <= alpha <= 1.0:
+        raise ValueError(f"alpha must be in [0, 1], got {alpha}")
+    work = panel.copy()
+    if "sigma_hat_sym_pre_fri" not in work.columns:
+        work = add_sigma_hat_sym(work, K=K, min_obs=min_obs)
+    ewma_col = f"sigma_hat_sym_ewma_pre_fri_hl{half_life}"
+    if ewma_col not in work.columns:
+        work = add_sigma_hat_sym_ewma(work, half_life=half_life, min_obs=min_obs)
+    s_k = work["sigma_hat_sym_pre_fri"].astype(float).to_numpy()
+    s_e = work[ewma_col].astype(float).to_numpy()
+    blend = alpha * s_k + (1.0 - alpha) * s_e
+    a_tag = int(round(alpha * 100))
+    work[f"sigma_hat_sym_blend_pre_fri_a{a_tag}_hl{half_life}"] = blend
+    return work
+
+
+def compute_score_lwc(
+    panel: pd.DataFrame,
+    scale_col: str = "sigma_hat_sym_pre_fri",
+) -> pd.Series:
     """M6 conformity score: relative absolute residual standardised by σ̂_sym.
 
     score_lwc = |mon_open - point| / (fri_close · σ̂_sym_pre_fri)
 
-    `panel` must already have a `sigma_hat_sym_pre_fri` column (call
-    `add_sigma_hat_sym` first). Rows with NaN / non-positive σ̂ return NaN."""
+    `panel` must already have the column named by `scale_col` (default
+    `sigma_hat_sym_pre_fri` from `add_sigma_hat_sym`; pass an EWMA column
+    such as `sigma_hat_sym_ewma_pre_fri_hl8` for the Phase 5 variants).
+    Rows with NaN / non-positive σ̂ return NaN."""
     point = panel["fri_close"].astype(float) * (
         1.0 + panel["factor_ret"].astype(float)
     )
@@ -269,7 +369,7 @@ def compute_score_lwc(panel: pd.DataFrame) -> pd.Series:
         (panel["mon_open"].astype(float) - point).abs()
         / panel["fri_close"].astype(float)
     )
-    sigma = panel["sigma_hat_sym_pre_fri"].astype(float)
+    sigma = panel[scale_col].astype(float)
     out = abs_resid_rel / sigma
     out[~(sigma > 0)] = np.nan
     return out
