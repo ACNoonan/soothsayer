@@ -10,22 +10,26 @@ calibrate on the supremum of the residual over the weekend window:
 
     s_path = max_{t in [Fri 16:00, Mon 09:30]} |P_t - point| / fri_close.
 
-This script runs that fit on the n=3,861 CME-projected subset (the same
-panel `scripts/run_path_coverage.py` uses) and reports head-to-head:
+This script runs that fit on the CME-projected subset and reports
+head-to-head, under the active forecaster:
 
-  - Endpoint-fitted M5  (the deployed schedule)  — row-aligned to subset
-  - Path-fitted M5      (s_path replaces s_endpoint in train + OOS)
+  - Endpoint-fitted   (s_endpoint as score) — row-aligned to subset
+  - Path-fitted       (s_path replaces s_endpoint in train + OOS)
   - Both evaluated by *path coverage* on the same OOS rows.
 
-Bands will be wider but path-calibrated by construction. The point is to
-deliver a first read on the trade-off the paper currently defers.
+Forecasters
+-----------
+  --forecaster m5   (default; M5 score relative to fri_close)
+  --forecaster lwc  (M6; score = s_path/σ̂, serve = q·σ̂·fri_close)
 
-Output:
-  reports/tables/v1b_robustness_path_fitted.csv
+Outputs:
+  reports/tables/v1b_robustness_path_fitted.csv         (--forecaster m5)
+  reports/tables/m6_lwc_robustness_path_fitted.csv      (--forecaster lwc)
 """
 
 from __future__ import annotations
 
+import argparse
 from datetime import date, datetime, time as dtime
 from zoneinfo import ZoneInfo
 
@@ -36,8 +40,12 @@ import pyarrow.dataset as ds
 from soothsayer.backtest import metrics as met
 from soothsayer.backtest.calibration import (
     DEFAULT_TAUS,
+    SIGMA_HAT_K,
+    SIGMA_HAT_MIN,
+    add_sigma_hat_sym,
     fit_c_bump_schedule,
     serve_bands,
+    serve_bands_lwc,
     train_quantile_table,
 )
 from soothsayer.config import DATA_PROCESSED, REPORTS, SCRYER_DATASET_ROOT
@@ -133,7 +141,17 @@ def compute_path_panel(panel: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _output_path(forecaster: str) -> str:
+    return (str(REPORTS / "tables" / "v1b_robustness_path_fitted.csv")
+            if forecaster == "m5"
+            else str(REPORTS / "tables" / "m6_lwc_robustness_path_fitted.csv"))
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--forecaster", choices=("m5", "lwc"), default="m5")
+    args = parser.parse_args()
+
     panel = pd.read_parquet(DATA_PROCESSED / "v1b_panel.parquet")
     panel["fri_ts"] = pd.to_datetime(panel["fri_ts"]).dt.date
     panel["mon_ts"] = pd.to_datetime(panel["mon_ts"]).dt.date
@@ -142,24 +160,46 @@ def main() -> None:
     ).reset_index(drop=True)
     panel["regime_pub"] = panel["regime_pub"].astype(str)
 
+    # σ̂_sym(t) is computed from the full panel (not the CME-projected
+    # subset) so the trailing-K window doesn't get truncated by the path
+    # filter. We then merge the σ̂ column onto the path subset.
+    if args.forecaster == "lwc":
+        panel = add_sigma_hat_sym(panel, K=SIGMA_HAT_K, min_obs=SIGMA_HAT_MIN)
+
+    print(f"Forecaster: {args.forecaster}", flush=True)
+
     print("[1/4] Loading CME 1m bars and computing per-row path extrema …",
           flush=True)
     pp = compute_path_panel(panel)
+    if args.forecaster == "lwc":
+        sigma_lookup = panel[["symbol", "fri_ts",
+                               "sigma_hat_sym_pre_fri"]].drop_duplicates(
+            subset=["symbol", "fri_ts"]
+        )
+        pp = pp.merge(sigma_lookup, on=["symbol", "fri_ts"], how="left")
+        n_pre = len(pp)
+        pp = pp.dropna(subset=["sigma_hat_sym_pre_fri"]).reset_index(drop=True)
+        print(f"      σ̂ filter dropped {n_pre - len(pp)} rows; "
+              f"{len(pp):,} remain", flush=True)
     print(f"      {len(pp):,} rows  ({pp['symbol'].nunique()} symbols, "
           f"{pp['fri_ts'].nunique()} weekends)", flush=True)
 
     pp["point"] = pp["fri_close"] * (1.0 + pp["factor_ret"])
-    pp["score_endpoint"] = (
-        (pp["mon_open"] - pp["point"]).abs() / pp["fri_close"]
-    )
-    # Path score: max breach over the full path, including the Monday-open
-    # endpoint (mon_open ∈ [path_lo, path_hi] is not guaranteed, so we
-    # take the worst of {endpoint, low, high}).
+    # Endpoint and path absolute residuals, in fri_close units.
+    pp["abs_endpoint"] = (pp["mon_open"] - pp["point"]).abs() / pp["fri_close"]
     breach_lo = (pp["point"] - pp["path_lo"]).clip(lower=0.0)
     breach_hi = (pp["path_hi"] - pp["point"]).clip(lower=0.0)
     breach_end = (pp["mon_open"] - pp["point"]).abs()
-    pp["score_path"] = (np.maximum.reduce([breach_lo, breach_hi, breach_end])
-                        / pp["fri_close"])
+    pp["abs_path"] = (np.maximum.reduce([breach_lo, breach_hi, breach_end])
+                      / pp["fri_close"])
+
+    if args.forecaster == "m5":
+        pp["score_endpoint"] = pp["abs_endpoint"]
+        pp["score_path"] = pp["abs_path"]
+    else:  # lwc
+        sig = pp["sigma_hat_sym_pre_fri"].astype(float)
+        pp["score_endpoint"] = pp["abs_endpoint"] / sig
+        pp["score_path"] = pp["abs_path"] / sig
 
     train = pp[pp["fri_ts"] < SPLIT_DATE]
     oos = (pp[pp["fri_ts"] >= SPLIT_DATE]
@@ -167,27 +207,32 @@ def main() -> None:
            .reset_index(drop=True))
     print(f"      train={len(train):,}  oos={len(oos):,}", flush=True)
 
-    print("[2/4] Endpoint-fitted M5 (subset-restricted re-fit) …",
-          flush=True)
+    def _serve(qt: dict, cb: dict) -> dict:
+        if args.forecaster == "m5":
+            return serve_bands(oos, qt, cb, cell_col="regime_pub",
+                               taus=DEFAULT_TAUS)
+        return serve_bands_lwc(oos, qt, cb, cell_col="regime_pub",
+                               taus=DEFAULT_TAUS)
+
+    print(f"[2/4] Endpoint-fitted {args.forecaster.upper()} "
+          "(subset-restricted re-fit) …", flush=True)
     qt_e = train_quantile_table(train.assign(score=train["score_endpoint"]),
                                 cell_col="regime_pub", taus=DEFAULT_TAUS,
                                 score_col="score")
     cb_e = fit_c_bump_schedule(oos.assign(score=oos["score_endpoint"]),
                                qt_e, cell_col="regime_pub",
                                taus=DEFAULT_TAUS, score_col="score")
-    bounds_e = serve_bands(oos, qt_e, cb_e, cell_col="regime_pub",
-                           taus=DEFAULT_TAUS)
+    bounds_e = _serve(qt_e, cb_e)
 
-    print("[3/4] Path-fitted M5 (score = max breach over weekend) …",
-          flush=True)
+    print(f"[3/4] Path-fitted {args.forecaster.upper()} "
+          "(score = max breach over weekend) …", flush=True)
     qt_p = train_quantile_table(train.assign(score=train["score_path"]),
                                 cell_col="regime_pub", taus=DEFAULT_TAUS,
                                 score_col="score")
     cb_p = fit_c_bump_schedule(oos.assign(score=oos["score_path"]),
                                qt_p, cell_col="regime_pub",
                                taus=DEFAULT_TAUS, score_col="score")
-    bounds_p = serve_bands(oos, qt_p, cb_p, cell_col="regime_pub",
-                           taus=DEFAULT_TAUS)
+    bounds_p = _serve(qt_p, cb_p)
 
     print("[4/4] Coverage on path AND endpoint criteria …", flush=True)
     rows = []
@@ -217,11 +262,13 @@ def main() -> None:
                                 else cb_e[tau]),
             })
     out = pd.DataFrame(rows)
-    out_path = REPORTS / "tables" / "v1b_robustness_path_fitted.csv"
+    out["forecaster"] = args.forecaster
+    out_path = _output_path(args.forecaster)
     out.to_csv(out_path, index=False)
     print(f"\nWrote {out_path}\n", flush=True)
     print("=" * 100)
-    print("PATH-FITTED vs ENDPOINT-FITTED M5 (CME-projected subset, OOS)")
+    print(f"PATH-FITTED vs ENDPOINT-FITTED {args.forecaster.upper()} "
+          "(CME-projected subset, OOS)")
     print("=" * 100)
     print(out.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
 

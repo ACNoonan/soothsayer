@@ -4,12 +4,18 @@ Vol-tertile sub-split of `normal` regime — §10.2 robustness check.
 The §6.3.1 Berkowitz LR=173.1 rejection on M5 PITs is hypothesised in §9.4
 to be driven by the coarse three-bin classifier (`normal | long_weekend |
 high_vol`). The cheapest test of that hypothesis is to split `normal` into
-trailing-vol tertiles and re-fit Mondrian conformal with five cells:
+trailing-vol tertiles and re-fit conformal with five cells:
 
     {normal_calm, normal_mid, normal_heavy, long_weekend, high_vol}
 
 where the normal-regime split uses VIX at fri_close tertiles within the
 training window — the natural pre-publish vol axis.
+
+Forecasters
+-----------
+  --forecaster m5   (default; deployed Mondrian-by-regime)
+  --forecaster lwc  (M6 Locally-Weighted Conformal; same cell axis but
+                    σ̂-standardised conformity score)
 
 Decision criterion
 ------------------
@@ -18,13 +24,15 @@ Decision criterion
 - If LR stays near 173, the rejection is *not* driven by the three-bin
   classifier and CQR moves up the priority list.
 
-Output
-------
-  reports/tables/v1b_robustness_vol_tertile.csv
+Outputs
+-------
+  reports/tables/v1b_robustness_vol_tertile.csv         (--forecaster m5)
+  reports/tables/m6_lwc_robustness_vol_tertile.csv      (--forecaster lwc)
 """
 
 from __future__ import annotations
 
+import argparse
 from datetime import date
 
 import numpy as np
@@ -34,9 +42,9 @@ from scipy.stats import norm
 from soothsayer.backtest import metrics as met
 from soothsayer.backtest.calibration import (
     DEFAULT_TAUS,
-    compute_score,
     fit_c_bump_schedule,
-    serve_bands,
+    prep_panel_for_forecaster,
+    serve_bands_forecaster,
     train_quantile_table,
 )
 from soothsayer.config import DATA_PROCESSED, REPORTS
@@ -69,13 +77,14 @@ def assign_vol_tertile(panel: pd.DataFrame, split_date: date) -> pd.DataFrame:
     return out
 
 
-def m5_pit(panel_oos: pd.DataFrame, qt: dict, c: dict,
-           cell_col: str, dense_grid: tuple) -> np.ndarray:
-    """Build M5 PITs at the per-row served-band CDF using a dense τ grid.
+def build_pit(panel_oos: pd.DataFrame, qt: dict, c: dict,
+              cell_col: str, dense_grid: tuple,
+              forecaster: str = "m5") -> np.ndarray:
+    """Build per-row PITs at the served-band CDF using a dense τ grid.
 
-    Mirrors the construction in `run_density_rejection_diagnostics.py`:
-    served τ' = τ; q_eff(τ) = c(τ) · b_cell(τ); CDF anchors at
-    F(point ± q_eff·point) = 0.5 ± τ/2; PIT(realised) = interp.
+    M5: q_eff(τ) = c(τ) · b_cell(τ) and half-width = q_eff · fri_close.
+    LWC: same q_eff (unitless), half-width = q_eff · σ̂_sym · fri_close.
+    Both fold into F(point ± half) = 0.5 ± τ/2; PIT(realised) = interp.
 
     Caller is responsible for the row order — Berkowitz's lag-1 alternative
     is order-dependent. Match the §6.3.1 reference which sorts by
@@ -86,7 +95,10 @@ def m5_pit(panel_oos: pd.DataFrame, qt: dict, c: dict,
     point = panel_oos["fri_close"].astype(float) * (
         1.0 + panel_oos["factor_ret"].astype(float)
     )
+    fri_close = panel_oos["fri_close"].astype(float).to_numpy()
     cells = panel_oos[cell_col].astype(str).to_numpy()
+    sigma = (panel_oos["sigma_hat_sym_pre_fri"].to_numpy(float)
+             if forecaster == "lwc" else None)
     pits = np.full(len(panel_oos), np.nan)
     for i, ((idx, row), cell) in enumerate(zip(panel_oos.iterrows(), cells)):
         q_row = qt.get(cell)
@@ -122,9 +134,21 @@ def m5_pit(panel_oos: pd.DataFrame, qt: dict, c: dict,
         b_anchors = np.array(b_anchors, dtype=float)
         if not np.all(np.isfinite(b_anchors)):
             continue
-        r = (row["mon_open"] - point.iloc[i]) / row["fri_close"]
+        # Half-width in price units. The PIT residual is scaled by
+        # fri_close — see expression below — so we keep b_anchors in
+        # /fri_close units for M5 and rescale by σ̂ for LWC.
+        scale = 1.0
+        if forecaster == "lwc":
+            s = sigma[i]
+            if not (np.isfinite(s) and s > 0):
+                continue
+            scale = s
+        r = (row["mon_open"] - point.iloc[i]) / fri_close[i]
         abs_r = abs(float(r))
-        anchor_b = np.concatenate(([0.0], b_anchors))
+        # Anchors live in same units as r (i.e., relative to fri_close).
+        # For LWC, b_anchors are unitless and the half-width relative to
+        # fri_close is b_anchors · σ̂ — apply scale here.
+        anchor_b = np.concatenate(([0.0], b_anchors * scale))
         anchor_tau = np.concatenate(([0.0], grid_taus))
         if abs_r >= anchor_b[-1]:
             tau_hat = anchor_tau[-1]
@@ -135,8 +159,8 @@ def m5_pit(panel_oos: pd.DataFrame, qt: dict, c: dict,
 
 
 def run_one(name: str, panel: pd.DataFrame, cell_col: str,
-            dense_grid: tuple) -> dict:
-    """Fit M5 with the supplied cell axis on pre-2023 train, c-bump on
+            dense_grid: tuple, forecaster: str = "m5") -> dict:
+    """Fit with the supplied cell axis on pre-2023 train, c-bump on
     post-2023 OOS, and report Berkowitz on OOS PITs at the dense grid."""
     train = panel[panel["fri_ts"] < SPLIT_DATE].dropna(subset=["score"])
     # Sort cross-sectionally so the Berkowitz lag-1 pair is (sym_i, sym_{i+1})
@@ -150,12 +174,15 @@ def run_one(name: str, panel: pd.DataFrame, cell_col: str,
     qt = train_quantile_table(train, cell_col=cell_col, taus=dense_grid)
     cb = fit_c_bump_schedule(oos, qt, cell_col=cell_col, taus=dense_grid)
 
-    pits = m5_pit(oos, qt, cb, cell_col=cell_col, dense_grid=dense_grid)
+    pits = build_pit(oos, qt, cb, cell_col=cell_col,
+                     dense_grid=dense_grid, forecaster=forecaster)
     bw = met.berkowitz_test(pits[np.isfinite(pits)])
 
     # Headline coverage at the deployed four anchors with the deployed
     # δ-shift schedule.
-    served = serve_bands(oos, qt, cb, cell_col=cell_col, taus=DEFAULT_TAUS)
+    served = serve_bands_forecaster(
+        oos, qt, cb, forecaster, cell_col=cell_col, taus=DEFAULT_TAUS,
+    )
     cov_rows = []
     for tau, band in served.items():
         inside = ((oos["mon_open"] >= band["lower"]) &
@@ -180,7 +207,17 @@ def run_one(name: str, panel: pd.DataFrame, cell_col: str,
     }
 
 
+def _output_path(forecaster: str) -> str:
+    return (str(REPORTS / "tables" / "v1b_robustness_vol_tertile.csv")
+            if forecaster == "m5"
+            else str(REPORTS / "tables" / "m6_lwc_robustness_vol_tertile.csv"))
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--forecaster", choices=("m5", "lwc"), default="m5")
+    args = parser.parse_args()
+
     DENSE_GRID = (
         0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.68, 0.70, 0.80, 0.85,
         0.90, 0.93, 0.95, 0.97, 0.98, 0.99, 0.995, 0.998, 0.999,
@@ -192,14 +229,17 @@ def main() -> None:
         subset=["mon_open", "fri_close", "regime_pub", "factor_ret",
                 "vix_fri_close"]
     ).reset_index(drop=True)
-    panel["score"] = compute_score(panel)
     panel["regime_pub"] = panel["regime_pub"].astype(str)
+    panel = prep_panel_for_forecaster(panel, args.forecaster)
 
+    print(f"Forecaster: {args.forecaster}", flush=True)
     print(f"Panel: {len(panel):,} rows × "
           f"{panel['fri_ts'].nunique()} weekends", flush=True)
 
-    print("\n[A] Baseline — 3-cell M5 (regime_pub) …", flush=True)
-    base = run_one("baseline_3cell_M5", panel, "regime_pub", DENSE_GRID)
+    print(f"\n[A] Baseline — 3-cell {args.forecaster.upper()} "
+          "(regime_pub) …", flush=True)
+    base = run_one(f"baseline_3cell_{args.forecaster.upper()}",
+                   panel, "regime_pub", DENSE_GRID, args.forecaster)
     print(f"     n_oos = {base['n_oos']:,}  "
           f"berkowitz LR = {base['berkowitz_lr']:.2f} "
           f"(p = {base['berkowitz_p']:.2e})  var_z = {base['var_z']:.3f}",
@@ -213,7 +253,8 @@ def main() -> None:
     q33, q67 = panel_t.attrs["vix_tertile_anchors"]
     print(f"     normal-regime VIX tertile anchors (train-window): "
           f"q33 = {q33:.2f}  q67 = {q67:.2f}", flush=True)
-    sub = run_one("sub_split_5cell", panel_t, "vol_tertile_cell", DENSE_GRID)
+    sub = run_one("sub_split_5cell", panel_t, "vol_tertile_cell", DENSE_GRID,
+                  args.forecaster)
     print(f"     n_oos = {sub['n_oos']:,}  "
           f"berkowitz LR = {sub['berkowitz_lr']:.2f} "
           f"(p = {sub['berkowitz_p']:.2e})  var_z = {sub['var_z']:.3f}",
@@ -233,7 +274,8 @@ def main() -> None:
         for v in (base, sub)
     ]
     out = pd.DataFrame(out_rows)
-    out_path = REPORTS / "tables" / "v1b_robustness_vol_tertile.csv"
+    out["forecaster"] = args.forecaster
+    out_path = _output_path(args.forecaster)
     out.to_csv(out_path, index=False)
     print(f"\nWrote {out_path}", flush=True)
 

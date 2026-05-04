@@ -14,15 +14,25 @@ Forecasted weekend band:
 
 This script fits one GARCH(1,1) per symbol on pre-2023 weekend returns,
 forecasts σ̂_t one-step-ahead at each post-2023 weekend (no leak),
-constructs τ ∈ {0.68, 0.85, 0.95, 0.99} bands, and compares pooled
-realised coverage / mean half-width / Kupiec / Christoffersen against the
-deployed M5 numbers from §6.3.
+constructs τ ∈ {0.68, 0.85, 0.95, 0.99} bands, and compares against the
+active forecaster's deployed bands on the same OOS keys.
 
-Output: reports/tables/v1b_robustness_garch_baseline.csv
+Forecasters
+-----------
+  --forecaster m5   (default; deployed Mondrian-by-regime)
+  --forecaster lwc  (M6 Locally-Weighted Conformal)
+
+The GARCH fit itself is forecaster-agnostic — only the reference band
+swaps between M5 and LWC.
+
+Outputs:
+  reports/tables/v1b_robustness_garch_baseline.csv         (--forecaster m5)
+  reports/tables/m6_lwc_robustness_garch_baseline.csv      (--forecaster lwc)
 """
 
 from __future__ import annotations
 
+import argparse
 import warnings
 from datetime import date
 
@@ -34,9 +44,9 @@ from scipy.stats import norm
 from soothsayer.backtest import metrics as met
 from soothsayer.backtest.calibration import (
     DEFAULT_TAUS,
-    compute_score,
-    fit_split_conformal,
-    serve_bands,
+    fit_split_conformal_forecaster,
+    prep_panel_for_forecaster,
+    serve_bands_forecaster,
 )
 from soothsayer.config import DATA_PROCESSED, REPORTS
 
@@ -148,15 +158,26 @@ def coverage_table(panel: pd.DataFrame, bounds: dict[float, pd.DataFrame],
     return pd.DataFrame(rows)
 
 
+def _output_path(forecaster: str) -> str:
+    return (str(REPORTS / "tables" / "v1b_robustness_garch_baseline.csv")
+            if forecaster == "m5"
+            else str(REPORTS / "tables" / "m6_lwc_robustness_garch_baseline.csv"))
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--forecaster", choices=("m5", "lwc"), default="m5")
+    args = parser.parse_args()
+
     panel = pd.read_parquet(DATA_PROCESSED / "v1b_panel.parquet")
     panel["fri_ts"] = pd.to_datetime(panel["fri_ts"]).dt.date
     panel = panel.dropna(
         subset=["mon_open", "fri_close", "regime_pub", "factor_ret"]
     ).reset_index(drop=True)
     panel["regime_pub"] = panel["regime_pub"].astype(str)
-    panel["score"] = compute_score(panel)
+    panel = prep_panel_for_forecaster(panel, args.forecaster)
 
+    print(f"Forecaster: {args.forecaster}", flush=True)
     print(f"Panel: {len(panel):,} rows × "
           f"{panel['fri_ts'].nunique()} weekends × "
           f"{panel['symbol'].nunique()} symbols", flush=True)
@@ -174,8 +195,12 @@ def main() -> None:
     g_cov = coverage_table(fc_oos, g_bounds, DEFAULT_TAUS, "GARCH(1,1)")
     print(g_cov.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
 
-    print("\n[3/3] Re-serving deployed M5 on the same OOS keys …", flush=True)
-    qt, cb, info = fit_split_conformal(panel, SPLIT_DATE, cell_col="regime_pub")
+    label = "M5_deployed" if args.forecaster == "m5" else "LWC_deployed"
+    print(f"\n[3/3] Re-serving deployed {args.forecaster.upper()} "
+          "on the same OOS keys …", flush=True)
+    qt, cb, info = fit_split_conformal_forecaster(
+        panel, SPLIT_DATE, args.forecaster, cell_col="regime_pub",
+    )
     keys_g = fc_oos[["symbol", "fri_ts"]].assign(_in_garch=True)
     panel_oos = (
         panel[panel["fri_ts"] >= SPLIT_DATE]
@@ -184,29 +209,32 @@ def main() -> None:
         .sort_values(["symbol", "fri_ts"])
         .reset_index(drop=True)
     )
-    m5_bounds = serve_bands(panel_oos, qt, cb, cell_col="regime_pub",
-                            taus=DEFAULT_TAUS)
-    m5_cov = coverage_table(panel_oos, m5_bounds, DEFAULT_TAUS, "M5_deployed")
-    print(m5_cov.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
+    ref_bounds = serve_bands_forecaster(
+        panel_oos, qt, cb, args.forecaster,
+        cell_col="regime_pub", taus=DEFAULT_TAUS,
+    )
+    ref_cov = coverage_table(panel_oos, ref_bounds, DEFAULT_TAUS, label)
+    print(ref_cov.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
 
-    out = pd.concat([g_cov, m5_cov], ignore_index=True)
-    out_path = REPORTS / "tables" / "v1b_robustness_garch_baseline.csv"
+    out = pd.concat([g_cov, ref_cov], ignore_index=True)
+    out["forecaster"] = args.forecaster
+    out_path = _output_path(args.forecaster)
     out.to_csv(out_path, index=False)
     print(f"\nWrote {out_path}", flush=True)
 
     print("\n" + "=" * 80)
-    print("HEAD-TO-HEAD AT τ = 0.95")
+    print(f"HEAD-TO-HEAD AT τ = 0.95  ({label} vs GARCH(1,1))")
     print("=" * 80)
     g95 = g_cov[g_cov["tau"] == 0.95].iloc[0]
-    m95 = m5_cov[m5_cov["tau"] == 0.95].iloc[0]
-    print(f"GARCH(1,1):  realised = {g95['realised']:.4f}  "
+    r95 = ref_cov[ref_cov["tau"] == 0.95].iloc[0]
+    print(f"GARCH(1,1):    realised = {g95['realised']:.4f}  "
           f"hw = {g95['half_width_bps']:.1f} bps  "
           f"Kupiec p = {g95['kupiec_p']:.3f}  "
           f"Christoffersen p = {g95['christ_p']:.3f}")
-    print(f"M5 deployed: realised = {m95['realised']:.4f}  "
-          f"hw = {m95['half_width_bps']:.1f} bps  "
-          f"Kupiec p = {m95['kupiec_p']:.3f}  "
-          f"Christoffersen p = {m95['christ_p']:.3f}")
+    print(f"{label}:  realised = {r95['realised']:.4f}  "
+          f"hw = {r95['half_width_bps']:.1f} bps  "
+          f"Kupiec p = {r95['kupiec_p']:.3f}  "
+          f"Christoffersen p = {r95['christ_p']:.3f}")
 
 
 if __name__ == "__main__":
