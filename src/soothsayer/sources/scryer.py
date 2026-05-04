@@ -130,6 +130,105 @@ def load_yahoo_bars(symbol: str, start: DateLike, end: DateLike) -> pd.DataFrame
     return df.loc[mask].reset_index(drop=True)
 
 
+def load_cboe_index_daily(
+    index_symbol: str, start: DateLike, end: DateLike,
+) -> pd.DataFrame:
+    """CBOE daily index rows (VIX, VIX9D, VIX1D, VIX3M, VIX6M, SKEW) in
+    ``[start, end]``. Schema: ``cboe_indices.v1`` (venue ``cboe``, data_type
+    ``indices``). Path layout ``cboe/indices/v1/index={IDX}/year={YYYY}.parquet``.
+
+    The on-disk schema is ``(index, date, open, high, low, close)``. This
+    loader normalises to a yahoo-bars-shaped frame so panel.py can join
+    it without special-casing — `index` column is renamed to `symbol` and
+    `date` to `ts`. Returns columns: ``symbol, ts, open, high, low,
+    close`` plus the four scryer metadata columns.
+
+    Note: CBOE indices have no `volume`, no `adj_close`. Soothsayer never
+    reads either of those for VIX, so the absence is harmless.
+    """
+    paths = _yearly_partition_paths(
+        "cboe", "indices", start, end, key=("index", index_symbol),
+    )
+    df = _read_concat(
+        paths,
+        empty_columns=[
+            "index", "date", "open", "high", "low", "close",
+            "_schema_version", "_fetched_at", "_source", "_dedup_key",
+        ],
+    )
+    if df.empty:
+        return pd.DataFrame(columns=[
+            "symbol", "ts", "open", "high", "low", "close",
+            "_schema_version", "_fetched_at", "_source", "_dedup_key",
+        ])
+    df = df.rename(columns={"index": "symbol", "date": "ts"})
+    df["ts"] = pd.to_datetime(df["ts"]).dt.date
+    start_d = _to_date(start)
+    end_d = _to_date(end)
+    mask = (df["ts"] >= start_d) & (df["ts"] <= end_d)
+    return df.loc[mask].reset_index(drop=True)
+
+
+def load_cme_daily_from_intraday(
+    symbol: str, start: DateLike, end: DateLike,
+) -> pd.DataFrame:
+    """Resample ``cme/intraday_1m/v1`` to daily OHLCV for one futures
+    symbol. Path layout ``cme/intraday_1m/v1/symbol={SYM}/year=Y/month=M/day=D.parquet``.
+
+    Convention: each ``day=D.parquet`` partition holds 1m bars whose ``ts``
+    (unix seconds UTC) falls within UTC-day D. Daily aggregation:
+
+      open  = first bar's open
+      high  = max bar high
+      low   = min bar low
+      close = last bar's close
+      volume = sum
+
+    The UTC-day boundary differs from Yahoo's daily-bar convention for
+    futures (Yahoo aligns to ~17:00 ET CME session close). For ES=F,
+    yahoo's daily close ≈ 21:00 UTC; this resample's daily close ≈ 21:59
+    UTC (last 1m bar before CME's 22:00 UTC daily break). Drift is
+    typically <0.1% on the close-to-close return; documented for the
+    forward-tape harness consumer.
+
+    Returns columns: ``symbol, ts (date), open, high, low, close, volume``.
+    """
+    paths = _daily_partition_paths(
+        "cme", "intraday_1m", start, end,
+        key=("symbol", symbol),
+    )
+    if not paths:
+        return pd.DataFrame(columns=[
+            "symbol", "ts", "open", "high", "low", "close", "volume",
+        ])
+    rows: list[dict] = []
+    for p in paths:
+        df = pd.read_parquet(p)
+        if df.empty:
+            continue
+        # Group by UTC date — every bar in `day=D.parquet` is by definition
+        # within UTC day D, but rare edge cases can leak (e.g., midnight
+        # boundary). Use date(ts) to be safe.
+        df = df.sort_values("ts")
+        date_series = pd.to_datetime(df["ts"], unit="s", utc=True).dt.date
+        for ts_date, g in df.groupby(date_series, sort=True):
+            rows.append({
+                "symbol": symbol,
+                "ts": ts_date,
+                "open": float(g["open"].iloc[0]),
+                "high": float(g["high"].max()),
+                "low": float(g["low"].min()),
+                "close": float(g["close"].iloc[-1]),
+                "volume": int(g["volume"].sum()),
+            })
+    if not rows:
+        return pd.DataFrame(columns=[
+            "symbol", "ts", "open", "high", "low", "close", "volume",
+        ])
+    out = pd.DataFrame(rows).drop_duplicates(subset=["symbol", "ts"])
+    return out.sort_values("ts").reset_index(drop=True)
+
+
 def load_yahoo_earnings(symbol: str, start: DateLike, end: DateLike) -> pd.DataFrame:
     """Yahoo earnings-calendar rows for one symbol in ``[start, end]``.
 

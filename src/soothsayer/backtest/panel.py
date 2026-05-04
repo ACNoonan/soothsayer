@@ -22,8 +22,23 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from ..sources.scryer import load_yahoo_bars, load_yahoo_earnings
+from ..sources.scryer import (
+    load_cboe_index_daily,
+    load_cme_daily_from_intraday,
+    load_yahoo_bars,
+    load_yahoo_earnings,
+)
 from ..universe import CORE_XSTOCKS
+
+# Symbols whose forward-going coverage moved from `yahoo/equities_daily/v1`
+# to a non-yahoo scryer source (G1.b shipped 2026-05-04). For each, we
+# read both sources and concat — yahoo provides the historical depth,
+# the new source extends forward. Where both have a date, the new
+# source wins.
+CBOE_INDEX_SYMBOLS: dict[str, str] = {
+    "^VIX": "VIX",  # panel-side canonical name → CBOE on-disk index name
+}
+CME_FUTURES_SYMBOLS: tuple[str, ...] = ("ES=F", "NQ=F", "GC=F", "ZN=F")
 
 # Extra underlyings to support the RWA-generalization narrative (closed-market
 # assets that aren't equities: gold, long treasuries). TLT and GLD trade NYSE
@@ -131,14 +146,69 @@ def _weekend_pairs_with_vol(daily: pd.DataFrame, spec: PanelSpec) -> pd.DataFram
     return pd.DataFrame(out)
 
 
+def _load_one_symbol(sym: str, start: date, end: date) -> pd.DataFrame:
+    """Per-symbol loader with source dispatch. Returns a frame with at
+    least ``symbol, ts, open, close`` columns (``ts`` as datetime.date).
+
+    Dispatch:
+      * VIX (key ``^VIX`` in panel) → blend CBOE (forward) with yahoo
+        legacy (historical). CBOE goes back to 1990 for VIX, but we still
+        keep yahoo legacy for byte-identical reads on the frozen
+        artefact's training window. Where both have a date, CBOE wins.
+      * ES=F / NQ=F / GC=F / ZN=F → blend CME-1m-resampled (forward)
+        with yahoo legacy (historical). Yahoo wins on overlapping dates
+        (its convention is what the frozen artefact was trained on).
+      * Everything else → yahoo only.
+    """
+    if sym in CBOE_INDEX_SYMBOLS:
+        cboe_idx = CBOE_INDEX_SYMBOLS[sym]
+        cboe = load_cboe_index_daily(cboe_idx, start, end)
+        if not cboe.empty:
+            cboe = cboe[["symbol", "ts", "open", "close"]].copy()
+            cboe["symbol"] = sym  # restore the panel-side ^VIX key
+        yahoo = load_yahoo_bars(sym, start, end)
+        if not yahoo.empty:
+            yahoo = yahoo[["symbol", "ts", "open", "close"]].copy()
+        # CBOE wins on overlap.
+        if cboe.empty:
+            return yahoo
+        if yahoo.empty:
+            return cboe
+        covered = set(cboe["ts"])
+        gap = yahoo[~yahoo["ts"].isin(covered)]
+        return pd.concat([cboe, gap], ignore_index=True).sort_values("ts").reset_index(drop=True)
+
+    if sym in CME_FUTURES_SYMBOLS:
+        yahoo = load_yahoo_bars(sym, start, end)
+        if not yahoo.empty:
+            yahoo = yahoo[["symbol", "ts", "open", "close"]].copy()
+        cme = load_cme_daily_from_intraday(sym, start, end)
+        if not cme.empty:
+            cme = cme[["symbol", "ts", "open", "close"]].copy()
+        # Yahoo wins on overlap (frozen-artefact training convention).
+        if cme.empty:
+            return yahoo
+        if yahoo.empty:
+            return cme
+        covered = set(yahoo["ts"])
+        gap = cme[~cme["ts"].isin(covered)]
+        return pd.concat([yahoo, gap], ignore_index=True).sort_values("ts").reset_index(drop=True)
+
+    # Default path: yahoo only.
+    df = load_yahoo_bars(sym, start, end)
+    if df.empty:
+        return pd.DataFrame(columns=["symbol", "ts", "open", "close"])
+    return df[["symbol", "ts", "open", "close"]].copy()
+
+
 def _load_daily_window(symbols: list[str], start: date, end: date) -> pd.DataFrame:
-    """Load one Yahoo daily-bar window from scryer for a list of symbols."""
+    """Load one daily-bar window for a list of symbols, dispatching each
+    symbol to the appropriate scryer source (yahoo, CBOE, CME)."""
     frames: list[pd.DataFrame] = []
     for sym in symbols:
-        df = load_yahoo_bars(sym, start, end)
-        if df.empty:
-            continue
-        frames.append(df[["symbol", "ts", "open", "close"]].copy())
+        df = _load_one_symbol(sym, start, end)
+        if not df.empty:
+            frames.append(df)
     if not frames:
         return pd.DataFrame(columns=["symbol", "ts", "open", "close"])
     return pd.concat(frames, ignore_index=True)

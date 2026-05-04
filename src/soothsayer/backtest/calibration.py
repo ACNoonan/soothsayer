@@ -403,6 +403,114 @@ def serve_bands_lwc(
     return out
 
 
+# --------------------------------------------- forecaster-aware dispatchers
+
+
+# Public alias for the supported forecasters in the §10 robustness scripts.
+# "m5" = Mondrian split-conformal by regime (deployed); "lwc" = M6 Locally-
+# Weighted Conformal. See `M6_REFACTOR.md` Phase 2 for the full validation
+# battery this dispatcher serves.
+FORECASTERS = ("m5", "lwc")
+
+
+def prep_panel_for_forecaster(
+    panel: pd.DataFrame,
+    forecaster: str,
+) -> pd.DataFrame:
+    """Materialise the columns the forecaster's fit/serve path needs.
+
+    M5: adds a `score` column (relative absolute residual) — the existing
+        downstream code already expects this.
+    LWC: adds `sigma_hat_sym_pre_fri` (trailing K=26 weekend residual std,
+        strictly pre-Friday) and writes the standardised LWC score into
+        the same `score` column. Rows without a defined σ̂ (warm-up) get
+        NaN scores and are dropped by downstream `dropna(subset=["score"])`.
+
+    Returns a new DataFrame with the original index preserved (or reset to
+    a fresh range index — caller can rely on the row order being unchanged
+    relative to the input).
+
+    By writing both forecasters' active score into the column literally
+    named `score`, the §10 runners need only swap `prep_panel_for_forecaster`
+    for `compute_score`; their existing `dropna(subset=["score"])` filters
+    keep working unchanged."""
+    if forecaster not in FORECASTERS:
+        raise ValueError(
+            f"forecaster must be one of {FORECASTERS}, got {forecaster!r}"
+        )
+    work = panel.copy()
+    if forecaster == "m5":
+        work["score"] = compute_score(work)
+        return work
+    # forecaster == "lwc"
+    work = add_sigma_hat_sym(work)
+    work["score"] = compute_score_lwc(work)
+    return work
+
+
+def fit_split_conformal_forecaster(
+    panel: pd.DataFrame,
+    split_date: date,
+    forecaster: str,
+    cell_col: str = "regime_pub",
+    taus: tuple[float, ...] = DEFAULT_TAUS,
+) -> tuple[dict[str, dict[float, float]], dict[float, float], dict]:
+    """Forecaster-aware `fit_split_conformal`.
+
+    Both forecasters use the same conformal cell partition (`cell_col`) and
+    the same finite-sample CP rank formula. They differ only in the score
+    they read — which `prep_panel_for_forecaster` has already written into
+    `panel["score"]`. So this is a thin wrapper that delegates to the
+    existing `fit_split_conformal`."""
+    if forecaster not in FORECASTERS:
+        raise ValueError(
+            f"forecaster must be one of {FORECASTERS}, got {forecaster!r}"
+        )
+    if "score" not in panel.columns:
+        raise ValueError(
+            "panel is missing the 'score' column — call "
+            "prep_panel_for_forecaster() first."
+        )
+    qt, cb, info = fit_split_conformal(
+        panel, split_date, cell_col=cell_col, taus=taus
+    )
+    info["forecaster"] = forecaster
+    return qt, cb, info
+
+
+def serve_bands_forecaster(
+    panel: pd.DataFrame,
+    quantile_table: dict[str, dict[float, float]],
+    c_bump_schedule: dict[float, float],
+    forecaster: str,
+    cell_col: str = "regime_pub",
+    taus: tuple[float, ...] = DEFAULT_TAUS,
+    delta_shift_schedule: dict[float, float] | None = None,
+) -> dict[float, pd.DataFrame]:
+    """Forecaster-aware `serve_bands`.
+
+    M5: legacy point-relative band (`point ± q·point`); δ defaults to the
+        deployed M5 `DELTA_SHIFT_SCHEDULE`.
+    LWC: σ̂-scaled band (`point ± q·σ̂·fri_close`); δ defaults to the
+        deployed M6 `LWC_DELTA_SHIFT_SCHEDULE`. Panel must have
+        `sigma_hat_sym_pre_fri` (already added by `prep_panel_for_forecaster`)."""
+    if forecaster == "m5":
+        return serve_bands(
+            panel, quantile_table, c_bump_schedule,
+            cell_col=cell_col, taus=taus,
+            delta_shift_schedule=delta_shift_schedule,
+        )
+    if forecaster == "lwc":
+        return serve_bands_lwc(
+            panel, quantile_table, c_bump_schedule,
+            cell_col=cell_col, taus=taus,
+            delta_shift_schedule=delta_shift_schedule,
+        )
+    raise ValueError(
+        f"forecaster must be one of {FORECASTERS}, got {forecaster!r}"
+    )
+
+
 def fit_split_conformal(
     panel: pd.DataFrame,
     split_date: date,
