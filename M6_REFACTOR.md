@@ -72,117 +72,163 @@ The currently deployed architecture is **M5** — Mondrian split-conformal by `r
 
 ---
 
-## Phase 2 — Re-run the full §6 / §7 validation battery on M6
+## Phase 2 — Re-run the full §6 / §7 validation battery on M6  ✅ COMPLETE 2026-05-04
 
-**Goal:** produce the full empirical evidence the paper needs to promote M6 to the headline result. Every robustness check the paper currently runs against M5 must be re-run against M6 and reported alongside.
+**Goal:** produce the full empirical evidence the paper needs to promote M6 to the headline result. Every robustness check the paper currently runs against M5 has been re-run against M6 and reported alongside in `reports/m6_validation.md`.
 
-Add a `--forecaster {m5, lwc}` flag to each runner below and persist outputs to parallel CSVs under `reports/tables/m6_lwc_*.csv`.
+Implementation: a small forecaster dispatcher in `src/soothsayer/backtest/calibration.py` (`prep_panel_for_forecaster`, `fit_split_conformal_forecaster`, `serve_bands_forecaster`) keeps per-script changes minimal — each runner gained an `argparse --forecaster {m5,lwc}` flag and writes to `m6_lwc_*` CSVs when run under LWC.
 
-### 2.1 — Robustness battery
+### 2.1 — Robustness battery ✅
 
-- [ ] `scripts/run_v1b_per_symbol_diagnostics.py` — expect **10/10 per-symbol Kupiec passes at τ=0.95** based on the bake-off. Persist **Berkowitz LR per symbol** — this is the central new evidence.
-- [ ] `scripts/run_v1b_garch_baseline.py` — re-run matched-coverage comparison against the GARCH-side benchmark.
-- [ ] `scripts/run_v1b_split_sensitivity.py` — re-run the four-anchor split-date sensitivity {2021, 2022, 2023, 2024} with M6.
-- [ ] `scripts/run_v1b_loso.py` — leave-one-symbol-out CV. **Most important sensitivity check** given that LWC's whole point is per-symbol calibration.
-- [ ] `scripts/run_v1b_per_class.py` — per-asset-class breakdown.
-- [ ] `scripts/run_v1b_path_fitted_conformal.py` — path-coverage variant on the perp tape.
-- [ ] `scripts/run_v1b_vol_tertile.py` — confirm the §6.3.1 cross-sectional-AR(1) finding holds or moves under M6.
-- [ ] `scripts/aggregate_ab_comparison.py` — produce M5-vs-M6 **block-bootstrap CIs** on coverage and width at every anchor (**1000 weekend-block resamples, seed 0**).
+- [x] `scripts/run_v1b_per_symbol_diagnostics.py` → **10/10 per-symbol Kupiec passes at τ=0.95 under LWC** (vs 2/10 under M5). HOOD violation rate 13.9% → 4.05% (Kupiec p 0.000 → 0.552). Per-symbol Berkowitz LR range collapses from 0.9–224 (250×) under M5 to 3.3–18 (5.5×) under M6.
+- [x] `scripts/run_v1b_garch_baseline.py` — GARCH undercovers at every τ (0.9254 at τ=0.95, p<0.001 Kupiec); both M5 and LWC clear Kupiec; LWC Christoffersen 0.275 vs M5 0.921.
+- [x] `scripts/run_v1b_split_sensitivity.py` — LWC realised at τ=0.95 across 4 splits = 0.9502–0.9506 (M5: 0.9502–0.9507). LWC Christoffersen rejects at 2021 + 2022 splits; M5 doesn't (see discussion list entry 2 below).
+- [x] `scripts/run_v1b_loso.py` — **most striking generalisation result.** LWC LOSO realised mean=0.9497, **std=0.0134** (vs M5 std=0.0759 — 5.7× tighter); **all 10 symbols pass Kupiec when held out** (vs M5: held-out MSTR drops to 0.786, SPY climbs to 1.000).
+- [x] `scripts/run_v1b_per_class.py` — width redistribution: equities 355→436 bps (+23%), gold/treasuries 355→184 bps (−48%); LWC Kupiec passes every class at every τ; M5 over-covers gold/treasuries (Kupiec p=0.000–0.001 at τ=0.95).
+- [x] `scripts/run_v1b_path_fitted_conformal.py` — LWC narrows endpoint-vs-path gap at τ=0.95 from M5's −4.05pp to −1.16pp without explicit path-fitting (σ̂-rescaling absorbs within-weekend path variance).
+- [x] `scripts/run_v1b_vol_tertile.py` — bin-structure refutation holds under both forecasters (M5: 173→175, LWC: 165→168 — finer cells don't drop Berkowitz LR). LWC Berkowitz is 5% lower pooled but both still strongly reject.
+- [x] `scripts/aggregate_m5_m6_bootstrap.py` (new — separate from the Kamino-policy `aggregate_ab_comparison.py`). 1000 weekend-block resamples, seed 0, paired by `(symbol, fri_ts)`. **Headline at τ=0.95: Δrealised = 0.000 [−0.014, +0.013]** (CI straddles 0); **Δhalf-width = +30.7 bps [+12.3, +49.0]** (CI excludes 0 high). At τ=0.85 LWC is reliably *narrower* (Δhw=−17, CI [−27, −8]). At τ=0.99 width is statistically neutral.
 
-### 2.2 — Pooled OOS tables
+### 2.2 — Pooled OOS + tertile tables ✅
 
-- [ ] New pooled OOS table for M6 mirroring §6.3.1 (Kupiec + Christoffersen at τ ∈ {0.68, 0.85, 0.95, 0.99}).
-- [ ] New realised-move-tertile decomposition mirroring the calm/normal/shock table in §6.3.
+- [x] `scripts/run_m6_pooled_oos_tables.py` (new). Pooled OOS at every served τ + realised-move tertile decomposition (calm/normal/shock × τ × forecaster). Both forecasters in one CSV pair.
+  - Pooled at τ=0.95: M5 realised 0.9503 / hw 354.6 / Kupiec 0.956 / Christ 0.921; LWC realised 0.9503 / hw 385.3 / Kupiec 0.956 / Christ 0.275.
+  - Tertile at τ=0.95 shock: M5 0.8718 / 368.9 bps; LWC 0.8782 / 394.6 bps. Shock-tertile floor improves only +0.64pp under LWC — orthogonal axis (cross-sectional ρ, not per-symbol scale).
 
-### 2.3 — Summary doc
+### 2.3 — Summary doc ✅
 
-- [ ] Write `reports/m6_validation.md` in the same shape as `reports/v1b_calibration.md`, with all numbers populated.
+- [x] `reports/m6_validation.md` written (full evidence pack, ~13 sections including the discussion list and reproduce-from-scratch script block).
 
-### Definition of done — Phase 2
+### Definition of done — Phase 2 ✅
 
-- All eight robustness scripts run cleanly with `--forecaster lwc`.
-- M6 row of the per-symbol diagnostics table shows **≥ 8/10 Kupiec passes at τ=0.95** (failure-mode inverted from M5).
-- `reports/m6_validation.md` is filled in with all numbers populated.
+- [x] All eight robustness scripts run cleanly with `--forecaster lwc`.
+- [x] M6 per-symbol Kupiec at τ=0.95: **10/10 passes** (well above the ≥8/10 threshold; M5: 2/10).
+- [x] `reports/m6_validation.md` is filled in with all numbers populated.
+
+### Phase 2 discussion list — where M6 underperforms M5
+
+These are the cells where the comparison flips against M6, surfaced for the paper-revision conversation. Full detail in `reports/m6_validation.md` §11.
+
+1. **Pooled half-width at τ=0.95: +30.7 bps wider** (CI excludes zero). The +8.6% width tax — the trade-off for per-symbol calibration. M6 still passes Kupiec at the same level (p=0.956 for both).
+2. **Christoffersen p drops at every τ.** LWC has 2021 + 2022 split-date Christoffersen rejections at τ=0.95 (M5 didn't). LWC tightens unconditional per-symbol calibration but introduces some lag-1 violation clustering — σ̂_sym(t) is itself slowly-varying, so a calm streak under-estimates σ̂ going into a vol shock.
+3. **Shock-tertile floor barely improves** (+0.64pp). The §9.1 ceiling is cross-sectional common-mode (M6a territory), not per-symbol scale (M6 LWC).
+4. **Path-coverage Kupiec still rejects at τ=0.68/0.85.** LWC's narrower endpoint-vs-path gap at τ=0.95 doesn't lift Kupiec p at lower τ.
+5. **Per-symbol Berkowitz still rejects for TSLA / GOOGL / TLT** at α=0.01 (LR 14–18 vs M5's 27–141 — 5–14× smaller but non-zero). Cross-sectional common-mode again.
+6. **NVDA Berkowitz LR rises slightly** (0.92 → 7.92). NVDA was M5's best symbol; LWC marginally over-tightens it. Small price for fixing 9 others.
 
 ---
 
-## Phase 3 — Simulation study
+## Phase 3 — Simulation study  ✅ COMPLETE 2026-05-04
 
 **Goal:** validate the LWC methodology on synthetic data with known ground truth — the standard reviewer hygiene check the paper currently lacks.
 
-Build `scripts/run_simulation_study.py`. Use NumPy default RNG with **seed 0**. The simulation must be deterministic. Run **100 Monte Carlo replications per DGP**.
+Single deliverable: `scripts/run_simulation_study.py`. Deterministic from seed=0; full battery (4 DGPs × 100 reps × 2 forecasters) runs in ~30 s. Per-DGP RNG via `np.random.default_rng(0).spawn(4)` so adding/removing a DGP doesn't perturb others' draws.
 
-### 3.1 — DGP A (homoskedastic baseline)
+### 3.1 — DGP A (homoskedastic baseline) ✅
 
-- [ ] Generate 10 synthetic "symbols", each 600 weekend returns drawn i.i.d. from Student-t df=4 with known scale parameters spanning the empirical range of the real panel (`σ ∈ [0.005, 0.030]`). No regimes.
-- [ ] Fit M5 and M6 separately. Report per-symbol Kupiec at τ ∈ {0.68, 0.85, 0.95, 0.99} for both.
-- **Expected:** M5 exhibits per-symbol bimodality (low-σ over-cover, high-σ under-cover) by construction. M6 should pass per-symbol at all 10 since it standardises by σ.
+- [x] 10 synthetic symbols, σ_i ∈ linspace(0.005, 0.030, 10), 600 i.i.d. Student-t df=4 weekend returns each (rescaled so std(r)=σ_i). No regimes.
+- [x] **M5 pass-rate at τ=0.95 = 0.311** (311/1000 cells) — bimodality reproduces under controlled conditions, as predicted.
+- [x] **LWC pass-rate at τ=0.95 = 0.994** (994/1000) — uniform calibration per-symbol.
 
-### 3.2 — DGP B (regime-switching)
+### 3.2 — DGP B (regime-switching) ✅
 
-- [ ] Same 10 symbols, but a 3-state Markov regime governs a global volatility multiplier (low/medium/high — **multipliers 0.5/1.0/2.0**, transition probabilities calibrated to roughly match the empirical 65/24/10 split). Regime is observable.
-- [ ] Fit both architectures using the regime label as a stratifier. Same per-symbol Kupiec.
-- **Expected:** M6 still passes per-symbol; M5 still bimodal. Width should now scale appropriately with regime under both.
+- [x] 3-state Markov chain over `{medium=1.0×, low=0.5×, high=2.0×}` vol multipliers; stationary distribution [0.65, 0.25, 0.10] enforced by detailed-balance construction (state 0 dwell ~24 weeks; states 1/2 dwell ~6.7 weeks). Regime label observable.
+- [x] **M5 pass-rate = 0.310, LWC = 0.976.** LWC pays a ~2pp pass-rate cost vs DGP A — regime transitions inject σ̂-tracking lag (when regime flips, σ̂ is contaminated with the previous regime's residuals for ~13 weekends). The only DGP where LWC's pass-rate falls noticeably below 0.99.
 
-### 3.3 — DGP C (non-stationary scale — the realistic case)
+### 3.3 — DGP C (non-stationary scale — drift) ✅
 
-- [ ] Same 10 symbols, but each symbol's σ slowly drifts upward over time (`σ_t = σ_0 · (1 + 0.1 · t/T)` over 600 weekends). This is the case where the trailing-26-week σ̂ in LWC has to track the change.
-- **Expected:** M6 stays calibrated; M5 progressively under-covers as the panel ages.
+- [x] σ_t = σ_i · (1 + 0.1·t/T). 10% drift over 600 weekends.
+- [x] **M5 pass-rate = 0.309, LWC = 0.996.** This is LWC's *best* DGP — drift is exactly the case σ̂'s adaptive K=26 window was designed for.
 
-### 3.4 — DGP D (exchangeability stress test)
+### 3.4 — DGP D (exchangeability stress test) ✅
 
-- [ ] Inject a structural break at `t = 400` (variance triples). This breaks the conformal-prediction exchangeability assumption. Fit on `t < 400`, evaluate on `t ≥ 400`.
-- **Expected:** Both architectures degrade. The right finding is **how much** and **whether LWC's adaptive scale recovers faster**. Honest reporting here strengthens the paper.
+- [x] Variance triples at t=400 (std × √3). Train on t<400, evaluate on t≥400.
+- [x] **M5 pass-rate = 0.292, LWC = 0.994. The break barely degrades LWC** — pass-rate matches DGP A. σ̂'s 26-week trailing window absorbs the structural break in <26 weekends, and the 174 well-calibrated post-recovery weekends dilute the warm-up under-coverage.
+- This was a surprise vs the brief's "honest case where neither method is great" prediction. **Stronger result than expected.**
 
-### 3.5 — Outputs
+### 3.5 — Outputs ✅
 
-- [ ] `reports/tables/sim_{a,b,c,d}_*.csv` for each DGP.
-- [ ] `reports/figures/simulation_summary.{pdf,png}` — per-symbol Kupiec p-value distributions for M5 vs M6 across the four DGPs.
-- [ ] `reports/m6_simulation_study.md` with the four-DGP table populated and the summary figure rendered.
+- [x] `reports/tables/sim_{a,b,c,d}_per_symbol_kupiec.csv` (1000 rows × 4 anchors × 2 forecasters per DGP).
+- [x] `reports/tables/sim_summary.csv` (one row per DGP × τ × forecaster).
+- [x] `reports/figures/simulation_summary.{pdf,png}` — 4-panel box-plot at τ=0.95, M5 vs LWC × 10 symbols × 100 reps.
+- [x] `reports/m6_simulation_study.md` — full evidence pack with per-DGP narrative + headline tables + reproducibility block.
 
-### Definition of done — Phase 3
+### Definition of done — Phase 3 ✅
 
-- Four DGPs complete, 100 reps each.
-- Outputs and summary doc rendered.
-- Result is reproducible from seed 0.
+- [x] Four DGPs complete, 100 reps each.
+- [x] Outputs and summary doc rendered.
+- [x] Result is reproducible from seed 0 (single command: `uv run python -u scripts/run_simulation_study.py`).
 
 ---
 
-## Phase 4 — Forward-tape harness scaffolding
+## Phase 4 — Forward-tape harness scaffolding ✅ COMPLETE 2026-05-04
 
 **Goal:** build the infrastructure to validate M6 on truly held-out forward weekends as they accumulate, so the next paper revision can include "T weekends of forward-tape OOS validation since artefact freeze."
 
-This is **scaffolding** — it will not produce paper evidence yet. The harness's job is to make sure that when forward weekends arrive, validation is one command away.
+This is **scaffolding** — it does not produce paper evidence yet. The harness's job is to make sure that when forward weekends arrive, validation is one command away. Phase 4 split cleanly into two sides: the scryer agent shipped G1.b (forward polling for VIX via CBOE + daily CME 1m for futures) on 2026-05-04; the soothsayer side wires the new sources into `panel.py` and bundles the harness behind a launchd-driven runner.
 
-### 4.1 — Freeze the artefact
+### 4.0 — Scryer-side hand-off ✅
 
-- [ ] Tag the M6 artefact at `data/processed/lwc_artefact_v1_frozen_{YYYYMMDD}.json` with a hash (e.g. SHA-256). This frozen artefact is what all forward-tape evaluation runs against. The "live" artefact (`lwc_artefact_v1.json`) keeps updating; the frozen one does not.
+- [x] Drafted `M6_PHASE4_SCRYER_BRIEF.md` (now deleted — purpose served).
+- [x] Scryer agent confirmed coverage, ran the cadence audit, identified the 7 non-forward-polled symbols (4 futures + 3 vol indices), and shipped G1.b: VIX → `cboe/indices/v1/index=VIX/` (daily 22:30 UTC); futures → soothsayer-side resample of `cme/intraday_1m/v1` (daily 06:00 UTC). ^GVZ + ^MOVE remain on soothsayer's existing VIX-fallback path (acceptable per the brief's §5 watch-out).
+- [x] Forward-poll cadences documented: equities-daily 22:00 UTC, earnings 23:00 UTC, cme-intraday-1m 06:00 UTC, cboe-indices 22:30 UTC. All under a 25h SLA.
 
-### 4.2 — Forward-tape collector
+### 4.1 — Freeze the artefact ✅
 
-- [ ] Write `scripts/collect_forward_tape.py`:
-  - Reads from existing scryer parquet incrementally.
-  - Identifies weekends with `fri_ts > artefact_freeze_date`.
-  - Builds a forward panel mirroring the training panel schema.
-  - Persists to `data/processed/forward_tape_v1.parquet`.
+- [x] `scripts/freeze_lwc_artefact.py` (re-runnable). Copies `lwc_artefact_v1.{json,parquet}` → `lwc_artefact_v1_frozen_{YYYYMMDD}.{json,parquet}` and embeds two SHA-256s: `_frozen_parquet_sha256` over the parquet bytes and `_artefact_sha256` over the canonical-JSON serialisation of the augmented sidecar.
+- [x] First freeze produced: `data/processed/lwc_artefact_v1_frozen_20260504.{json,parquet}` (training cutoff = 2026-04-24, last complete training Friday).
 
-### 4.3 — Forward-tape evaluator
+### 4.2 — Forward-tape collector ✅
 
-- [ ] Write `scripts/run_forward_tape_evaluation.py`:
-  - Loads the frozen artefact.
-  - Loads the forward tape.
-  - Runs the §6.3 / §6.4 / §6.6 batteries on the forward tape only — **no schedule re-fitting, no quantile re-training, nothing touches the frozen artefact**.
-  - Outputs `reports/m6_forward_tape_{N}weekends.md` in the same shape as `reports/m6_validation.md`.
+- [x] `scripts/collect_forward_tape.py`:
+  - Auto-discovers the latest frozen artefact (or accepts `--frozen-suffix YYYYMMDD`).
+  - Calls `soothsayer.backtest.panel.build()` over a 400-day context window so the evaluator's σ̂_sym(t) and `regimes._high_vol_flag` rolling-quantile windows are stable for the first forward weekend.
+  - Calls `regimes.tag()` to add `regime_pub` + `realized_bucket` (panel.build doesn't tag).
+  - Persists `data/processed/forward_tape_v1.parquet` with `is_forward = (fri_ts > cutoff)` per row.
+- [x] Currently 560 context rows × 56 weekends, 0 forward rows (the 2026-05-01 weekend's CME bar is missing because of a backfill gap from the runner's standup).
 
-### 4.4 — CI workflow
+### 4.3 — Forward-tape evaluator ✅
 
-- [ ] Add `.github/workflows/forward_tape_monthly.yml` running `collect_forward_tape.py` + `run_forward_tape_evaluation.py` monthly and committing the resulting markdown/CSVs.
+- [x] `scripts/run_forward_tape_evaluation.py`:
+  - Loads the frozen JSON sidecar's three schedules directly (constants only; never touches the live module-level `LWC_*` tables — immune to live-artefact updates between freeze and evaluation).
+  - Recomputes σ̂ over the combined context+forward panel (same K=26 / min_obs=8 as the artefact build).
+  - Applies the LWC serving formula on forward rows; computes pooled-OOS metrics (Kupiec + Christoffersen at 4 anchors) and per-symbol Kupiec + Berkowitz LR.
+  - Outputs `reports/m6_forward_tape_{N}weekends.md` with a "preliminary" banner when N < 4.
+- [x] Empty-tape graceful: writes a `m6_forward_tape_0weekends.md` stub when no forward rows are available; the wrapper script's SLA pre-check explains the most-likely cause.
+- [x] End-to-end synthetic test (cutoff shifted to 2026-04-10, 2 forward weekends): pooled OOS realised 0.7500 / 0.9500 / 1.0000 / 1.0000 across the four anchors — no errors, all metrics populate.
 
-### Definition of done — Phase 4
+### 4.4 — Recurring trigger (launchd) ✅
 
-- Collector and evaluator both run cleanly against an empty forward tape (n=0 → graceful exit with "insufficient data").
-- When ≥ 4 forward weekends have accumulated post-freeze, the evaluator produces a populated report.
-- Frozen artefact hash is committed.
+- [x] `scripts/check_scryer_freshness.py` — SLA pre-check reads `internal.scryer/workflow_run/v2`, confirms the four runners have a `succeeded` run in the last 26h. Currently OK on all four (latest within ~30 min of fire time).
+- [x] `scripts/run_forward_tape_harness.sh` — wrapper that runs SLA check + collector + evaluator, all stdout/stderr appended to `~/Library/Logs/soothsayer-forward-tape.log`. Wrapper does NOT git-commit (Adam's "phase-commit" preference; he reviews + commits manually).
+- [x] `launchd/com.adamnoonan.soothsayer.forward-tape.plist` — fires every Tuesday at 09:30 local time. **Install instructions inside the plist comment.** Plist passes `plutil -lint`. Per Adam's global memory: launchd is the canonical recurring scheduler; `/schedule` and CronCreate/RemoteTrigger are explicitly avoided.
+
+### 4.5 — End-to-end test + documentation ✅
+
+- [x] Local fire produced clean run: SLA OK, collector wrote the tape, evaluator wrote the 0-weekend stub. Total wall clock ~3 s.
+- [x] M6_REFACTOR.md updated (this commit).
+- [x] `M6_PHASE4_SCRYER_BRIEF.md` deleted (lifecycle-completion as the brief itself directed).
+
+### 4.6 — CBOE VIX + CME futures resample (G1.b adoption) ✅
+
+- [x] Added `load_cboe_index_daily` and `load_cme_daily_from_intraday` to `src/soothsayer/sources/scryer.py`. CBOE schema is `(index, date, open, high, low, close)`; loader normalises to yahoo-bars-shape (`symbol, ts, open, high, low, close`). CME loader resamples 1m bars to UTC-day OHLCV.
+- [x] Updated `src/soothsayer/backtest/panel.py::_load_one_symbol` with per-symbol source dispatch:
+  - `^VIX` → blend CBOE (forward) with yahoo (legacy); CBOE wins on overlap. (`^GVZ`, `^MOVE` stay on yahoo + existing VIX-fallback.)
+  - `ES=F` / `NQ=F` / `GC=F` / `ZN=F` → blend yahoo (legacy) with CME-resampled (forward); **yahoo wins on overlap** to preserve the frozen artefact's training convention.
+  - All other symbols unchanged.
+- [x] Verified the source switch produces byte-identical historical reads (frozen-artefact training period intact) and picks up the new sources for forward dates the legacy sources don't have.
+
+### Definition of done — Phase 4 ✅
+
+- [x] Scryer side confirmed (G1.b shipped) and adopted in panel.py.
+- [x] Frozen artefact JSON contains `_artefact_sha256` and `_frozen_parquet_sha256`.
+- [x] Collector and evaluator both run cleanly against the current empty-forward tape (n=0 → graceful "insufficient data" exit, stub report written).
+- [x] Wrapper script + launchd plist ready to install. Adam's install: copy plist to `~/Library/LaunchAgents/` and `launchctl load -w …` (instructions inside the plist).
+
+### Open follow-ups
+
+- **First populated forward report.** The 2026-05-01 weekend can't be evaluated because of a CME 1m backfill gap (Apr 29–May 2 missing for ES/NQ/GC/ZN). When the next clean weekend completes (Fri 2026-05-08, evaluable Tue 2026-05-12), the harness will produce the first non-stub `reports/m6_forward_tape_1weekends.md` automatically. After ~4 forward weekends, the preliminary banner clears and the report is paper-revisable evidence.
+- **CME backfill.** Adam can ask the scryer agent to backfill 2026-04-29 → 2026-05-02 for the four CME symbols if recovering the 2026-05-01 weekend matters; otherwise the harness will simply skip it.
 
 ---
 
