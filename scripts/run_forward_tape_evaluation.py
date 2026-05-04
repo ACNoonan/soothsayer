@@ -50,6 +50,8 @@ from soothsayer.backtest.calibration import (
     SIGMA_HAT_K,
     SIGMA_HAT_MIN,
     add_sigma_hat_sym,
+    add_sigma_hat_sym_blend,
+    add_sigma_hat_sym_ewma,
     compute_score_lwc,
 )
 from soothsayer.config import DATA_PROCESSED, REPORTS
@@ -79,6 +81,47 @@ def _load_frozen(suffix: str | None) -> tuple[Path, dict]:
             raise FileNotFoundError("No frozen artefact in data/processed/.")
         path = candidates[-1]
     return path, json.loads(path.read_text())
+
+
+def _apply_frozen_sigma_rule(panel: pd.DataFrame, sidecar: dict) -> pd.DataFrame:
+    """Compute σ̂ on `panel` per the frozen artefact's σ̂ rule and surface the
+    value under the canonical `sigma_hat_sym_pre_fri` column the rest of the
+    serving formula reads.
+
+    Dispatches on `sidecar["sigma_hat"]["method"]` so the evaluator stays in
+    sync with whichever variant the canonical artefact was built under.
+    Mirrors the variant-bundle evaluator's σ̂ dispatch so step-4 and step-5
+    forward-tape reports agree byte-for-byte for the canonical variant.
+
+    Older frozen sidecars (pre-Phase-5) lack the `sigma_hat` block; in that
+    case we fall back to the K=26 trailing-window default, matching the
+    pre-promotion behaviour. New frozen sidecars (post 2026-05-04) always
+    include the block.
+    """
+    sigma = sidecar.get("sigma_hat", {}) or {}
+    method = sigma.get("method", "trailing_window")
+    min_obs = int(sigma.get("min_past_obs", SIGMA_HAT_MIN))
+    if method == "trailing_window":
+        K = int(sigma.get("K_weekends", SIGMA_HAT_K))
+        out = add_sigma_hat_sym(panel, K=K, min_obs=min_obs)
+        return out
+    if method == "ewma":
+        hl = int(sigma["half_life_weekends"])
+        out = add_sigma_hat_sym_ewma(panel, half_life=hl, min_obs=min_obs)
+        out["sigma_hat_sym_pre_fri"] = out[f"sigma_hat_sym_ewma_pre_fri_hl{hl}"]
+        return out
+    if method == "blend":
+        alpha = float(sigma["alpha"])
+        hl = int(sigma["half_life_weekends"])
+        K = int(sigma.get("K_weekends", SIGMA_HAT_K))
+        out = add_sigma_hat_sym_blend(panel, alpha=alpha, half_life=hl,
+                                      K=K, min_obs=min_obs)
+        a_tag = int(round(alpha * 100))
+        out["sigma_hat_sym_pre_fri"] = (
+            out[f"sigma_hat_sym_blend_pre_fri_a{a_tag}_hl{hl}"]
+        )
+        return out
+    raise ValueError(f"Unknown σ̂ method {method!r} in frozen sidecar.")
 
 
 def _frozen_schedules(sidecar: dict) -> tuple[dict, dict, dict]:
@@ -433,9 +476,13 @@ def main() -> None:
           f"sha256={sidecar.get('_artefact_sha256','')[:12]}…", flush=True)
 
     # σ̂_sym(t) over the combined context+forward panel — must use the
-    # same K=26 / min_obs=8 as the frozen build for consistency.
+    # same σ̂ rule the frozen artefact was built with, otherwise the
+    # quantile table and c-bumps (trained against one σ̂ rule) get applied
+    # to forward-row σ̂ values from a different rule and the bands skew.
+    # The post-2026-05-04 canonical variant is EWMA HL=8; pre-Phase-5
+    # artefacts default to the K=26 trailing window.
     full = tape.copy()
-    full = add_sigma_hat_sym(full, K=SIGMA_HAT_K, min_obs=SIGMA_HAT_MIN)
+    full = _apply_frozen_sigma_rule(full, sidecar)
     forward = full[full["is_forward"] & full["sigma_hat_sym_pre_fri"].notna()].copy()
     forward = forward.sort_values(["fri_ts", "symbol"]).reset_index(drop=True)
     n_forward_post_sigma = len(forward)
