@@ -1,6 +1,6 @@
 # M6 (LWC) — Phase 3 simulation study
 
-**Generated:** 2026-05-04. Companion to `M6_REFACTOR.md` Phase 3 and `reports/m6_validation.md` (Phase 2). The simulation evidence the paper currently lacks: validate the M5 vs M6 contrast on synthetic panels with known ground truth, four data-generating processes, 100 Monte Carlo replications each, deterministic from seed=0.
+**Generated:** 2026-05-04. Companion to `reports/active/m6_refactor.md` Phase 3 and `reports/m6_validation.md` (Phase 2). The simulation evidence the paper currently lacks: validate the M5 vs M6 contrast on synthetic panels with known ground truth, four data-generating processes, 100 Monte Carlo replications each, deterministic from seed=0.
 
 Source: `scripts/run_simulation_study.py` (~30 s end-to-end). All four DGPs use 10 synthetic symbols × 600 weekend returns each, with σ_i ∈ linspace(0.005, 0.030, 10) — spanning the empirical real-panel range. Train/OOS split at t=400 across all DGPs (200 OOS weekends per symbol). Returns drawn from Student-t df=4 rescaled so std(r) = σ_i (or σ_i × m_t under DGP B/C/D's vol modifications).
 

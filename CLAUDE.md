@@ -6,7 +6,9 @@ This is the startup context for agents. Keep it short. Detailed reasoning belong
 
 ## Read First
 
-- `reports/methodology_history.md` — compact operational source of truth: current decisions, recent locks, open gates.
+- `STATUS.md` — single-page current-state pointer page (read first; updated when methodology / workstream / artefact changes).
+- `reports/methodology_history.md` — append-only dated decision log. §0 = current state, §1 = chronological entries.
+- `reports/INDEX.md` — classifies every report under `reports/` as current / paper-evidence / historical / operational.
 - `docs/ROADMAP.md` — phase sequencing and active publication/deployment gates.
 - `docs/scryer_consumer_guide.md` — sanctioned data-read pattern from scryer parquet.
 - `README.md` — public product shape and evidence snapshot.
@@ -31,33 +33,9 @@ If a user request would break these rules, name the rule and ask whether it is a
 
 ## Current State
 
-Phase 0 validation is complete. Phase 1 is active: devnet / publish-path work, Paper 1 completion, Paper 3 draft, and forward data capture for Paper 4/Product-stack evidence.
+For deployed methodology, active workstreams, headline metrics, deployment artefact paths, and a per-task "if you're working on X, read Y" routing table: read [`STATUS.md`](STATUS.md). It is updated on every methodology / workstream / artefact change. Don't duplicate that content here.
 
-Current methodology (v2 / M5 — deployed):
-
-- Product: calibrated band primitive with receipts; downstream policy work consumes the band.
-- Default deployment target: `τ = 0.85`.
-- Paper 1 headline target: `τ = 0.95`.
-- Served range: `τ ∈ [0.68, 0.99]`; M5 closes the v1 finite-sample tail ceiling at τ=0.99 at the cost of a 22% wider band.
-- Architecture: Mondrian split-conformal by `regime_pub` + factor-adjusted point + δ-shifted `c(τ)`. Twenty deployment scalars: 12 trained per-regime quantiles, 4 OOS-fit `c(τ)` bumps, 4 walk-forward-fit `δ(τ)` shifts. See `src/soothsayer/oracle.py` and `crates/soothsayer-oracle/src/config.rs`.
-- Deployment artefact: `data/processed/mondrian_artefact_v2.parquet` (per-Friday rows) + `data/processed/mondrian_artefact_v2.json` (audit-trail sidecar with the 20 scalars). Built by `scripts/build_mondrian_artefact.py`.
-- Wire format: `PriceUpdate` Borsh layout preserved across the v1 → M5 migration; `forecaster_code = 2` (FORECASTER_MONDRIAN) signals an M5 read.
-- Empirical headline: at τ=0.95 on the 2023+ OOS slice, realised $0.950$ with Kupiec $p = 0.956$, Christoffersen $p = 0.912$, mean half-width $354.5$ bps (20% narrower than the v1 hybrid Oracle at the same anchor and parameter budget). See `reports/methodology_history.md` (2026-05-02 M5 entry) and `reports/paper1_coverage_inversion/` §4 + §7.7.
-
-Post-M5 direction (2026-05-03, architecturally locked, not yet deployed): dual-profile methodology family. Lending-track (M6b2 per-class Mondrian) ships next; AMM-track (M6a-deployable common-mode partial-out) gated on a Friday-observable r̄_w forward predictor. Both profiles share this M5 architecture and wire format; they differ only in (a) score residualisation and (b) conformal cell partition. Working doc: `M6_REFACTOR.md` (root). Architecture: `docs/product-stack.md` "Dual-profile methodology family" section + per-layer track assignment table. Decision record: `reports/methodology_history.md` (2026-05-03 entry).
-
-Paper 3 current framing:
-
-- Three claims: Geometric, Structural, Empirical.
-- Kamino-xStocks is the xStock empirical panel (`kamino/liquidations/v1`, 102 events over 2025-08 to 2026-04).
-- MarginFi is the cleanest general-lending deployment-substrate argument; it has zero direct xStock Banks in the current scan.
-- Active next work: Kamino 2025-11 cluster analysis, dynamic-bonus / `D_repaid` fit, class-disaggregated reserve-buffer evaluation, path-aware truth.
-
-Paper 4 / product-stack current framing:
-
-- Post-grant AMM arc, but forward capture must start now.
-- Scryer item 51 owns `jito_bundle_tape`, `validator_client`, `clmm_pool_state`, `dlmm_pool_state`, and `dex_xstock_swaps` promotion.
-- Soothsayer later builds consumers: pool-state reconstructor, path-aware truth labeller, bundle-attribution labels, counterfactual replay.
+For dated narrative on *why* the current state looks the way it does, read `reports/methodology_history.md`.
 
 ## Repo Map
 
@@ -82,7 +60,9 @@ crates/
 programs/                    Anchor programs for router / publish paths
 
 reports/
+  INDEX.md                   classifies every report as current / paper-evidence / historical / operational
   methodology_history.md     compact methodology ledger
+  active/                    in-flight working docs (M6 refactor, Phase 7/8 results, validation backlog)
   paper1_coverage_inversion/
   paper3_liquidation_policy/
   paper4_oracle_conditioned_amm/

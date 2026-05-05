@@ -6,9 +6,7 @@
 
 ## The product in one sentence
 
-**Soothsayer is a calibration-transparent oracle: consumers specify the realized
-coverage they need, and we publish the band that historically delivers it —
-with a receipt showing which forecaster and which claimed quantile were used.**
+**Soothsayer is a calibration-transparent oracle: we ingest upstream price/oracle signals and publish a calibrated band per symbol — point plus bounds plus a receipt — whose realised coverage rate can be checked against 12 years of public weekend data. Other oracles publish a number; Soothsayer publishes a number, a band, and a coverage claim, and stakes the product on that claim being verifiable from public data.**
 
 ## Status taxonomy
 
@@ -37,7 +35,7 @@ The deployed v2 / M5 architecture is a Mondrian split-conformal predictor (Vovk 
 
 - **Point estimator.** Friday close × (1 + factor return), where the factor is asset-class-matched (ES/NQ/GC/ZN/BTC). See Paper 1 §4.1 + §5.4.
 - **Per-regime conformal quantile $q_r(\tau)$.** The empirical $\tau$-quantile of the absolute relative residual on the pre-2023 calibration set, stratified by regime $r \in \{\texttt{normal}, \texttt{long\_weekend}, \texttt{high\_vol}\}$. Twelve trained scalars (3 regimes × 4 anchors).
-- **OOS-fit multiplicative bump $c(\tau)$.** Smallest scalar such that pooled OOS realised coverage with effective quantile $c \cdot q_r$ matches the consumer's request at each anchor. Four scalars total (the v2 / M5 analogue of v1's `BUFFER_BY_TARGET`).
+- **OOS-fit multiplicative bump $c(\tau)$.** Smallest scalar such that pooled OOS realised coverage with effective quantile $c \cdot q_r$ matches the target $\tau$ at each anchor. Four scalars total (the v2 / M5 analogue of v1's `BUFFER_BY_TARGET`).
 - **Walk-forward $\delta(\tau)$ shift.** Smallest schedule that aligns walk-forward realised coverage with nominal at every anchor. Four scalars total. Deployed: $\{0.05, 0.02, 0.00, 0.00\}$ at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$.
 
 The Oracle's serving-time computation is a five-line lookup:

@@ -3,7 +3,7 @@ W8 — r̄_w forward predictor prototype (AMM-track shipping gate).
 
 M6a's upper-bound width gain (-13% at τ=0.95) uses the leave-one-out
 weekend-mean residual r̄_w^(−i), which is Monday-derived. To deploy the
-AMM-track (`M6_REFACTOR.md` Phase B), the Oracle needs a Friday-observable
+AMM-track (`reports/active/m6_refactor.md` Phase B), the Oracle needs a Friday-observable
 predictor of r̄_w with R²(forward) ≥ 0.4 against realised r̄_w on a TRAIN/OOS
 holdout.
 
@@ -25,7 +25,7 @@ Three model families × multiple regularisations:
     M2  — full Friday-observable set:    union of M0 + M1 + panel + calendar
 
 Decision rule at the gate (R²(OOS) on r̄_w):
-    PASS    R²(OOS) ≥ 0.40   →  AMM-track ships under M6_REFACTOR.md Phase B.
+    PASS    R²(OOS) ≥ 0.40   →  AMM-track ships under reports/active/m6_refactor.md Phase B.
     DEFER   0.20 ≤ R²(OOS) < 0.40  →  workstream continues; revisit after V3.1
                                       F_tok signal accumulation OR build a
                                       Sunday-Globex republish variant.
@@ -336,7 +336,7 @@ def _build_markdown(
     decision_blurb = {
         "PASS": (
             f"R²(OOS) = {best['r2_oos']:.3f} ≥ {GATE_PASS_R2:.2f}. "
-            "**AMM-track shipping unblocked** under `M6_REFACTOR.md` Phase B. "
+            "**AMM-track shipping unblocked** under `reports/active/m6_refactor.md` Phase B. "
             "Hand the predictor JSON (`data/processed/r_bar_predictor_v1.json`) to Phase B1 "
             "(`scripts/build_m6a_amm_artefact.py`) and Phase B2 (Python serving wiring)."
         ),
@@ -377,7 +377,7 @@ def _build_markdown(
         "**Question.** M6a's upper-bound width gain (-13% at τ=0.95 OOS, see "
         "`reports/v1b_m6a_common_mode_partial_out.md`) uses the Monday-derived "
         "leave-one-out weekend-mean residual r̄_w^(−i). To deploy the AMM-track "
-        "(`M6_REFACTOR.md` Phase B), the Oracle needs a Friday-observable "
+        "(`reports/active/m6_refactor.md` Phase B), the Oracle needs a Friday-observable "
         "predictor of r̄_w with R²(forward) ≥ 0.40 against realised r̄_w on a "
         "TRAIN/OOS holdout. This script tests whether such a predictor is "
         "achievable on currently-available Friday-close state.",

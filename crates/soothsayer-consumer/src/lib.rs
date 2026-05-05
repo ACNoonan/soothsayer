@@ -75,7 +75,7 @@ pub const FORECASTER_F1_EMP_REGIME: u8 = 0;
 pub const FORECASTER_F0_STALE: u8 = 1;
 pub const FORECASTER_MONDRIAN: u8 = 2;
 
-/// Serving-profile codes (M6_REFACTOR.md A4). Code 0 is reserved for
+/// Serving-profile codes (reports/active/m6_refactor.md A4). Code 0 is reserved for
 /// pre-A4 in-flight `PriceUpdate` accounts whose `_pad0` byte 0 was zero.
 /// New publishes set 1 (lending) or 2 (amm).
 pub const PROFILE_LEGACY: u8 = 0;
@@ -273,7 +273,7 @@ pub fn decode_price_update(data: &[u8]) -> Result<PriceBand, DecodeError> {
     let regime_code = body[o]; o += 1;
     let forecaster_code = body[o]; o += 1;
     let exponent = body[o] as i8; o += 1;
-    // M6_REFACTOR.md A4: byte 4 was formerly `_pad0[0]` (always zero on
+    // reports/active/m6_refactor.md A4: byte 4 was formerly `_pad0[0]` (always zero on
     // pre-A4 publishes). New publishes write the profile_code there.
     // Old in-flight accounts naturally decode as profile_code = 0
     // (Profile::Legacy).

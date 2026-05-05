@@ -1,6 +1,6 @@
 # Phase 7 — Paper-strengthening empirical tests
 
-Phase 7 of the M6 refactor adds three empirical tests that strengthen Paper 1's value proposition and defuse anticipated reviewer objections. None of these change the deployed M6 artefact (`data/processed/lwc_artefact_v1.parquet` and its sidecar) — they extend the §6 / §7 evidence pack and use the M6 panel and serving harness already built in Phases 1–2 of the refactor. The canonical task spec lives at `M6_REFACTOR.md` §7; this file is the rolled-up reading-time summary an outside reader can skim in five minutes without digging through `M6_REFACTOR.md` or `reports/m6_validation.md`. The three sub-phases are independent and can be run in any order.
+Phase 7 of the M6 refactor adds three empirical tests that strengthen Paper 1's value proposition and defuse anticipated reviewer objections. None of these change the deployed M6 artefact (`data/processed/lwc_artefact_v1.parquet` and its sidecar) — they extend the §6 / §7 evidence pack and use the M6 panel and serving harness already built in Phases 1–2 of the refactor. The canonical task spec lives at `reports/active/m6_refactor.md` §7; this file is the rolled-up reading-time summary an outside reader can skim in five minutes without digging through `reports/active/m6_refactor.md` or `reports/m6_validation.md`. The three sub-phases are independent and can be run in any order.
 
 ## Status table
 
@@ -207,4 +207,4 @@ Phase 7.3 strengthens the §6.4.2 dominance claim from "M6 LWC beats GARCH-Gauss
 
 ## Maintenance note
 
-When 7.2 or 7.3 completes, the agent that finishes it should fill the relevant `(Process / Results / Paper impact subsections to be filled…)` block above and update the status table at the top of this file in the same edit. This file lives at the project root so it surfaces alongside `M6_REFACTOR.md`, `README.md`, and `CLAUDE.md`; it is the one-shot summary for outside readers. The canonical long-form write-ups remain in `reports/m6_validation.md` (§14 onwards) and the canonical task spec remains in `M6_REFACTOR.md` §7.
+When 7.2 or 7.3 completes, the agent that finishes it should fill the relevant `(Process / Results / Paper impact subsections to be filled…)` block above and update the status table at the top of this file in the same edit. This file lives at the project root so it surfaces alongside `reports/active/m6_refactor.md`, `README.md`, and `CLAUDE.md`; it is the one-shot summary for outside readers. The canonical long-form write-ups remain in `reports/m6_validation.md` (§14 onwards) and the canonical task spec remains in `reports/active/m6_refactor.md` §7.

@@ -99,11 +99,11 @@ This **does not block Layer-1 (Band-AMM) shipping**. The band-AMM consumes the *
 
 Different consumers want different properties from the band. The band-AMM cares about *common-mode responsiveness* — calm weekend → tighter LP region → more throughput; shock weekend → wider band → more LVR protection. Lending consumers (Kamino, MarginFi) and per-asset products (Layer-2 perp, Layer-3 single-underlier options) care about *per-asset width re-allocation* — SPYx tighter than MSTRx, with a calibrated receipt that reserve-buffer config can read directly. M6 leads (`reports/v1b_m6a_common_mode_partial_out.md`, `reports/v1b_m6b_per_symbol_class_mondrian.md`, `reports/v1b_m6c_combined.md`) confirm both axes deliver real width reductions over M5 at matched coverage on the OOS 2023+ panel — and that they are *mostly orthogonal* (~0.87 stacking efficiency at $\tau \in \{0.85, 0.95\}$).
 
-The post-M5 rollout therefore runs **two profiles in parallel under one methodology family**, sharing the factor-adjusted point, regime classifier, scryer data spine, and `PriceUpdate` Borsh wire format. Profiles differ only in (a) score residualisation and (b) conformal cell partition. See `M6_REFACTOR.md` for the staged rollout and `reports/methodology_history.md` for the dated decision log.
+The post-M5 rollout therefore runs **two profiles in parallel under one methodology family**, sharing the factor-adjusted point, regime classifier, scryer data spine, and `PriceUpdate` Borsh wire format. Profiles differ only in (a) score residualisation and (b) conformal cell partition. See `reports/active/m6_refactor.md` for the staged rollout and `reports/methodology_history.md` for the dated decision log.
 
 | Track | Methodology | Cell axis | Score | Best for | Deploy state |
 |---|---|---|---|---|---|
-| **Lending-track** | M6b2 | symbol_class (6 cells) | $\|r\|$ | per-asset products: lending, perp, single-underlier options/vaults; **Band-AMM today** | shipping next per `M6_REFACTOR.md` Phase A |
+| **Lending-track** | M6b2 | symbol_class (6 cells) | $\|r\|$ | per-asset products: lending, perp, single-underlier options/vaults; **Band-AMM today** | shipping next per `reports/active/m6_refactor.md` Phase A |
 | **AMM-track** | M6a | regime (3 cells) | $\|r − β·\bar r_w\|$ | universe-aggregate products: portfolio vaults, common-mode-aware indexes; future Band-AMM width optimisation | parked on W8 result; reopens on W8b (Sunday-Globex republish) or W8c (F_tok signal accumulation) |
 
 Both tracks publish under `forecaster_code = 2` (`mondrian`); the `profile_code` byte in the receipt distinguishes (`profile_code = 1` Lending, `profile_code = 2` AMM). Same Borsh layout, byte-identical on the rest of the wire.

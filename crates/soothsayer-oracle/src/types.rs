@@ -81,7 +81,7 @@ impl Regime {
 ///     Code 3 is reserved for FORECASTER_LWC (the M6 Locally-Weighted
 ///     Conformal serving path). The Python sibling `Oracle.fair_value_lwc()`
 ///     ships ahead of the Rust port; the Rust LWC implementation lands in
-///     Phase 5 of `M6_REFACTOR.md` (gated on Adam's hand-off). Wire-format
+///     Phase 5 of `reports/active/m6_refactor.md` (gated on Adam's hand-off). Wire-format
 ///     invariance: existing M5 consumers must decode an LWC PriceUpdate
 ///     account without crashing — only the `forecaster_code` byte changes.
 ///   - `profile`: which conformal cell axis was used. Lending → per-class,

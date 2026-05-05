@@ -99,7 +99,7 @@ pub fn forecaster_to_code(name: &str) -> u8 {
         // Legacy v1 receipts (paper 1 §7.4 hybrid forecaster).
         "F1_emp_regime" => FORECASTER_F1_EMP_REGIME,
         "F0_stale" => FORECASTER_F0_STALE,
-        // M5 / v2 + M6b2 dual-profile (paper 1 §7.7, M6_REFACTOR.md).
+        // M5 / v2 + M6b2 dual-profile (paper 1 §7.7, reports/active/m6_refactor.md).
         "mondrian" => FORECASTER_MONDRIAN,
         _ => 255, // unknown — consumer should reject
     }

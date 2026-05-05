@@ -32,7 +32,7 @@ src/soothsayer/oracle.py and crates/soothsayer-oracle/src/config.rs in
 Phase A2 / A3. The JSON sidecar is the audit trail and parity-check input.
 
 References:
-  - M6_REFACTOR.md (Phase A1)
+  - reports/active/m6_refactor.md (Phase A1)
   - reports/v1b_m6b_per_symbol_class_mondrian.md   (reproduction target)
   - reports/methodology_history.md (2026-05-03 dual-profile entry)
   - scripts/build_mondrian_artefact.py             (M5 structural template)
@@ -59,7 +59,7 @@ ARTEFACT_PARQUET = DATA_PROCESSED / "m6b2_lending_artefact_v1.parquet"
 ARTEFACT_JSON = DATA_PROCESSED / "m6b2_lending_artefact_v1.json"
 SOURCE_TAG = "scripts/build_m6b2_lending_artefact.py"
 
-# Locked symbol_class mapping (M6_REFACTOR.md A1).
+# Locked symbol_class mapping (reports/active/m6_refactor.md A1).
 # Matches scripts/run_m6b_per_symbol_class_mondrian.py SYMBOL_CLASS exactly.
 SYMBOL_CLASS: dict[str, str] = {
     "SPY": "equity_index",
@@ -167,7 +167,7 @@ def main() -> None:
     if missing:
         raise ValueError(
             f"Symbols not in SYMBOL_CLASS mapping: {missing}. "
-            "M6_REFACTOR.md A1 requires the mapping to cover the full panel."
+            "reports/active/m6_refactor.md A1 requires the mapping to cover the full panel."
         )
 
     train = panel[panel["fri_ts"] < SPLIT_DATE].dropna(subset=["score"])

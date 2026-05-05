@@ -1,6 +1,6 @@
 # M6 (LWC) — Phase 2 validation evidence pack
 
-**Generated:** 2026-05-04. Companion to `M6_REFACTOR.md` Phase 2; downstream of the Phase 1 LWC artefact build (`reports/v3_bakeoff.md` → `data/processed/lwc_artefact_v1.{parquet,json}`).
+**Generated:** 2026-05-04. Companion to `reports/active/m6_refactor.md` Phase 2; downstream of the Phase 1 LWC artefact build (`reports/v3_bakeoff.md` → `data/processed/lwc_artefact_v1.{parquet,json}`).
 
 This document is the same shape as `reports/v1b_calibration.md`: it tabulates the deployed-vs-candidate methodology side-by-side, with every robustness check the paper currently runs against M5 re-run against M6, plus block-bootstrap CIs on the M5 → M6 deltas. Every CSV referenced is in `reports/tables/`. CSV pairs are named `v1b_robustness_*.csv` (M5) and `m6_lwc_robustness_*.csv` (M6).
 
@@ -295,7 +295,7 @@ Cross-section: 9 of 10 symbols sold off in concert (mean weekend return −963 b
 
 The macro context is consistent with the Bank of Japan rate-hike yen-carry-trade unwind: weak US July nonfarm payrolls Friday Aug 2 (114k vs ~175k consensus, Sahm-rule trigger), the BoJ's July 31 rate hike, and the simultaneously hawkish Powell stance triggered an accelerating yen-carry unwind through Asian time zones. Monday Aug 5 saw Nikkei −12.4% (largest single-day drop since Black Monday 1987), USD/JPY collapse from ~150 toward 142, and a VIX intraday spike to ~65 (highest since the COVID-19 March 2020 panic). The carry-funded crowded names (MSTR, HOOD, NVDA, TSLA, AAPL — top 5 by breach magnitude) sold off the hardest; TLT was the only safe-haven bid in the panel.
 
-This vignette reframes §6.3.1 from a statistical observation into a memorable case study and gives §9.1 a concrete circuit-breaker example: a consumer monitoring `k_w` in real time would have seen `k_w = 10` at τ=0.85 at the Mon-open print, well in excess of the empirical 99th percentile (k = 7). A circuit breaker that pauses borrowing/lending when `k_w` exceeds the deployment-time-fitted reserve threshold (Phase 8.3) would fire on this weekend *before* liquidations are processed. The empirical k_w distribution is the right operational signal precisely because it captures the cross-sectional common-mode that per-symbol coverage cannot. Full Phase 8.1 write-up at `PHASE_8.md` §8.1.
+This vignette reframes §6.3.1 from a statistical observation into a memorable case study and gives §9.1 a concrete circuit-breaker example: a consumer monitoring `k_w` in real time would have seen `k_w = 10` at τ=0.85 at the Mon-open print, well in excess of the empirical 99th percentile (k = 7). A circuit breaker that pauses borrowing/lending when `k_w` exceeds the deployment-time-fitted reserve threshold (Phase 8.3) would fire on this weekend *before* liquidations are processed. The empirical k_w distribution is the right operational signal precisely because it captures the cross-sectional common-mode that per-symbol coverage cannot. Full Phase 8.1 write-up at `reports/active/phase_8.md` §8.1.
 
 ### Threshold stability (Phase 8.3)
 
@@ -327,7 +327,7 @@ Across the full 24-cell stability grid per forecaster (3 τ × 2 threshold-conve
 
 **Power caveat:** with subperiod n ∈ {52, 17} and target rates ~5%, the binomial-stability test has limited power to detect drift smaller than the year-on-year 95th-percentile spread. Most cells flag `low_power_flag = 1` (expected hits < 3) — unavoidable. The "0/24 rejections" result is therefore **"no detectable instability with the available power"** rather than "definitively stationary." The drift visibility table provides the orthogonal quantile-read that does not depend on test power; together the two views support the stability claim.
 
-**§6.3.1 / §9.1 paragraph upgrade:** the reserve guidance becomes operationalisable — *"Reserve against k* = 3 at τ=0.95; the year-by-year hit rate at this threshold is statistically consistent with the full-OOS rate (Kupiec p ≥ 0.18 in every calendar year), and the per-subperiod empirical 95th-percentile of k_w stays in [1.4, 3.0] across {2023, 2024, 2025, 2026-YTD} — i.e. the deployment threshold is conservative against year-on-year drift."* Combined with the Phase 8.1 Aug 5 2024 vignette (k_w = 10 at τ=0.85, k_w = 8 at τ=0.95 — both above the deployment k*), §9.1 now has both the threshold and the failure-mode demonstration. Full Phase 8.3 write-up at `PHASE_8.md` §8.3.
+**§6.3.1 / §9.1 paragraph upgrade:** the reserve guidance becomes operationalisable — *"Reserve against k* = 3 at τ=0.95; the year-by-year hit rate at this threshold is statistically consistent with the full-OOS rate (Kupiec p ≥ 0.18 in every calendar year), and the per-subperiod empirical 95th-percentile of k_w stays in [1.4, 3.0] across {2023, 2024, 2025, 2026-YTD} — i.e. the deployment threshold is conservative against year-on-year drift."* Combined with the Phase 8.1 Aug 5 2024 vignette (k_w = 10 at τ=0.85, k_w = 8 at τ=0.95 — both above the deployment k*), §9.1 now has both the threshold and the failure-mode demonstration. Full Phase 8.3 write-up at `reports/active/phase_8.md` §8.3.
 
 ## 15. Sub-period robustness within OOS (Phase 7.2 evidence)
 
@@ -441,7 +441,7 @@ Pass-count grid across all four served τ:
 
 GARCH-t closes the canonical Gaussian fat-tail failures at τ=0.99 (10/10 — the only method besides M6 LWC) and on the high-vol carry-funded names HOOD and MSTR at τ=0.95. It still fails per-symbol on GLD at every τ < 0.99 (over-tightened — high fitted ν=6.88 with the standardised-t scaling `√((ν−2)/ν)` slightly narrower than 1), GOOGL at τ=0.85+0.95, MSTR at τ=0.68+0.85, NVDA at τ=0.68 (NVDA fell back to gaussian at the ν=2.5 floor), and TSLA at τ=0.68. Total 9 cells.
 
-**§6.4.1 paragraph upgrade:** replace "M6 LWC: 10/10 Kupiec passes vs M5: 2/10 at τ=0.95" with "**M6 LWC achieves per-symbol Kupiec calibration on 10/10 symbols at τ=0.95 and 39/40 across all (symbol × τ) cells; the strongest practitioner baseline GARCH-t achieves 8/10 at τ=0.95 and 31/40 overall; GARCH-Gaussian 6/10 and 23/40; M5 2/10 and 12/40.**" The lone outlier (TSLA at τ=0.85, over-coverage) is the same TSLA cell already disclosed in §6.4.1's acknowledged outlier list. Full Phase 8.2 write-up at `PHASE_8.md` §8.2.
+**§6.4.1 paragraph upgrade:** replace "M6 LWC: 10/10 Kupiec passes vs M5: 2/10 at τ=0.95" with "**M6 LWC achieves per-symbol Kupiec calibration on 10/10 symbols at τ=0.95 and 39/40 across all (symbol × τ) cells; the strongest practitioner baseline GARCH-t achieves 8/10 at τ=0.95 and 31/40 overall; GARCH-Gaussian 6/10 and 23/40; M5 2/10 and 12/40.**" The lone outlier (TSLA at τ=0.85, over-coverage) is the same TSLA cell already disclosed in §6.4.1's acknowledged outlier list. Full Phase 8.2 write-up at `reports/active/phase_8.md` §8.2.
 
 ## 17. Files produced this phase
 

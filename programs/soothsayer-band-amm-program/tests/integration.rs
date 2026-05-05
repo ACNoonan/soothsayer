@@ -307,7 +307,7 @@ fn synth_price_update_data(b: &PriceBand) -> Vec<u8> {
     data.push(b.regime_code);
     data.push(b.forecaster_code);
     data.push(b.exponent as u8);
-    data.push(b.profile_code);             // M6_REFACTOR.md A4: was _pad0[0]
+    data.push(b.profile_code);             // reports/active/m6_refactor.md A4: was _pad0[0]
     data.extend_from_slice(&[0u8; 3]);     // remaining _pad0[1..4]
     data.extend_from_slice(&b.target_coverage_bps.to_le_bytes());
     data.extend_from_slice(&b.claimed_served_bps.to_le_bytes());

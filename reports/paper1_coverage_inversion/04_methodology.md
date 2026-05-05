@@ -42,7 +42,7 @@ Under v1 the OOS bump schedule was $\{0.68\!:\!1.498,\, 0.85\!:\!1.455,\, 0.95\!
 
 $$c(\tau) \;=\; \{0.68\!:\!1.000,\;0.85\!:\!1.000,\;0.95\!:\!1.079,\;0.99\!:\!1.003\},$$
 
-a near-identity correction that *only* widens at $\tau = 0.95$ (by 7.9%) and is essentially the identity at the other three anchors. The fit procedure is unchanged: $c(\tau)$ is the smallest $c \in [1, 5]$ such that pooled OOS realised coverage with effective quantile $c \cdot q_r^{\text{LWC}}(\tau)$ matches the consumer's request. Four scalars total. The shrinkage of the $c(\tau)$ schedule from "meaningful widening at every anchor" to "near-identity at three of four" substantially narrows the OOS-tuning provenance disclosure of §9.3: under v1, eight of the twenty deployment scalars (4 $c$ + 4 $\delta$) were tuned on the OOS slice; under v2, three of the sixteen (one non-trivial $c$, two near-identity $c$) carry meaningful OOS information.
+a near-identity correction that *only* widens at $\tau = 0.95$ (by 7.9%) and is essentially the identity at the other three anchors. The fit procedure is unchanged: $c(\tau)$ is the smallest $c \in [1, 5]$ such that pooled OOS realised coverage with effective quantile $c \cdot q_r^{\text{LWC}}(\tau)$ matches the target $\tau$. Four scalars total. The shrinkage of the $c(\tau)$ schedule from "meaningful widening at every anchor" to "near-identity at three of four" substantially narrows the OOS-tuning provenance disclosure of §9.3: under v1, eight of the twenty deployment scalars (4 $c$ + 4 $\delta$) were tuned on the OOS slice; under v2, three of the sixteen (one non-trivial $c$, two near-identity $c$) carry meaningful OOS information.
 
 ## 4.5 The walk-forward $\delta(\tau)$ schedule collapses to zero
 

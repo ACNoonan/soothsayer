@@ -25,7 +25,7 @@ pub struct PriceUpdateLayout {
     pub forecaster_code: u8,
     /// Fixed-point exponent applied to `point` / `lower` / `upper` / `fri_close`.
     pub exponent: i8,
-    /// Serving profile (M6_REFACTOR.md A4): 0=legacy, 1=lending, 2=amm.
+    /// Serving profile (reports/active/m6_refactor.md A4): 0=legacy, 1=lending, 2=amm.
     /// Repurposed first byte of the prior `_pad0: [u8;4]` slot.
     pub profile_code: u8,
     pub _pad0: [u8; 3],

@@ -1,7 +1,7 @@
 """
 Unified head-to-head: Soothsayer (v1 deployed, M5 candidate) vs incumbent oracles.
 
-W1 deliverable for `VALIDATION_BACKLOG.md`. Reads the per-oracle coverage
+W1 deliverable for `reports/active/validation_backlog.md`. Reads the per-oracle coverage
 artefacts and builds one head-to-head table at matched coverage τ ∈
 {0.68, 0.85, 0.95}: smallest published-band half-width that delivers
 each τ on each oracle's available sample. Sample size and panel scope

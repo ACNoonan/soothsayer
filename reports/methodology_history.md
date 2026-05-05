@@ -1,8 +1,10 @@
 # Methodology evolution log
 
-**Purpose.** Operational source of truth for Soothsayer methodology and agent handoff. This file is intentionally compact as of 2026-05-02: keep current decisions, active gates, and links to evidence. Long derivations belong in the linked reports, not in startup context.
+**Purpose.** Append-only dated decision log. §0 is the compact current-state snapshot; §1 is the chronological entries; §2 is open methodology questions; §3 is the artefact map. For agent-facing single-page orientation, read [`STATUS.md`](../STATUS.md) at the repo root — that is the routing layer; this file is the *why*.
 
-**Update rule.** When methodology changes, update §0 and append a short dated entry to §1. Keep entries decision-shaped: trigger, decision, evidence pointer, impact, open work. Do not paste full analysis transcripts here.
+**Update rule.** When methodology changes, append a short dated entry to §1 (decision-shaped: trigger, decision, evidence pointer, impact, open work). If the change moves any of {deployed methodology, served τ range, active workstream, headline metrics, deployment artefact path, wire format}, also update §0 here **and** [`STATUS.md`](../STATUS.md) in the same commit. Long derivations belong in linked reports under `reports/`, not in this file.
+
+**Note on historical filename references.** Pre-2026-05-04 entries below cite working docs at the project root (`M6_REFACTOR.md`, `PHASE_7_RESULTS.md`, `PHASE_8.md`, `VALIDATION_BACKLOG.md`). Those files were moved into `reports/active/` and lowercased on 2026-05-04 — current paths are `reports/active/m6_refactor.md`, `reports/active/phase_7_results.md`, `reports/active/phase_8.md`, `reports/active/validation_backlog.md`. Historical entries are left unchanged to preserve the dated record.
 
 ---
 

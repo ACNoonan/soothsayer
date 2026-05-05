@@ -88,7 +88,7 @@ pub struct PriceUpdate {
     /// scaled to 8 decimals: exponent = -8. Publisher chooses per its own
     /// precision target; -8 is the Soothsayer default.
     pub exponent: i8,
-    /// Serving profile (M6_REFACTOR.md A4):
+    /// Serving profile (reports/active/m6_refactor.md A4):
     ///   0 = legacy single-profile receipt (pre-A4 publishes; treat as M5)
     ///   1 = lending  (M6b2 per-symbol_class Mondrian)
     ///   2 = amm      (M5 per-regime Mondrian; AMM-track interim)

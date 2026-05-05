@@ -206,7 +206,7 @@ This is **scaffolding** — it does not produce paper evidence yet. The harness'
 ### 4.5 — End-to-end test + documentation ✅
 
 - [x] Local fire produced clean run: SLA OK, collector wrote the tape, evaluator wrote the 0-weekend stub. Total wall clock ~3 s.
-- [x] M6_REFACTOR.md updated (this commit).
+- [x] reports/active/m6_refactor.md updated (this commit).
 - [x] `M6_PHASE4_SCRYER_BRIEF.md` deleted (lifecycle-completion as the brief itself directed).
 
 ### 4.6 — CBOE VIX + CME futures resample (G1.b adoption) ✅
@@ -416,7 +416,7 @@ Across the full 16-cell (subperiod × τ) grid per forecaster: M5 has 5 / 16 Kup
 
 - [x] Three runners ship with reproducible outputs.
 - [x] `reports/m6_validation.md` updated with §14 (clustering), §15 (sub-period robustness), §16 (GARCH-t).
-- [x] Phase 7 results consolidated at `PHASE_7_RESULTS.md` (project root, one-shot summary).
+- [x] Phase 7 results consolidated at `reports/active/phase_7_results.md` (project root, one-shot summary).
 - [ ] Paper 1 §6.3.1, §6.4.2, §9.2 revision edits committed against the relevant files in `reports/paper1_coverage_inversion/` — pending the next paper-revision sweep.
 - [x] No change to deployed M6 artefact, smoke, or tests.
 
@@ -428,7 +428,7 @@ Across the full 16-cell (subperiod × τ) grid per forecaster: M5 has 5 / 16 Kup
 
 Phase 8 does not gate Phase 9 (Rust port) — the artefact is unchanged — and the two may run in parallel. The combined Phase 7 + Phase 8 evidence pack is what Paper 1's next revision will draw from.
 
-Results are summarised at `PHASE_8.md` (project root) — sibling to `PHASE_7_RESULTS.md`. Each sub-phase fills its block there as it completes.
+Results are summarised at `reports/active/phase_8.md` (project root) — sibling to `reports/active/phase_7_results.md`. Each sub-phase fills its block there as it completes.
 
 ### 8.1 — Worst-weekend characterization ✅ COMPLETE 2026-05-04
 
@@ -436,7 +436,7 @@ Results are summarised at `PHASE_8.md` (project root) — sibling to `PHASE_7_RE
 
 - [x] Identified the only `k_w = 10` weekend at τ=0.85 under M6 LWC: **Friday 2024-08-02, Mon-open 2024-08-05**. Cross-referenced against `v1b_panel.parquet` for per-symbol breach magnitudes.
 - [x] Characterised the macro context as the Bank of Japan rate-hike yen-carry-trade unwind: BoJ July 31 hike + weak US July nonfarm payrolls (Sahm-rule trigger) + Nikkei −12.4% on Aug 5 (largest single-day drop since Black Monday 1987) + VIX intraday ≈ 65 (highest since March 2020 COVID).
-- [x] `PHASE_8.md` §8.1 written (~150 lines: process / per-symbol breach table / macro narrative / paper impact).
+- [x] `reports/active/phase_8.md` §8.1 written (~150 lines: process / per-symbol breach table / macro narrative / paper impact).
 - [x] `reports/m6_validation.md` §14 — "Worst weekend" sub-section appended with the per-symbol table and the circuit-breaker connection.
 - [ ] Paper 1 §6.3.1 / §9.1 inline revision notes — pending the next paper-revision sweep.
 
@@ -449,7 +449,7 @@ Results are summarised at `PHASE_8.md` (project root) — sibling to `PHASE_7_RE
 - [x] Wrote sibling runner `scripts/run_per_symbol_kupiec_all_methods.py`. Imports `fit_per_symbol_garch` and `serve_garch_bands` from the Phase 7.3-extended `run_v1b_garch_baseline.py` via `importlib.util.spec_from_file_location` (same precedent as `run_simulation_size_sweep.py`).
 - [x] Emits per-symbol Kupiec at all four τ under all four methods in one CSV: `reports/tables/m6_per_symbol_kupiec_4methods.csv` (160 rows = 10 symbols × 4 methods × 4 τ; schema `symbol, method, tau, n_oos, viol_rate, kupiec_lr, kupiec_p`).
 - [x] `reports/m6_validation.md` §16 — "Per-symbol GARCH comparison" sub-section appended with the τ=0.95 table and the pass-count grid.
-- [x] `PHASE_8.md` §8.2 filled in (Process / Results / Paper impact / Outputs).
+- [x] `reports/active/phase_8.md` §8.2 filled in (Process / Results / Paper impact / Outputs).
 - [ ] Paper 1 §6.4.1 paragraph upgrade — pending the next paper-revision sweep.
 
 **Headline at τ=0.95** — per-symbol Kupiec pass-count out of 10 symbols:
@@ -471,7 +471,7 @@ Results are summarised at `PHASE_8.md` (project root) — sibling to `PHASE_7_RE
 - [x] For each subperiod {2023, 2024, 2025, 2026-YTD}: Kupiec LR test of subperiod hit-rate vs full-OOS rate; per-subperiod 95th-percentile of `k_w`; `low_power_flag` set when expected subperiod hits < 3 (binomial-LR power threshold).
 - [x] Output: `reports/tables/m6_kw_threshold_stability.csv` (48 rows = 2 forecasters × 3 τ × 2 conventions × 4 subperiods).
 - [x] `reports/m6_validation.md` §14 — "Threshold stability" sub-section appended with the headline table and the per-subperiod 95th-percentile drift table.
-- [x] `PHASE_8.md` §8.3 filled in (Process / Results / Paper impact / Outputs).
+- [x] `reports/active/phase_8.md` §8.3 filled in (Process / Results / Paper impact / Outputs).
 - [ ] Paper 1 §6.3.1 / §9.1 inline revision notes — pending the next paper-revision sweep.
 
 **Headline:** across the full 24-cell stability grid per forecaster: **M6 LWC has 0 / 24 Kupiec rejections at α=0.05; M5 has 2 / 24** — both at τ=0.95 in 2024 (same over-clustering signal Phase 7.2 already flagged). Year-on-year drift in the per-subperiod 95th-percentile of `k_w` is ≤ 1.6 integer-symbols at every τ under M6 LWC. The deployment-recommended threshold (k*=3 at τ=0.95, k*=5 at τ=0.85) sits at or above every per-subperiod 95th-percentile — i.e. the consumer guidance is conservative against year-on-year drift, not just against the full-OOS distribution.
@@ -483,7 +483,7 @@ Results are summarised at `PHASE_8.md` (project root) — sibling to `PHASE_7_RE
 ### Definition of done — Phase 8
 
 - [x] All three sub-phases complete and reproducible.
-- [x] `PHASE_8.md` filled in (status table + per-sub-phase Process / Results / Paper impact / Outputs).
+- [x] `reports/active/phase_8.md` filled in (status table + per-sub-phase Process / Results / Paper impact / Outputs).
 - [x] `reports/m6_validation.md` extended with the three new sub-sections (§14 Worst-weekend + §14 Threshold-stability + §16 Per-symbol-GARCH).
 - [ ] Paper 1 §6.3.1 / §6.4.1 / §9.1 inline revision notes — pending the next paper-revision sweep.
 - [x] No change to deployed M6 artefact, smoke, or tests.

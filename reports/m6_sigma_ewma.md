@@ -2,7 +2,7 @@
 
 **Date.** 2026-05-04
 **Status.** PROMOTE → **EWMA HL=8** is the canonical M6 σ̂ rule. K=26 trailing window stays buildable for archival reproduction.
-**Working doc.** `M6_REFACTOR.md` Phase 5.
+**Working doc.** `reports/active/m6_refactor.md` Phase 5.
 **Driver script.** `scripts/run_sigma_ewma_variants.py` (deterministic from `seed=0`; ~30s wall clock end-to-end on the 5,916-row v1b panel).
 
 ## 1. Headline
@@ -138,7 +138,7 @@ EWMA HL=8 is the unique variant that clears all three gates. Under the brief's t
 | `data/processed/lwc_artefact_v1.{json,parquet}` | Rebuilt under EWMA HL=8. Sidecar fields: `_lwc_variant: "ewma_hl8"`, `sigma_hat.method: "ewma"`, `sigma_hat.half_life_weekends: 8`. |
 | `data/processed/lwc_artefact_v1_frozen_20260504.{json,parquet}` | New canonical freeze (sha 7b86d17a76912aa0…). Replaces previous K=26 freeze. |
 | `data/processed/lwc_artefact_v1_archive_baseline_k26_20260504.{json,parquet}` | K=26 baseline freeze archived (renamed outside `_frozen_*` glob so forward-tape auto-discovery picks the new freeze). |
-| `M6_REFACTOR.md` Phase 1 §1.1 | Added "(superseded 2026-05-04 by EWMA HL=8)" note next to the K=26 description. Phase 5 marked complete. |
+| `reports/active/m6_refactor.md` Phase 1 §1.1 | Added "(superseded 2026-05-04 by EWMA HL=8)" note next to the K=26 description. Phase 5 marked complete. |
 | `reports/methodology_history.md` | Dated entry recording the σ̂ promotion. |
 
 ## 10. Reproduce-from-scratch
@@ -186,7 +186,7 @@ This section is a deliberate transparency layer on the §8 promotion verdict. Th
 
 ### 13.1 Pre-registration
 
-The promotion criterion was specified before the variants were diagnosed (M6_REFACTOR.md §5.4, written 2026-05-04 alongside the rest of the Phase 5 plan). Three gates, all sharp thresholds:
+The promotion criterion was specified before the variants were diagnosed (reports/active/m6_refactor.md §5.4, written 2026-05-04 alongside the rest of the Phase 5 plan). Three gates, all sharp thresholds:
 
 1. **Split-date Christoffersen.** Variant must clear all 16 (split × τ) cells at uncorrected α=0.05. The targeted cells were 2021 × 0.95 and 2022 × 0.95 — the two Phase-2 §11 rejections that motivated the σ̂-rule rethink — but the gate is the full 16-cell grid, not just the two flagged cells.
 2. **Per-symbol Kupiec at τ=0.95.** ≥ 8 of 10 symbols must clear at α=0.05. This is a no-harm-done floor — the σ̂-rule change must not break the per-symbol calibration story Phase 2 established.

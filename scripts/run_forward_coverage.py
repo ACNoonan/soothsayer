@@ -37,7 +37,7 @@ Outputs
 
 Cross-link
 ----------
-Listed in `VALIDATION_BACKLOG.md` W5. No methodology change — this is a
+Listed in `reports/active/validation_backlog.md` W5. No methodology change — this is a
 reviewer-immune empirical check on the deployed v1 / candidate M5 bands.
 """
 

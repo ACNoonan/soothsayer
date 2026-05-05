@@ -51,7 +51,7 @@ SIGMA_HAT_K: int = 26
 SIGMA_HAT_MIN: int = 8
 
 # Phase 5 EWMA σ̂ variant — fast-reacting σ̂ aimed at the 2021/2022 split-date
-# Christoffersen rejections (M6_REFACTOR.md §5). Half-life HL_WEEKENDS sets the
+# Christoffersen rejections (reports/active/m6_refactor.md §5). Half-life HL_WEEKENDS sets the
 # weekend-decay rate λ via λ = 0.5 ** (1 / HL). Same warm-up rule as the K=26
 # baseline (≥ SIGMA_HAT_MIN past obs) so variants share evaluable rows.
 SIGMA_HAT_EWMA_HALF_LIVES: tuple[int, ...] = (6, 8, 12)
@@ -286,7 +286,7 @@ def add_sigma_hat_sym_ewma(
     RiskMetrics-style EWMA volatility estimator used in financial-econometrics
     backtests.
 
-    Validates the Phase 5 σ̂ fast-reacting variant brief (M6_REFACTOR.md §5.1).
+    Validates the Phase 5 σ̂ fast-reacting variant brief (reports/active/m6_refactor.md §5.1).
     """
     if half_life <= 0:
         raise ValueError(f"half_life must be positive, got {half_life}")
@@ -508,7 +508,7 @@ def serve_bands_lwc(
 
 # Public alias for the supported forecasters in the §10 robustness scripts.
 # "m5" = Mondrian split-conformal by regime (deployed); "lwc" = M6 Locally-
-# Weighted Conformal. See `M6_REFACTOR.md` Phase 2 for the full validation
+# Weighted Conformal. See `reports/active/m6_refactor.md` Phase 2 for the full validation
 # battery this dispatcher serves.
 FORECASTERS = ("m5", "lwc")
 

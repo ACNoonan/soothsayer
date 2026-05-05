@@ -34,7 +34,7 @@ PriceUpdate:
   regime_code          u8         0=normal, 1=long_weekend, 2=high_vol
   forecaster_code      u8         0=F1_emp_regime (legacy Soothsayer-v0), 1=F0_stale (legacy Soothsayer-v0), 2=mondrian (v1), 3=lwc (v2 / deployed; reserved on-chain pending Rust parity port)
   exponent             i8
-  target_coverage_bps  u16        consumer's request, integer bp
+  target_coverage_bps  u16        publisher-set target coverage, integer bp
   claimed_served_bps   u16        served quantile, integer bp
   buffer_applied_bps   u16
   symbol               [u8; 16]   ASCII null-padded

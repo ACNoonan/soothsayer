@@ -41,7 +41,7 @@ References:
     M5; reproduced byte-for-byte on the K=26 σ̂ rule.
   - reports/tables/v1b_lwc_delta_sweep.csv (baseline δ source).
   - reports/tables/sigma_ewma_*_delta_sweep.csv (EWMA δ source).
-  - M6_REFACTOR.md Phase 1 + Phase 5.
+  - reports/active/m6_refactor.md Phase 1 + Phase 5.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ ARTEFACT_PARQUET = DATA_PROCESSED / "lwc_artefact_v1.parquet"
 ARTEFACT_JSON = DATA_PROCESSED / "lwc_artefact_v1.json"
 
 # σ̂ variant catalogue. Phase 5 added EWMA HL=8 as the canonical variant
-# (M6_REFACTOR.md §5; reports/m6_sigma_ewma.md). The K=26 baseline remains
+# (reports/active/m6_refactor.md §5; reports/m6_sigma_ewma.md). The K=26 baseline remains
 # buildable for archival reproduction of the v3 bake-off receipts.
 SIGMA_VARIANT_CANONICAL = "ewma_hl8"
 SIGMA_VARIANTS: dict[str, dict] = {

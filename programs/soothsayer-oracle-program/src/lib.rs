@@ -104,7 +104,7 @@ pub mod soothsayer_oracle_program {
             (-12..=0).contains(&payload.exponent),
             SoothsayerError::ExponentOutOfRange
         );
-        // M6_REFACTOR.md A4: new publishes MUST select a profile.
+        // reports/active/m6_refactor.md A4: new publishes MUST select a profile.
         // Code 0 (PROFILE_LEGACY) is reserved for pre-A4 in-flight accounts
         // and is not a valid publish-time value.
         require!(

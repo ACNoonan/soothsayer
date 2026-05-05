@@ -63,11 +63,11 @@ LWC budget: LWC_REGIME_QUANTILE_TABLE (3×4 = 12) + LWC_C_BUMP_SCHEDULE (4)
 
 Forecaster code reservation (for the on-chain `PriceUpdate.forecaster_code`
 byte): FORECASTER_LWC = 3. The Rust port is gated on Phase 5 of
-`M6_REFACTOR.md`; until then this module is the only LWC serving path.
+`reports/active/m6_refactor.md`; until then this module is the only LWC serving path.
 
 Reference: paper 1 §7.7, `reports/methodology_history.md` (M5 + 2026-05-03
 dual-profile entries), `reports/v3_bakeoff.md` (LWC validation), and
-`M6_REFACTOR.md` Phases 1–5.
+`reports/active/m6_refactor.md` Phases 1–5.
 """
 
 from __future__ import annotations

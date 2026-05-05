@@ -8,7 +8,7 @@ expectation is byte-exact agreement on the consumer-facing numeric output
 (point, lower, upper, sharpness_bps, claimed_served) and exact agreement on
 the string fields (regime, forecaster_used, profile).
 
-Phase A3 target (M6_REFACTOR.md): 90/90 per profile.
+Phase A3 target (reports/active/m6_refactor.md): 90/90 per profile.
 
 Run:
     cargo build --release -p soothsayer-publisher

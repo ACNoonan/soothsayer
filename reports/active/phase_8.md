@@ -1,6 +1,6 @@
 # Phase 8 — Compounders on Phase 7
 
-Phase 8 of the M6 refactor adds three follow-up passes that compound on Phase 7's three results — turning each statistical headline into a deeper claim a sophisticated reader can act on. None of these change the deployed M6 artefact (`data/processed/lwc_artefact_v1.parquet` and its sidecar). The canonical task spec lives at `M6_REFACTOR.md` §8; this file is the rolled-up reading-time summary an outside reader can skim in five minutes. Sibling to `PHASE_7_RESULTS.md`. The three sub-phases are independent and can run in any order.
+Phase 8 of the M6 refactor adds three follow-up passes that compound on Phase 7's three results — turning each statistical headline into a deeper claim a sophisticated reader can act on. None of these change the deployed M6 artefact (`data/processed/lwc_artefact_v1.parquet` and its sidecar). The canonical task spec lives at `reports/active/m6_refactor.md` §8; this file is the rolled-up reading-time summary an outside reader can skim in five minutes. Sibling to `reports/active/phase_7_results.md`. The three sub-phases are independent and can run in any order.
 
 ## Status table
 
@@ -63,7 +63,7 @@ This converts §6.3.1 from a statistical observation into a memorable case study
 
 ### Outputs
 
-- `PHASE_8.md` §8.1 (this section).
+- `reports/active/phase_8.md` §8.1 (this section).
 - `reports/m6_validation.md` §14 — "Worst weekend" sub-section to be added (Phase 8.1 reporting step). Same date / breach-magnitude table inline.
 - Paper 1 §6.3.1 / §9.1 inline revision notes — to be captured at the next paper-revision sweep.
 
@@ -134,7 +134,7 @@ Phase 8.2 transforms the §6.4.1 per-symbol generalization argument from "M6 LWC
 - `scripts/run_per_symbol_kupiec_all_methods.py` — sibling runner; ~140 lines; reuses `fit_per_symbol_garch` from `run_v1b_garch_baseline.py` via importlib.
 - `reports/tables/m6_per_symbol_kupiec_4methods.csv` — 160 rows (10 symbols × 4 methods × 4 τ); schema `symbol, method, tau, n_oos, viol_rate, kupiec_lr, kupiec_p`.
 - `reports/m6_validation.md` §16 — "Per-symbol GARCH comparison" sub-section appended with the τ=0.95 table and the pass-count grid.
-- `M6_REFACTOR.md` Phase 8.2 boxes ticked with the headline pass-counts inline.
+- `reports/active/m6_refactor.md` Phase 8.2 boxes ticked with the headline pass-counts inline.
 
 ## 8.3 — Cross-subperiod k_w threshold stability
 
@@ -210,10 +210,10 @@ Phase 8.3 closes the loop on the Phase 7.1 reserve-guidance claim. The §6.3.1 /
 - `scripts/run_kw_threshold_stability.py` — runner; ~140 lines.
 - `reports/tables/m6_kw_threshold_stability.csv` — 48 rows (2 forecasters × 3 τ × 2 threshold-conventions × 4 subperiods).
 - `reports/m6_validation.md` §14 — "Threshold stability" sub-section appended with the headline table and the per-subperiod p95 drift table.
-- `M6_REFACTOR.md` Phase 8.3 boxes ticked with headline inline.
+- `reports/active/m6_refactor.md` Phase 8.3 boxes ticked with headline inline.
 
 ---
 
 ## Maintenance note
 
-When 8.2 or 8.3 completes, the agent that finishes it should fill the relevant `(Process / Results / Paper impact subsections to be filled…)` block above and update the status table at the top of this file in the same edit. This file lives at the project root, sibling to `PHASE_7_RESULTS.md`, `M6_REFACTOR.md`, `README.md`, and `CLAUDE.md`. The canonical long-form write-ups remain in `reports/m6_validation.md` (§14 onwards) and the canonical task spec remains in `M6_REFACTOR.md` §8.
+When 8.2 or 8.3 completes, the agent that finishes it should fill the relevant `(Process / Results / Paper impact subsections to be filled…)` block above and update the status table at the top of this file in the same edit. This file lives at the project root, sibling to `reports/active/phase_7_results.md`, `reports/active/m6_refactor.md`, `README.md`, and `CLAUDE.md`. The canonical long-form write-ups remain in `reports/m6_validation.md` (§14 onwards) and the canonical task spec remains in `reports/active/m6_refactor.md` §8.

@@ -56,7 +56,7 @@ from soothsayer.config import DATA_PROCESSED, REPORTS
 SPLIT_DATE = date(2023, 1, 1)
 TARGETS = (0.68, 0.85, 0.95, 0.99)
 
-# Locked symbol_class mapping (matches M6_REFACTOR.md Phase A1 + scripts/run_m6b_per_symbol_class_mondrian.py)
+# Locked symbol_class mapping (matches reports/active/m6_refactor.md Phase A1 + scripts/run_m6b_per_symbol_class_mondrian.py)
 SYMBOL_CLASS = {
     "SPY": "equity_index", "QQQ": "equity_index",
     "AAPL": "equity_meta", "GOOGL": "equity_meta",
@@ -393,14 +393,14 @@ def _build_markdown(skew_df, per_cell, one_sided, pooled, material_count, materi
         "",
         "- **Adopt** if ≥ 25% of cells are materially asymmetric AND pooled `width_delta_pct` at "
         "τ=0.95 is ≤ −2% (asymmetric meaningfully tighter at matched two-sided coverage). "
-        "Implement `M6_REFACTOR.md` Phase A7: extend the M6b2 artefact builder to emit "
+        "Implement `reports/active/m6_refactor.md` Phase A7: extend the M6b2 artefact builder to emit "
         "`LENDING_QUANTILE_LOW` and `LENDING_QUANTILE_HIGH` (24+24 trained scalars), and have "
         "the publisher write `lower = point − q_low·fri_close` and `upper = point + q_high·fri_close`.",
         "- **Disclose-not-deploy** if asymmetry is detectable but small (cells materially asymmetric "
         "but pooled `width_delta_pct` between −2% and 0%). Footnote in Paper 3 §Structural; do not "
         "implement A7. Symmetric M6b2 ships as the canonical Lending-track.",
         "- **Reject** if cells are symmetric (`width_delta_pct` ≥ 0% pooled, low cell-count "
-        "rejection rate). Strike A7 from `M6_REFACTOR.md`.",
+        "rejection rate). Strike A7 from `reports/active/m6_refactor.md`.",
         "",
         "## Paper 3 narrative cascade (if Adopt)",
         "",

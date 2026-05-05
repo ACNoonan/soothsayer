@@ -8,7 +8,7 @@
 
 **Source of truth for current state:** `reports/methodology_history.md` §0.
 
-**Sibling working doc:** `M6_REFACTOR.md` (post-M5 dual-profile rollout — Lending-track M6b2 + AMM-track M6a). `M5_REFACTOR.md` was deleted on completion 2026-05-XX (see `reports/methodology_history.md` deployment receipt).
+**Sibling working doc:** `reports/active/m6_refactor.md` (post-M5 dual-profile rollout — Lending-track M6b2 + AMM-track M6a). `M5_REFACTOR.md` was deleted on completion 2026-05-XX (see `reports/methodology_history.md` deployment receipt).
 
 ---
 
@@ -207,7 +207,7 @@ Realised coverage matches τ-target across all variants at all anchors (sample-s
 
 ## W4 — Asymmetric / one-sided coverage (Lending-track sub-axis)
 
-**Status:** Complete 2026-05-03. **Decision: Q1 Disclose-not-deploy (two-sided asymmetric pair); Q2 Adopt as auxiliary (one-sided per-class quantile table).** Redirects `M6_REFACTOR.md` Phase A7 from "asymmetric two-sided wire-format pair" to "auxiliary one-sided lending-consumer table in the artefact JSON sidecar."
+**Status:** Complete 2026-05-03. **Decision: Q1 Disclose-not-deploy (two-sided asymmetric pair); Q2 Adopt as auxiliary (one-sided per-class quantile table).** Redirects `reports/active/m6_refactor.md` Phase A7 from "asymmetric two-sided wire-format pair" to "auxiliary one-sided lending-consumer table in the artefact JSON sidecar."
 
 **Question.** Bands are symmetric `±hw`, but xStock weekend returns are likely skewed (left-tail heavier on equities; right-tail heavier on MSTR/TSLA). If realized coverage at τ=0.95 nominal is 0.95 *pooled* but, say, 0.91 left-tail / 0.99 right-tail, the protocol implication is concrete: MarginFi's P-conf and P+conf should not be equal, and band-perp's long vs short liquidation buffers should not be equal.
 
@@ -247,7 +247,7 @@ Reading: a MarginFi asset Bank holding equity_highbeta collateral that targets 9
 
 **Decision: Disclose-not-deploy (Q1) + Adopt as auxiliary (Q2).**
 
-- **Q1 strike from `M6_REFACTOR.md` Phase A7's original scope.** The published `lower` / `upper` continue to be the symmetric `point ± b_sym(class, τ)·fri_close`. No wire-format change. No two-sided asymmetric publish.
+- **Q1 strike from `reports/active/m6_refactor.md` Phase A7's original scope.** The published `lower` / `upper` continue to be the symmetric `point ± b_sym(class, τ)·fri_close`. No wire-format change. No two-sided asymmetric publish.
 - **Q2 redirects Phase A7 to the auxiliary one-sided table.** Implementation: ~half-day on the artefact builder + ~hour on the consumer SDK accessor + the Paper 3 worked-example refresh.
 - **Paper 3 §Structural narrative upgrade:** the auxiliary table replaces ad-hoc Kamino reserve-buffer set-up with calibrated per-(symbol_class, τ_one, side) receipts. MarginFi assets-vs-liabilities maps cleanly to `q_low_one` / `q_high_one`. This is the strongest empirical Paper 3 lever from the W2-W4 chain.
 
@@ -344,7 +344,7 @@ This becomes scryer-handoff item #2 in the prompt below.
 4. Gate: `R²(OOS) ≥ 0.4` against `r̄_w`. Stretch: `R²(OOS) ≥ 0.6` (would deliver ≥80% of M6a's upper-bound gain).
 5. Sanity-check: Berkowitz on M6a-deployable PITs (using `r̄_w_hat` instead of `r̄_w^(−i)`) — cross-sectional ρ should drop materially below 0.41. Expected: ρ ≈ 0.41 × (1 − R²(OOS)) under linear partial-out.
 
-**Why this matters.** Direct gate on AMM-track deployment. Below R²=0.4, M6a is "interesting upper bound" only and `M6_REFACTOR.md` Phase B defers indefinitely (or reframes as "wait for V3.1 F_tok signal accumulation"). Above R²=0.4, AMM-track ships under `M6_REFACTOR.md` Phase B and Layer 1 / Layer 4 AMM-licensee tier go live.
+**Why this matters.** Direct gate on AMM-track deployment. Below R²=0.4, M6a is "interesting upper bound" only and `reports/active/m6_refactor.md` Phase B defers indefinitely (or reframes as "wait for V3.1 F_tok signal accumulation"). Above R²=0.4, AMM-track ships under `reports/active/m6_refactor.md` Phase B and Layer 1 / Layer 4 AMM-licensee tier go live.
 
 **Deliverables.**
 
@@ -373,12 +373,12 @@ Three diagnostic findings:
 
 **Decision: REJECT at the current data surface.** AMM-track is not deployable from Friday-close-only state with the v1b_panel feature set.
 
-**Architectural implication for `M6_REFACTOR.md` Phase B.** Phase B is **deferred indefinitely** under current data. Two roadmap paths forward, neither blocked on each other:
+**Architectural implication for `reports/active/m6_refactor.md` Phase B.** Phase B is **deferred indefinitely** under current data. Two roadmap paths forward, neither blocked on each other:
 
 - **Path 1 — Sunday-Globex republish architecture.** ES/NQ Sunday 18:00 ET reopen. By Sunday evening the futures-implied Monday gap is a strong predictor of r̄_w (likely R²(OOS) > 0.5 ex-ante). Requires: (a) a scryer fetcher for Sunday-evening futures snapshots, (b) a Soothsayer publisher daemon that re-publishes the band Sunday at Globex reopen with the AMM-track applied, (c) consumer documentation that AMM-track has a "Friday-close + Sunday-republish" cadence, distinct from Lending-track's Friday-close-only cadence. This is the cleanest path; engineering-gated, ~3–4 weeks of work including scryer items.
 - **Path 2 — V3.1 F_tok signal accumulation.** On-chain xStock cross-section on `soothsayer_v5/tape` is a near-perfect proxy for r̄_w by construction (the cross-sectional mean of weekend xStock drift is ≈ r̄_w). Today (~30 weekends since launch) is too small for the predictor to fit reliably. ETA Q3–Q4 2026 once ≥ 150 weekends accumulate. Data-gated, no engineering required until the gate fires.
 
-**Headline reframe.** The M6c "ceiling" of 271 bps at τ=0.95 (39% narrower than v1) is now correctly framed as a *data-accumulation-gated* future state, not a near-term deployment target. M6b2 (Lending-track, ships next per `M6_REFACTOR.md` Phase A) delivers ~50% of M6c's gain over M5 with no data dependency.
+**Headline reframe.** The M6c "ceiling" of 271 bps at τ=0.95 (39% narrower than v1) is now correctly framed as a *data-accumulation-gated* future state, not a near-term deployment target. M6b2 (Lending-track, ships next per `reports/active/m6_refactor.md` Phase A) delivers ~50% of M6c's gain over M5 with no data dependency.
 
 **Decision: REJECT (Friday-close only); reopen as W8b (Sunday-Globex variant) or W8c (V3.1 F_tok variant) when the respective data surfaces are ready.**
 
@@ -421,4 +421,4 @@ Three diagnostic findings:
 - [ ] Every workstream above has a terminal decision recorded.
 - [ ] Findings that warranted methodology changes have entries in `reports/methodology_history.md`.
 - [ ] Findings that didn't warrant changes have a one-line "considered and dropped" entry in the methodology log.
-- [ ] **Delete this file (`VALIDATION_BACKLOG.md`).**
+- [ ] **Delete this file (`reports/active/validation_backlog.md`).**

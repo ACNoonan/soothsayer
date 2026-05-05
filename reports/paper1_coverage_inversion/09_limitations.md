@@ -60,7 +60,7 @@ The paper validates an oracle interface, not a lending policy. We do not report 
 
 Three concerns that do *not* apply, plus one known data-gated gap:
 
-- **Oracle manipulation.** Coverage transparency is orthogonal to integrity. Soothsayer is designed to be read alongside an adversarially-robust feed, not as its replacement.
+- **Oracle manipulation.** Coverage transparency is orthogonal to integrity. Soothsayer ingests upstream price/oracle signals (Pyth, Chainlink, RedStone, Kamino-Scope, public-market data via Yahoo / Kraken) and republishes them as a calibrated band; the coverage claim is conditional on the integrity of those upstream feeds, and manipulation of any of them is not separately defended against by this primitive.
 - **Latency.** The serving-time Oracle is a five-line lookup; nothing in the coverage-inversion mechanism requires a live forecast computation.
 - **σ̂ rule optimality.** The §7.3 selection procedure under multi-test correction does not statistically distinguish the five σ̂ variants; the EWMA HL=8 promotion rests on Gate 3 (bootstrap CI on width) plus the held-out forward-tape re-validation. We do not claim the σ̂ rule is optimal among all locally-weighted variants; a finer half-life sweep, alternative weight kernels, or hybrid rules are open future work.
 - **On-chain xStock TWAP not consumed.** Cong et al. [cong-tokenized-2025] document off-hour returns on tokenised stocks anticipate Monday opens. The base forecaster does not read this; the V5 forward-cursor tape supplies the data but only ~30 weekends of post-launch history exist (§10.1).
