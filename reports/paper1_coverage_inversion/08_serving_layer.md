@@ -6,7 +6,7 @@ The methodology of §4 is implemented as a four-component serving stack designed
 
 The serving stack is a contract between three audiences: the **researcher** iterating against the Python OOS panel, the **protocol integrator** building against on-chain `PriceUpdate` accounts, and the **third-party auditor** verifying a served band against the published artefact. Byte-for-byte parity (§8.5) makes the first two identical at the numeric level; the receipt fields and public artefacts make the third executable from public data alone. This trio is the operational instantiation of $P_1$ (auditability).
 
-The implementation separates *training* (Python) from *serving* (Rust + Solana). The Python `Oracle` (`src/soothsayer/oracle.py`) is the canonical specification: it produces the per-Friday lookup artefact and is the executable reference for the M5 conformal-lookup algorithm. A change — a new $c(\tau)$ schedule, a per-Friday point recompute — is implemented in Python first, validated against the §6 OOS panel, and ported to Rust under the byte-for-byte parity contract of §8.5. No model logic is duplicated: the training pipeline materialises the per-Friday rows and the 20 deployment scalars once offline; the serving stack reads them. The 20 scalars are hardcoded in both `oracle.py` and `crates/soothsayer-oracle/src/config.rs` and mirrored into the JSON sidecar.
+The implementation separates *training* (Python) from *serving* (Rust + Solana). The Python `Oracle` (`src/soothsayer/oracle.py`) is the canonical specification: it produces the per-Friday lookup artefact and is the executable reference for both the v1 Mondrian conformal-lookup algorithm (`Oracle.fair_value`) and the v2 locally-weighted variant (`Oracle.fair_value_lwc`). A change — a new $c(\tau)$ schedule, a per-Friday point recompute, a σ̂ rule swap — is implemented in Python first, validated against the §6 OOS panel, and ported to Rust under the byte-for-byte parity contract of §8.5. No model logic is duplicated: the training pipeline materialises the per-Friday rows (including $\hat\sigma_s(t)$ per symbol pre-Friday) and the deployment scalars once offline; the serving stack reads them. The deployment scalars (20 under v1; 16 under v2) are hardcoded in `oracle.py` and mirrored into the JSON sidecar; the v1-path scalars are duplicated in `crates/soothsayer-oracle/src/config.rs` for the Rust serving binary.
 
 ## 8.2 The Rust crate stack
 
@@ -32,7 +32,7 @@ The `PriceUpdate` account layout (128 bytes data + 8-byte Anchor discriminator) 
 PriceUpdate:
   version              u8         schema version, currently 1
   regime_code          u8         0=normal, 1=long_weekend, 2=high_vol
-  forecaster_code      u8         0=F1_emp_regime (legacy the prior hybrid Oracle), 1=F0_stale (legacy the prior hybrid Oracle), 2=mondrian (M5 / deployed)
+  forecaster_code      u8         0=F1_emp_regime (legacy Soothsayer-v0), 1=F0_stale (legacy Soothsayer-v0), 2=mondrian (v1), 3=lwc (v2 / deployed; reserved on-chain pending Rust parity port)
   exponent             i8
   target_coverage_bps  u16        consumer's request, integer bp
   claimed_served_bps   u16        served quantile, integer bp
@@ -46,17 +46,23 @@ The three rules: (1) **Absolute prices, not deltas** — a consumer reading `low
 
 ## 8.5 Byte-for-byte parity verification
 
-`scripts/verify_rust_oracle.py` runs Python `Oracle.fair_value` and Rust `soothsayer fair-value` on the same `(symbol, fri_ts, target_coverage)` triples and asserts byte-exact agreement on numeric output (point, lower, upper, sharpness_bps, claimed_served, calibration_buffer_applied) plus exact agreement on string fields (regime, forecaster_used). The current panel covers 90 cases (25 random pairs from the artefact + edge cases for SPY, GLD, TLT, MSTR, HOOD at three targets each). **90/90 pass** as of the most recent re-run on M5.
+`scripts/verify_rust_oracle.py` runs Python `Oracle.fair_value` (v1 path) and Rust `soothsayer fair-value` on the same `(symbol, fri_ts, target_coverage)` triples and asserts byte-exact agreement on numeric output (point, lower, upper, sharpness_bps, claimed_served, calibration_buffer_applied) plus exact agreement on string fields (regime, forecaster_used). The v1-path panel covers 90 cases (25 random pairs from the artefact + edge cases for SPY, GLD, TLT, MSTR, HOOD at three targets each). **90/90 pass** for the v1 path as of the most recent re-run.
 
-The parity harness is invoked after every methodology change. The the migration from the prior hybrid Oracle to M5 was applied to Python first, then ported to Rust; the harness was re-run before the change was considered shipped. It is the contract that allows a consumer to verify a served `PricePoint` against the published artefact without trusting either implementation in isolation.
+**Status of the v2 Rust parity port at submission:** [TBD; the v2 Rust port is gated to a productionisation milestone (§4.7); at the time of this submission the v2 path is Python-only with the `forecaster_code = 3` slot reserved on the wire (§8.4) and the v2 Rust port is **expected complete by publication**. This subsection's claim must be regenerated immediately before submission to reflect the parity-harness state at that time, with the target being **180/180 pass** (90 v1 cases + 90 v2 cases).]
 
-**Wire format invariance across the prior hybrid Oracle → M5.** The on-chain `PriceUpdate` Borsh layout is unchanged. The only on-wire change is relabelling the previously-reserved `forecaster_code = 2` slot to `FORECASTER_MONDRIAN`. Pre-M5 accounts decode cleanly under M5 consumers; post-M5 accounts emit code 2. Downstream consumers branching on `forecaster_code` need only add a code-2 case.
+The parity harness is invoked after every methodology change. The migration from Soothsayer-v0 → v1 was applied to Python first, then ported to Rust; the harness was re-run before the change was considered shipped. The same applies to the v1 → v2 migration when the Rust port closes. It is the contract that allows a consumer to verify a served `PricePoint` against the published artefact without trusting either implementation in isolation.
+
+**Wire format invariance across Soothsayer-v0 → v1 → v2.** The on-chain `PriceUpdate` Borsh layout is unchanged across all three migrations. The only on-wire change is relabelling reserved `forecaster_code` slots: code 2 → `FORECASTER_MONDRIAN` (v1; live), code 3 → `FORECASTER_LWC` (v2; reserved). Pre-v1 accounts decode cleanly under v1/v2 consumers; v1 accounts decode cleanly under v2 consumers; v2 accounts will decode cleanly under any consumer that reads the `forecaster_code` byte. Downstream consumers branching on `forecaster_code` need only add code-2 and code-3 cases.
 
 ## 8.6 Reproduction
 
 ```
-# Train (Python)
-uv sync && uv run python scripts/build_mondrian_artefact.py
+# Train (Python) — v2 (deployed)
+uv sync && uv run python scripts/build_lwc_artefact.py
+uv run python scripts/freeze_lwc_artefact.py     # content-addressed freeze for forward-tape
+
+# Train (Python) — v1 (still buildable as the §7.2 ablation rung)
+uv run python scripts/build_mondrian_artefact.py
 
 # Serve (Rust)
 cargo build --release -p soothsayer-publisher

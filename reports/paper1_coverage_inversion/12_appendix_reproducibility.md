@@ -4,9 +4,9 @@ This appendix consolidates everything needed to reproduce the §6 empirical resu
 
 ## A.1 Algorithm boxes
 
-We give pseudocode for three procedures: the M5 fit (deployment-artefact build), the M5 serve (runtime band lookup), and the walk-forward stability protocol. Implementations: Python at `src/soothsayer/{backtest/calibration.py,oracle.py}`, Rust at `crates/soothsayer-oracle/src/{config,oracle,types}.rs`. The Rust path is byte-for-byte verified against Python on a 90-case probe (`scripts/verify_rust_oracle.py`, 90/90 pass).
+We give pseudocode for three procedures: the v1 fit (deployment-artefact build), the v1 serve (runtime band lookup), and the walk-forward stability protocol. Implementations: Python at `src/soothsayer/{backtest/calibration.py,oracle.py}`, Rust at `crates/soothsayer-oracle/src/{config,oracle,types}.rs`. The Rust path is byte-for-byte verified against Python on a 90-case probe (`scripts/verify_rust_oracle.py`, 90/90 pass).
 
-**Algorithm 1 — M5 fit** (one-shot, produces the 20 deployment scalars; `scripts/build_mondrian_artefact.py`).
+**Algorithm 1 — v1 fit** (one-shot, produces the 20 deployment scalars; `scripts/build_mondrian_artefact.py`).
 
 ```
 Input:  panel D = {(s, t, p_Fri, mon_open, r_F, r) : i = 1, ..., N}
@@ -33,7 +33,7 @@ Output: quantile_table  q_r(τ)         dim 3 × 4 = 12 scalars
 6.  return (q_r(τ), c(τ), δ(τ))
 ```
 
-**Algorithm 2 — M5 serve** (runtime band; `Oracle.fair_value` in `src/soothsayer/oracle.py`).
+**Algorithm 2 — v1 serve** (runtime band; `Oracle.fair_value` in `src/soothsayer/oracle.py`).
 
 ```
 Input:  symbol s, as-of date t, target coverage τ ∈ [0.68, 0.99]
@@ -148,7 +148,7 @@ The end-to-end pipeline from raw panel to all paper artefacts:
 # 1. Build the weekend panel from scryer parquet (one-time, ~3 min).
 uv run python scripts/run_calibration.py
 
-# 2. Fit M5 and write the deployment artefact (Algorithm 1).
+# 2. Fit v1 and write the deployment artefact (Algorithm 1).
 uv run python scripts/build_mondrian_artefact.py
 
 # 3. Verify Python ↔ Rust serving parity (90/90 cases).
@@ -189,17 +189,17 @@ cd reports/paper1_coverage_inversion/build && uv run python build.py --pdf
 
 ## A.7 Determinism and randomness
 
-The M5 fit and serve paths are deterministic given the panel: no random initialisation, no Monte Carlo, no bootstrap inside the fit. The 6-split walk-forward (§6.3, §7.2.3) uses fixed split fractions {0.2, 0.3, 0.4, 0.5, 0.6, 0.7}; the four split-date sensitivity anchors (§6.3) are fixed at {2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01}; LOSO (§6.3) iterates the ten symbols in lexicographic order. The block-bootstrap CIs reported in §6.3 use NumPy's default RNG with seed 0 over 1{,}000 weekend-block resamples (`scripts/aggregate_ab_comparison.py`).
+The v1 fit and serve paths are deterministic given the panel: no random initialisation, no Monte Carlo, no bootstrap inside the fit. The 6-split walk-forward (§6.3, §7.2.3) uses fixed split fractions {0.2, 0.3, 0.4, 0.5, 0.6, 0.7}; the four split-date sensitivity anchors (§6.3) are fixed at {2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01}; LOSO (§6.3) iterates the ten symbols in lexicographic order. The block-bootstrap CIs reported in §6.3 use NumPy's default RNG with seed 0 over 1{,}000 weekend-block resamples (`scripts/aggregate_ab_comparison.py`).
 
 The GARCH(1,1) baseline (§6.4.2) is fit per-symbol via `arch_model(..., dist="normal").fit(disp="off")`; the optimisation is deterministic up to BFGS tolerance (default `tol=1e-8`).
 
 ## A.8 Independent verification (Python ↔ Rust ↔ on-chain)
 
-The deployed serving stack has three independent implementations of the M5 lookup that must agree byte-for-byte:
+The deployed serving stack has three independent implementations of the v1 lookup that must agree byte-for-byte:
 
 1. **Python reference.** `src/soothsayer/oracle.py::Oracle.fair_value`. Reads `data/processed/mondrian_artefact_v2.parquet` for the per-Friday `(symbol, fri_close, point, regime_pub)` tuple; the 20 scalars are hard-coded module constants.
 2. **Rust serving crate.** `crates/soothsayer-oracle/src/oracle.rs::Oracle::fair_value`. Same parquet, same 20 hard-coded scalars (in `config.rs`); independent implementation of the interpolation and serving formula.
-3. **On-chain publisher.** `programs/soothsayer-oracle-program/`. The Rust crate is consumed by an Anchor program that emits `PriceUpdate` PDAs whose Borsh layout was preserved across the migration from the prior hybrid Oracle to M5 (`forecaster_code = 2` signals a Mondrian read); a downstream `soothsayer-consumer` no_std crate decodes the PDA and reconstructs `(point, lower, upper, claimed_coverage_served)` from the wire bytes.
+3. **On-chain publisher.** `programs/soothsayer-oracle-program/`. The Rust crate is consumed by an Anchor program that emits `PriceUpdate` PDAs whose Borsh layout was preserved across the migration from Soothsayer-v0 to v1 (`forecaster_code = 2` signals a Mondrian read); a downstream `soothsayer-consumer` no_std crate decodes the PDA and reconstructs `(point, lower, upper, claimed_coverage_served)` from the wire bytes.
 
 `scripts/verify_rust_oracle.py` runs a 90-case probe across (10 symbols × 9 weekends) and asserts identical `(point, lower, upper)` between paths 1 and 2 to within float precision (max abs diff < 1e-10 on a normalised band). The Anchor integration test (`programs/soothsayer-oracle-program/tests/`) extends the parity check to path 3 by decoding the on-chain PDA after a publish call.
 
