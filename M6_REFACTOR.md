@@ -343,27 +343,174 @@ The N=600 cells reproduce Phase 3's `sim_summary.csv` byte-for-byte (regression 
 
 ---
 
-## Phase 7 — Rust parity port for M6 (GATED)
+## Phase 7 — Paper-strengthening empirical tests (paper-only; no artefact change)
 
-**Gate:** do **not** start until Adam has forwarded Phase 1–6 results to the secondary agent and explicitly green-lit this phase here. The σ̂ variant decision (Phase 5) and panel-admission guidance (Phase 6) must be locked first so the port mirrors the canonical M6.
+**Goal:** add three pieces of evidence that strengthen Paper 1's value proposition and defuse anticipated reviewer objections. None of these change the deployed M6 artefact; they extend the §6 / §7 evidence pack and use the M6 panel + serving harness already built in Phases 1–2.
+
+These three tests are independent and can be run in any order. Phase 7 does not gate Phase 8 (Rust port) — the artefact is unchanged — but it should be complete before the next Paper 1 revision is sent out.
+
+### 7.1 — Portfolio-level violation clustering (highest ROI) ✅ COMPLETE 2026-05-04
+
+**Why this matters:** the paper currently calibrates per-symbol; a sophisticated consumer (e.g. Kamino risk team) holds correlated assets and asks "what's my portfolio-level tail risk?" The current §6.3.1 framing — "cross-sectional common-mode deferred to a companion paper" — leaves the bands looking operationally weaker than they are. A direct portfolio-level diagnostic settles it: either clustering exists and we give consumers empirical reserve guidance (a contribution, since no incumbent oracle does this), or it doesn't and we've defused §6.3.1 with a positive result. Either outcome strengthens the paper.
+
+- [x] `scripts/run_portfolio_clustering.py`. For each OOS weekend at τ ∈ {0.85, 0.95, 0.99}, counts `k_w = #{symbols breaching their τ-band}` over the 10-symbol panel under both M5 and M6 LWC.
+- [x] Compares the empirical distribution of `k_w` to `Binomial(10, 1-τ)` via χ² GOF (bins {0, 1, 2, ≥3}), KS distance, and 1000-rep weekend-block bootstrap CIs on the tail probabilities.
+- [x] Outputs: `reports/tables/m6_portfolio_clustering.csv` (long-format aggregate), `reports/tables/m6_portfolio_clustering_per_weekend.csv` (per-weekend `k_w`), `reports/figures/portfolio_clustering.{pdf,png}` (3-panel empirical-vs-binomial PMF).
+- [x] §14 of `reports/m6_validation.md` with the headline table + figure cross-reference + consumer reserve guidance.
+
+**Headline at τ=0.95** (173 full-coverage OOS weekends; CIs are 1000-rep weekend-block bootstrap, seed=0):
+
+| | M5 deployed | M6 LWC | Binomial(10, 0.05) |
+|---|---|---|---|
+| Mean k_w | 0.497 | 0.497 | 0.500 |
+| Var ratio (overdispersion) | 1.78 | **2.39** | 1.00 |
+| P(k ≥ 3) | 4.05% [1.16, 6.94] | **5.20% [2.31, 8.67]** | 1.15% |
+| P(k ≥ 5) | 0.58% [0.00, 1.73] | 1.16% [0.00, 2.89] | 0.01% |
+| P(k ≥ 7) | 0.00% | 0.58% [0.00, 1.73] | <0.001% |
+| max k_w | 6 | 8 | — |
+| χ² GOF p | 0.0001 | <0.0001 | (null) |
+
+**Verdict — paper-strengthening, mixed nuance.** Both forecasters reject the independence null with bootstrap CIs that strictly exclude the binomial reference at k≥3. Calibration of the marginal is preserved (mean = 0.497 / weekend under both, matching binomial 0.500). M6 LWC clusters slightly more than M5 at the upper tail at τ=0.95 (variance ratio 2.39 vs 1.78, max k_w 8 vs 6) — the price of per-symbol scale standardisation, redistributing some marginal mass to the joint upper tail. **Consumer reserve guidance:** at τ=0.95, reserve against an empirical 99th-percentile of ≈ 5 simultaneous breaches, not the binomial ≈ 2. This is the contribution.
+
+### 7.2 — Sub-period robustness within OOS ✅ COMPLETE 2026-05-04
+
+**Why this matters:** §9.2 of Paper 1 currently *discloses* stationarity as a limitation. Sub-period evidence converts the disclosure into either a positive claim (calibration holds across regimes) or a meaningful operating boundary (which consumers need to know). Cheap to run because the panel and serving harness already exist.
+
+- [x] `scripts/run_subperiod_robustness.py`. Splits the 2023+ OOS slice into {2023, 2024, 2025, 2026-YTD-through-2026-04-24}.
+- [x] Per-subperiod pooled Kupiec / Christoffersen / realised / half-width at τ ∈ {0.68, 0.85, 0.95, 0.99} under both M5 and M6 LWC (32 cells per forecaster).
+- [x] n ≥ 50 (weekend × symbol) cells in every subperiod (2023/2024/2025 = 520, 2026-YTD = 170); the `low_n_flag` column is a sanity guard, not a real cutoff.
+- [x] Output: `reports/tables/m6_subperiod_robustness.csv` (32 rows per forecaster).
+
+**Headline at τ=0.95** (`reports/m6_validation.md` §15 has the full per-τ table):
+
+| Subperiod | Realised (M5) | Realised (M6 LWC) | Kupiec p (M5) | Kupiec p (M6) |
+|---|---|---|---|---|
+| 2023 | 0.965 | 0.942 | 0.089 | 0.432 |
+| 2024 | 0.939 | 0.939 | 0.243 | 0.243 |
+| 2025 | 0.939 | 0.967 | 0.243 | 0.054 |
+| 2026-YTD | 0.977 | 0.959 | 0.079 | 0.587 |
+
+Across the full 16-cell (subperiod × τ) grid per forecaster: M5 has 5 / 16 Kupiec rejections (all over-coverage at lower τ in 2023/2024), M6 LWC has 2 / 16 (both over-coverage in 2025 at τ=0.85 and τ=0.99). Christoffersen rejections: 0 / 16 under both. **Verdict:** §9.2 stationarity disclosure is replaced by a positive claim — M6 LWC realised range across the four years at τ=0.95 is 0.942–0.967, every cell passes Kupiec at α=0.05, no within-symbol lag-1 clustering.
+
+### 7.3 — GARCH-t baseline (replace Gaussian) ✅ COMPLETE 2026-05-04
+
+**Why this matters:** §6.4.2 currently uses GARCH(1,1)-Gaussian, which is a known-to-fail straw man — any reviewer with finance training will say so. GARCH-t is the standard practitioner baseline. If M6 still beats GARCH-t at matched coverage on width, the dominance claim becomes much harder to dismiss. If GARCH-t wins on some metric, we've found something important.
+
+- [x] Extended `scripts/run_v1b_garch_baseline.py` with `--dist {gaussian, t}`. Default preserved as gaussian; the existing receipt's `method` row label literal (`"GARCH(1,1)"`) is preserved so `build_paper1_figures.py` keeps working. Schema-additive: a new `garch_dist` column is appended.
+- [x] GARCH-t uses `arch_model(..., dist="t")`; ν is per-symbol; band quantile = `T_ν⁻¹(0.5+τ/2) · √((ν−2)/ν)`.
+- [x] Per-symbol fallback to gaussian on convergence failure or ν ≤ 2.5; recorded in `dist_used` column. NVDA hits the floor (ν̂=2.5); the other 9 symbols converge cleanly with ν̂ ∈ [2.84, 6.88].
+- [x] Re-ran under both forecasters: `reports/tables/{v1b_robustness,m6_lwc_robustness}_garch_t_baseline.csv`. `reports/m6_validation.md` §16 has the full evidence pack.
+
+**Headline at τ=0.95** (matched OOS keys, n=1,730):
+
+| Method | Realised | HW (bps) | Kupiec p | Christoffersen p |
+|---|---:|---:|---:|---:|
+| GARCH(1,1)-N | 0.9254 | 322.2 | 0.000 | 0.016 |
+| GARCH(1,1)-t | 0.9277 | 331.6 | 0.000 | **0.209** |
+| M5 deployed | 0.9503 | 354.6 | 0.956 | 0.921 |
+| M6 LWC deployed | 0.9503 | 385.3 | 0.956 | 0.275 |
+
+**Verdict:** GARCH-t closes most of the GARCH-Gaussian τ=0.99 tail-coverage gap (realised 0.985 vs 0.963; Kupiec p 0.05 vs <0.001) and clears Christoffersen at τ=0.95 (p=0.209 vs 0.016) — fat-tailed innovations explain a meaningful chunk of both the tail-coverage gap and the lag-1 clustering. But GARCH-t still fails Kupiec unconditional coverage at every τ < 0.99 (p ∈ {0.018, 0.001, 0.000} at τ ∈ {0.68, 0.85, 0.95}); the standardised-t quantile is *narrower* than Gaussian at low τ for ν≈3, so it tightens exactly where Gaussian was already under-covering. **M6 LWC dominates GARCH-t at matched coverage at every τ.** Paper 1 §6.4.2 should lead with GARCH-t (the practitioner standard), demote Gaussian to a footnote.
+
+### Definition of done — Phase 7
+
+- [x] Three runners ship with reproducible outputs.
+- [x] `reports/m6_validation.md` updated with §14 (clustering), §15 (sub-period robustness), §16 (GARCH-t).
+- [x] Phase 7 results consolidated at `PHASE_7_RESULTS.md` (project root, one-shot summary).
+- [ ] Paper 1 §6.3.1, §6.4.2, §9.2 revision edits committed against the relevant files in `reports/paper1_coverage_inversion/` — pending the next paper-revision sweep.
+- [x] No change to deployed M6 artefact, smoke, or tests.
+
+---
+
+## Phase 8 — Compounders on Phase 7 (paper-only; no artefact change)
+
+**Goal:** three follow-up passes that compound on Phase 7's three results — turning each from a statistical headline into a deeper claim a sophisticated reader can act on. None change the deployed artefact. All three are independent and can run in any order.
+
+Phase 8 does not gate Phase 9 (Rust port) — the artefact is unchanged — and the two may run in parallel. The combined Phase 7 + Phase 8 evidence pack is what Paper 1's next revision will draw from.
+
+Results are summarised at `PHASE_8.md` (project root) — sibling to `PHASE_7_RESULTS.md`. Each sub-phase fills its block there as it completes.
+
+### 8.1 — Worst-weekend characterization ✅ COMPLETE 2026-05-04
+
+**Why this matters:** Phase 7.1 produced a striking statistical headline — under M6 LWC at τ=0.85 the worst OOS weekend has *all 10 symbols breaching their bands simultaneously*. The clustering result is currently a distribution shape; pinning down which weekend (and what the macro context was) converts it into a memorable narrative for the §6.3.1 framing and gives §9.1 a concrete example for the circuit-breaker recommendation. Industry readers (Kamino risk team, oracle competitors) remember vignettes; statistical distributions blur.
+
+- [x] Identified the only `k_w = 10` weekend at τ=0.85 under M6 LWC: **Friday 2024-08-02, Mon-open 2024-08-05**. Cross-referenced against `v1b_panel.parquet` for per-symbol breach magnitudes.
+- [x] Characterised the macro context as the Bank of Japan rate-hike yen-carry-trade unwind: BoJ July 31 hike + weak US July nonfarm payrolls (Sahm-rule trigger) + Nikkei −12.4% on Aug 5 (largest single-day drop since Black Monday 1987) + VIX intraday ≈ 65 (highest since March 2020 COVID).
+- [x] `PHASE_8.md` §8.1 written (~150 lines: process / per-symbol breach table / macro narrative / paper impact).
+- [x] `reports/m6_validation.md` §14 — "Worst weekend" sub-section appended with the per-symbol table and the circuit-breaker connection.
+- [ ] Paper 1 §6.3.1 / §9.1 inline revision notes — pending the next paper-revision sweep.
+
+**Headline:** all 10 symbols sold off in concert that weekend (mean weekend return −963 bps, median −807 bps; range −2737 bps MSTR to +143 bps TLT — the only safe-haven bid). 9 of 10 also breached at τ=0.95; even at τ=0.99, AAPL/HOOD/NVDA/QQQ/SPY breached. The σ̂-standardisation worked at the per-symbol level (high-vol symbols got wide bands, low-vol got narrow), but no per-symbol band can absorb a 4–27σ-equivalent joint event. **This is the §9.1 circuit-breaker case study:** `k_w` in real time would flag `k_w = 10` at τ=0.85 by the Mon-open print, far above the empirical 99th percentile (k = 7).
+
+### 8.2 — Per-symbol GARCH-t comparison ✅ COMPLETE 2026-05-04
+
+**Why this matters:** Phase 7.3 showed M6 LWC dominates GARCH-t at the *pooled* level. The §6.4.1 per-symbol Kupiec claim ("M6 LWC: 10/10 passes vs M5: 2/10") is the central per-symbol generalization argument; right now it's against the deployed M5 baseline only. Adding GARCH-t per-symbol extends the claim to "vs the strongest parametric baseline at the per-symbol level." This is the version a reviewer with finance training cannot dismiss.
+
+- [x] Wrote sibling runner `scripts/run_per_symbol_kupiec_all_methods.py`. Imports `fit_per_symbol_garch` and `serve_garch_bands` from the Phase 7.3-extended `run_v1b_garch_baseline.py` via `importlib.util.spec_from_file_location` (same precedent as `run_simulation_size_sweep.py`).
+- [x] Emits per-symbol Kupiec at all four τ under all four methods in one CSV: `reports/tables/m6_per_symbol_kupiec_4methods.csv` (160 rows = 10 symbols × 4 methods × 4 τ; schema `symbol, method, tau, n_oos, viol_rate, kupiec_lr, kupiec_p`).
+- [x] `reports/m6_validation.md` §16 — "Per-symbol GARCH comparison" sub-section appended with the τ=0.95 table and the pass-count grid.
+- [x] `PHASE_8.md` §8.2 filled in (Process / Results / Paper impact / Outputs).
+- [ ] Paper 1 §6.4.1 paragraph upgrade — pending the next paper-revision sweep.
+
+**Headline at τ=0.95** — per-symbol Kupiec pass-count out of 10 symbols:
+
+| Method | Pass-count at τ=0.95 | Pass-count across full 4×10 grid |
+|---|---:|---:|
+| M5 deployed | 2/10 | 12/40 |
+| GARCH(1,1)-Gaussian | 6/10 | 23/40 |
+| GARCH(1,1)-t | 8/10 | 31/40 |
+| **M6 LWC** | **10/10** | **39/40** |
+
+**Verdict:** at τ=0.95 M6 LWC achieves per-symbol calibration on every symbol; the strongest practitioner baseline (GARCH-t) achieves 8/10. Across all 40 (symbol × τ) cells M6 LWC fails only **TSLA at τ=0.85** (p=0.044, over-coverage — the same TSLA cell already in §6.4.1's acknowledged outlier list). GARCH-t closes the Gaussian fat-tail failures at τ=0.99 (10/10) and on HOOD/MSTR at τ=0.95, but still fails GLD at every τ<0.99 (over-tightened) and several other low-τ cells. **§6.4.1 paragraph upgrades from "vs M5" to "vs the strongest parametric baseline."**
+
+### 8.3 — Cross-subperiod k_w threshold stability ✅ COMPLETE 2026-05-04
+
+**Why this matters:** Phase 7.1 produced consumer reserve guidance — "at τ=0.95, reserve against ≈ 5 simultaneous breaches." That's a one-shot empirical observation. A consumer sizing reserves needs to know it's *stable across regimes*. If the empirical 95th-percentile of `k_w` jumped from k=3 in 2023 to k=7 in 2025, the reserve guidance is unreliable. Piggyback on Phase 7.2's calendar sub-periods to test stability. (A naive Kupiec test on a self-derived percentile is tautological by construction; the cross-subperiod stability framing avoids this by fitting the threshold on the full OOS and testing the year-by-year hit rate.)
+
+- [x] `scripts/run_kw_threshold_stability.py`. Reads `reports/tables/m6_portfolio_clustering_per_weekend.csv`. For each forecaster × τ ∈ {0.85, 0.95, 0.99}: fits two threshold conventions on the *full-OOS* hit-rate curve — `k_close` (rate closest to 5%, primary) and `k_below_5pct` (smallest k with rate ≤ 5%, deployment-conservative).
+- [x] For each subperiod {2023, 2024, 2025, 2026-YTD}: Kupiec LR test of subperiod hit-rate vs full-OOS rate; per-subperiod 95th-percentile of `k_w`; `low_power_flag` set when expected subperiod hits < 3 (binomial-LR power threshold).
+- [x] Output: `reports/tables/m6_kw_threshold_stability.csv` (48 rows = 2 forecasters × 3 τ × 2 conventions × 4 subperiods).
+- [x] `reports/m6_validation.md` §14 — "Threshold stability" sub-section appended with the headline table and the per-subperiod 95th-percentile drift table.
+- [x] `PHASE_8.md` §8.3 filled in (Process / Results / Paper impact / Outputs).
+- [ ] Paper 1 §6.3.1 / §9.1 inline revision notes — pending the next paper-revision sweep.
+
+**Headline:** across the full 24-cell stability grid per forecaster: **M6 LWC has 0 / 24 Kupiec rejections at α=0.05; M5 has 2 / 24** — both at τ=0.95 in 2024 (same over-clustering signal Phase 7.2 already flagged). Year-on-year drift in the per-subperiod 95th-percentile of `k_w` is ≤ 1.6 integer-symbols at every τ under M6 LWC. The deployment-recommended threshold (k*=3 at τ=0.95, k*=5 at τ=0.85) sits at or above every per-subperiod 95th-percentile — i.e. the consumer guidance is conservative against year-on-year drift, not just against the full-OOS distribution.
+
+**Power caveat (transparently disclosed):** subperiod n ∈ {52, 17} and target rates ~5% give limited binomial-LR power; most cells flag `low_power_flag = 1`. The result is "no detectable instability with the available power," not "definitively stationary." The 95th-percentile drift table is the orthogonal quantile-read that does not depend on test power.
+
+**§6.3.1 / §9.1 upgrade:** combined with Phase 8.1 (Aug 5 2024 vignette) and Phase 7.1 (clustering distribution), the reserve guidance is now end-to-end specified — threshold is fitted (k*=3 at τ=0.95), threshold is stable across regimes (0/24 rejections), threshold catches the worst observed weekend (Aug 5 2024 had `k_w = 10` at τ=0.85, well above the deployment k*).
+
+### Definition of done — Phase 8
+
+- [x] All three sub-phases complete and reproducible.
+- [x] `PHASE_8.md` filled in (status table + per-sub-phase Process / Results / Paper impact / Outputs).
+- [x] `reports/m6_validation.md` extended with the three new sub-sections (§14 Worst-weekend + §14 Threshold-stability + §16 Per-symbol-GARCH).
+- [ ] Paper 1 §6.3.1 / §6.4.1 / §9.1 inline revision notes — pending the next paper-revision sweep.
+- [x] No change to deployed M6 artefact, smoke, or tests.
+
+---
+
+## Phase 9 — Rust parity port for M6 (GATED)
+
+**Gate:** do **not** start until Adam has forwarded Phase 1–6 results to the secondary agent and explicitly green-lit this phase here. The σ̂ variant decision (Phase 5) and panel-admission guidance (Phase 6) must be locked first so the port mirrors the canonical M6. Phase 7 + Phase 8 (paper-strengthening tests) do **not** gate Phase 9 — the artefact is unchanged — and these may run in parallel.
 
 **Goal:** extend the byte-for-byte parity contract of §8.5 to M6.
 
-### 7.1 — Port
+### 9.1 — Port
 
 - [ ] Port `Oracle.fair_value_lwc` to `crates/soothsayer-oracle/src/oracle.rs`.
 - [ ] Add the per-symbol scale series to `crates/soothsayer-oracle/src/config.rs` (or load it from a binary asset — the per-Friday scale is per-(symbol, fri_ts), so it's a lookup, not a constant).
 
-### 7.2 — Parity
+### 9.2 — Parity
 
 - [ ] Update `scripts/verify_rust_oracle.py` to add 90 LWC test cases. Target **90/90 pass for both M5 and M6 (180/180 total)**.
 
-### 7.3 — On-chain
+### 9.3 — On-chain
 
 - [ ] Reserve `forecaster_code = 3` (FORECASTER_LWC) in the on-chain Anchor program.
 - [ ] Wire-format invariance: existing M5 consumers must decode M6 `PriceUpdate` accounts without crashing — only the `forecaster_code` field changes.
 
-### Definition of done — Phase 7
+### Definition of done — Phase 9
 
 - 180/180 Python ↔ Rust parity.
 - On-chain decoder unchanged.
@@ -373,15 +520,20 @@ The N=600 cells reproduce Phase 3's `sim_summary.csv` byte-for-byte (regression 
 
 ## Reporting back
 
-When Phases 1–7 are complete, produce one summary at `reports/m6_promotion_summary.md` containing:
+When Phases 1–9 are complete, produce one summary at `reports/m6_promotion_summary.md` containing:
 
 - Headline M6 OOS table at τ ∈ {0.68, 0.85, 0.95, 0.99} (mirrors §6.3 of the paper).
-- Per-symbol Kupiec table for M6 vs M5 (mirrors §6.4.1).
+- Per-symbol Kupiec table for M6 vs M5 (mirrors §6.4.1) — extended with GARCH-t per-symbol from Phase 8.2.
 - Block-bootstrap CIs on the M5 → M6 width and coverage deltas.
 - Four-DGP simulation summary table + sample-size sweep curves (Phase 6).
 - σ̂ variant verdict (Phase 5): which half-life ships, or why the K=26 baseline stayed.
 - Newly-listed-symbol admission threshold (Phase 6): minimum N per regime.
-- Bullet list of any Phase-2 robustness check where **M6 underperforms M5** — these are the ones we need to discuss.
+- Portfolio-level violation clustering (Phase 7.1): empirical P(k ≥ 3 / 5 / 7) at τ=0.95 vs Binomial(10, 0.05); reserve guidance for correlated holdings.
+- Sub-period Kupiec table (Phase 7.2): per-year M6 vs M5 at τ=0.95.
+- GARCH-t headline (Phase 7.3): matched-coverage half-width and pooled Kupiec vs M6 LWC.
+- Worst-weekend vignette (Phase 8.1): date, macro context, per-symbol breach magnitudes.
+- k_w threshold stability (Phase 8.3): cross-subperiod year-by-year hit rate at the deployment-recommended threshold.
+- Bullet list of any Phase-2 / Phase-7 / Phase-8 robustness check where **M6 underperforms M5 / GARCH-t** — these are the ones we need to discuss.
 - Frozen artefact hash and freeze date (post-Phase-5 freeze if a variant was promoted).
 
 Adam then brings this back into the conversation and we plan the Paper 1 revision around it.
