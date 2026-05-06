@@ -2,14 +2,14 @@
 M6 Locally-Weighted Conformal — δ-shift walk-forward sweep.
 
 Mirrors `scripts/v1_archive/run_mondrian_delta_sweep.py` for the LWC build
-(M6) instead of the per-regime score (M5). Same 6-split expanding-window
+(M6) instead of the per-regime score (M5). 4-split expanding-window
 walk-forward protocol; same δ grid; same per-τ summary shape. The output
 informs the LWC_DELTA_SHIFT_SCHEDULE constant in
 `scripts/build_lwc_artefact.py`.
 
 Procedure
 ---------
-For each split fraction f ∈ {0.20, 0.30, 0.40, 0.50, 0.60, 0.70} of the OOS
+For each split fraction f ∈ {0.40, 0.50, 0.60, 0.70} of the OOS
 weekend index:
   train: pre-2023 panel (fixed) → per-regime per-τ quantile q_r^LWC(τ) on
          standardised score |y - p̂| / (fri_close · σ̂_sym(t))
@@ -41,7 +41,8 @@ from scipy.stats import chi2
 
 from soothsayer.backtest.calibration import (
     DEFAULT_TAUS,
-    add_sigma_hat_sym,
+    add_sigma_hat_sym_ewma,
+    SIGMA_HAT_MIN,
     compute_score_lwc,
 )
 from soothsayer.config import DATA_PROCESSED, REPORTS
@@ -49,7 +50,13 @@ from soothsayer.config import DATA_PROCESSED, REPORTS
 SPLIT_DATE = date(2023, 1, 1)
 TARGETS = DEFAULT_TAUS
 DELTA_GRID = (0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.07)
-WALKFORWARD_FRACTIONS = (0.20, 0.30, 0.40, 0.50, 0.60, 0.70)
+WALKFORWARD_FRACTIONS = (0.40, 0.50, 0.60, 0.70)
+# The 0.20 (n_tune = 35) and 0.30 (n_tune = 52) splits are excluded as
+# under-powered: at those tune sizes the 4-scalar c(τ) fit collapses to
+# identity at one or more anchors (the 0.20 split at τ ≥ 0.95; the 0.30
+# split at τ = 0.99 where 52 tune weekends cannot reliably estimate the
+# 99th percentile). The 0.40 split (n_tune = 69) is the smallest fraction
+# whose c(τ) fit is non-identity at every served anchor under EWMA HL=8.
 OUTPUT_CSV = REPORTS / "tables" / "v1b_lwc_delta_sweep.csv"
 
 
@@ -179,7 +186,10 @@ def main() -> None:
     ).reset_index(drop=True)
     panel["regime_pub"] = panel["regime_pub"].astype(str)
 
-    panel = add_sigma_hat_sym(panel)
+    # Deployed M6 σ̂ rule (matches `lwc_artefact_v1.json` → EWMA HL=8). Alias
+    # the EWMA column to `sigma_hat_sym_pre_fri` for downstream compatibility.
+    panel = add_sigma_hat_sym_ewma(panel, half_life=8, min_obs=SIGMA_HAT_MIN)
+    panel["sigma_hat_sym_pre_fri"] = panel["sigma_hat_sym_ewma_pre_fri_hl8"]
     panel["score_lwc"] = compute_score_lwc(panel)
     mask = panel["score_lwc"].notna() & panel["sigma_hat_sym_pre_fri"].notna()
     work = panel[mask].copy()
