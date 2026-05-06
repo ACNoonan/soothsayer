@@ -176,9 +176,9 @@ CSVs: `v1b_robustness_path_fitted.csv` (M5) and `m6_lwc_robustness_path_fitted.c
 | forecaster | endpoint realised | path realised | gap (pp) | half-width (bps) |
 |---|---:|---:|---:|---:|
 | M5  | 0.9512 | 0.9917 | −4.05 | 313.7 |
-| LWC | 0.9505 | 0.9621 | **−1.16** | 356.9 |
+| LWC (EWMA HL=8) | 0.9505 | 0.9576 | **−0.71** | 326.6 |
 
-LWC narrows the path-vs-endpoint mis-coverage gap from −4.05pp to −1.16pp without explicit path-fitting. σ̂-rescaling absorbs some within-weekend path variance (paths in high-σ symbols are wider and the σ̂-scaled band tracks).
+LWC narrows the path-vs-endpoint mis-coverage gap from −4.05pp to −0.71pp without explicit path-fitting. σ̂-rescaling absorbs some within-weekend path variance (paths in high-σ symbols are wider and the σ̂-scaled band tracks). The LWC row is regenerated under the deployed EWMA HL=8 σ̂ rule (`m6_lwc_robustness_path_fitted.csv`); the previous K=26 trailing-window numbers (gap −1.16pp, hw 356.9 bps) over-stated the residual gap because the wider σ̂ tail mass pushed bands ~9% wider.
 
 ## 10. Vol-tertile sub-split (the §10.2 robustness check)
 
