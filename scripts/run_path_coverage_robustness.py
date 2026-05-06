@@ -1,10 +1,11 @@
 """
 Path-coverage robustness — three confound checks on the §6.6 result.
 
-The headline run reports a 14.4pp gap at τ=0.95 between endpoint coverage
-(0.983) and perp-path coverage (0.839) on 118 (symbol, weekend) rows from
-Kraken Futures `PF_<sym>XUSD` 1m bars. Three confounds are addressed
-before treating the gap as the product-level truth:
+The headline run reports a +16.1pp gap at τ=0.95 between endpoint coverage
+(0.949) and perp-path coverage (0.788) on 118 (symbol, weekend) rows from
+Kraken Futures `PF_<sym>XUSD` 1m bars under the deployed M6 LWC artefact.
+Three confounds are addressed before treating the gap as the product-level
+truth:
 
   (A) Perp-vs-spot basis at Friday 16:00 ET. The perp may not anchor
       cleanly to the NYSE close that the band is built around. Rescale
@@ -266,12 +267,13 @@ def write_markdown(
     lines: list[str] = []
     lines.append("# §6.6 Path coverage — robustness checks\n")
     lines.append(
-        "The headline §6.6 result is a 14.4pp gap at τ=0.95 between endpoint "
-        "coverage (0.983) and perp-path coverage (0.839) on 118 (symbol, "
-        "weekend) rows. This file reports three robustness checks before "
-        "treating the gap as the product-level truth: (A) perp-vs-spot "
-        "basis at the Friday-close anchor, (B) volume floor on perp bars, "
-        "(C) sustained-crossing definition via rolling-median.\n"
+        "The headline §6.6 result under the deployed M6 LWC artefact is a "
+        "+16.1pp gap at τ=0.95 between endpoint coverage (0.949) and "
+        "perp-path coverage (0.788) on 118 (symbol, weekend) rows. This "
+        "file reports three robustness checks before treating the gap as "
+        "the product-level truth: (A) perp-vs-spot basis at the Friday-"
+        "close anchor, (B) volume floor on perp bars, (C) sustained-"
+        "crossing definition via rolling-median.\n"
     )
 
     lines.append("## (A) Perp-vs-spot basis at Friday 16:00 ET\n")
@@ -319,7 +321,7 @@ def write_markdown(
         "\n\n*Reading.* The `sustain_window_min = 1` row reproduces the "
         "headline (single-bar definition). Higher windows test whether "
         "the gap is sustained drift or single-print noise. A drop from "
-        "14pp at win=1 to ~5pp at win=15 says most violations are "
+        "16pp at win=1 to ~5pp at win=15 says most violations are "
         "transient prints; a flat profile says the gap is sustained.\n"
     )
 
@@ -327,7 +329,7 @@ def write_markdown(
 
 
 def main() -> None:
-    artefact = pd.read_parquet(DATA_PROCESSED / "mondrian_artefact_v2.parquet")
+    artefact = pd.read_parquet(DATA_PROCESSED / "lwc_artefact_v1.parquet")
     artefact["fri_ts"] = pd.to_datetime(artefact["fri_ts"]).dt.date
     panel = pd.read_parquet(DATA_PROCESSED / "v1b_panel.parquet")
     panel["fri_ts"] = pd.to_datetime(panel["fri_ts"]).dt.date

@@ -9,7 +9,8 @@ when an on-chain xStock briefly traded outside the band is a real loss
 event even if Monday open returns inside.
 
 This script computes two complementary path-coverage measures against the
-deployed M5 artefact:
+deployed M6 LWC artefact (`data/processed/lwc_artefact_v1.parquet` plus
+the sidecar JSON; see `soothsayer.oracle.fair_value_lwc`):
 
   (A) CME-implied underlier path on the full 12-year panel.
       For each (symbol, weekend), use the per-symbol futures factor (ES=F /
@@ -52,9 +53,9 @@ import pyarrow.dataset as ds
 from soothsayer.config import DATA_PROCESSED, REPORTS, SCRYER_DATASET_ROOT
 from soothsayer.oracle import (
     MAX_SERVED_TARGET,
-    c_bump_for_target,
-    delta_shift_for_target,
-    regime_quantile_for,
+    lwc_c_bump_for,
+    lwc_delta_shift_for,
+    lwc_regime_quantile_for,
 )
 
 
@@ -88,24 +89,34 @@ MSTR_BTC_PIVOT = date(2020, 8, 1)
 
 def serve_bands(artefact: pd.DataFrame) -> pd.DataFrame:
     """Vectorised serving formula across all anchors using the deployed
-    M5 serving helpers (`soothsayer.oracle`). Mirrors `Oracle.fair_value`
-    (amm profile) exactly:
+    M6 LWC serving helpers (`soothsayer.oracle.fair_value_lwc`). Mirrors
+    that method's price-units form exactly:
 
-        τ' = min(τ + δ(τ), 0.99)
-        q_eff = c(τ') × q_r(τ')
-        lower = point * (1 - q_eff); upper = point * (1 + q_eff)
+        τ' = min(τ + δ_LWC(τ), 0.99)
+        q  = c_LWC(τ') · q_r^LWC(τ')                     (unitless)
+        half = q · σ̂_sym(t) · fri_close                  (price units)
+        lower = point - half;  upper = point + half
+
+    `artefact` is expected to be the LWC artefact with the
+    `sigma_hat_sym_pre_fri` column (one row per (symbol, fri_ts) past the
+    σ̂ warm-up filter).
     """
-    out = artefact[["symbol", "fri_ts", "regime_pub", "fri_close", "point"]].copy()
+    cols = ["symbol", "fri_ts", "regime_pub", "fri_close", "point", "sigma_hat_sym_pre_fri"]
+    out = artefact[cols].copy()
     regimes = out["regime_pub"].astype(str).to_numpy()
     point = out["point"].astype(float).to_numpy()
+    fri_close = out["fri_close"].astype(float).to_numpy()
+    sigma_hat = out["sigma_hat_sym_pre_fri"].astype(float).to_numpy()
     for tau in ANCHORS:
-        tau_p = min(tau + delta_shift_for_target(tau), MAX_SERVED_TARGET)
-        c = c_bump_for_target(tau_p)
-        q_r = np.array([regime_quantile_for(r, tau_p) for r in regimes])
-        q_eff = c * q_r
-        out[f"lower_{tau}"] = point * (1.0 - q_eff)
-        out[f"upper_{tau}"] = point * (1.0 + q_eff)
-        out[f"q_eff_{tau}"] = q_eff
+        tau_p = min(tau + lwc_delta_shift_for(tau), MAX_SERVED_TARGET)
+        c = lwc_c_bump_for(tau_p)
+        q_r = np.array([lwc_regime_quantile_for(r, tau_p) for r in regimes])
+        q = c * q_r
+        half = q * sigma_hat * fri_close
+        out[f"lower_{tau}"] = point - half
+        out[f"upper_{tau}"] = point + half
+        out[f"q_eff_{tau}"] = q
+        out[f"half_{tau}"] = half
     return out
 
 
@@ -481,7 +492,7 @@ def write_markdown(
 
 
 def main() -> None:
-    artefact = pd.read_parquet(DATA_PROCESSED / "mondrian_artefact_v2.parquet")
+    artefact = pd.read_parquet(DATA_PROCESSED / "lwc_artefact_v1.parquet")
     artefact["fri_ts"] = pd.to_datetime(artefact["fri_ts"]).dt.date
     panel = pd.read_parquet(DATA_PROCESSED / "v1b_panel.parquet")
     panel["fri_ts"] = pd.to_datetime(panel["fri_ts"]).dt.date

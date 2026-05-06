@@ -17,28 +17,28 @@ Sample: 118 (symbol, weekend) pairs across 19 unique calendar weekends, 2025-12-
 
 |    tau |        n |   endpoint_cov |   path_cov |   gap_pp |
 |-------:|---------:|---------------:|-----------:|---------:|
-| 0.6800 | 118.0000 |         0.7712 |     0.5085 |  26.2712 |
-| 0.8500 | 118.0000 |         0.9153 |     0.7288 |  18.6441 |
-| 0.9500 | 118.0000 |         0.9831 |     0.8390 |  14.4068 |
-| 0.9900 | 118.0000 |         1.0000 |     0.9661 |   3.3898 |
+| 0.6800 | 118.0000 |         0.6441 |     0.3475 |  29.6610 |
+| 0.8500 | 118.0000 |         0.8644 |     0.5678 |  29.6610 |
+| 0.9500 | 118.0000 |         0.9492 |     0.7881 |  16.1017 |
+| 0.9900 | 118.0000 |         0.9915 |     0.9153 |   7.6271 |
 
 
 **Pooled by τ × regime.**
 
 |    tau | regime_pub   |   n |   endpoint_cov |   path_cov |   gap_pp |
 |-------:|:-------------|----:|---------------:|-----------:|---------:|
-| 0.6800 | high_vol     |  45 |         0.7556 |     0.5778 |  17.7778 |
-| 0.6800 | long_weekend |   7 |         0.7143 |     0.7143 |   0.0000 |
-| 0.6800 | normal       |  66 |         0.7879 |     0.4394 |  34.8485 |
-| 0.8500 | high_vol     |  45 |         0.9111 |     0.7778 |  13.3333 |
-| 0.8500 | long_weekend |   7 |         0.8571 |     0.8571 |   0.0000 |
-| 0.8500 | normal       |  66 |         0.9242 |     0.6818 |  24.2424 |
-| 0.9500 | high_vol     |  45 |         0.9778 |     0.8889 |   8.8889 |
-| 0.9500 | long_weekend |   7 |         1.0000 |     0.8571 |  14.2857 |
-| 0.9500 | normal       |  66 |         0.9848 |     0.8030 |  18.1818 |
+| 0.6800 | high_vol     |  45 |         0.6000 |     0.4000 |  20.0000 |
+| 0.6800 | long_weekend |   7 |         0.4286 |     0.2857 |  14.2857 |
+| 0.6800 | normal       |  66 |         0.6970 |     0.3182 |  37.8788 |
+| 0.8500 | high_vol     |  45 |         0.8222 |     0.6444 |  17.7778 |
+| 0.8500 | long_weekend |   7 |         0.7143 |     0.5714 |  14.2857 |
+| 0.8500 | normal       |  66 |         0.9091 |     0.5152 |  39.3939 |
+| 0.9500 | high_vol     |  45 |         0.9333 |     0.8222 |  11.1111 |
+| 0.9500 | long_weekend |   7 |         0.8571 |     0.8571 |   0.0000 |
+| 0.9500 | normal       |  66 |         0.9697 |     0.7576 |  21.2121 |
 | 0.9900 | high_vol     |  45 |         1.0000 |     0.9778 |   2.2222 |
-| 0.9900 | long_weekend |   7 |         1.0000 |     1.0000 |   0.0000 |
-| 0.9900 | normal       |  66 |         1.0000 |     0.9545 |   4.5455 |
+| 0.9900 | long_weekend |   7 |         1.0000 |     0.8571 |  14.2857 |
+| 0.9900 | normal       |  66 |         0.9848 |     0.8788 |  10.6061 |
 
 
 ## (2) On-chain xStock path (ground truth, post-launch slice)
@@ -52,34 +52,34 @@ _No on-chain weekend overlap with the panel (0 weekends found). The dex_xstock c
 
 ## (3) Factor-projected path (CME 1m, smoothness check)
 
-For each (symbol, weekend) the path is constructed from the per-symbol futures factor (ES=F for equities, GC=F for GLD, ZN=F for TLT) by scaling with `fri_close / F_anchor`. The band centre `point` is itself a function of the factor return, so this measures whether the band holds against the *projection's* trajectory — not whether it holds against an independent observation of fair value. CME 1m covers Friday 09:30–17:00 ET and Sunday 18:00 ET onwards; the Friday 17:00 ET → Sunday 18:00 ET Globex-dark window is unobservable. Mean observable share: `95.1%`. MSTR post-2020-08 is excluded (BTC tape absent from scryer cache). CME tape coverage starts 2018-01-05; the resulting panel is 15444 (symbol, weekend) rows.
+For each (symbol, weekend) the path is constructed from the per-symbol futures factor (ES=F for equities, GC=F for GLD, ZN=F for TLT) by scaling with `fri_close / F_anchor`. The band centre `point` is itself a function of the factor return, so this measures whether the band holds against the *projection's* trajectory — not whether it holds against an independent observation of fair value. CME 1m covers Friday 09:30–17:00 ET and Sunday 18:00 ET onwards; the Friday 17:00 ET → Sunday 18:00 ET Globex-dark window is unobservable. Mean observable share: `95.1%`. MSTR post-2020-08 is excluded (BTC tape absent from scryer cache). CME tape coverage starts 2018-01-05; the resulting panel is 15412 (symbol, weekend) rows.
 
 **Pooled by τ.**
 
 |    tau |         n |   endpoint_cov |   path_cov |   gap_pp |
 |-------:|----------:|---------------:|-----------:|---------:|
-| 0.6800 | 3861.0000 |         0.8008 |     0.8736 |  -7.2779 |
-| 0.8500 | 3861.0000 |         0.9215 |     0.9707 |  -4.9210 |
-| 0.9500 | 3861.0000 |         0.9635 |     0.9915 |  -2.7972 |
-| 0.9900 | 3861.0000 |         0.9927 |     0.9979 |  -0.5180 |
+| 0.6800 | 3853.0000 |         0.6867 |     0.6787 |   0.8046 |
+| 0.8500 | 3853.0000 |         0.8505 |     0.8523 |  -0.1817 |
+| 0.9500 | 3853.0000 |         0.9556 |     0.9608 |  -0.5191 |
+| 0.9900 | 3853.0000 |         0.9927 |     0.9922 |   0.0519 |
 
 
 **Pooled by τ × regime.**
 
 |    tau | regime_pub   |    n |   endpoint_cov |   path_cov |   gap_pp |
 |-------:|:-------------|-----:|---------------:|-----------:|---------:|
-| 0.6800 | high_vol     | 1025 |         0.8293 |     0.8634 |  -3.4146 |
-| 0.6800 | long_weekend |  406 |         0.7783 |     0.8645 |  -8.6207 |
-| 0.6800 | normal       | 2430 |         0.7926 |     0.8794 |  -8.6831 |
-| 0.8500 | high_vol     | 1025 |         0.9210 |     0.9346 |  -1.3659 |
-| 0.8500 | long_weekend |  406 |         0.9335 |     0.9951 |  -6.1576 |
-| 0.8500 | normal       | 2430 |         0.9198 |     0.9819 |  -6.2140 |
-| 0.9500 | high_vol     | 1025 |         0.9649 |     0.9776 |  -1.2683 |
-| 0.9500 | long_weekend |  406 |         0.9754 |     1.0000 |  -2.4631 |
-| 0.9500 | normal       | 2430 |         0.9609 |     0.9959 |  -3.4979 |
-| 0.9900 | high_vol     | 1025 |         0.9922 |     0.9932 |  -0.0976 |
-| 0.9900 | long_weekend |  406 |         0.9975 |     1.0000 |  -0.2463 |
-| 0.9900 | normal       | 2430 |         0.9922 |     0.9996 |  -0.7407 |
+| 0.6800 | high_vol     | 1025 |         0.6937 |     0.6429 |   5.0732 |
+| 0.6800 | long_weekend |  405 |         0.6617 |     0.6691 |  -0.7407 |
+| 0.6800 | normal       | 2423 |         0.6880 |     0.6954 |  -0.7429 |
+| 0.8500 | high_vol     | 1025 |         0.8498 |     0.8312 |   1.8537 |
+| 0.8500 | long_weekend |  405 |         0.8321 |     0.8420 |  -0.9877 |
+| 0.8500 | normal       | 2423 |         0.8539 |     0.8630 |  -0.9080 |
+| 0.9500 | high_vol     | 1025 |         0.9561 |     0.9493 |   0.6829 |
+| 0.9500 | long_weekend |  405 |         0.9580 |     0.9753 |  -1.7284 |
+| 0.9500 | normal       | 2423 |         0.9550 |     0.9633 |  -0.8254 |
+| 0.9900 | high_vol     | 1025 |         0.9922 |     0.9902 |   0.1951 |
+| 0.9900 | long_weekend |  405 |         1.0000 |     1.0000 |   0.0000 |
+| 0.9900 | normal       | 2423 |         0.9917 |     0.9917 |   0.0000 |
 
 
 ## Reading

@@ -40,14 +40,16 @@ import pyarrow.dataset as ds
 from soothsayer.backtest import metrics as met
 from soothsayer.backtest.calibration import (
     DEFAULT_TAUS,
-    SIGMA_HAT_K,
     SIGMA_HAT_MIN,
-    add_sigma_hat_sym,
+    add_sigma_hat_sym_ewma,
     fit_c_bump_schedule,
     serve_bands,
     serve_bands_lwc,
     train_quantile_table,
 )
+
+# Match the deployed M6 σ̂ rule (`lwc_artefact_v1.json` → `sigma_hat.half_life_weekends`).
+SIGMA_HAT_HL: int = 8
 from soothsayer.config import DATA_PROCESSED, REPORTS, SCRYER_DATASET_ROOT
 
 SPLIT_DATE = date(2023, 1, 1)
@@ -161,10 +163,16 @@ def main() -> None:
     panel["regime_pub"] = panel["regime_pub"].astype(str)
 
     # σ̂_sym(t) is computed from the full panel (not the CME-projected
-    # subset) so the trailing-K window doesn't get truncated by the path
-    # filter. We then merge the σ̂ column onto the path subset.
+    # subset) so the EWMA window doesn't get truncated by the path filter.
+    # Uses the deployed M6 EWMA HL=8 rule (matches `lwc_artefact_v1.json`);
+    # we alias the EWMA column to `sigma_hat_sym_pre_fri` for the merge.
     if args.forecaster == "lwc":
-        panel = add_sigma_hat_sym(panel, K=SIGMA_HAT_K, min_obs=SIGMA_HAT_MIN)
+        panel = add_sigma_hat_sym_ewma(
+            panel, half_life=SIGMA_HAT_HL, min_obs=SIGMA_HAT_MIN
+        )
+        panel["sigma_hat_sym_pre_fri"] = panel[
+            f"sigma_hat_sym_ewma_pre_fri_hl{SIGMA_HAT_HL}"
+        ]
 
     print(f"Forecaster: {args.forecaster}", flush=True)
 
