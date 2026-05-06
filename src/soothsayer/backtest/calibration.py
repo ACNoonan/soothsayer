@@ -42,13 +42,22 @@ import pandas as pd
 # `scripts/build_mondrian_artefact.py` and `src/soothsayer/oracle.py`.
 DEFAULT_TAUS: tuple[float, ...] = (0.68, 0.85, 0.95, 0.99)
 
-# M6 (LWC) σ̂_sym window. Trailing K=26 weekend observations of relative
-# residual std per symbol, requiring at least SIGMA_HAT_MIN past obs.
-# Validated in `reports/v3_bakeoff.md` (Candidate 1) — the warm-up filter
-# drops ~80 rows at panel start. Both constants must match the bake-off
-# values exactly so the M6 quantiles reproduce the bake-off receipts.
+# M6-K26 baseline σ̂_sym window — the trailing K=26 weekend variant that EWMA
+# HL=8 was promoted from in Phase 5 (`reports/active/m6_refactor.md` §5).
+# The DEPLOYED M6 σ̂ rule is EWMA HL=8 (see `lwc_artefact_v1.json:_lwc_variant
+# = "ewma_hl8"` and §7.3 of paper 1); this constant remains for archival
+# reproduction of the K=26 baseline rung in §7.2.2 / §7.3.2 only. Callers
+# wanting the deployed σ̂ should call `add_sigma_hat_sym_ewma(half_life=8)`
+# directly (or use `prep_panel_for_forecaster('lwc')`, which routes there
+# since the 2026-05-06 audit fix).
 SIGMA_HAT_K: int = 26
 SIGMA_HAT_MIN: int = 8
+
+# M6 deployed σ̂ EWMA half-life — keep in sync with `lwc_artefact_v1.json`
+# `sigma_hat.half_life_weekends`. Used by `prep_panel_for_forecaster('lwc')`
+# and any caller that needs the deployed σ̂ rule by name rather than by
+# numeric literal.
+SIGMA_HAT_HL_WEEKENDS: int = 8
 
 # Phase 5 EWMA σ̂ variant — fast-reacting σ̂ aimed at the 2021/2022 split-date
 # Christoffersen rejections (reports/active/m6_refactor.md §5). Half-life HL_WEEKENDS sets the
@@ -521,10 +530,18 @@ def prep_panel_for_forecaster(
 
     M5: adds a `score` column (relative absolute residual) — the existing
         downstream code already expects this.
-    LWC: adds `sigma_hat_sym_pre_fri` (trailing K=26 weekend residual std,
-        strictly pre-Friday) and writes the standardised LWC score into
+    LWC: adds `sigma_hat_sym_pre_fri` (per-symbol EWMA std with weekend
+        half-life HL=8, strictly pre-Friday — the deployed σ̂ rule per
+        `lwc_artefact_v1.json:_lwc_variant = "ewma_hl8"` and the §7.3
+        Phase 5 promotion) and writes the standardised LWC score into
         the same `score` column. Rows without a defined σ̂ (warm-up) get
         NaN scores and are dropped by downstream `dropna(subset=["score"])`.
+
+        Pre-2026-05-06 this used the K=26 trailing-window σ̂ (the §7.2
+        M6-K26 baseline that EWMA HL=8 promoted from). Callers wanting
+        the K=26 baseline behaviour explicitly should call
+        `add_sigma_hat_sym(...)` directly rather than relying on this
+        function.
 
     Returns a new DataFrame with the original index preserved (or reset to
     a fresh range index — caller can rely on the row order being unchanged
@@ -542,8 +559,14 @@ def prep_panel_for_forecaster(
     if forecaster == "m5":
         work["score"] = compute_score(work)
         return work
-    # forecaster == "lwc"
-    work = add_sigma_hat_sym(work)
+    # forecaster == "lwc": deployed σ̂ rule is EWMA HL=8 (per
+    # lwc_artefact_v1.json:_lwc_variant). Materialise it under the
+    # canonical column name so downstream code (compute_score_lwc,
+    # serve_bands_forecaster) can stay σ̂-rule-agnostic.
+    work = add_sigma_hat_sym_ewma(work, half_life=SIGMA_HAT_HL_WEEKENDS)
+    work["sigma_hat_sym_pre_fri"] = work[
+        f"sigma_hat_sym_ewma_pre_fri_hl{SIGMA_HAT_HL_WEEKENDS}"
+    ]
     work["score"] = compute_score_lwc(work)
     return work
 

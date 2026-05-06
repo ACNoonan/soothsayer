@@ -12,11 +12,11 @@ We do not use the on-chain xStock prices themselves as input or evaluation targe
 
 Each row is a single $(s, t)$ weekend prediction window. For each symbol we walk daily price history and, for every consecutive pair of trading days separated by a calendar gap of $\ge 3$ days, emit a row with: `fri_close`, `mon_open`, `gap_days`, `fri_vol_20d` (rolling 20-trading-day std of daily log-returns at Friday close), `factor_ret` (weekend return of the per-symbol conditioning factor), `vol_idx_fri_close`, `earnings_next_week` (Yahoo `earnings_dates` flag), and `is_long_weekend` (`gap_days` $\ge 4$).
 
-The panel spans 2014-01-17 (first Friday on which rolling 20-day vol is defined for all symbols) through 2026-04-17, yielding $|\mathcal{T}_\text{hist}| = 5{,}986$ rows. MSTR begins 2014-01-17; HOOD begins 2021-08-13 (post-IPO), contributing ~245 weekends.
+The panel spans 2014-01-17 (first Friday on which rolling 20-day vol is defined for all symbols) through 2026-04-24, yielding $|\mathcal{T}_\text{hist}| = 5{,}996$ raw rows across 639 distinct weekend dates (9 full-history symbols × 639 weekends + 245 HOOD weekends). MSTR begins 2014-01-17; HOOD begins 2021-08-13 (post-IPO), contributing ~245 weekends. After the σ̂ warm-up rule (≥8 past observations per symbol) drops the first eight weekends per ticker, $5{,}916$ rows remain evaluable (§6.1).
 
 ## 5.3 Pre-publish features
 
-All features are observable at $t_\text{pub} = $ Friday 16:00 ET (or pre-holiday close): $P_{t^-}(s)$ Friday close, $r^{\text{factor}}_t(s)$ weekend factor return, $v_t(s)$ vol-index close, $\hat\sigma^{\text{20d}}_t$ rolling realised vol, $\mathrm{earn}_t(s) \in \{0, 1\}$ earnings flag, and $\ell_t \in \{0, 1\}$ long-weekend flag. The factor return requires the futures or BTC price at $t = $ Monday 09:30 ET; Globex futures and BTC trade through the weekend, so $F_t(s)$ is observable at $t_\text{pub} + 65.5\text{h}$. In live deployment, the factor return is the *only* feature requiring post-publish computation.
+The deployed architecture consumes four pre-publish features at $t_\text{pub} = $ Friday 16:00 ET (or pre-holiday close): Friday close $P_{t^-}(s)$, weekend factor return $r^{\text{factor}}_t(s)$, vol-index close $v_t(s)$ (drives the `high_vol` regime via §5.5's VIX-percentile cascade), and the long-weekend flag $\ell_t \in \{0, 1\}$ (drives the `long_weekend` regime). Rolling 20-day realised vol $\hat\sigma^{\text{20d}}_t$ is used downstream of inference for the §6.3.2 realised-move tertile stratification only. The factor return requires the futures or BTC price at $t = $ Monday 09:30 ET; Globex futures and BTC trade through the weekend, so $F_t(s)$ is observable at $t_\text{pub} + 65.5\text{h}$. In live deployment, the factor return is the *only* feature requiring post-publish computation.
 
 ## 5.4 Factor and volatility-index switchboards
 
@@ -30,7 +30,7 @@ The per-symbol mappings are static (`src/soothsayer/backtest/panel.py`):
 | GLD | `GC=F` (gold futures) | `^GVZ` |
 | TLT | `ZN=F` (10-year T-note futures) | `^MOVE` |
 
-The MSTR factor pivot at 2020-08-01 corresponds to MicroStrategy's first Bitcoin treasury purchase. The vol-index choices are evidence-driven: an early V1b pass found that fitting the F1 log-log sigma regression with VIX yielded $\hat\beta \approx 0.55$ for GLD and $\hat\beta \approx 0.94$ for TLT, well below the equity-class mean ($\hat\beta \approx 1.5$). Substituting GVZ and MOVE lifted $\hat\beta$ into the equity range and improved coverage at matched bandwidth.
+The MSTR factor pivot at 2020-08-01 marks MicroStrategy's first Bitcoin treasury purchase — a structural break in the asset's economic exposure that turned what had been a software equity (driven by tech-equity factors) into a leveraged BTC-treasury vehicle (driven by spot BTC). Holding ES=F as the factor across that pivot would mis-attribute the post-2020 weekend signal; the switchboard is reconciled to the asset's actual driver post-break. The vol-index choices are evidence-driven: an early V1b pass found that fitting the F1 log-log sigma regression with VIX yielded $\hat\beta \approx 0.55$ for GLD and $\hat\beta \approx 0.94$ for TLT, well below the equity-class mean ($\hat\beta \approx 1.5$). Substituting GVZ and MOVE lifted $\hat\beta$ into the equity range and improved coverage at matched bandwidth.
 
 ## 5.5 The regime labeler $\rho$
 
@@ -40,7 +40,7 @@ $\rho: \mathcal{F}_t(s) \to \{\texttt{normal}, \texttt{long\_weekend}, \texttt{h
 2. **`long_weekend`** — `gap_days` $\ge 4$. Applied only if `high_vol` did not match.
 3. **`normal`** — all other weekends.
 
-Sample sizes on the 5,986-weekend panel: normal 3,924 (65.6%), high_vol 1,432 (23.9%), long_weekend 630 (10.5%).
+Sample sizes on the 5,996-row raw panel: normal 3,934 (65.6%), high_vol 1,432 (23.9%), long_weekend 630 (10.5%).
 
 A separate post-hoc tertile labeler tags each weekend by realised-move z-score (calm / normal / shock); this `realized_bucket` is *not* a regime in the §3.1 sense — it depends on the realised target — and is used only for diagnostic stratification (the shock-tertile coverage ceiling reported in §9.1).
 
@@ -57,7 +57,7 @@ Split date **2023-01-01**: weekends with `fri_ts < 2023-01-01` are calibration, 
 
 The 12 trained per-regime quantiles (§4.3) are fit from the calibration set and held *fixed* throughout OOS evaluation: no information from the 2023+ slice enters the trained quantile table. The 4 $c(\tau)$ bumps (§4.4) are deployment-tuned on the same OOS slice — disclosed in §9.3 — but three of the four are essentially identity ($c \in \{1.000,\,1.000,\,1.003\}$ at $\tau \in \{0.68,\,0.85,\,0.99\}$) so only $c(0.95) = 1.079$ carries meaningful OOS information; the walk-forward $\delta(\tau)$ schedule is identically zero (§4.5). The calibration row count is 4,186 after the 80-row σ̂ warm-up rule (≥8 past observations per symbol) drops the first eight weekends per ticker.
 
-The 2023-01-01 split is conservative: it places the 2023 banking turbulence and the 2024–2025 macro transition in the held-out slice, exposing the trained quantile to material out-of-sample regime shifts. HOOD enters the per-regime quantile fit pooled across symbols within each regime (the trained quantile does not stratify by symbol — see §4.3), so the calibration thinness for HOOD is absorbed into the pooled regime bin rather than producing a per-symbol fallback; the per-symbol behaviour at serve time is carried by $\hat\sigma_s(t)$, not by a per-symbol quantile cell. The §7.2 M3 row confirms further per-symbol stratification thins each cell to $N \approx 50$–$300$ and degrades Christoffersen.
+The 2023-01-01 split is conservative: it places the 2023 banking turbulence and the 2024–2025 macro transition in the held-out slice, exposing the trained quantile to material out-of-sample regime shifts. HOOD enters the per-regime quantile fit pooled across symbols within each regime (the trained quantile does not stratify by symbol — see §4.3), so the calibration thinness for HOOD is absorbed into the pooled regime bin rather than producing a per-symbol fallback; the per-symbol behaviour at serve time is carried by $\hat\sigma_s(t)$, not by a per-symbol quantile cell. A per-(symbol, regime) Mondrian variant was tested during ablation development and rejected: it thins each cell to $N \approx 50$–$300$ and degrades Christoffersen, with the σ̂-standardised architecture below recovering per-symbol calibration without per-(symbol, regime) cells (`reports/methodology_history.md`).
 
 ## 5.7 Provenance and reproducibility
 
