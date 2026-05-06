@@ -52,16 +52,16 @@ Split date **2023-01-01**: weekends with `fri_ts < 2023-01-01` are calibration, 
 
 | Split | Rows | Weekends |
 |---|---:|---:|
-| Calibration (2014-01 → 2022-12) | 4{,}186 (v2) / 4{,}266 (v1) | 466 |
+| Calibration (2014-01 → 2022-12) | 4{,}186 | 466 |
 | Held-out OOS (2023-01 → 2026-04) | 1{,}730 | 173 |
 
-The 12 trained per-regime quantiles (§4.3) are fit from the calibration set and held *fixed* throughout OOS evaluation: no information from the 2023+ slice enters the trained quantile table. Under v2 the 4 $c(\tau)$ bumps (§4.4) are deployment-tuned on the same OOS slice — disclosed in §9.3 — but three of the four are essentially identity ($c \in \{1.000,\,1.000,\,1.003\}$ at $\tau \in \{0.68,\,0.85,\,0.99\}$) so only $c(0.95) = 1.079$ carries meaningful OOS information; the v1 walk-forward $\delta(\tau)$ schedule collapses to zero under v2 (§4.5). The 80-row drop in the v2 calibration count vs v1's count is the σ̂ warm-up rule (≥8 past observations per symbol).
+The 12 trained per-regime quantiles (§4.3) are fit from the calibration set and held *fixed* throughout OOS evaluation: no information from the 2023+ slice enters the trained quantile table. The 4 $c(\tau)$ bumps (§4.4) are deployment-tuned on the same OOS slice — disclosed in §9.3 — but three of the four are essentially identity ($c \in \{1.000,\,1.000,\,1.003\}$ at $\tau \in \{0.68,\,0.85,\,0.99\}$) so only $c(0.95) = 1.079$ carries meaningful OOS information; the walk-forward $\delta(\tau)$ schedule is identically zero (§4.5). The calibration row count is 4,186 after the 80-row σ̂ warm-up rule (≥8 past observations per symbol) drops the first eight weekends per ticker.
 
-The 2023-01-01 split is conservative: it places the 2023 banking turbulence and the 2024–2025 macro transition in the held-out slice, exposing the trained quantile to material out-of-sample regime shifts. Under v1, HOOD enters the per-regime quantile fit pooled across symbols within each regime (the trained quantile does not stratify by symbol — see §4.2), so the calibration thinness for HOOD is absorbed into the pooled regime bin rather than producing a per-symbol fallback. The §7.2.2 M3 row confirms further per-symbol stratification thins each cell to $N \approx 50$–$300$ and degrades Christoffersen.
+The 2023-01-01 split is conservative: it places the 2023 banking turbulence and the 2024–2025 macro transition in the held-out slice, exposing the trained quantile to material out-of-sample regime shifts. HOOD enters the per-regime quantile fit pooled across symbols within each regime (the trained quantile does not stratify by symbol — see §4.3), so the calibration thinness for HOOD is absorbed into the pooled regime bin rather than producing a per-symbol fallback; the per-symbol behaviour at serve time is carried by $\hat\sigma_s(t)$, not by a per-symbol quantile cell. The §7.2 M3 row confirms further per-symbol stratification thins each cell to $N \approx 50$–$300$ and degrades Christoffersen.
 
 ## 5.7 Provenance and reproducibility
 
-All Phase 0 equity inputs are read from Scryer parquet: `yahoo/equities_daily/v1` for daily OHLCV and `yahoo/earnings/v1` for the earnings-calendar flag (the trailing `/v1` is the scryer schema version, distinct from the v1/v2 methodology versions used elsewhere in this paper). No credentials are required for the consumer path in soothsayer; upstream fetch, retry, and schema ownership live in the sibling Scryer repo.
+All Phase 0 equity inputs are read from Scryer parquet: `yahoo/equities_daily/v1` for daily OHLCV and `yahoo/earnings/v1` for the earnings-calendar flag (the trailing `/v1` is the scryer schema version, distinct from the M-series methodology generations used elsewhere in this paper). No credentials are required for the consumer path in soothsayer; upstream fetch, retry, and schema ownership live in the sibling Scryer repo.
 
 The end-to-end calibration backtest runs under fifteen minutes from a cold cache, under one minute warm. Reproduction:
 

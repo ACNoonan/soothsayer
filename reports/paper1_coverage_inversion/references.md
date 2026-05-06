@@ -50,28 +50,28 @@ Buckets:
 
 ### [chainlink-streams] Chainlink Labs. 2024–2026. Chainlink Data Streams.
 - **Venue:** Chainlink product documentation
-- **URL / DOI:** https://docs.chain.link/data-streams (top-level overview accessed 2026-04-29; deep schema sub-pages have been refactored — see `[chainlink-v10]` and `[chainlink-v11]` for the per-schema pins)
+- **URL / DOI:** https://docs.chain.link/data-streams
 - **Contribution:** Top-level Data Streams product page. Two RWA-relevant report schemas co-exist on Solana mainnet as of 2026-Q2: v10 (Tokenized Asset, schema id `0x000a`) and v11 (RWA Advanced, schema id `0x000b`). Both decode through the same Verifier program; consumers dispatch on schema id.
 - **Why we cite it:** Top-level entry point used in §1.1 and §2.1 when the claim is about the Data Streams product family rather than a specific schema; per-schema citations are `[chainlink-v10]` and `[chainlink-v11]`.
 - **Bucket:** oracles
 
 ### [chainlink-v10] Chainlink Labs. 2025. Data Streams v10 ("Tokenized Asset") report schema.
 - **Venue:** Chainlink product documentation; SDK source (authoritative pin)
-- **URL / DOI:** https://docs.chain.link/data-streams/reference/report-schema-v10 (the deep schema page returned 404 in our 2026-04-29 probe — link rot logged); the SDK source at `smartcontractkit/data-streams-sdk` mirrored in `src/soothsayer/chainlink/v10.py` is the authoritative pin.
+- **URL / DOI:** https://docs.chain.link/data-streams/reference/report-schema-v10
 - **Contribution:** Specifies the v10 report layout — schema id 0x000a, 13 fields, 416 bytes; carries `price` (venue last-trade), `tokenizedPrice` (24/7 CEX-aggregated mark), 3-state `marketStatus` enum (`0 Unknown / 1 Closed / 2 Open`), and corporate-action multipliers. **Carries no `bid`, `ask`, or confidence field on the wire.**
 - **Why we cite it:** Direct primary source for §1.1, §2.1, and §6.7.2. The v10 wire format is band-less by construction: a consumer reading v10 directly derives a degenerate zero-width band — the cleanest empirical instance of the "no incumbent publishes a verifiable calibration claim" framing.
 - **Bucket:** oracles
 
 ### [chainlink-v11] Chainlink Labs. 2026. Data Streams v11 ("RWA Advanced") report schema.
 - **Venue:** Chainlink product documentation; SDK source (authoritative pin)
-- **URL / DOI:** https://docs.chain.link/data-streams/reference/report-schema-v11 (the deep schema page returned 404 in our 2026-04-29 probe — link rot logged); the SDK source at `smartcontractkit/data-streams-sdk` mirrored in `src/soothsayer/chainlink/v11.py` is the authoritative pin.
+- **URL / DOI:** https://docs.chain.link/data-streams/reference/report-schema-v11
 - **Contribution:** Specifies the v11 RWA Advanced layout — schema id 0x000b, 14 fields, 448 bytes; extends v10 with `bid`/`ask`/`mid`/`last_traded_price`/`bid_volume`/`ask_volume` and a 6-state `marketStatus` enum distinguishing pre-market, regular, post-market, overnight, and closed/weekend states. Live in our Solana tape since 2026-Q1, co-existing with v10.
 - **Why we cite it:** Direct primary source for §1.1, §2.1, and §6.7.2. The v11 schema is the load-bearing 24/5 archetype against which we measure the synthetic-marker weekend pattern documented in our internal cadence-verification scan; the marker-aware classifier that distinguishes synthetic-bid bookends from real quotes lives at `reports/v11_cadence_verification.md`.
 - **Bucket:** oracles
 
 ### [redstone-live] RedStone. 2026. RedStone Live: real-time market data for 24/7 markets.
 - **Venue:** RedStone blog / product documentation (March 2026)
-- **URL / DOI:** Launch blog post: https://blog.redstone.finance/2026/03/30/redstone-live-real-time-data-built-for-the-markets-that-never-sleep/. Top-level documentation: https://docs.redstone.finance/docs/introduction (accessed 2026-04-29). The deep methodology page (`https://docs.redstone.finance/docs/dapps-and-defi/redstone-models`) returned 404 on 2026-04-29 — link rot logged in canonical `docs/sources/oracles/redstone_live.md`; the public REST gateway at `https://api.redstone.finance/prices` is the live observation surface.
+- **URL / DOI:** https://blog.redstone.finance/2026/03/30/redstone-live-real-time-data-built-for-the-markets-that-never-sleep/
 - **Contribution:** Describes RedStone's 24/7 equity-feed product, which blends institutional sources during market hours with perpetual-market data during off-hours. Methodology weights, contributing-venue list, consensus rule, and any confidence statement are described qualitatively but not published in reproducible form on any public surface (REST gateway, on-chain PDA, or launch post).
 - **Why we cite it:** Primary evidence for our "undisclosed-methodology" archetype — the feed serves closed-market values, but a consumer cannot reproduce the number or audit a coverage claim. The deep methodology page being 404'd is itself load-bearing: the framing in §1.1 / §2.1 / §9.8.1 ("no calibration claim exposed in any public artifact") is exact rather than rhetorical given the documented absence.
 - **Bucket:** oracles

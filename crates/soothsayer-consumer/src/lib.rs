@@ -67,13 +67,66 @@ impl Regime {
 
 /// Forecaster codes — keep in sync with `programs/soothsayer-oracle-program/src/state.rs`.
 ///
-/// The v1 codes (0 = F1_emp_regime, 1 = F0_stale) are retained for receipts
-/// emitted by pre-M5 publishes. From M5 onward (paper 1 §7.7) the deployed
-/// code is FORECASTER_MONDRIAN; the v1 codes are still recognised here so
+/// Codes 0 and 1 are retained for receipts emitted by Soothsayer-v0
+/// (paper 1 §2.1 hybrid forecaster). From M5 onward the live on-chain
+/// code is `FORECASTER_MONDRIAN` (= 2); from M6 onward (paper 1 §4
+/// deployed) the wire-format slot for the locally-weighted variant is
+/// `FORECASTER_LWC` (= 3). Older codes are still recognised here so
 /// historical PriceUpdate accounts decode cleanly.
 pub const FORECASTER_F1_EMP_REGIME: u8 = 0;
 pub const FORECASTER_F0_STALE: u8 = 1;
 pub const FORECASTER_MONDRIAN: u8 = 2;
+pub const FORECASTER_LWC: u8 = 3;
+
+/// Typed forecaster view over the wire `forecaster_code` byte. Mirror of
+/// `Forecaster` in `crates/soothsayer-oracle/src/types.rs`, plus the legacy
+/// Soothsayer-v0 variants that may appear in pre-M5 in-flight accounts.
+///
+/// Consumer responsibility: assert `band.forecaster()` matches the
+/// integration spec. New M5 / M6 integrations should accept Mondrian and/or
+/// Lwc and reject the legacy variants.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Forecaster {
+    /// Soothsayer-v0 F1 empirical-regime forecaster (pre-M5 receipts).
+    F1EmpRegime,
+    /// Soothsayer-v0 F0 stale-hold fallback (pre-M5 receipts).
+    F0Stale,
+    /// M5 per-regime split-conformal Mondrian (live on-chain).
+    Mondrian,
+    /// M6 locally-weighted Mondrian split-conformal (deployed; on-chain
+    /// slot reserved pending Rust-port-driven publish enablement).
+    Lwc,
+}
+
+impl Forecaster {
+    pub fn from_code(code: u8) -> Option<Self> {
+        match code {
+            FORECASTER_F1_EMP_REGIME => Some(Self::F1EmpRegime),
+            FORECASTER_F0_STALE => Some(Self::F0Stale),
+            FORECASTER_MONDRIAN => Some(Self::Mondrian),
+            FORECASTER_LWC => Some(Self::Lwc),
+            _ => None,
+        }
+    }
+
+    pub fn to_code(self) -> u8 {
+        match self {
+            Self::F1EmpRegime => FORECASTER_F1_EMP_REGIME,
+            Self::F0Stale => FORECASTER_F0_STALE,
+            Self::Mondrian => FORECASTER_MONDRIAN,
+            Self::Lwc => FORECASTER_LWC,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::F1EmpRegime => "F1_emp_regime",
+            Self::F0Stale => "F0_stale",
+            Self::Mondrian => "mondrian",
+            Self::Lwc => "lwc",
+        }
+    }
+}
 
 /// Serving-profile codes (reports/active/m6_refactor.md A4). Code 0 is reserved for
 /// pre-A4 in-flight `PriceUpdate` accounts whose `_pad0` byte 0 was zero.
@@ -195,6 +248,14 @@ impl PriceBand {
     /// program upgrade could add code 3 etc.).
     pub fn profile(&self) -> Option<Profile> {
         Profile::from_code(self.profile_code)
+    }
+
+    /// Typed serving forecaster. Returns `None` if the on-chain
+    /// `forecaster_code` is not a value this SDK version recognises.
+    /// Pre-M5 receipts decode as `F1EmpRegime` / `F0Stale`; M5 receipts as
+    /// `Mondrian`; M6 receipts as `Lwc`.
+    pub fn forecaster(&self) -> Option<Forecaster> {
+        Forecaster::from_code(self.forecaster_code)
     }
 
     /// Check the core band invariant: lower ≤ point ≤ upper.
@@ -410,14 +471,20 @@ mod tests {
     }
 
     /// Synthesize a full on-wire `PriceUpdate` account body (8-byte
-    /// discriminator + 128-byte struct) with `profile_code` placed at the
-    /// repurposed `_pad0[0]` slot. Used by the back-compat decode tests.
+    /// discriminator + 128-byte struct). Defaults to forecaster_code =
+    /// FORECASTER_MONDRIAN; use `synth_account_bytes_with_forecaster` to
+    /// override (e.g. to test LWC decode). The `profile_code` byte goes
+    /// into the repurposed `_pad0[0]` slot.
     fn synth_account_bytes(profile_code: u8) -> Vec<u8> {
+        synth_account_bytes_with_forecaster(profile_code, FORECASTER_MONDRIAN)
+    }
+
+    fn synth_account_bytes_with_forecaster(profile_code: u8, forecaster_code: u8) -> Vec<u8> {
         let mut data = Vec::with_capacity(8 + PRICE_UPDATE_DATA_SIZE);
         data.extend_from_slice(&PRICE_UPDATE_DISCRIMINATOR);
         data.push(1);                  // version
         data.push(REGIME_NORMAL);      // regime_code
-        data.push(FORECASTER_MONDRIAN);// forecaster_code
+        data.push(forecaster_code);    // forecaster_code
         data.push((-8i8) as u8);       // exponent
         data.push(profile_code);       // _pad0[0] → profile_code
         data.extend_from_slice(&[0u8; 3]); // _pad0[1..4]
@@ -477,5 +544,39 @@ mod tests {
         let band = decode_price_update(&bytes).expect("decode ok");
         assert_eq!(band.profile_code, 9);
         assert_eq!(band.profile(), None);
+    }
+
+    #[test]
+    fn decode_lwc_account_yields_forecaster_lwc() {
+        // M6 publish path: forecaster_code = 3 (FORECASTER_LWC) + the
+        // standard profile_code = PROFILE_AMM (M5 and M6 both use
+        // point-relative bands; the legacy Lending profile is no longer
+        // produced by new publishes). Wire layout unchanged from M5 — only
+        // the forecaster_code byte differs.
+        let bytes = synth_account_bytes_with_forecaster(PROFILE_AMM, FORECASTER_LWC);
+        let band = decode_price_update(&bytes).expect("decode ok");
+        assert_eq!(band.forecaster_code, FORECASTER_LWC);
+        assert_eq!(band.forecaster_code, 3);
+        assert_eq!(band.forecaster(), Some(Forecaster::Lwc));
+        // Profile axis is the standard AMM (point-relative bands).
+        assert_eq!(band.profile(), Some(Profile::Amm));
+        // Band invariants still hold.
+        assert!(band.validate_invariants().is_ok());
+    }
+
+    #[test]
+    fn decode_mondrian_account_yields_forecaster_mondrian() {
+        let bytes = synth_account_bytes_with_forecaster(PROFILE_AMM, FORECASTER_MONDRIAN);
+        let band = decode_price_update(&bytes).expect("decode ok");
+        assert_eq!(band.forecaster_code, FORECASTER_MONDRIAN);
+        assert_eq!(band.forecaster(), Some(Forecaster::Mondrian));
+    }
+
+    #[test]
+    fn unknown_future_forecaster_code_decodes_but_typed_view_is_none() {
+        let bytes = synth_account_bytes_with_forecaster(PROFILE_AMM, 99);
+        let band = decode_price_update(&bytes).expect("decode ok");
+        assert_eq!(band.forecaster_code, 99);
+        assert_eq!(band.forecaster(), None);
     }
 }

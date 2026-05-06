@@ -7,13 +7,24 @@
 //!
 //! This module converts between them deterministically and is tested against
 //! the on-chain `PriceUpdate::point_f64()` recovery to verify round-trips.
+//!
+//! Wire-format invariance: the on-chain `PriceUpdate` Borsh layout is
+//! preserved across the M5 → M6 forecaster migration. New publishes set
+//! `forecaster_code = 2` (Mondrian / M5 reference path) or `= 3` (LWC / M6
+//! deployed). The `profile_code` byte (formerly the dual-profile axis used
+//! by the M6b2 lending experiment) is always written as `PROFILE_AMM` (= 2)
+//! by new publishes — both M5 and M6 LWC use the point-relative band
+//! formula `lower = point * (1 - q_eff)`. Old in-flight accounts that
+//! carry `PROFILE_LEGACY` (= 0) or `PROFILE_LENDING` (= 1) still decode
+//! cleanly under the consumer crate's typed view; the publisher just
+//! doesn't produce those byte values anymore.
 
 use serde::{Deserialize, Serialize};
 use soothsayer_consumer::{
-    FORECASTER_F0_STALE, FORECASTER_F1_EMP_REGIME, FORECASTER_MONDRIAN, REGIME_HIGH_VOL,
-    REGIME_LONG_WEEKEND, REGIME_NORMAL,
+    FORECASTER_F0_STALE, FORECASTER_F1_EMP_REGIME, FORECASTER_LWC, FORECASTER_MONDRIAN,
+    PROFILE_AMM, REGIME_HIGH_VOL, REGIME_LONG_WEEKEND, REGIME_NORMAL,
 };
-use soothsayer_oracle::types::{PricePoint, Profile, Regime};
+use soothsayer_oracle::types::{PricePoint, Regime};
 use thiserror::Error;
 
 /// Default precision for published prices: 10^-8 per fixed-point unit.
@@ -28,8 +39,11 @@ pub struct PublishPayload {
     pub regime_code: u8,
     pub forecaster_code: u8,
     pub exponent: i8,
-    /// Serving profile code: 1 = lending, 2 = amm. The on-chain program
-    /// rejects 0 from new publishes (reserved for legacy pre-A4 receipts).
+    /// Serving profile code — always `PROFILE_AMM` (= 2) on new publishes.
+    /// Retained for wire-format invariance with pre-M6 in-flight accounts
+    /// that may carry `PROFILE_LEGACY` (= 0) or `PROFILE_LENDING` (= 1);
+    /// consumers decode all three for backward compat (see
+    /// `crates/soothsayer-consumer/src/lib.rs::Profile`).
     pub profile_code: u8,
     pub target_coverage_bps: u16,
     pub claimed_served_bps: u16,
@@ -90,23 +104,20 @@ pub fn regime_to_code(regime: Regime) -> u8 {
         Regime::Normal => REGIME_NORMAL,
         Regime::LongWeekend => REGIME_LONG_WEEKEND,
         Regime::HighVol => REGIME_HIGH_VOL,
-        // Shock regime isn't used by the Oracle today — reserved.
     }
 }
 
 pub fn forecaster_to_code(name: &str) -> u8 {
     match name {
-        // Legacy v1 receipts (paper 1 §7.4 hybrid forecaster).
+        // Legacy v1 receipts (paper 1 §2.1 / Soothsayer-v0 hybrid forecaster).
         "F1_emp_regime" => FORECASTER_F1_EMP_REGIME,
         "F0_stale" => FORECASTER_F0_STALE,
-        // M5 / v2 + M6b2 dual-profile (paper 1 §7.7, reports/active/m6_refactor.md).
+        // M5 reference path (live on-chain).
         "mondrian" => FORECASTER_MONDRIAN,
+        // M6 deployed path.
+        "lwc" => FORECASTER_LWC,
         _ => 255, // unknown — consumer should reject
     }
-}
-
-pub fn profile_to_code(profile: Profile) -> u8 {
-    profile.code()
 }
 
 fn coverage_to_bps(c: f64) -> Result<u16, PayloadError> {
@@ -140,7 +151,10 @@ pub fn from_price_point(pp: &PricePoint) -> Result<PublishPayload, PayloadError>
         regime_code: regime_to_code(pp.regime),
         forecaster_code: forecaster_to_code(&pp.forecaster_used),
         exponent,
-        profile_code: profile_to_code(pp.profile),
+        // M5 (Mondrian) and M6 (LWC) both produce point-relative bands;
+        // both publish under PROFILE_AMM. The byte exists for backward
+        // compat with pre-M6 in-flight accounts only.
+        profile_code: PROFILE_AMM,
         target_coverage_bps: coverage_to_bps(pp.target_coverage)?,
         claimed_served_bps: coverage_to_bps(pp.claimed_coverage_served)?,
         buffer_applied_bps: coverage_to_bps(pp.calibration_buffer_applied)?,
@@ -179,9 +193,9 @@ pub fn borsh_bytes(payload: &PublishPayload) -> Vec<u8> {
 mod tests {
     use super::*;
     use chrono::NaiveDate;
-    use soothsayer_oracle::types::{PricePoint, PricePointDiagnostics, Profile};
+    use soothsayer_oracle::types::{Forecaster, PricePoint, PricePointDiagnostics};
 
-    fn sample_price_point() -> PricePoint {
+    fn sample_mondrian_price_point() -> PricePoint {
         PricePoint {
             symbol: "SPY".to_string(),
             as_of: NaiveDate::from_ymd_opt(2026, 4, 17).unwrap(),
@@ -195,15 +209,43 @@ mod tests {
             forecaster_used: "mondrian".to_string(),
             sharpness_bps: 181.16653981260782,
             half_width_bps: 183.7710258147993,
-            profile: Profile::Amm,
+            forecaster: Forecaster::Mondrian,
             diagnostics: PricePointDiagnostics {
                 fri_close: 710.1400146484375,
                 served_target: 0.95,
                 c_bump: 1.300,
                 q_eff: 0.027989,
                 q_regime: Some(0.021530),
-                symbol_class: None,
-                b_class: None,
+                q_regime_lwc: None,
+                sigma_hat_sym_pre_fri: None,
+            },
+        }
+    }
+
+    fn sample_lwc_price_point() -> PricePoint {
+        PricePoint {
+            symbol: "SPY".to_string(),
+            as_of: NaiveDate::from_ymd_opt(2026, 4, 17).unwrap(),
+            target_coverage: 0.95,
+            calibration_buffer_applied: 0.0,
+            claimed_coverage_served: 0.95,
+            point: 700.0755895327402,
+            lower: 687.2102286091069,
+            upper: 712.9409504563733,
+            regime: Regime::Normal,
+            forecaster_used: "lwc".to_string(),
+            sharpness_bps: 181.16653981260782,
+            half_width_bps: 183.7710258147993,
+            forecaster: Forecaster::Lwc,
+            diagnostics: PricePointDiagnostics {
+                fri_close: 710.1400146484375,
+                served_target: 0.95,
+                c_bump: 1.079,
+                // Unitless c · q_r^LWC. Half-width adds σ̂ · fri_close.
+                q_eff: 2.123685,
+                q_regime: None,
+                q_regime_lwc: Some(1.9681608719699637),
+                sigma_hat_sym_pre_fri: Some(0.008659),
             },
         }
     }
@@ -245,27 +287,47 @@ mod tests {
 
     #[test]
     fn from_price_point_uses_friday_close_timestamp_utc() {
-        let payload = from_price_point(&sample_price_point()).unwrap();
+        let payload = from_price_point(&sample_mondrian_price_point()).unwrap();
         assert_eq!(payload.fri_ts, 1_776_456_000);
     }
 
     #[test]
     fn borsh_bytes_matches_publish_payload_wire_size() {
-        let payload = from_price_point(&sample_price_point()).unwrap();
+        let payload = from_price_point(&sample_mondrian_price_point()).unwrap();
         assert_eq!(borsh_bytes(&payload).len(), 67);
     }
 
     #[test]
-    fn from_price_point_propagates_amm_profile_code() {
-        let payload = from_price_point(&sample_price_point()).unwrap();
-        assert_eq!(payload.profile_code, soothsayer_consumer::PROFILE_AMM);
+    fn mondrian_publish_writes_forecaster_code_2() {
+        let payload = from_price_point(&sample_mondrian_price_point()).unwrap();
+        assert_eq!(payload.forecaster_code, FORECASTER_MONDRIAN);
+        assert_eq!(payload.forecaster_code, 2);
     }
 
     #[test]
-    fn from_price_point_propagates_lending_profile_code() {
-        let mut pp = sample_price_point();
-        pp.profile = Profile::Lending;
-        let payload = from_price_point(&pp).unwrap();
-        assert_eq!(payload.profile_code, soothsayer_consumer::PROFILE_LENDING);
+    fn lwc_publish_writes_forecaster_code_3() {
+        let payload = from_price_point(&sample_lwc_price_point()).unwrap();
+        assert_eq!(payload.forecaster_code, FORECASTER_LWC);
+        assert_eq!(payload.forecaster_code, 3);
+    }
+
+    #[test]
+    fn both_forecasters_publish_under_profile_amm() {
+        // Wire-format invariance: M5 (Mondrian) and M6 (LWC) both produce
+        // point-relative bands and publish under PROFILE_AMM. The Lending
+        // profile (M6b2 experimental) is not produced by new publishes.
+        let mondrian_payload = from_price_point(&sample_mondrian_price_point()).unwrap();
+        let lwc_payload = from_price_point(&sample_lwc_price_point()).unwrap();
+        assert_eq!(mondrian_payload.profile_code, PROFILE_AMM);
+        assert_eq!(lwc_payload.profile_code, PROFILE_AMM);
+    }
+
+    #[test]
+    fn lwc_borsh_bytes_round_trip_size() {
+        let payload = from_price_point(&sample_lwc_price_point()).unwrap();
+        let bytes = borsh_bytes(&payload);
+        assert_eq!(bytes.len(), 67, "wire size invariant across forecasters");
+        // forecaster_code is the third byte (after version and regime_code).
+        assert_eq!(bytes[2], 3, "LWC forecaster_code = 3 in the wire byte");
     }
 }

@@ -1,6 +1,6 @@
 # M6 σ̂ variant comparison — forward tape, 1 weekends since freeze
 
-**Generated:** 2026-05-04 23:09 UTC.
+**Generated:** 2026-05-05 13:30 UTC.
 **Variant bundle:** `lwc_variant_bundle_v1_frozen_20260504.json` (SHA-256 `7cef6132d970…`, freeze date 2026-05-04).
 **Forward window:** 2026-05-01 → 2026-05-01.
 

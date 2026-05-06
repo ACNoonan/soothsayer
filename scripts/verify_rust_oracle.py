@@ -1,14 +1,15 @@
 """
-Rust ↔ Python Oracle parity check — dual-profile (M5 + M6b2 Lending).
+Rust ↔ Python Oracle parity check — dual-forecaster (M5 Mondrian + M6 LWC).
 
-For a random sample of (symbol, fri_ts) tuples from the Mondrian artefact,
-call both the Python `Oracle.fair_value` and the Rust `soothsayer fair-value`
-CLI under each profile (`lending`, `amm`) and diff the key fields. The
-expectation is byte-exact agreement on the consumer-facing numeric output
-(point, lower, upper, sharpness_bps, claimed_served) and exact agreement on
-the string fields (regime, forecaster_used, profile).
+For a deterministic sample of (symbol, fri_ts) tuples from each forecaster's
+artefact, call both the Python `Oracle.fair_value` (M5) / `Oracle.fair_value_lwc`
+(M6) and the Rust `soothsayer fair-value` CLI under each forecaster, and diff
+the key fields. The expectation is byte-exact agreement on the consumer-facing
+numeric output (point, lower, upper, sharpness_bps, claimed_served) and exact
+agreement on string fields (regime, forecaster_used).
 
-Phase A3 target (reports/active/m6_refactor.md): 90/90 per profile.
+Target: **180/180 pass** (90 M5 + 90 M6, each = 30 (symbol, fri_ts) cases × 3
+target-coverage anchors).
 
 Run:
     cargo build --release -p soothsayer-publisher
@@ -31,7 +32,11 @@ from soothsayer.oracle import Oracle  # noqa: E402
 
 RUST_BIN_DEBUG = REPO_ROOT / "target" / "debug" / "soothsayer"
 RUST_BIN_RELEASE = REPO_ROOT / "target" / "release" / "soothsayer"
-ARTEFACT_PATH = REPO_ROOT / "data" / "processed" / "mondrian_artefact_v2.parquet"
+
+ARTEFACT_PATHS = {
+    "mondrian": REPO_ROOT / "data" / "processed" / "mondrian_artefact_v2.parquet",
+    "lwc":      REPO_ROOT / "data" / "processed" / "lwc_artefact_v1.parquet",
+}
 
 # Fields we require to match exactly (numeric = bit-level; string = exact).
 NUMERIC_FIELDS = [
@@ -55,13 +60,9 @@ DIAGNOSTIC_NUMERIC_COMMON = [
     "c_bump",
     "q_eff",
 ]
-DIAGNOSTIC_NUMERIC_BY_PROFILE = {
-    "amm": ["q_regime"],
-    "lending": ["b_class"],
-}
-DIAGNOSTIC_STRING_BY_PROFILE = {
-    "amm": [],
-    "lending": ["symbol_class"],
+DIAGNOSTIC_NUMERIC_BY_FORECASTER = {
+    "mondrian": ["q_regime"],
+    "lwc": ["q_regime_lwc", "sigma_hat_sym_pre_fri"],
 }
 
 
@@ -71,17 +72,23 @@ def rust_bin() -> Path:
     return RUST_BIN_DEBUG
 
 
-def run_rust(symbol: str, as_of: str, target: float, profile: str) -> dict:
+def run_rust(symbol: str, as_of: str, target: float, forecaster: str) -> dict:
     out = subprocess.run(
-        [str(rust_bin()), "--profile", profile, "fair-value",
+        [str(rust_bin()), "--forecaster", forecaster, "fair-value",
          "--symbol", symbol, "--as-of", as_of, "--target", str(target)],
         cwd=REPO_ROOT, capture_output=True, text=True, check=True,
     )
     return json.loads(out.stdout)
 
 
-def run_python(oracle: Oracle, symbol: str, as_of: str, target: float) -> dict:
-    pp = oracle.fair_value(symbol, as_of, target_coverage=target)
+def run_python(oracle: Oracle, symbol: str, as_of: str, target: float,
+               forecaster: str) -> dict:
+    if forecaster == "mondrian":
+        pp = oracle.fair_value(symbol, as_of, target_coverage=target)
+    elif forecaster == "lwc":
+        pp = oracle.fair_value_lwc(symbol, as_of, target_coverage=target)
+    else:
+        raise ValueError(f"unknown forecaster: {forecaster!r}")
     return pp.to_dict()
 
 
@@ -120,7 +127,7 @@ def diff_fields(label: str, py_val, rs_val, tol: float | None = NUMERIC_TOL) -> 
     return []
 
 
-def compare(py: dict, rs: dict, profile: str) -> list[str]:
+def compare(py: dict, rs: dict, forecaster: str) -> list[str]:
     mismatches = []
 
     # Consumer-facing numeric fields must match bit-for-bit (tol=0).
@@ -130,15 +137,12 @@ def compare(py: dict, rs: dict, profile: str) -> list[str]:
         mismatches += diff_fields(f, py.get(f), rs.get(f))
     mismatches += diff_fields("regime", py.get("regime"), rs.get("regime"))
     mismatches += diff_fields("as_of", py.get("as_of"), rs.get("as_of"))
-    mismatches += diff_fields("profile", py.get("profile"), rs.get("profile"))
 
     # Diagnostic numeric fields: allow ≤1e-12 (ULP noise from op ordering).
     py_d = py.get("diagnostics", {})
     rs_d = rs.get("diagnostics", {})
-    for f in DIAGNOSTIC_NUMERIC_COMMON + DIAGNOSTIC_NUMERIC_BY_PROFILE[profile]:
+    for f in DIAGNOSTIC_NUMERIC_COMMON + DIAGNOSTIC_NUMERIC_BY_FORECASTER[forecaster]:
         mismatches += diff_fields(f"diag.{f}", py_d.get(f), rs_d.get(f), tol=NUMERIC_TOL)
-    for f in DIAGNOSTIC_STRING_BY_PROFILE[profile]:
-        mismatches += diff_fields(f"diag.{f}", py_d.get(f), rs_d.get(f))
 
     return mismatches
 
@@ -157,37 +161,59 @@ def _build_case_list(unique: pd.DataFrame, n_random: int) -> list[tuple[str, str
     return cases
 
 
-def _run_profile(profile: str, all_cases: list[tuple[str, str]],
-                 target_coverages: list[float]) -> tuple[int, int, int]:
-    """Run parity for one profile. Returns (cases_total, cases_with_mismatch,
+def _run_forecaster(forecaster: str, n_random: int,
+                    target_coverages: list[float]) -> tuple[int, int, int]:
+    """Run parity for one forecaster. Returns (cases_total, cases_with_mismatch,
     total_field_diffs)."""
-    print(f"=== profile={profile} ===")
-    oracle = Oracle.load(profile=profile)
+    print(f"=== forecaster={forecaster} ===")
+
+    artefact_path = ARTEFACT_PATHS[forecaster]
+    if not artefact_path.exists():
+        print(f"  SKIP: artefact {artefact_path} not present "
+              f"(run scripts/build_{'lwc' if forecaster == 'lwc' else 'mondrian'}_artefact.py)")
+        return 0, 0, 0
+
+    artefact = pd.read_parquet(artefact_path)
+    unique = artefact[["symbol", "fri_ts"]].drop_duplicates().reset_index(drop=True)
+    print(f"  artefact rows: {len(artefact):,} total, {len(unique):,} unique (symbol, fri_ts)")
+
+    all_cases = _build_case_list(unique, n_random)
+    print(f"  testing {len(all_cases)} cases × {len(target_coverages)} targets = "
+          f"{len(all_cases) * len(target_coverages)} combinations")
+
+    # Python oracle: load with the M5 per-regime "amm" profile for the
+    # Mondrian parity probe (Python's default profile is "lending" /
+    # M6b2 per-class, which Rust no longer exposes — Option A drops the
+    # M6b2 Lending profile from the Rust path). For LWC the profile arg
+    # is moot — fair_value_lwc bypasses the M5/M6b2 dispatch entirely
+    # and reads the LWC artefact via the auto-loaded slot.
+    oracle = Oracle.load(profile="amm" if forecaster == "mondrian" else "lending")
+
     total = len(all_cases) * len(target_coverages)
     total_mismatches = 0
     cases_with_mismatch = 0
     for i, (symbol, as_of) in enumerate(all_cases):
         for tc in target_coverages:
             try:
-                py = run_python(oracle, symbol, as_of, tc)
-                rs = run_rust(symbol, as_of, tc, profile)
+                py = run_python(oracle, symbol, as_of, tc, forecaster)
+                rs = run_rust(symbol, as_of, tc, forecaster)
             except Exception as e:
-                print(f"  {symbol:<6} {as_of} target={tc}  ERROR: {e}")
+                print(f"    {symbol:<6} {as_of} target={tc}  ERROR: {e}")
                 total_mismatches += 1
                 continue
-            m = compare(py, rs, profile)
+            m = compare(py, rs, forecaster)
             if m:
                 cases_with_mismatch += 1
                 total_mismatches += len(m)
-                print(f"  {symbol:<6} {as_of} target={tc:.2f}  MISMATCH ({len(m)}):")
+                print(f"    {symbol:<6} {as_of} target={tc:.2f}  MISMATCH ({len(m)}):")
                 for line in m:
                     print(line)
             else:
                 if (i * len(target_coverages)) % 30 == 0 and tc == target_coverages[0]:
                     py_hw = py["half_width_bps"]
-                    cell = py["diagnostics"].get("symbol_class") or py["regime"]
-                    print(f"  {symbol:<6} {as_of} cell={cell:<14} target={tc:.2f}"
-                          f"→claim={py['claimed_coverage_served']:.3f} hw={py_hw:5.0f}bps  ✓")
+                    print(f"    {symbol:<6} {as_of} regime={py['regime']:<14} "
+                          f"target={tc:.2f}→claim={py['claimed_coverage_served']:.3f} "
+                          f"hw={py_hw:5.0f}bps  ✓")
     return total, cases_with_mismatch, total_mismatches
 
 
@@ -197,35 +223,35 @@ def main() -> int:
         print("Run: cargo build --release -p soothsayer-publisher")
         return 2
 
-    artefact = pd.read_parquet(ARTEFACT_PATH)
-    unique = artefact[["symbol", "fri_ts"]].drop_duplicates().reset_index(drop=True)
-    print(f"Artefact rows: {len(artefact):,} total, {len(unique):,} unique (symbol, fri_ts)")
-    print(f"Rust binary: {rust_bin()}")
-    print()
-
-    # Phase A3 target: 90/90 per profile. 30 cases × 3 anchors = 90.
     n_random = int(sys.argv[1]) if len(sys.argv) > 1 else 25
-    all_cases = _build_case_list(unique, n_random)
     target_coverages = [0.68, 0.95, 0.99]
-    print(f"Testing {len(all_cases)} (symbol, fri_ts) pairs × "
-          f"{len(target_coverages)} targets = {len(all_cases)*len(target_coverages)} "
-          f"cases per profile")
+    print(f"Rust binary: {rust_bin()}")
+    print(f"Cases per forecaster: {n_random + 5} unique (symbol, fri_ts) × "
+          f"{len(target_coverages)} targets = {(n_random + 5) * len(target_coverages)}")
     print()
 
     summary = {}
-    for profile in ("amm", "lending"):
-        total, cases_with_mm, field_diffs = _run_profile(profile, all_cases, target_coverages)
-        summary[profile] = (total, cases_with_mm, field_diffs)
+    for forecaster in ("mondrian", "lwc"):
+        total, cases_with_mm, field_diffs = _run_forecaster(
+            forecaster, n_random, target_coverages
+        )
+        summary[forecaster] = (total, cases_with_mm, field_diffs)
         print()
 
     print("=" * 60)
     grand_pass = True
-    for profile, (total, cases_with_mm, field_diffs) in summary.items():
+    grand_total = 0
+    grand_passed = 0
+    for forecaster, (total, cases_with_mm, field_diffs) in summary.items():
         passed = total - cases_with_mm
-        status = "PASS" if field_diffs == 0 else "FAIL"
+        status = "PASS" if field_diffs == 0 and total > 0 else \
+                 "SKIP" if total == 0 else "FAIL"
         if field_diffs:
             grand_pass = False
-        print(f"  profile={profile:<8}  {passed}/{total}  ({status})")
+        grand_total += total
+        grand_passed += passed
+        print(f"  forecaster={forecaster:<10}  {passed}/{total}  ({status})")
+    print(f"  {'GRAND TOTAL':<23}  {grand_passed}/{grand_total}")
     print("=" * 60)
     return 0 if grand_pass else 1
 

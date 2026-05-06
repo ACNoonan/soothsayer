@@ -12,38 +12,41 @@ pub enum Regime {
     HighVol,
 }
 
-/// Serving profile. Both profiles share the M5 Mondrian architecture and
-/// wire format; they differ only in the conformal cell axis (per-class
-/// for Lending, per-regime for AMM) and the band formula (fri_close-
-/// relative for Lending, point-relative for AMM-legacy).
+/// Serving forecaster — selects the architecture used to compute the band.
 ///
-/// Discriminant values match the on-chain `profile_code` byte that A4
-/// adds to `PriceUpdate`: `Lending = 1`, `Amm = 2`. `0` is reserved for
-/// "legacy M5 single-profile receipt" — not produced by this crate.
+/// Both `Mondrian` (the M5 per-regime split-conformal reference path) and
+/// `Lwc` (the M6 deployed locally-weighted Mondrian conformal path) share
+/// the band formula `[point * (1 ± q_eff), ...]` and the on-chain wire
+/// format. They differ in how `q_eff` is constructed:
+///
+/// - Mondrian:   `q_eff = c(τ) · q_r(τ)`                      (per-regime quantile on raw residuals)
+/// - Lwc (M6):   `q_eff = c(τ) · q_r(τ) · σ̂_s(t)`             (per-regime quantile on standardised residuals, rescaled by per-symbol pre-Friday σ̂)
+///
+/// On-chain wire `forecaster_code`: Mondrian = 2, Lwc = 3.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Profile {
-    Lending = 1,
-    Amm = 2,
+pub enum Forecaster {
+    Mondrian = 2,
+    Lwc = 3,
 }
 
-impl Profile {
+impl Forecaster {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Lending => "lending",
-            Self::Amm => "amm",
+            Self::Mondrian => "mondrian",
+            Self::Lwc => "lwc",
         }
     }
 
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
-            "lending" => Some(Self::Lending),
-            "amm" => Some(Self::Amm),
+            "mondrian" => Some(Self::Mondrian),
+            "lwc" => Some(Self::Lwc),
             _ => None,
         }
     }
 
-    /// Borsh-codable byte. Phase A4 wires this into `PriceUpdate.profile_code`.
+    /// Borsh-codable wire byte. Matches `soothsayer_consumer::FORECASTER_*`.
     pub fn code(&self) -> u8 {
         *self as u8
     }
@@ -71,21 +74,18 @@ impl Regime {
 /// The Soothsayer oracle read. Stable fields are what protocols integrate
 /// against; `diagnostics` is human-consumable metadata.
 ///
-/// Field semantics under the dual-profile architecture (M5 + M6b2):
+/// Field semantics:
 ///   - `target_coverage`: what the consumer asked for (τ).
-///   - `calibration_buffer_applied`: δ(τ) — the walk-forward τ-shift, the
-///     structural successor to v1's `BUFFER_BY_TARGET` schedule.
-///   - `claimed_coverage_served`: τ + δ(τ), the served band's claim.
-///   - `forecaster_used`: "mondrian" under both M5 / M6b2 profiles (legacy
-///     field; on the wire this maps to FORECASTER_MONDRIAN = 2).
-///     Code 3 is reserved for FORECASTER_LWC (the M6 Locally-Weighted
-///     Conformal serving path). The Python sibling `Oracle.fair_value_lwc()`
-///     ships ahead of the Rust port; the Rust LWC implementation lands in
-///     Phase 5 of `reports/active/m6_refactor.md` (gated on Adam's hand-off). Wire-format
-///     invariance: existing M5 consumers must decode an LWC PriceUpdate
-///     account without crashing — only the `forecaster_code` byte changes.
-///   - `profile`: which conformal cell axis was used. Lending → per-class,
-///     AMM → per-regime. Wire-encoded as the `profile_code` byte (A4).
+///   - `calibration_buffer_applied`: δ(τ) — the walk-forward τ-shift. Under
+///     M6 (LWC) this is identically zero; under M5 (Mondrian) it carries
+///     the legacy `BUFFER_BY_TARGET` schedule.
+///   - `claimed_coverage_served`: τ + δ(τ); the served band's claim.
+///   - `forecaster_used`: "mondrian" (M5) or "lwc" (M6). On the wire this
+///     maps to `forecaster_code = 2` (Mondrian; live on-chain) or `= 3`
+///     (Lwc; on-chain slot reserved pending Rust port + publish enablement).
+///     Wire-format invariance: existing consumers must decode an Lwc
+///     PriceUpdate account without crashing — only the `forecaster_code`
+///     byte changes; `point`, `lower`, `upper` semantics are unchanged.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PricePoint {
     pub symbol: String,
@@ -100,14 +100,15 @@ pub struct PricePoint {
     pub forecaster_used: String,
     pub sharpness_bps: f64,
     pub half_width_bps: f64,
-    pub profile: Profile,
+    pub forecaster: Forecaster,
     pub diagnostics: PricePointDiagnostics,
 }
 
 /// Per-Friday diagnostics. Common fields (fri_close, served_target, c_bump,
-/// q_eff) are populated under both profiles; the cell-specific fields below
-/// are populated only under the matching profile so the JSON shape mirrors
-/// `src/soothsayer/oracle.py`'s diagnostics dict on each side.
+/// q_eff) are populated under both forecasters; per-forecaster cell fields
+/// are populated only under the matching forecaster so the JSON shape
+/// mirrors Python's `Oracle.fair_value` (M5) / `Oracle.fair_value_lwc`
+/// (M6) diagnostics dict on each side.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PricePointDiagnostics {
     pub fri_close: f64,
@@ -115,17 +116,24 @@ pub struct PricePointDiagnostics {
     pub served_target: f64,
     /// `c(τ')`, the multiplicative OOS-fit bump applied to the trained quantile.
     pub c_bump: f64,
-    /// `c(τ') · b(cell, τ')`, the effective relative half-width in residual units.
+    /// `c(τ') · q_r(τ')` — the unitless effective quantile. Under M6 the
+    /// half-width adds a factor of σ̂_s(t) (`half = q_eff · σ̂ · fri_close`,
+    /// fri_close-relative band); under M5 it's `half = q_eff · point`
+    /// (point-relative band). The same diagnostic field carries both.
     pub q_eff: f64,
-    /// AMM profile only: `q_r(τ')`, the per-regime trained conformal quantile.
+    /// M5 / Mondrian only: `q_r(τ')`, per-regime trained conformal quantile
+    /// on raw relative residuals. `None` for M6 reads.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub q_regime: Option<f64>,
-    /// Lending profile only: the symbol's class label (e.g. "equity_index").
+    /// M6 / LWC only: `q_r^LWC(τ')`, per-regime trained conformal quantile
+    /// on standardised residuals. `None` for M5 reads. Field name matches
+    /// Python's `q_regime_lwc` diagnostic key.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub symbol_class: Option<String>,
-    /// Lending profile only: `b(class, τ')`, the per-class trained quantile.
+    pub q_regime_lwc: Option<f64>,
+    /// M6 / LWC only: per-symbol pre-Friday EWMA σ̂_s(t) read from the
+    /// artefact parquet's `sigma_hat_sym_pre_fri` column. `None` for M5.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub b_class: Option<f64>,
+    pub sigma_hat_sym_pre_fri: Option<f64>,
 }
 
 impl PricePoint {

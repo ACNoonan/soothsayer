@@ -21,9 +21,6 @@ pub enum Error {
     #[error("unknown regime {0:?}; must be one of normal | long_weekend | high_vol")]
     UnknownRegime(String),
 
-    #[error("unknown symbol_class for {0:?}; not in the M6b2 lending mapping")]
-    UnknownSymbolClass(String),
-
     #[error("data integrity: {0}")]
     Integrity(String),
 }

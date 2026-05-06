@@ -1,36 +1,38 @@
-//! Oracle-serving configuration constants — Mondrian (M5) deployment.
+//! Oracle-serving configuration constants — Mondrian (M5) reference path
+//! and Locally-Weighted Conformal (M6 LWC, deployed) path.
 //!
-//! These values MUST match `src/soothsayer/oracle.py` exactly — the Rust
-//! Oracle is a byte-for-byte port of the Python reference. The deployment
-//! surface is twenty scalars: 12 trained per-regime quantiles, 4 OOS-fit
-//! `c(τ)` bumps, and 4 walk-forward-fit `δ(τ)` shifts. See paper 1 §7.7
-//! and `reports/methodology_history.md` (M5 entry).
+//! Both forecasters share the same on-chain wire format (`PriceUpdate`
+//! Borsh layout), the same regime taxonomy (3 cells), the same τ-anchor
+//! grid, and the same band formula `point * (1 ± q_eff)`. They differ
+//! only in how `q_eff` is constructed:
+//!
+//!   - **M5 / Mondrian**:  `q_eff = c(τ) · q_r(τ)`
+//!     12 trained per-regime conformal quantiles on raw relative residuals
+//!     + 4 OOS-fit `c(τ)` bumps + 4 walk-forward `δ(τ)` shifts = 20 scalars.
+//!     Live on-chain (`forecaster_code = 2`).
+//!
+//!   - **M6 / LWC**:       `q_eff = c(τ) · q_r(τ) · σ̂_s(t)`
+//!     12 trained per-regime conformal quantiles on standardised residuals
+//!     + 4 OOS-fit `c(τ)` bumps + 0 walk-forward shifts (collapses under
+//!     per-symbol σ̂ standardisation) = 16 scalars. Plus a per-symbol pre-
+//!     Friday EWMA σ̂ rule (half-life 8 weekends, ≥ 8 past obs warm-up)
+//!     read from the artefact parquet's `sigma_hat_sym_pre_fri` column.
+//!     On-chain wire-format slot reserved as `forecaster_code = 3`.
+//!
+//! Constants in this file MUST match the Python reference
+//! (`src/soothsayer/oracle.py`) bit-for-bit. The unit tests
+//! `mondrian_constants_match_sidecar` and `lwc_constants_match_sidecar`
+//! enforce parity against the JSON sidecars at
+//! `data/processed/mondrian_artefact_v2.json` and
+//! `data/processed/lwc_artefact_v1.json` respectively. See paper 1
+//! §4 / §7 and `reports/methodology_history.md`.
 
-/// Anchor τ values shared across the three schedules. Values supplied by
-/// each schedule below are aligned to these positions.
+/// Anchor τ values shared across the schedules of both forecasters. Values
+/// supplied by each schedule below are aligned to these positions.
 pub const TARGET_ANCHORS: [f64; 4] = [0.68, 0.85, 0.95, 0.99];
 
-/// Trained per-regime conformal quantile q_r(τ). Rows are aligned with
-/// [`REGIMES`]; columns are aligned with [`TARGET_ANCHORS`]. Mirrors
-/// `src/soothsayer/oracle.py::REGIME_QUANTILE_TABLE`.
+/// Regime taxonomy shared across both forecasters.
 pub const REGIMES: [&str; 3] = ["normal", "long_weekend", "high_vol"];
-pub const REGIME_QUANTILE_TABLE: [[f64; 4]; 3] = [
-    // normal
-    [0.006070, 0.011236, 0.021530, 0.049663],
-    // long_weekend
-    [0.006648, 0.014248, 0.031032, 0.071228],
-    // high_vol
-    [0.011628, 0.021460, 0.042911, 0.099418],
-];
-
-/// Multiplicative OOS-fit bump c(τ), aligned with [`TARGET_ANCHORS`].
-pub const C_BUMP_SCHEDULE: [f64; 4] = [1.498, 1.455, 1.300, 1.076];
-
-/// Walk-forward-fit τ-shift δ(τ), aligned with [`TARGET_ANCHORS`].
-pub const DELTA_SHIFT_SCHEDULE: [f64; 4] = [0.05, 0.02, 0.00, 0.00];
-
-/// Mondrian receipt label exposed in PricePoint.forecaster_used.
-pub const MONDRIAN_FORECASTER: &str = "mondrian";
 
 /// Default consumer target.
 pub const DEFAULT_TARGET_COVERAGE: f64 = 0.85;
@@ -63,6 +65,31 @@ pub fn interp_schedule(tau: f64, schedule: &[f64; 4]) -> f64 {
     schedule[TARGET_ANCHORS.len() - 1]
 }
 
+// =========================================================================
+// === M5 / Mondrian constants =============================================
+// =========================================================================
+
+/// Trained per-regime conformal quantile q_r(τ) on raw relative residuals.
+/// Rows aligned with [`REGIMES`]; columns aligned with [`TARGET_ANCHORS`].
+/// Mirrors `src/soothsayer/oracle.py::REGIME_QUANTILE_TABLE`.
+pub const REGIME_QUANTILE_TABLE: [[f64; 4]; 3] = [
+    // normal
+    [0.006070, 0.011236, 0.021530, 0.049663],
+    // long_weekend
+    [0.006648, 0.014248, 0.031032, 0.071228],
+    // high_vol
+    [0.011628, 0.021460, 0.042911, 0.099418],
+];
+
+/// Multiplicative OOS-fit bump c(τ), aligned with [`TARGET_ANCHORS`].
+pub const C_BUMP_SCHEDULE: [f64; 4] = [1.498, 1.455, 1.300, 1.076];
+
+/// Walk-forward-fit τ-shift δ(τ), aligned with [`TARGET_ANCHORS`].
+pub const DELTA_SHIFT_SCHEDULE: [f64; 4] = [0.05, 0.02, 0.00, 0.00];
+
+/// Mondrian receipt label exposed in PricePoint.forecaster_used.
+pub const MONDRIAN_FORECASTER: &str = "mondrian";
+
 pub fn delta_shift_for_target(tau: f64) -> f64 {
     interp_schedule(tau, &DELTA_SHIFT_SCHEDULE)
 }
@@ -71,7 +98,7 @@ pub fn c_bump_for_target(tau: f64) -> f64 {
     interp_schedule(tau, &C_BUMP_SCHEDULE)
 }
 
-/// Per-regime conformal quantile lookup. Unknown regimes fall back to
+/// Per-regime conformal quantile lookup (M5). Unknown regimes fall back to
 /// `high_vol` (the conservative widest row).
 pub fn regime_quantile_for(regime: &str, tau: f64) -> f64 {
     let idx = REGIMES
@@ -81,125 +108,75 @@ pub fn regime_quantile_for(regime: &str, tau: f64) -> f64 {
     interp_schedule(tau, &REGIME_QUANTILE_TABLE[idx])
 }
 
-// === Lending profile (M6b2) constants =====================================
-// Mirrors `src/soothsayer/oracle.py`'s LENDING_*, hardcoded here so the
-// Rust serving path is self-contained (no parquet/JSON read on the hot
-// path). Single source of truth = the audit-trail JSON sidecar at
-// `data/processed/m6b2_lending_artefact_v1.json` produced by
-// `scripts/build_m6b2_lending_artefact.py`. The unit test
-// `lending_constants_match_sidecar` enforces bit-for-bit agreement.
-//
-// Cells: 6 symbol_classes × 4 τ-anchors = 24 trained quantiles. Plus 4
-// OOS-fit c(τ) bumps and 4 walk-forward δ(τ) shifts → 32 deployment
-// scalars (vs M5's 20).
+// =========================================================================
+// === M6 / LWC (deployed) constants =======================================
+// =========================================================================
 
-/// Lending receipt label exposed in PricePoint.forecaster_used. The
-/// distinction from MONDRIAN_FORECASTER on the wire is carried by the
-/// `profile_code` byte (Phase A4), not the forecaster_code byte; this
-/// label is for display + log parity with M5.
-pub const LENDING_FORECASTER: &str = "mondrian";
+/// LWC receipt label exposed in PricePoint.forecaster_used. Wire-encoded
+/// as `forecaster_code = 3` (`FORECASTER_LWC` in the consumer crate).
+pub const LWC_FORECASTER: &str = "lwc";
 
-/// Symbol classes, aligned with [`LENDING_QUANTILE_TABLE`] rows. Order
-/// matches `scripts/build_m6b2_lending_artefact.py::CLASSES`.
-pub const LENDING_CLASSES: [&str; 6] = [
-    "equity_index",
-    "equity_meta",
-    "equity_highbeta",
-    "equity_recent",
-    "gold",
-    "bond",
+/// Per-symbol pre-Friday EWMA σ̂ half-life, in weekends. Decay rate
+/// λ = 0.5 ** (1 / HL) ≈ 0.917 per past Friday at HL = 8.
+pub const SIGMA_HAT_HL_WEEKENDS: u32 = 8;
+
+/// Minimum past relative-residual observations required before σ̂_s(t) is
+/// defined; weekends with fewer past Fridays per symbol are dropped at
+/// warm-up. Matches Python's `SIGMA_HAT_MIN`.
+pub const SIGMA_HAT_MIN: u32 = 8;
+
+/// Trained per-regime conformal quantile q_r(τ) on STANDARDISED residuals.
+/// Rows aligned with [`REGIMES`]; columns aligned with [`TARGET_ANCHORS`].
+/// Bit-for-bit from `data/processed/lwc_artefact_v1.json::regime_quantile_table`.
+/// Each literal is the shortest decimal that round-trips to the f64 produced
+/// by the Python builder.
+pub const LWC_REGIME_QUANTILE_TABLE: [[f64; 4]; 3] = [
+    // normal
+    [0.7767272317989513, 1.2194990647624138, 1.9681608719699637, 3.3279604103068388],
+    // long_weekend
+    [0.8637555272733264, 1.3648606059791455, 2.2208333798923596, 4.015199635992656],
+    // high_vol
+    [1.1086378907121812, 1.9432779938106572, 3.097125105461176, 6.456344506221736],
 ];
 
-/// Trained per-(symbol_class, τ) conformal quantile b. Columns aligned
-/// with [`TARGET_ANCHORS`]; rows aligned with [`LENDING_CLASSES`]. Values
-/// taken bit-for-bit from `m6b2_lending_artefact_v1.json` —
-/// `class_quantile_table`. Each literal is the shortest decimal that
-/// round-trips to the f64 produced by the Python builder.
-pub const LENDING_QUANTILE_TABLE: [[f64; 4]; 6] = [
-    // equity_index
-    [0.004929947574806843, 0.009255912125044752, 0.016869564748457338, 0.04093702745769363],
-    // equity_meta
-    [0.007108313040523537, 0.012158507131789693, 0.02317347346475547, 0.053866039467961334],
-    // equity_highbeta
-    [0.012061294867197299, 0.02289074693494606, 0.04514018281176891, 0.10350537606959213],
-    // equity_recent
-    [0.016651414900959633, 0.024357263874478712, 0.046296149527498345, 0.05805541746614789],
-    // gold
-    [0.005351615987301906, 0.009109742914256964, 0.014529936260002976, 0.02415652508648394],
-    // bond
-    [0.005400631470408542, 0.008565085562056382, 0.013199358216759648, 0.021241256355786425],
+/// LWC OOS-fit multiplicative bump c(τ), aligned with [`TARGET_ANCHORS`].
+/// Three of four near-identity; only c(0.95) carries meaningful OOS info.
+pub const LWC_C_BUMP_SCHEDULE: [f64; 4] = [
+    1.0,
+    1.0,
+    1.0789999999999913,
+    1.0029999999999997,
 ];
 
-/// Multiplicative OOS-fit bump c(τ), aligned with [`TARGET_ANCHORS`].
-/// Values from `m6b2_lending_artefact_v1.json::c_bump_schedule` — the
-/// short-decimal reprs reproduce the np.arange grid noise bit-for-bit.
-pub const LENDING_C_BUMP_SCHEDULE: [f64; 4] = [
-    1.3239999999999643,
-    1.2069999999999772,
-    1.0489999999999946,
-    1.099999999999989,
-];
+/// LWC walk-forward δ(τ) shift — identically zero. Per-symbol σ̂
+/// standardisation tightens cross-split realised-coverage variance enough
+/// that no structural-conservatism shift is required. Retained as a
+/// 4-zero vector for shape-compatibility with the receipt schema.
+pub const LWC_DELTA_SHIFT_SCHEDULE: [f64; 4] = [0.0, 0.0, 0.0, 0.0];
 
-/// Walk-forward-fit δ(τ) shift, aligned with [`TARGET_ANCHORS`].
-/// Identical to the M5 schedule today; kept as an independent constant
-/// so a future Lending δ-tune doesn't accidentally bleed into AMM.
-pub const LENDING_DELTA_SHIFT_SCHEDULE: [f64; 4] = [0.05, 0.02, 0.0, 0.0];
-
-/// Symbol → symbol_class mapping. Order matches the artefact JSON's
-/// `symbol_class_mapping`. Underlying tickers (SPY) map directly;
-/// xStock forms (SPYx) are normalised by [`symbol_class_for`].
-pub const SYMBOL_CLASS_MAP: &[(&str, &str)] = &[
-    ("SPY", "equity_index"),
-    ("QQQ", "equity_index"),
-    ("AAPL", "equity_meta"),
-    ("GOOGL", "equity_meta"),
-    ("NVDA", "equity_highbeta"),
-    ("TSLA", "equity_highbeta"),
-    ("MSTR", "equity_highbeta"),
-    ("HOOD", "equity_recent"),
-    ("GLD", "gold"),
-    ("TLT", "bond"),
-];
-
-pub fn lending_delta_shift_for(tau: f64) -> f64 {
-    interp_schedule(tau, &LENDING_DELTA_SHIFT_SCHEDULE)
+pub fn lwc_delta_shift_for(tau: f64) -> f64 {
+    interp_schedule(tau, &LWC_DELTA_SHIFT_SCHEDULE)
 }
 
-pub fn lending_c_bump_for(tau: f64) -> f64 {
-    interp_schedule(tau, &LENDING_C_BUMP_SCHEDULE)
+pub fn lwc_c_bump_for(tau: f64) -> f64 {
+    interp_schedule(tau, &LWC_C_BUMP_SCHEDULE)
 }
 
-/// Per-class conformal quantile lookup. Unlike `regime_quantile_for`,
-/// there is no implicit fallback — an unknown class is a programmer
-/// error (the symbol passed validation in `symbol_class_for`) and
-/// returns None.
-pub fn lending_class_quantile_for(symbol_class: &str, tau: f64) -> Option<f64> {
-    let idx = LENDING_CLASSES.iter().position(|&c| c == symbol_class)?;
-    Some(interp_schedule(tau, &LENDING_QUANTILE_TABLE[idx]))
-}
-
-/// Resolve symbol → symbol_class. Accepts either an underlying ticker
-/// ("SPY") or its xStock form ("SPYx"). Matches the Python helper in
-/// `src/soothsayer/universe.py`.
-pub fn symbol_class_for(symbol: &str) -> Option<&'static str> {
-    for (sym, cls) in SYMBOL_CLASS_MAP {
-        if *sym == symbol {
-            return Some(*cls);
-        }
-    }
-    if let Some(stripped) = symbol.strip_suffix('x') {
-        for (sym, cls) in SYMBOL_CLASS_MAP {
-            if *sym == stripped {
-                return Some(*cls);
-            }
-        }
-    }
-    None
+/// Per-regime LWC standardised quantile lookup. Unknown regimes fall back
+/// to `high_vol` (the conservative widest row), mirroring M5 semantics.
+pub fn lwc_regime_quantile_for(regime: &str, tau: f64) -> f64 {
+    let idx = REGIMES
+        .iter()
+        .position(|&r| r == regime)
+        .unwrap_or(REGIMES.len() - 1);
+    interp_schedule(tau, &LWC_REGIME_QUANTILE_TABLE[idx])
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ---- M5 / Mondrian tests ---------------------------------------------
 
     #[test]
     fn anchor_lookup_matches_table() {
@@ -229,56 +206,67 @@ mod tests {
         assert!((c_bump_for_target(1.0) - C_BUMP_SCHEDULE[3]).abs() < 1e-12);
     }
 
+    // ---- M6 / LWC tests --------------------------------------------------
+
     #[test]
-    fn lending_class_lookup_matches_table() {
-        // equity_index row, τ=0.95 anchor.
-        let q = lending_class_quantile_for("equity_index", 0.95).unwrap();
-        assert!((q - 0.016869564748457338).abs() < 1e-15);
-        // bond row, τ=0.99 anchor.
-        let q = lending_class_quantile_for("bond", 0.99).unwrap();
-        assert!((q - 0.021241256355786425).abs() < 1e-15);
+    fn lwc_anchor_lookup_matches_table() {
+        // normal regime, τ=0.95 standardised quantile from the JSON sidecar.
+        let q = lwc_regime_quantile_for("normal", 0.95);
+        assert!((q - 1.9681608719699637).abs() < 1e-15);
+        // high_vol regime, τ=0.99.
+        let q = lwc_regime_quantile_for("high_vol", 0.99);
+        assert!((q - 6.456344506221736).abs() < 1e-15);
     }
 
     #[test]
-    fn lending_unknown_class_returns_none() {
-        assert!(lending_class_quantile_for("alien", 0.95).is_none());
-    }
-
-    #[test]
-    fn lending_off_grid_interp_is_linear() {
-        // Halfway between τ=0.85 (b=0.009255912125044752) and τ=0.95
-        // (b=0.016869564748457338) for equity_index should land at the mean.
-        let q = lending_class_quantile_for("equity_index", 0.90).unwrap();
-        let expected = (0.009255912125044752 + 0.016869564748457338) / 2.0;
+    fn lwc_off_grid_interp_is_linear() {
+        // Halfway between τ=0.85 (q=1.2194990647624138) and τ=0.95
+        // (q=1.9681608719699637) for normal should land at the mean.
+        let q = lwc_regime_quantile_for("normal", 0.90);
+        let expected = (1.2194990647624138 + 1.9681608719699637) / 2.0;
         assert!((q - expected).abs() < 1e-15);
     }
 
     #[test]
-    fn symbol_class_for_handles_xstock_suffix() {
-        assert_eq!(symbol_class_for("SPY"), Some("equity_index"));
-        assert_eq!(symbol_class_for("SPYx"), Some("equity_index"));
-        assert_eq!(symbol_class_for("HOOD"), Some("equity_recent"));
-        assert_eq!(symbol_class_for("HOODx"), Some("equity_recent"));
-        assert_eq!(symbol_class_for("FAKE"), None);
+    fn lwc_bump_clamps_to_endpoints() {
+        assert!((lwc_c_bump_for(0.0) - LWC_C_BUMP_SCHEDULE[0]).abs() < 1e-12);
+        assert!((lwc_c_bump_for(1.0) - LWC_C_BUMP_SCHEDULE[3]).abs() < 1e-12);
     }
 
-    /// SSOT cross-check: the hardcoded LENDING_* constants must agree
-    /// with the JSON sidecar at `data/processed/m6b2_lending_artefact_v1.json`
-    /// up to ≤ 2 ULP. We can't require bit-exact equality through serde_json
-    /// because its decimal-parser disagrees with Python's (and Rust's
-    /// f64-literal parser) by ≤ 1 ULP on a handful of values — those are
-    /// "round-half-to-even" edge cases where serde_json's path differs.
-    /// Runtime serving uses our hardcoded literal, which matches Python's
-    /// `json.loads` bit-for-bit (verified via `verify_rust_oracle.py`); the
-    /// test tolerance is just for the JSON re-parse path.
+    #[test]
+    fn lwc_delta_is_identically_zero() {
+        for &tau in &[0.68, 0.85, 0.95, 0.99] {
+            assert_eq!(lwc_delta_shift_for(tau), 0.0);
+        }
+    }
+
+    #[test]
+    fn lwc_unknown_regime_falls_back_to_high_vol() {
+        assert!(
+            (lwc_regime_quantile_for("alien", 0.95)
+                - lwc_regime_quantile_for("high_vol", 0.95))
+                .abs()
+                < 1e-15
+        );
+    }
+
+    /// SSOT cross-check: the hardcoded LWC_* constants must agree with the
+    /// JSON sidecar at `data/processed/lwc_artefact_v1.json` up to ≤ 2 ULP.
+    /// We can't require bit-exact equality through serde_json because its
+    /// decimal-parser disagrees with Python's (and Rust's f64-literal parser)
+    /// by ≤ 1 ULP on a handful of values — those are "round-half-to-even"
+    /// edge cases where serde_json's path differs. Runtime serving uses our
+    /// hardcoded literal, which matches Python's `json.loads` bit-for-bit
+    /// (verified via `verify_rust_oracle.py`); the test tolerance is just
+    /// for the JSON re-parse path.
     ///
     /// Real drift (a regenerated artefact with different values) shifts
     /// numbers by orders of magnitude more than 2 ULP and fails this test
     /// loudly. Skips silently if the sidecar isn't materialised.
     #[test]
-    fn lending_constants_match_sidecar() {
+    fn lwc_constants_match_sidecar() {
         use std::path::PathBuf;
-        let sidecar_path: PathBuf = ["..", "..", "data", "processed", "m6b2_lending_artefact_v1.json"]
+        let sidecar_path: PathBuf = ["..", "..", "data", "processed", "lwc_artefact_v1.json"]
             .iter()
             .collect();
         let Ok(text) = std::fs::read_to_string(&sidecar_path) else {
@@ -293,42 +281,47 @@ mod tests {
             (a - b).abs() <= 2.0 * mag * f64::EPSILON
         }
 
-        // Quantile table
-        let qt = &v["class_quantile_table"];
-        for (row_idx, cls) in LENDING_CLASSES.iter().enumerate() {
+        // Methodology version sanity check.
+        assert_eq!(
+            v["methodology_version"].as_str(),
+            Some("M6_LWC"),
+            "expected methodology_version=M6_LWC; sidecar reports {:?}",
+            v["methodology_version"]
+        );
+        assert_eq!(v["_lwc_variant"].as_str(), Some("ewma_hl8"));
+
+        // σ̂ rule constants.
+        assert_eq!(v["sigma_hat"]["half_life_weekends"].as_u64(), Some(SIGMA_HAT_HL_WEEKENDS as u64));
+        assert_eq!(v["sigma_hat"]["min_past_obs"].as_u64(), Some(SIGMA_HAT_MIN as u64));
+
+        // Quantile table — standardised residuals.
+        let qt = &v["regime_quantile_table"];
+        for (row_idx, regime) in REGIMES.iter().enumerate() {
             for (col_idx, tau) in TARGET_ANCHORS.iter().enumerate() {
                 let key = format!("{tau:.2}");
-                let want = qt[cls][&key].as_f64().expect("number");
-                let got = LENDING_QUANTILE_TABLE[row_idx][col_idx];
+                let want = qt[regime][&key].as_f64().expect("number");
+                let got = LWC_REGIME_QUANTILE_TABLE[row_idx][col_idx];
                 assert!(ulp_close(want, got),
-                    "quantile drift at class={cls} tau={tau}: want={want} got={got}");
+                    "LWC quantile drift at regime={regime} tau={tau}: want={want} got={got}");
             }
         }
 
-        // c-bump schedule
+        // c-bump schedule.
         for (i, tau) in TARGET_ANCHORS.iter().enumerate() {
             let key = format!("{tau:.2}");
             let want = v["c_bump_schedule"][&key].as_f64().expect("number");
-            let got = LENDING_C_BUMP_SCHEDULE[i];
+            let got = LWC_C_BUMP_SCHEDULE[i];
             assert!(ulp_close(want, got),
-                "c_bump drift at tau={tau}: want={want} got={got}");
+                "LWC c_bump drift at tau={tau}: want={want} got={got}");
         }
 
-        // delta-shift schedule
+        // δ schedule (identically zero — hard-assert exact).
         for (i, tau) in TARGET_ANCHORS.iter().enumerate() {
             let key = format!("{tau:.2}");
             let want = v["delta_shift_schedule"][&key].as_f64().expect("number");
-            let got = LENDING_DELTA_SHIFT_SCHEDULE[i];
-            assert!(ulp_close(want, got),
-                "delta_shift drift at tau={tau}: want={want} got={got}");
-        }
-
-        // symbol_class mapping
-        let sym_map = v["symbol_class_mapping"].as_object().expect("object");
-        for (k, v_) in sym_map {
-            let want = v_.as_str().expect("string");
-            assert_eq!(symbol_class_for(k), Some(want),
-                "symbol_class mismatch for {k}");
+            let got = LWC_DELTA_SHIFT_SCHEDULE[i];
+            assert_eq!(want, 0.0, "LWC δ in sidecar is non-zero at tau={tau}: {want}");
+            assert_eq!(got, 0.0);
         }
     }
 }

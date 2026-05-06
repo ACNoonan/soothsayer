@@ -1,6 +1,6 @@
 # M6 LWC forward-tape OOS — 1 weekends since freeze
 
-**Generated:** 2026-05-04 23:09 UTC.
+**Generated:** 2026-05-05 13:30 UTC.
 **Frozen artefact:** `lwc_artefact_v1_frozen_20260504.json` (SHA-256 `7b86d17a7691…`, freeze date 2026-05-04).
 **Forward window:** 2026-05-01 → 2026-05-01  (n_rows = 10, n_weekends = 1).
 
