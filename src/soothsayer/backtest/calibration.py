@@ -384,6 +384,63 @@ def compute_score_lwc(
     return out
 
 
+def compute_score_lwc_path(
+    panel: pd.DataFrame,
+    scale_col: str = "sigma_hat_sym_pre_fri",
+) -> pd.Series:
+    """M6 path-fitted conformity score: σ̂-standardised supremum of the
+    relative residual over the closed-market path.
+
+    Spec (paper §10.1):
+
+      s_path = max_{t ∈ [Fri 16:00, Mon 09:30]} |P_t − point| / (fri_close · σ̂_sym)
+
+    With path extrema (path_lo, path_hi) and the endpoint mon_open, the
+    supremum is the larger of three breach magnitudes — point relative to
+    path_lo, path_hi, or mon_open — giving:
+
+      breach_lo  = max(point − path_lo, 0)
+      breach_hi  = max(path_hi − point, 0)
+      breach_end = |mon_open − point|
+      s_path     = max(breach_lo, breach_hi, breach_end) / (fri_close · σ̂_sym)
+
+    Required panel columns: `mon_open`, `point` (or `fri_close` + `factor_ret`),
+    `fri_close`, `path_lo`, `path_hi`, and the σ̂ column named by `scale_col`
+    (default `sigma_hat_sym_pre_fri` from `add_sigma_hat_sym_ewma`). If
+    `point` is not present we materialise it as `fri_close · (1 + factor_ret)`,
+    matching `compute_score_lwc`'s convention.
+
+    Rows with NaN / non-positive σ̂, or missing path_lo/path_hi, return NaN.
+    The path-fitted band is wider than the endpoint band by construction;
+    the Mondrian split-conformal architecture and serving formula are
+    unchanged. See `scripts/run_v1b_path_fitted_conformal.py` for the first
+    empirical fit on the CME-projected subset (n=1,557 OOS rows).
+
+    Forward-data validation when on-chain xStock TWAP / perp path tapes
+    accumulate ≥ 300 weekends: pivot the path tape to (path_lo, path_hi)
+    extrema per (symbol, weekend), merge into the v1b panel, and call this
+    function as the score. The conformity quantile + c(τ) bump pipeline is
+    the same as for `compute_score_lwc`."""
+    if "point" in panel.columns:
+        point = panel["point"].astype(float)
+    else:
+        point = panel["fri_close"].astype(float) * (
+            1.0 + panel["factor_ret"].astype(float)
+        )
+    fri_close = panel["fri_close"].astype(float)
+    breach_lo = (point - panel["path_lo"].astype(float)).clip(lower=0.0)
+    breach_hi = (panel["path_hi"].astype(float) - point).clip(lower=0.0)
+    breach_end = (panel["mon_open"].astype(float) - point).abs()
+    abs_path = pd.concat([breach_lo, breach_hi, breach_end], axis=1).max(axis=1)
+    sigma = panel[scale_col].astype(float)
+    out = abs_path / (fri_close * sigma)
+    bad = (~(sigma > 0)
+           | (~panel["path_lo"].notna())
+           | (~panel["path_hi"].notna()))
+    out[bad.values] = np.nan
+    return out
+
+
 def train_lwc_quantile_table(
     panel: pd.DataFrame,
     train_mask: pd.Series | np.ndarray,
