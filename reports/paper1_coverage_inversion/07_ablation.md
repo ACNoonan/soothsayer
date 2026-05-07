@@ -193,6 +193,38 @@ The selection procedure is what it is: a 5-variant ladder × 16-cell grid × 3 g
 
 **We claim that EWMA HL=8 satisfies the pre-registered three-gate criterion under uncorrected per-cell $\alpha = 0.05$; that under BH multi-test correction the per-cell Christoffersen evidence does not statistically distinguish the five variants; that the qualitative pattern in the uncorrected $\tau = 0.95$ column ($p$-values strictly higher under HL=8 than baseline at every split anchor) is consistent with the deployment choice but is supporting context, not statistical evidence; and that the deployment decision rests on Gate 3 (the bootstrap CI on width, no multi-test issue, statistically significantly narrower at $\tau \in \{0.85, 0.95, 0.99\}$ with calibration preserved) plus the held-out forward-tape re-validation. We do not claim the σ̂ rule is optimal among all locally-weighted variants** (§3.5 non-goal). A future paper may sweep finer half-life grids, alternative weight kernels, or hybrid rules; that work is gated on accumulating forward-tape evidence to re-validate any new selection on truly held-out data.
 
+### 7.4.8 Regime quartile cutoff $q$ — ablation under the three-gate frame
+
+The deployed `high_vol` regime gate (§5.5) is "VIX at Friday close in the top quartile of its trailing 252-trading-day window" — a single scalar $q = 0.75$. Ablating $q \in \{0.60, 0.67, 0.70, 0.75, 0.80, 0.90\}$ under the three-gate frame of §7.4.1 (`reports/tables/paper1_b1_regime_threshold_ablation.csv`, `..._hw_bootstrap.csv`):
+
+| $q$ | high_vol mix (%) | Gate 1: pooled Kupiec all $\tau$ | Gate 1b: pooled Christoffersen all $\tau$ | Gate 2: per-symbol Kupiec | $\Delta$hw% at $\tau = 0.95$ vs deployed (95% CI) |
+|---|---:|:---:|:---:|---:|---:|
+| 0.60 | 38.9 | ✓ | ✓ | 10/10 | $-2.76\%\ [-3.80, -1.73]$ |
+| 0.67 | 30.8 | ✓ | ✓ | 10/10 | $-1.78\%\ [-2.66, -0.87]$ |
+| 0.70 | 28.8 | ✓ | ✓ | 10/10 | $+1.73\%\ [+0.85, +2.71]$ |
+| **0.75 (deployed)** | **23.9** | **✓** | **✓** | **10/10** | — |
+| 0.80 | 21.1 | ✓ | ✓ | 10/10 | $-1.70\%\ [-2.11, -1.32]$ |
+| 0.90 | 12.3 | ✓ | ✗ rejects | 10/10 | $-4.30\%\ [-5.34, -3.25]$ |
+
+5 of 6 candidates satisfy Gates 1, 1b, and 2. Three alternates ($q \in \{0.60, 0.67, 0.80\}$) deliver $1.7$–$2.8\%$ narrower bands at preserved calibration with bootstrap CIs excluding zero. The deployed $q = 0.75$ is **convention-anchored** (top quartile by definition) rather than width-optimization-selected. The differences are operationally small ($\sim 5$ bps on a 370 bps $\tau = 0.95$ headline) but real; a future re-tuning on a held-out tune slice could close this gap.
+
+### 7.4.9 Split anchor — robustness across {2021, 2022, 2023, 2024}
+
+The deployed train/test split anchor is 2023-01-01 (1 scalar). Ablating across $\{2021, 2022, 2023, 2024\}$-01-01 (re-fit per anchor; `reports/tables/m6_lwc_robustness_split_sensitivity.csv`):
+
+| split anchor | $n_\text{OOS}$ weekends | $\tau = 0.95$ realised | Kupiec $p$ | Christoffersen $p$ | hw bps | per-sym Kupiec |
+|---|---:|---:|---:|---:|---:|---:|
+| 2021-01-01 | 277 | $0.9539$ | 0.348 | 0.115 | 357.2 | 10/10 |
+| 2022-01-01 | 225 | $0.9520$ | 0.661 | 0.186 | 363.5 | 10/10 |
+| **2023-01-01 (deployed)** | **173** | **$\mathbf{0.9503}$** | **0.956** | **0.603** | **370.6** | **10/10** |
+| 2024-01-01 | 121 | $0.9504$ | 0.947 | 0.671 | 416.8 | 10/10 |
+
+Realised $\tau = 0.95$ coverage stays in $[0.9503, 0.9539]$; Kupiec $p \in [0.35, 0.96]$; Christoffersen $p \in [0.12, 0.67]$; per-symbol Kupiec 10/10 across all four anchors. The deployed split anchor is robust. Half-width varies (357 → 417 bps) — driven by the eval-slice composition effect documented in §6.3.3.1 (later eval slices contain more high-σ̂ weekends, including the 2024-08-05 BoJ unwind).
+
+### 7.4.10 Disclosure-DOF accounting
+
+After §7.4.8 and §7.4.9 the deployment-DOF count rises from 16 to **19 scalars** with proper-ablation provenance: 12 trained per-regime quantiles + 4 OOS-fit $c(\tau)$ + 0 walk-forward $\delta$ + 1 σ̂ rule selector (EWMA HL=8, §7.4.1–7) + 1 regime quartile cutoff ($q = 0.75$, §7.4.8) + 1 split anchor (2023-01-01, §7.4.9). All three appended scalars satisfy the three-gate criterion under their respective ablation tables. The "16 scalars undercounts DOF" critique closes.
+
 ## 7.5 How σ̂ standardisation redistributes width across symbols
 
 §7.1.3 attributed the constant-buffer premium to `high_vol`; §7.2 attributed the per-symbol Kupiec fix to σ̂ standardisation; this section attributes the +4.5% pooled half-width tax to a width *redistribution* across symbols within a regime.

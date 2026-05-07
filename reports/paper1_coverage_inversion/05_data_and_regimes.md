@@ -46,6 +46,8 @@ A separate post-hoc tertile labeler tags each weekend by realised-move z-score (
 
 We considered two refinements that were tested and dropped: a sub-regime split of `normal` into `post_shock` / `calm` / `range_bound`, and an FOMC/CPI/NFP macro-event regressor. Neither lifted shock-tertile coverage measurably; the implied-vol indices already absorb that signal. Sub-regime granularity is retained as a next-generation candidate (§10).
 
+**Cross-asset regime-index sensitivity.** The classifier uses VIX as the high-vol gate for *all* symbols, including GLD (gold) and TLT (long-dated treasury) which have asset-specific vol indices (GVZ, MOVE) used in the σ̂ regression (§5.4). A sensitivity ablation that swaps GLD's regime gate to GVZ and TLT's to MOVE — flipping the regime tag on $23\%$ of GLD weekends and $28\%$ of TLT weekends — leaves the pooled $\tau = 0.95$ headline coverage unchanged at $0.9503$ (Kupiec $p = 0.956$), per-symbol Kupiec 10/10, and half-width within $0.1\%$. The σ̂-standardisation absorbs the regime-tagging difference structurally; the regime cell contributes a small marginal adjustment via $q_r(\tau)$, not a load-bearing scale separation. Source: `reports/tables/paper1_b4_regime_index_sensitivity.csv`, `..._per_symbol.csv`. The deployed VIX-only classifier is justified by simplicity and per-asset-vol-index-agnosticism, not by being optimally tuned per asset.
+
 ## 5.6 Train/test split
 
 Split date **2023-01-01**: weekends with `fri_ts < 2023-01-01` are calibration, the remainder is held-out OOS.
