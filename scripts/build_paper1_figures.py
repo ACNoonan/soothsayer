@@ -160,6 +160,84 @@ def _serve_m6_bands(
     return panel, bands, scale_col
 
 
+# =================================================================== Fig 0
+
+
+def fig0_weekend_returns() -> None:
+    """Per-symbol weekend log-return panel (CAViaR Figure 1 analogue).
+
+    10 sub-panels, one per ticker, weekend log-returns 2014–2026 with
+    the 2023-01-01 train/test split as a vertical dashed line and a
+    marginal histogram on the right of each panel. The 'we know our
+    data' figure for §5."""
+    panel = _load_panel()
+    panel = panel[panel["symbol"].isin([
+        "SPY", "QQQ", "AAPL", "GOOGL", "NVDA", "TSLA", "HOOD",
+        "MSTR", "GLD", "TLT",
+    ])].copy()
+    panel["fri_ts"] = pd.to_datetime(panel["fri_ts"])
+    panel["weekend_log_ret"] = np.log(panel["mon_open"]
+                                      / panel["fri_close"])
+
+    sym_order = ["SPY", "QQQ", "AAPL", "GOOGL", "NVDA",
+                 "TSLA", "HOOD", "MSTR", "GLD", "TLT"]
+    fig = plt.figure(figsize=(7.0, 8.6))
+    gs = fig.add_gridspec(
+        nrows=10, ncols=2, width_ratios=[4.5, 1],
+        hspace=0.35, wspace=0.05,
+    )
+
+    split_dt = pd.Timestamp("2023-01-01")
+    for i, sym in enumerate(sym_order):
+        sub = panel[panel["symbol"] == sym].sort_values("fri_ts")
+        if sub.empty:
+            continue
+        ax_ts = fig.add_subplot(gs[i, 0])
+        ax_hist = fig.add_subplot(gs[i, 1], sharey=ax_ts)
+        rets_pct = 100.0 * sub["weekend_log_ret"].to_numpy()
+        ax_ts.plot(sub["fri_ts"], rets_pct,
+                   color=OI["blue"], linewidth=0.55, alpha=0.85)
+        ax_ts.axvline(split_dt, color=OI["vermilion"],
+                      linewidth=0.8, linestyle="--", alpha=0.7)
+        ax_ts.axhline(0.0, color=OI["grey"], linewidth=0.4, alpha=0.5)
+        ymax = float(np.nanpercentile(np.abs(rets_pct), 99.5))
+        ymax = max(ymax * 1.1, 1.0)
+        ax_ts.set_ylim(-ymax, ymax)
+        ax_ts.set_xlim(pd.Timestamp("2014-01-01"),
+                       pd.Timestamp("2026-05-15"))
+        ax_ts.text(0.012, 0.86, sym, transform=ax_ts.transAxes,
+                   fontsize=9, fontweight="bold", color=OI["black"],
+                   ha="left", va="top")
+        if i < len(sym_order) - 1:
+            ax_ts.set_xticklabels([])
+        else:
+            ax_ts.set_xlabel("Friday close", fontsize=9)
+        ax_ts.set_ylabel("%", fontsize=8, labelpad=1)
+        ax_ts.tick_params(axis="both", labelsize=7)
+
+        ax_hist.hist(rets_pct, bins=40, orientation="horizontal",
+                     color=OI["blue"], alpha=0.55, edgecolor="none")
+        ax_hist.tick_params(axis="x", labelsize=6, pad=1)
+        ax_hist.tick_params(axis="y", labelleft=False)
+        ax_hist.spines["bottom"].set_visible(False)
+        ax_hist.set_xticks([])
+
+    fig.suptitle(
+        "Weekend log-returns (Fri close → Mon open), 2014-01-17 → 2026-04-24",
+        fontsize=10.5, y=0.995,
+    )
+    fig.text(
+        0.985, 0.011,
+        "Vertical dashed line = 2023-01-01 train/OOS split. Right marginal: weekend-return histogram.",
+        ha="right", va="bottom", fontsize=7.5, color=OI["grey"],
+    )
+
+    out_path = FIG_DIR / "fig0_weekend_returns.pdf"
+    fig.savefig(out_path)
+    plt.close(fig)
+    print(f"  wrote {out_path}")
+
+
 # =================================================================== Fig 1
 
 
@@ -187,11 +265,11 @@ def fig1_pipeline() -> None:
     ax.text(50, 57, "Inputs at Friday 16:00 ET", ha="center",
             fontsize=9.5, color=OI["black"], fontweight="bold")
     inputs = [
-        (1,  44, 17.5, 9, r"$p_t^{\mathrm{Fri}}$" "\n" r"close",                          "#FDF6E3"),
-        (20, 44, 18.5, 9, r"factor return" "\n" r"$\rho(s,t)\!\to\!r_t^F$",               "#FDF6E3"),
-        (40, 44, 18.5, 9, r"per-symbol scale" "\n" r"$\hat\sigma_s(t)$ EWMA HL=8",        "#E8F4E8"),
-        (60, 44, 17.5, 9, r"regime label" "\n" r"$r\!\in\!\{\mathrm{nrm,lw,hv}\}$",        "#FDF6E3"),
-        (79, 44, 18.5, 9, r"consumer $\tau$" "\n" r"$\in[0.68,0.99]$",                    "#FDF6E3"),
+        (1,    44, 15.5, 9, r"$p_t^{\mathrm{Fri}}$" "\n" r"close",                          "#FDF6E3"),
+        (18,   44, 18.5, 9, r"factor return" "\n" r"$\rho(s,t)\!\to\!r_t^F$",               "#FDF6E3"),
+        (38,   44, 22.0, 9, r"per-symbol scale" "\n" r"$\hat\sigma_s(t)$ EWMA HL=8",        "#E8F4E8"),
+        (61.5, 44, 17.5, 9, r"regime label" "\n" r"$r\!\in\!\{\mathrm{nrm,lw,hv}\}$",        "#FDF6E3"),
+        (80.5, 44, 18.5, 9, r"consumer $\tau$" "\n" r"$\in[0.68,0.99]$",                    "#FDF6E3"),
     ]
     for (x, y, w, h, t, fc) in inputs:
         box(x, y, w, h, t, fc)
@@ -748,6 +826,239 @@ def fig6_path_coverage() -> None:
     print(f"  wrote {FIG_DIR / 'fig6_path_coverage.pdf'}")
 
 
+# ================================================================== Fig 7b
+
+
+def fig7b_oos_ablation() -> None:
+    """Real-data §7.2 per-symbol ablation in the CQR-Fig.4 idiom.
+
+    For each split anchor in {2021,2022,2023,2024}-01-01 and each method
+    in {constant-buffer (oracle-fit), unweighted Mondrian (M5), deployed
+    σ̂-standardised (M6)}, fit/serve at τ=0.95 and tabulate per-symbol
+    (mean half-width bps, realised coverage). The figure is a two-panel
+    horizontal boxplot — one row per method, distribution = per-(symbol,
+    split-anchor) cells. Visual idiom: Romano et al. (2019), Fig. 4.
+
+    The single deployed-anchor row of §7.2 becomes a 40-cell distribution
+    that reveals the M6 σ̂-standardisation contribution: per-symbol
+    coverage tightens onto τ=0.95, while M5 is dispersed and CB-matched
+    is uniformly off-target by symbol class."""
+    from datetime import date as _date
+
+    from soothsayer.backtest.calibration import (
+        compute_score,
+        fit_split_conformal_forecaster,
+        prep_panel_for_forecaster,
+        serve_bands_forecaster,
+    )
+
+    panel0 = _load_panel()
+    panel0["fri_ts"] = pd.to_datetime(panel0["fri_ts"]).dt.date
+
+    SPLIT_ANCHORS = [
+        _date(2021, 1, 1), _date(2022, 1, 1),
+        _date(2023, 1, 1), _date(2024, 1, 1),
+    ]
+    TAU = 0.95
+
+    # Build the LWC-prepped panel once (it adds σ̂ EWMA HL=8 + lwc score).
+    # The same row set is used for every method, so M5 and CB-matched are
+    # evaluated on identical (symbol × weekend) cells as M6.
+    panel_lwc = prep_panel_for_forecaster(panel0, "lwc")
+    panel_lwc = panel_lwc.dropna(subset=["score"]).reset_index(drop=True)
+
+    method_rows: list[dict] = []
+
+    for split_dt in SPLIT_ANCHORS:
+        # ---- M6 (LWC, deployed σ̂-standardised)
+        qt6, cb6, _ = fit_split_conformal_forecaster(
+            panel_lwc, split_dt, "lwc", cell_col="regime_pub", taus=(TAU,),
+        )
+        oos = panel_lwc[panel_lwc["fri_ts"] >= split_dt].copy()
+        b6 = serve_bands_forecaster(oos, qt6, cb6, "lwc",
+                                    cell_col="regime_pub", taus=(TAU,))
+        method_rows.extend(_per_symbol_metrics_at(
+            oos, b6[TAU], split_dt, "M6 (deployed " r"$\hat\sigma_s$)",
+            method_id="m6",
+        ))
+
+        # ---- M5 (unweighted Mondrian) on the same row set.
+        panel_m5 = panel_lwc.copy()
+        panel_m5["score"] = compute_score(panel_m5)
+        qt5, cb5, _ = fit_split_conformal_forecaster(
+            panel_m5, split_dt, "m5", cell_col="regime_pub", taus=(TAU,),
+        )
+        oos5 = panel_m5[panel_m5["fri_ts"] >= split_dt].copy()
+        b5 = serve_bands_forecaster(oos5, qt5, cb5, "m5",
+                                    cell_col="regime_pub", taus=(TAU,))
+        method_rows.extend(_per_symbol_metrics_at(
+            oos5, b5[TAU], split_dt, "M5 (unweighted Mondrian)",
+            method_id="m5",
+        ))
+
+        # ---- CB matched (oracle-fit on the OOS slice).
+        oos_cb = panel_lwc[panel_lwc["fri_ts"] >= split_dt].copy()
+        rel_resid = (
+            (oos_cb["mon_open"].to_numpy()
+             - oos_cb["fri_close"].to_numpy())
+            / oos_cb["fri_close"].to_numpy()
+        )
+        b_matched = float(np.quantile(np.abs(rel_resid), TAU))
+        lower_cb = oos_cb["fri_close"].to_numpy() * (1.0 - b_matched)
+        upper_cb = oos_cb["fri_close"].to_numpy() * (1.0 + b_matched)
+        bcb = pd.DataFrame(
+            {"lower": lower_cb, "upper": upper_cb}, index=oos_cb.index,
+        )
+        method_rows.extend(_per_symbol_metrics_at(
+            oos_cb, bcb, split_dt, "CB matched (oracle-fit)",
+            method_id="cb_matched",
+        ))
+
+    cells = pd.DataFrame(method_rows)
+    out_csv = TABLES / "paper1_fig7b_per_symbol_ablation.csv"
+    cells.to_csv(out_csv, index=False)
+    print(f"  wrote {out_csv}  ({len(cells):,} rows)")
+
+    # ---- Render: 3 method rows × 2 panels.
+    method_order = [
+        ("CB matched (oracle-fit)",          "cb_matched", OI["grey"],     False),
+        ("M5 (unweighted Mondrian)",         "m5",         OI["vermilion"], False),
+        (r"M6 (deployed $\hat\sigma_s$)",    "m6",         OI["blue"],     True),
+    ]
+
+    hw_data, cov_data, labels, colors, bolds = [], [], [], [], []
+    for label, mid, color, bold in method_order:
+        c = cells[cells["method_id"] == mid]
+        hw_data.append(c["hw_bps"].to_numpy())
+        cov_data.append(c["coverage"].to_numpy())
+        labels.append(label); colors.append(color); bolds.append(bold)
+
+    fig, (ax_hw, ax_cov) = plt.subplots(
+        1, 2, figsize=(10.4, 3.6),
+        gridspec_kw={"width_ratios": [1.0, 1.0], "wspace": 0.06},
+        sharey=True,
+    )
+    n_rows = len(method_order)
+    positions = list(range(n_rows, 0, -1))
+
+    def _draw(ax, data):
+        bp = ax.boxplot(
+            data, positions=positions, widths=0.55, vert=False,
+            patch_artist=True, showfliers=True,
+            flierprops={"marker": "o", "markersize": 3,
+                        "markerfacecolor": "#777777",
+                        "markeredgecolor": "none", "alpha": 0.45},
+            medianprops={"color": "#000000", "linewidth": 1.4},
+            whiskerprops={"color": "#000000", "linewidth": 0.7},
+            capprops={"color": "#000000", "linewidth": 0.7},
+            boxprops={"linewidth": 0.6, "edgecolor": "#000000"},
+        )
+        for patch, c, bold in zip(bp["boxes"], colors, bolds):
+            patch.set_facecolor(c)
+            patch.set_alpha(0.85 if bold else 0.45)
+
+    _draw(ax_hw,  hw_data)
+    _draw(ax_cov, cov_data)
+
+    hw_min = min((x.min() for x in hw_data if len(x)), default=0.0)
+    hw_max = max((x.max() for x in hw_data if len(x)), default=1.0)
+    pad = 0.18 * (hw_max - hw_min)
+    ax_hw.set_xlim(hw_min - 1.4 * pad, hw_max + 0.05 * pad)
+    ax_cov.set_xlim(0.78, 1.005)
+
+    def _annotate_medians(ax, data, fmt, x_frac):
+        xmin, xmax = ax.get_xlim()
+        x = xmin + x_frac * (xmax - xmin)
+        for vals, y in zip(data, positions):
+            if len(vals) == 0:
+                continue
+            med = float(np.median(vals))
+            ax.annotate(fmt.format(med), xy=(x, y),
+                        ha="left", va="center", fontsize=8.5,
+                        bbox=dict(boxstyle="round,pad=0.18,rounding_size=0.4",
+                                  facecolor="white", edgecolor="#777777",
+                                  linewidth=0.5))
+
+    _annotate_medians(ax_hw,  hw_data,  "{:.0f}", x_frac=0.005)
+    _annotate_medians(ax_cov, cov_data, "{:.3f}", x_frac=0.005)
+
+    ax_cov.axvline(0.95, linestyle=":", color="#000000",
+                   linewidth=0.8, alpha=0.7, zorder=0)
+    ax_cov.text(0.95, 0.55, r"nominal $\tau = 0.95$",
+                ha="center", va="bottom", fontsize=8.0, color="#000000",
+                bbox=dict(boxstyle="round,pad=0.2",
+                          facecolor="white", edgecolor="none", alpha=0.85))
+
+    for ax, title in [(ax_hw, "Mean half-width (bps)"),
+                      (ax_cov, "Realised coverage")]:
+        ax.set_title(title, fontsize=10.0,
+                     bbox=dict(boxstyle="square,pad=0.4",
+                               facecolor="#DDDDDD", edgecolor="none"),
+                     pad=6)
+        ax.grid(axis="x", color="#CCCCCC", linewidth=0.4, alpha=0.6)
+        ax.set_axisbelow(True)
+        ax.tick_params(axis="y", left=False)
+
+    ax_hw.set_yticks(positions)
+    ax_hw.set_yticklabels(labels)
+    for tick, bold in zip(ax_hw.get_yticklabels(), bolds):
+        tick.set_fontweight("bold" if bold else "normal")
+        tick.set_fontsize(9.5)
+    ax_hw.set_ylim(0.4, n_rows + 0.6)
+
+    fig.suptitle(
+        r"§7.2 OOS per-symbol ablation at $\tau = 0.95$ — "
+        "10 symbols × 4 split anchors {2021, 2022, 2023, 2024}",
+        fontsize=10.5, y=0.985,
+    )
+    fig.text(
+        0.5, 0.012,
+        "Box = per-(symbol, split-anchor) cell distribution, N = 40 per row. "
+        "Visual idiom: Romano et al. (2019), Fig. 4.",
+        ha="center", va="bottom", fontsize=8.0, color="#555555",
+    )
+    fig.subplots_adjust(left=0.20, right=0.985, top=0.88, bottom=0.13,
+                        wspace=0.06)
+
+    out_path = FIG_DIR / "fig7b_oos_ablation.pdf"
+    fig.savefig(out_path)
+    fig.savefig(out_path.with_suffix(".png"), dpi=150)
+    plt.close(fig)
+    print(f"  wrote {out_path}")
+
+
+def _per_symbol_metrics_at(
+    oos: pd.DataFrame,
+    band: pd.DataFrame,
+    split_dt,
+    method_label: str,
+    method_id: str,
+) -> list[dict]:
+    """Per-symbol (coverage, mean half-width bps) on an OOS slice."""
+    rows = []
+    for sym, idx in oos.groupby("symbol").groups.items():
+        sub = oos.loc[idx]
+        b = band.loc[idx]
+        inside = (sub["mon_open"] >= b["lower"]) & (sub["mon_open"] <= b["upper"])
+        cov = float(inside.mean())
+        hw_bps = float(
+            ((b["upper"].to_numpy() - b["lower"].to_numpy())
+             / 2.0
+             / sub["fri_close"].to_numpy()
+             ).mean() * 1.0e4
+        )
+        rows.append({
+            "symbol": sym,
+            "split_anchor": split_dt.isoformat(),
+            "method_label": method_label,
+            "method_id": method_id,
+            "n": int(len(sub)),
+            "coverage": cov,
+            "hw_bps": hw_bps,
+        })
+    return rows
+
+
 # =================================================================== Fig 7
 
 
@@ -774,6 +1085,7 @@ def fig7_simulation_summary() -> None:
 def main() -> None:
     setup_rc()
     print(f"Building paper 1 figures into {FIG_DIR} …", flush=True)
+    fig0_weekend_returns()
     fig1_pipeline()
     fig2_calibration()
     fig3_stability()
@@ -781,6 +1093,7 @@ def main() -> None:
     fig5_pareto()
     fig6_path_coverage()
     fig7_simulation_summary()
+    fig7b_oos_ablation()
     print("done.")
 
 

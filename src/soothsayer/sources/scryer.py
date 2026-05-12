@@ -368,3 +368,101 @@ def load_geckoterminal_trades(
             "_schema_version", "_fetched_at", "_source", "_dedup_key",
         ],
     )
+
+
+_CME_INTRADAY_1M_COLUMNS = [
+    "symbol", "ts", "open", "high", "low", "close", "volume",
+    "_schema_version", "_fetched_at", "_source", "_dedup_key",
+]
+
+
+def load_cme_intraday_1m(
+    symbol: str,
+    start: DateLike,
+    end: DateLike,
+) -> pd.DataFrame:
+    """Raw CME intraday 1m bars for one futures factor in ``[start, end]``.
+
+    Schema: ``cme_intraday_1m.v1``. Path layout
+    ``cme/intraday_1m/v1/symbol=X/year=Y/month=M/day=D.parquet``. ``ts`` is
+    int64 unix seconds UTC. The companion ``load_cme_daily_from_intraday``
+    helper resamples this surface to daily OHLCV; this loader returns the
+    raw 1m bars and is the right call for path-coverage and intraday
+    factor projection.
+
+    ``symbol`` is the futures contract symbol (e.g. ``"ES=F"``, ``"GC=F"``,
+    ``"ZN=F"``), matching the on-disk partition key.
+    """
+    paths = _daily_partition_paths(
+        "cme", "intraday_1m", start, end, key=("symbol", symbol),
+    )
+    return _read_concat(paths, empty_columns=_CME_INTRADAY_1M_COLUMNS)
+
+
+_CEX_STOCK_PERP_OHLCV_COLUMNS = [
+    "exchange", "exchange_symbol", "underlier_symbol", "backing_kind",
+    "bar_open_ts", "bar_close_ts",
+    "open", "high", "low", "close",
+    "volume_base", "volume_quote", "trade_count",
+    "_schema_version", "_fetched_at", "_source", "_dedup_key",
+]
+
+
+def load_cex_stock_perp_ohlcv(
+    underlier: str,
+    start: DateLike,
+    end: DateLike,
+) -> pd.DataFrame:
+    """1m OHLCV bars for one underlier's xStock-backed CEX perps in
+    ``[start, end]``.
+
+    Schema: ``cex_stock_perp_ohlcv.v1``. Path layout
+    ``cex_stock_perp/ohlcv/v1/underlier=X/year=Y/month=M/day=D.parquet``.
+    The on-disk venue today is Kraken Futures (``PF_<sym>XUSD``), but the
+    partition is venue-agnostic — multi-venue rows will land in the same
+    parquet once item 45's other operators ship.
+
+    Returns all rows for ``underlier`` whose ``bar_open_ts`` UTC-date falls
+    in ``[start, end]``. The caller is responsible for downstream filtering
+    (e.g., ``backing_kind == "xstock_backed"``, ``volume_base > 0``, exchange
+    selection). ``bar_open_ts`` and ``bar_close_ts`` are int64 unix seconds.
+    """
+    paths = _daily_partition_paths(
+        "cex_stock_perp", "ohlcv", start, end, key=("underlier", underlier),
+    )
+    return _read_concat(paths, empty_columns=_CEX_STOCK_PERP_OHLCV_COLUMNS)
+
+
+_DEX_XSTOCK_SWAPS_COLUMNS = [
+    "signature", "slot", "block_time",
+    "dex_program", "xstock_mint", "xstock_symbol",
+    "counter_mint", "counter_symbol",
+    "xstock_amount_lamports", "counter_amount_lamports",
+    "price_per_xstock", "trader",
+    "_schema_version", "_fetched_at", "_source", "_dedup_key",
+]
+
+
+def load_dex_xstock_swaps(
+    xsymbol: str,
+    start: DateLike,
+    end: DateLike,
+) -> pd.DataFrame:
+    """On-chain Solana DEX swaps for one xStock symbol in ``[start, end]``.
+
+    Schema: ``dex_xstock_swaps.v1``. Path layout
+    ``dex_xstock/swaps/v1/symbol=X/year=Y/month=M/day=D.parquet``. Each
+    row is one swap-IX from Raydium CLMM / Orca Whirlpools / Meteora DLMM
+    / aggregator routes against the xStock SPL mint.
+
+    Returns all swaps whose ``block_time`` (int64 unix seconds) UTC-date
+    falls in ``[start, end]``. ``price_per_xstock`` is denominated in the
+    counter asset; callers must filter on ``counter_symbol`` (typically
+    ``"USDC"``) to get a USD-comparable series and scale ``WSOL``-quoted
+    rows separately. ``xsymbol`` is the X-suffixed token symbol
+    (``"TSLAx"``, ``"SPYx"``, ...) — not the underlying equity ticker.
+    """
+    paths = _daily_partition_paths(
+        "dex_xstock", "swaps", start, end, key=("symbol", xsymbol),
+    )
+    return _read_concat(paths, empty_columns=_DEX_XSTOCK_SWAPS_COLUMNS)

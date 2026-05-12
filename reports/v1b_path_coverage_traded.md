@@ -1,6 +1,6 @@
 # §6.x Path coverage — endpoint vs intra-weekend
 
-**Variant:** unfiltered perp panel (consumer-mark view — every emitted bar, including no-volume carry-forward). The trade-supported variant is invoked with `--perp-volume-filter` and `--perp-min-trades`; see `reports/active/xstock_path_band_worked_case.md`.
+**Variant:** trade-supported perp panel (`volume_base > 0.0`, `min_traded_bars = 0`). See `reports/active/xstock_path_band_worked_case.md` for the unfiltered vs trade-supported contrast.
 
 Endpoint coverage (§6.2) tests whether the realised Monday open lies inside the served band. A DeFi consumer holding an xStock as collateral is exposed at every block over the weekend, not only at Monday open. This section reports the fraction of weekends on which a 24/7-traded reference for each symbol stays inside the served band over the entire prediction window `[Fri 16:00 ET, Mon 09:30 ET]`.
 
@@ -13,34 +13,34 @@ Three complementary references are used:
 
 ## (1) Stock-perp 24/7 reference (primary)
 
-Sample: 118 (symbol, weekend) pairs across 19 unique calendar weekends, 2025-12-19 → 2026-04-24. SPY/QQQ/GLD perps live since 2025-12-22; AAPL/TSLA/HOOD/MSTR/GOOGL/NVDA since 2026-02-16+. TLT excluded (no perp listing). The sample is small but it is the right object — every reading is what a consumer would have observed on a 24/7 reference venue at that minute.
+Sample: 87 (symbol, weekend) pairs across 19 unique calendar weekends, 2025-12-19 → 2026-04-24. SPY/QQQ/GLD perps live since 2025-12-22; AAPL/TSLA/HOOD/MSTR/GOOGL/NVDA since 2026-02-16+. TLT excluded (no perp listing). The sample is small but it is the right object — every reading is what a consumer would have observed on a 24/7 reference venue at that minute.
 
 **Pooled by τ.**
 
-|    tau |        n |   endpoint_cov |   path_cov |   gap_pp |
-|-------:|---------:|---------------:|-----------:|---------:|
-| 0.6800 | 118.0000 |         0.6441 |     0.3475 |  29.6610 |
-| 0.8500 | 118.0000 |         0.8644 |     0.5678 |  29.6610 |
-| 0.9500 | 118.0000 |         0.9492 |     0.7881 |  16.1017 |
-| 0.9900 | 118.0000 |         0.9915 |     0.9153 |   7.6271 |
+|    tau |       n |   endpoint_cov |   path_cov |   gap_pp |
+|-------:|--------:|---------------:|-----------:|---------:|
+| 0.6800 | 87.0000 |         0.5977 |     0.3218 |  27.5862 |
+| 0.8500 | 87.0000 |         0.8506 |     0.5747 |  27.5862 |
+| 0.9500 | 87.0000 |         0.9425 |     0.8161 |  12.6437 |
+| 0.9900 | 87.0000 |         0.9885 |     0.9195 |   6.8966 |
 
 
 **Pooled by τ × regime.**
 
 |    tau | regime_pub   |   n |   endpoint_cov |   path_cov |   gap_pp |
 |-------:|:-------------|----:|---------------:|-----------:|---------:|
-| 0.6800 | high_vol     |  45 |         0.6000 |     0.4000 |  20.0000 |
-| 0.6800 | long_weekend |   7 |         0.4286 |     0.2857 |  14.2857 |
-| 0.6800 | normal       |  66 |         0.6970 |     0.3182 |  37.8788 |
-| 0.8500 | high_vol     |  45 |         0.8222 |     0.6444 |  17.7778 |
-| 0.8500 | long_weekend |   7 |         0.7143 |     0.5714 |  14.2857 |
-| 0.8500 | normal       |  66 |         0.9091 |     0.5152 |  39.3939 |
-| 0.9500 | high_vol     |  45 |         0.9333 |     0.8222 |  11.1111 |
-| 0.9500 | long_weekend |   7 |         0.8571 |     0.8571 |   0.0000 |
-| 0.9500 | normal       |  66 |         0.9697 |     0.7576 |  21.2121 |
-| 0.9900 | high_vol     |  45 |         1.0000 |     0.9778 |   2.2222 |
-| 0.9900 | long_weekend |   7 |         1.0000 |     0.8571 |  14.2857 |
-| 0.9900 | normal       |  66 |         0.9848 |     0.8788 |  10.6061 |
+| 0.6800 | high_vol     |  33 |         0.5152 |     0.3939 |  12.1212 |
+| 0.6800 | long_weekend |   5 |         0.6000 |     0.2000 |  40.0000 |
+| 0.6800 | normal       |  49 |         0.6531 |     0.2857 |  36.7347 |
+| 0.8500 | high_vol     |  33 |         0.7576 |     0.6667 |   9.0909 |
+| 0.8500 | long_weekend |   5 |         1.0000 |     0.6000 |  40.0000 |
+| 0.8500 | normal       |  49 |         0.8980 |     0.5102 |  38.7755 |
+| 0.9500 | high_vol     |  33 |         0.9091 |     0.8485 |   6.0606 |
+| 0.9500 | long_weekend |   5 |         1.0000 |     1.0000 |   0.0000 |
+| 0.9500 | normal       |  49 |         0.9592 |     0.7755 |  18.3673 |
+| 0.9900 | high_vol     |  33 |         1.0000 |     0.9697 |   3.0303 |
+| 0.9900 | long_weekend |   5 |         1.0000 |     1.0000 |   0.0000 |
+| 0.9900 | normal       |  49 |         0.9796 |     0.8776 |  10.2041 |
 
 
 ## (2) On-chain xStock path (ground truth, post-launch slice)

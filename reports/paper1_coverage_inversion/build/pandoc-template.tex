@@ -35,8 +35,11 @@
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
-% Pandoc generates pandoc-table tabular environments that need this
-\providecommand{\pandocbounded}[1]{#1}
+% Pandoc wraps \includegraphics output with \pandocbounded; clamp the
+% boxed content to the surrounding column so oversized figures (e.g. the
+% 12-inch native simulation_summary.pdf) do not bleed off the right margin.
+\providecommand{\pandocbounded}[1]{%
+  \resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{#1}}
 
 \title{Coverage-Inversion: A Calibration-Transparent Oracle Primitive for Tokenized RWAs}
 

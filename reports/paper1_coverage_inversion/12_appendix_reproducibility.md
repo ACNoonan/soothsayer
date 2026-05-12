@@ -1,6 +1,6 @@
 # §A — Reproducibility appendix
 
-This appendix consolidates everything needed to reproduce the §6 empirical results, the §7 ablation, and the §6.3 / §6.4 / §6.6 robustness diagnostics from the publicly-available source data plus the Soothsayer repo. The deployment is a five-line lookup against sixteen pre-fit scalars; reproducibility is determined by the panel construction, the schedule fits, and the serving formula — all of which are deterministic given the panel.
+This appendix consolidates everything needed to reproduce the §6 empirical results, the §7 ablation, and the §6.3 / §6.4 / §6.5 robustness diagnostics from the publicly-available source data plus the Soothsayer repo. The deployment is a five-line lookup against sixteen pre-fit scalars; reproducibility is determined by the panel construction, the schedule fits, and the serving formula — all of which are deterministic given the panel.
 
 ## A.1 Algorithm boxes
 
@@ -178,7 +178,7 @@ uv run python scripts/freeze_lwc_artefact.py        # content-addressed freeze f
 # 3. Verify Python ↔ Rust serving parity on the M5 reference path (90/90 cases).
 uv run python scripts/verify_rust_oracle.py
 
-# 4. §6.6 path-coverage diagnostic (CME + perp + on-chain).
+# 4. §6.5 path-coverage diagnostic (CME + perp + on-chain).
 uv run python scripts/run_path_coverage.py
 
 # 5. §6 / §7 robustness battery.
@@ -212,13 +212,13 @@ cd reports/paper1_coverage_inversion/build && uv run python build.py --pdf
 | Fig. 2 (calibration) | `build_paper1_figures.py::fig2_calibration` | `data/processed/{v1b_panel.parquet, lwc_artefact_v1.parquet}` |
 | Fig. 3 (stability) | `build_paper1_figures.py::fig3_stability` | `reports/tables/{m6_lwc_walkforward.csv, m6_lwc_robustness_split_sensitivity.csv}` |
 | Fig. 4 (per-symbol) | `build_paper1_figures.py::fig4_per_symbol` | `reports/tables/m6_per_symbol_kupiec_4methods.csv` |
-| Fig. 5 (Pareto) | `build_paper1_figures.py::fig5_pareto` | `reports/tables/{incumbent_oracle_unified_summary.csv, m6_lwc_robustness_garch_t_baseline.csv}` |
+| Fig. 5 (Pareto) | `build_paper1_figures.py::fig5_pareto` | `reports/tables/{m6_pooled_oos.csv, m6_lwc_robustness_garch_t_baseline.csv}` |
 | Fig. 6 (path) | `build_paper1_figures.py::fig6_path_coverage` | `reports/tables/{path_coverage_perp.csv, path_coverage_perp_by_regime.csv}` |
 | Simulation appendix figure | `scripts/run_simulation_study.py` | `reports/tables/sim_per_symbol_kupiec.csv` |
 
 ## A.7 Determinism and randomness
 
-The M6 fit and serve paths are deterministic given the panel: no random initialisation, no Monte Carlo, no bootstrap inside the fit. The 4-split powered walk-forward (§6.3.3, §7.2.3) uses fixed split fractions {0.4, 0.5, 0.6, 0.7} (the 0.2 / 0.3 fractions are excluded as under-powered for the 4-scalar $c(\tau)$ fit; see §4.5); the four split-date sensitivity anchors (§6.3.3) are fixed at {2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01}; LOSO (§6.3.3) iterates the ten symbols in lexicographic order. The block-bootstrap CIs reported in §6.3.4, §7.1.2, §7.3.5 use NumPy's default RNG with seed 0 over 1,000 weekend-block resamples. The simulation study (§6.8) uses NumPy's default RNG with seed 0 over 100 replications per DGP.
+The M6 fit and serve paths are deterministic given the panel: no random initialisation, no Monte Carlo, no bootstrap inside the fit. The 4-split powered walk-forward (§6.3.3, §7.2.3) uses fixed split fractions {0.4, 0.5, 0.6, 0.7} (the 0.2 / 0.3 fractions are excluded as under-powered for the 4-scalar $c(\tau)$ fit; see §4.5); the four split-date sensitivity anchors (§6.3.3) are fixed at {2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01}; LOSO (§6.3.3) iterates the ten symbols in lexicographic order. The block-bootstrap CIs reported in §6.3.4, §7.1.2, §7.3.5 use NumPy's default RNG with seed 0 over 1,000 weekend-block resamples. The simulation study (§6.7) uses NumPy's default RNG with seed 0 over 100 replications per DGP.
 
 The GARCH(1,1) baselines (§6.4.3) are fit per-symbol via `arch_model(..., dist={"normal", "t"}).fit(disp="off")`; the optimisation is deterministic up to BFGS tolerance (default `tol=1e-8`). Under GARCH-$t$, NVDA hits the variance-undefined boundary at $\hat\nu = 2.50$ and falls back to Gaussian; the fallback is recorded in the `dist_used` column of the output CSV and is deterministic across reruns.
 
@@ -233,3 +233,7 @@ The deployed serving stack has three independent implementations of both forecas
 `scripts/verify_rust_oracle.py` runs a dual-forecaster probe across 30 (symbol, fri_ts) cases × 3 target-coverage anchors per forecaster (90 cases per side, 180 total) and asserts byte-exact agreement on `(point, lower, upper, sharpness_bps, half_width_bps, claimed_served)` between Python and Rust on every case. **Submission status:** **180/180 pass** (90/90 M5 + 90/90 M6). The Anchor integration test (`programs/soothsayer-oracle-program/tests/`) extends the parity check to path 3 by decoding the on-chain PDA after a publish call.
 
 A reviewer reproducing the paper end-to-end thus has three independent implementations of each forecaster that must agree on every (symbol, fri_ts, target_coverage) read.
+
+## A.9 Within-bin exchangeability — permutation test
+
+Mondrian-CP's finite-sample coverage guarantee depends on within-bin exchangeability of the conformity score. A permutation test on the lag-1 Pearson autocorrelation of the standardised score within each (regime × symbol) bin ($n = 19$–$116$ per bin, 30 bins, OOS 2023+; statistic computed in `fri_ts` order, null distribution from 5,000 within-bin shuffles per bin) finds $1/30$ bins nominally rejecting at $\alpha = 0.05$ and $0/30$ at $\alpha = 0.01$ — *under-rejecting* relative to the $5\%$ / $1\%$ expected under exchangeability. Aggregate KS test of per-bin $p$-values vs Uniform(0,1) is $D = 0.276$, $p = 0.017$, but the deviation is in the under-rejecting direction (too few low $p$-values, too many bins with $p > 0.5$) — consistent with exchangeability holding, not violating. The single nominally-rejecting bin (GLD/normal, lag-1 $\hat\rho = -0.166$) does not survive Benjamini-Hochberg correction across the 30-test grid. The §6.3.6 / §9.4 cross-sectional dependence is *across* bins, not within. Source: `reports/tables/paper1_b2_exchangeability.csv`.

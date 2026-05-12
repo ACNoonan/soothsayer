@@ -42,20 +42,25 @@ The output is consumed by §6.x of `reports/paper1_coverage_inversion/`.
 
 from __future__ import annotations
 
+import argparse
 from datetime import date, datetime, time as dtime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-import pyarrow.dataset as ds
 
-from soothsayer.config import DATA_PROCESSED, REPORTS, SCRYER_DATASET_ROOT
+from soothsayer.config import DATA_PROCESSED, REPORTS
 from soothsayer.oracle import (
     MAX_SERVED_TARGET,
     lwc_c_bump_for,
     lwc_delta_shift_for,
     lwc_regime_quantile_for,
+)
+from soothsayer.sources.scryer import (
+    load_cex_stock_perp_ohlcv,
+    load_cme_intraday_1m,
+    load_dex_xstock_swaps,
 )
 
 
@@ -122,15 +127,18 @@ def serve_bands(artefact: pd.DataFrame) -> pd.DataFrame:
 
 # -------------------------------------------------------------- CME path read
 
-def load_cme_factor(factor: str) -> pd.DataFrame:
-    """All 1m bars for one futures factor across all available years."""
-    root = SCRYER_DATASET_ROOT / "cme" / "intraday_1m" / "v1" / f"symbol={factor}"
-    if not root.exists():
+def load_cme_factor(factor: str, start: date, end: date) -> pd.DataFrame:
+    """All 1m bars for one futures factor in ``[start, end]``.
+
+    Thin wrapper over `soothsayer.sources.scryer.load_cme_intraday_1m` that
+    keeps the columns this script uses and downcasts `ts` for cheap
+    cross-merge filters. Raises FileNotFoundError when the factor is
+    absent from scryer's cache to preserve the previous error contract.
+    """
+    df = load_cme_intraday_1m(factor, start, end)
+    if df.empty:
         raise FileNotFoundError(f"CME factor not in scryer cache: {factor}")
-    files = [str(p) for p in sorted(root.rglob("*.parquet"))]
-    d = ds.dataset(files, format="parquet")
-    tbl = d.to_table(columns=["ts", "high", "low", "close"])
-    df = tbl.to_pandas()
+    df = df[["ts", "high", "low", "close"]].copy()
     df["ts"] = pd.to_numeric(df["ts"], downcast="integer")
     return df.sort_values("ts").reset_index(drop=True)
 
@@ -169,8 +177,11 @@ def cme_path_extrema(
 
 # --------------------------------------------------------------- 24/7 perp path
 
-def load_perp_ohlcv(underlier: str) -> pd.DataFrame:
-    """All 1m perp bars for `underlier` from cex_stock_perp/ohlcv/v1.
+def load_perp_ohlcv(
+    underlier: str, start: date, end: date,
+) -> pd.DataFrame:
+    """All 1m perp bars for `underlier` from cex_stock_perp/ohlcv/v1 in
+    ``[start, end]``.
 
     These are 24/7 perpetual futures backed by xStocks (Kraken Futures
     PF_<sym>XUSD), so they price the underlier continuously over the
@@ -178,49 +189,62 @@ def load_perp_ohlcv(underlier: str) -> pd.DataFrame:
     factor. Sample begins 2025-12-22 for SPY/QQQ/GLD and 2026-02-16+ for
     the rest.
     """
-    root = SCRYER_DATASET_ROOT / "cex_stock_perp" / "ohlcv" / "v1" / f"underlier={underlier}"
     cols = ["bar_open_ts", "high", "low", "close", "volume_base"]
-    if not root.exists():
+    df = load_cex_stock_perp_ohlcv(underlier, start, end)
+    if df.empty:
         return pd.DataFrame(columns=cols)
-    files = [str(p) for p in sorted(root.rglob("*.parquet"))]
-    if not files:
-        return pd.DataFrame(columns=cols)
-    d = ds.dataset(files, format="parquet")
-    tbl = d.to_table(columns=cols)
-    df = tbl.to_pandas()
-    df = df[(df["high"] > 0) & (df["low"] > 0)].sort_values("bar_open_ts").reset_index(drop=True)
+    df = df[(df["high"] > 0) & (df["low"] > 0)][cols]
+    df = df.sort_values("bar_open_ts").reset_index(drop=True)
     df["bar_open_ts"] = pd.to_numeric(df["bar_open_ts"], downcast="integer")
     return df
+
+
+_NO_VOLUME_FILTER = -1.0
 
 
 def perp_path_extrema(
     bars: pd.DataFrame,
     fri_ts: date,
     mon_ts: date,
+    min_volume: float = _NO_VOLUME_FILTER,
+    min_traded_bars: int = 0,
 ) -> tuple[float | None, float | None, int]:
+    """Extrema over the weekend window.
+
+    `min_volume` (default -1.0): filter cutoff applied as
+    `bars[volume_base > min_volume]`. The default `-1.0` means "no filter,
+    include zero-volume carry-forward bars" — the consumer-mark view that
+    matches the v1 published table. Set to `0.0` to drop zero-volume bars
+    (the trade-supported view from the worked-case memo); set to a positive
+    value for a stricter volume floor.
+
+    `min_traded_bars`: minimum count of post-filter bars required; cells
+    below it return (None, None, 0) and are dropped from the denominator.
+
+    Together these switch the script between the unfiltered and
+    trade-supported views described in
+    `reports/active/xstock_path_band_worked_case.md`.
+    """
     start_utc, end_utc = weekend_window_utc(fri_ts, mon_ts)
     w = bars[(bars["bar_open_ts"] >= start_utc) & (bars["bar_open_ts"] <= end_utc)]
-    if w.empty:
+    if min_volume >= 0.0:
+        w = w[w["volume_base"] > min_volume]
+    if w.empty or len(w) < max(1, min_traded_bars):
         return None, None, 0
     return float(w["low"].min()), float(w["high"].max()), int(len(w))
 
 
 # --------------------------------------------------------------- on-chain path
 
-def load_xstock_swaps(xsymbol: str) -> pd.DataFrame:
-    root = SCRYER_DATASET_ROOT / "dex_xstock" / "swaps" / "v1" / f"symbol={xsymbol}"
-    if not root.exists():
-        return pd.DataFrame(columns=["block_time", "price_per_xstock"])
-    # rglob avoids picking up scryer's *.parquet.lock sentinels left by an
-    # in-flight concurrent fetch (zero-byte files that crash pyarrow).
-    files = [str(p) for p in sorted(root.rglob("*.parquet"))]
-    if not files:
-        return pd.DataFrame(columns=["block_time", "price_per_xstock"])
-    d = ds.dataset(files, format="parquet")
-    tbl = d.to_table(columns=["block_time", "price_per_xstock"])
-    df = tbl.to_pandas()
-    df = df[df["price_per_xstock"] > 0].sort_values("block_time").reset_index(drop=True)
-    return df
+def load_xstock_swaps(
+    xsymbol: str, start: date, end: date,
+) -> pd.DataFrame:
+    cols = ["block_time", "price_per_xstock"]
+    df = load_dex_xstock_swaps(xsymbol, start, end)
+    if df.empty:
+        return pd.DataFrame(columns=cols)
+    df = df[df["price_per_xstock"] > 0][cols]
+    return df.sort_values("block_time").reset_index(drop=True)
 
 
 def onchain_path_extrema(
@@ -247,12 +271,16 @@ def eval_cme_path(panel: pd.DataFrame, served: pd.DataFrame) -> pd.DataFrame:
     base = base[base["symbol"].isin(FACTOR_FOR_PATH)]
     base = base[~((base["symbol"] == "MSTR") & (base["fri_ts"] >= MSTR_BTC_PIVOT))]
     base["factor_used"] = base["symbol"].map(FACTOR_FOR_PATH)
+    if base.empty:
+        return pd.DataFrame()
+    factor_window_start = pd.to_datetime(base["fri_ts"].min()).date() - timedelta(days=1)
+    factor_window_end = pd.to_datetime(base["mon_ts"].max()).date() + timedelta(days=1)
 
     rows: list[dict] = []
     for _, row in base.iterrows():
         factor = row["factor_used"]
         if factor not in factor_cache:
-            factor_cache[factor] = load_cme_factor(factor)
+            factor_cache[factor] = load_cme_factor(factor, factor_window_start, factor_window_end)
         anchor, lo, hi, n_bars = cme_path_extrema(
             factor_cache[factor], row["fri_ts"], row["mon_ts"]
         )
@@ -287,20 +315,36 @@ def eval_cme_path(panel: pd.DataFrame, served: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def eval_perp_path(panel: pd.DataFrame, served: pd.DataFrame) -> pd.DataFrame:
+def eval_perp_path(
+    panel: pd.DataFrame,
+    served: pd.DataFrame,
+    min_volume: float = _NO_VOLUME_FILTER,
+    min_traded_bars: int = 0,
+) -> pd.DataFrame:
     """Per-row coverage from cex_stock_perp 1m bars (consumer-relevant 24/7
     proxy). The perp prices the underlier continuously, so the path is the
     actual fair-value evolution rather than the band's own factor projection.
+
+    `min_volume` and `min_traded_bars` are forwarded to `perp_path_extrema`
+    and switch the script between the unfiltered consumer-mark view and the
+    trade-supported view (see `reports/active/xstock_path_band_worked_case.md`).
     """
     base = panel.merge(served, on=["symbol", "fri_ts"], suffixes=("", "_art"))
+    if base.empty:
+        return pd.DataFrame()
+    window_start = pd.to_datetime(base["fri_ts"].min()).date() - timedelta(days=1)
+    window_end = pd.to_datetime(base["mon_ts"].max()).date() + timedelta(days=1)
     rows: list[dict] = []
     for sym in ["SPY", "QQQ", "GLD", "AAPL", "TSLA", "HOOD", "MSTR", "GOOGL", "NVDA"]:
-        bars = load_perp_ohlcv(sym)
+        bars = load_perp_ohlcv(sym, window_start, window_end)
         if bars.empty:
             continue
         sym_rows = base[base["symbol"] == sym]
         for _, row in sym_rows.iterrows():
-            lo, hi, n_bars = perp_path_extrema(bars, row["fri_ts"], row["mon_ts"])
+            lo, hi, n_bars = perp_path_extrema(
+                bars, row["fri_ts"], row["mon_ts"],
+                min_volume=min_volume, min_traded_bars=min_traded_bars,
+            )
             if lo is None or n_bars == 0:
                 continue
             for tau in ANCHORS:
@@ -328,10 +372,14 @@ def eval_perp_path(panel: pd.DataFrame, served: pd.DataFrame) -> pd.DataFrame:
 
 def eval_onchain_path(panel: pd.DataFrame, served: pd.DataFrame) -> pd.DataFrame:
     base = panel.merge(served, on=["symbol", "fri_ts"], suffixes=("", "_art"))
+    if base.empty:
+        return pd.DataFrame()
+    window_start = pd.to_datetime(base["fri_ts"].min()).date() - timedelta(days=1)
+    window_end = pd.to_datetime(base["mon_ts"].max()).date() + timedelta(days=1)
     rows: list[dict] = []
     for sym in ["SPY", "QQQ", "AAPL", "GOOGL", "NVDA", "TSLA", "HOOD", "MSTR"]:
         xsym = sym + "x"
-        swaps = load_xstock_swaps(xsym)
+        swaps = load_xstock_swaps(xsym, window_start, window_end)
         if swaps.empty:
             continue
         sym_rows = base[base["symbol"] == sym]
@@ -391,9 +439,27 @@ def write_markdown(
     onchain_n_weekends: int,
     cme_observable_share: float,
     out_path: Path,
+    perp_min_volume: float = _NO_VOLUME_FILTER,
+    perp_min_traded_bars: int = 0,
 ) -> None:
     lines: list[str] = []
     lines.append("# §6.x Path coverage — endpoint vs intra-weekend\n")
+    if perp_min_volume >= 0.0 or perp_min_traded_bars > 0:
+        lines.append(
+            f"**Variant:** trade-supported perp panel "
+            f"(`volume_base > {perp_min_volume}`, "
+            f"`min_traded_bars = {perp_min_traded_bars}`). "
+            f"See `reports/active/xstock_path_band_worked_case.md` for the "
+            f"unfiltered vs trade-supported contrast.\n"
+        )
+    else:
+        lines.append(
+            "**Variant:** unfiltered perp panel (consumer-mark view — every "
+            "emitted bar, including no-volume carry-forward). The "
+            "trade-supported variant is invoked with `--perp-volume-filter` "
+            "and `--perp-min-trades`; see "
+            "`reports/active/xstock_path_band_worked_case.md`.\n"
+        )
     lines.append(
         "Endpoint coverage (§6.2) tests whether the realised Monday open lies "
         "inside the served band. A DeFi consumer holding an xStock as "
@@ -492,6 +558,42 @@ def write_markdown(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--perp-volume-filter",
+        type=float, default=_NO_VOLUME_FILTER,
+        help=(
+            "Filter cex_stock_perp bars to volume_base > VAL before "
+            "computing path extrema. Default -1.0 (no filter; consumer-mark "
+            "view that includes zero-volume carry-forward bars). Set to 0.0 "
+            "for the trade-supported view (any positive volume); set higher "
+            "for a stricter floor."
+        ),
+    )
+    parser.add_argument(
+        "--perp-min-trades",
+        type=int, default=0,
+        help=(
+            "Drop (symbol, weekend) cells with fewer than N post-filter "
+            "perp bars from the denominator. Default 0 (keep every cell). "
+            "Set to e.g. 1 to require at least one real trade per weekend."
+        ),
+    )
+    parser.add_argument(
+        "--output-suffix", type=str, default="",
+        help=(
+            "Suffix appended to all output paths "
+            "(`path_coverage_perp{suffix}.csv`, "
+            "`v1b_path_coverage{suffix}.md`). When --perp-volume-filter or "
+            "--perp-min-trades is set, defaults to '_traded'; otherwise empty."
+        ),
+    )
+    args = parser.parse_args()
+    perp_filter_active = (
+        args.perp_volume_filter >= 0.0 or args.perp_min_trades > 0
+    )
+    suffix = args.output_suffix or ("_traded" if perp_filter_active else "")
+
     artefact = pd.read_parquet(DATA_PROCESSED / "lwc_artefact_v1.parquet")
     artefact["fri_ts"] = pd.to_datetime(artefact["fri_ts"]).dt.date
     panel = pd.read_parquet(DATA_PROCESSED / "v1b_panel.parquet")
@@ -500,8 +602,18 @@ def main() -> None:
 
     served = serve_bands(artefact)
 
-    print("[1/4] Stock-perp 24/7 path …", flush=True)
-    perp_per_row = eval_perp_path(panel, served)
+    print(
+        f"[1/4] Stock-perp 24/7 path …"
+        + (f"  (min_volume={args.perp_volume_filter}, "
+           f"min_traded_bars={args.perp_min_trades})"
+           if perp_filter_active else ""),
+        flush=True,
+    )
+    perp_per_row = eval_perp_path(
+        panel, served,
+        min_volume=args.perp_volume_filter,
+        min_traded_bars=args.perp_min_trades,
+    )
     perp_n_weekends = perp_per_row["fri_ts"].nunique() if not perp_per_row.empty else 0
     if not perp_per_row.empty:
         perp_date_range = (perp_per_row["fri_ts"].min(), perp_per_row["fri_ts"].max())
@@ -553,22 +665,25 @@ def main() -> None:
     print("[4/4] Writing outputs …", flush=True)
     out_dir = REPORTS / "tables"
     out_dir.mkdir(parents=True, exist_ok=True)
+    # CME tables are filter-independent — always overwrite the canonical path.
     cme_per_row.to_csv(out_dir / "path_coverage_cme_per_row.csv", index=False)
     cme_pooled_by_tau.to_csv(out_dir / "path_coverage_cme.csv", index=False)
     cme_pooled_by_tau_regime.to_csv(out_dir / "path_coverage_cme_by_regime.csv", index=False)
     if not perp_per_row.empty:
-        perp_per_row.to_csv(out_dir / "path_coverage_perp_per_row.csv", index=False)
-        perp_pooled_by_tau.to_csv(out_dir / "path_coverage_perp.csv", index=False)
-        perp_pooled_by_tau_regime.to_csv(out_dir / "path_coverage_perp_by_regime.csv", index=False)
+        perp_per_row.to_csv(out_dir / f"path_coverage_perp_per_row{suffix}.csv", index=False)
+        perp_pooled_by_tau.to_csv(out_dir / f"path_coverage_perp{suffix}.csv", index=False)
+        perp_pooled_by_tau_regime.to_csv(out_dir / f"path_coverage_perp_by_regime{suffix}.csv", index=False)
     if not onchain_per_row.empty:
-        onchain_per_row.to_csv(out_dir / "path_coverage_onchain_per_row.csv", index=False)
-        onchain_pooled.to_csv(out_dir / "path_coverage_onchain.csv", index=False)
+        onchain_per_row.to_csv(out_dir / f"path_coverage_onchain_per_row{suffix}.csv", index=False)
+        onchain_pooled.to_csv(out_dir / f"path_coverage_onchain{suffix}.csv", index=False)
 
     write_markdown(
         perp_pooled_by_tau, perp_pooled_by_tau_regime, len(perp_per_row), perp_n_weekends, perp_date_range,
         cme_pooled_by_tau, cme_pooled_by_tau_regime, len(cme_per_row),
         onchain_pooled, onchain_n_weekends,
-        obs_share, REPORTS / "v1b_path_coverage.md",
+        obs_share, REPORTS / f"v1b_path_coverage{suffix}.md",
+        perp_min_volume=args.perp_volume_filter,
+        perp_min_traded_bars=args.perp_min_trades,
     )
     print(f"      observable share of window (CME): {obs_share:.1%}", flush=True)
     print("done.")

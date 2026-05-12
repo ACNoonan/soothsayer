@@ -246,11 +246,18 @@ def _per_symbol_kupiec_at(panel_oos: pd.DataFrame,
         inside = (sub["mon_open"] >= b["lower"]) & (sub["mon_open"] <= b["upper"])
         v = (~inside).astype(int).to_numpy()
         lr, p = met._lr_kupiec(v, tau)
+        hw_bps = (
+            (b["upper"].to_numpy() - b["lower"].to_numpy())
+            / 2.0
+            / sub["fri_close"].to_numpy()
+            * 1.0e4
+        )
         rows.append({"symbol": sym, "tau": float(tau),
                      "n": int(len(sub)),
                      "viol_rate": float(v.mean()),
                      "kupiec_lr": float(lr),
-                     "kupiec_p": float(p)})
+                     "kupiec_p": float(p),
+                     "mean_hw_bps": float(np.mean(hw_bps))})
     return pd.DataFrame(rows)
 
 
@@ -338,59 +345,149 @@ def summarise(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def render_figure(all_df: pd.DataFrame, out_dir) -> None:
-    """4-panel box-plot at τ=0.95: per-symbol Kupiec p distributions
-    across reps, M5 vs LWC side-by-side, with a horizontal p=0.05 line."""
+    """Two-panel summary at tau = 0.95 in the CQR-Fig.4 idiom.
+
+    Rows: 4 DGPs x 2 forecasters = 8 (A-M5, A-LWC, B-M5, ..., D-LWC).
+    Each box is the distribution of per-(rep, symbol) cells (N = N_REPS x
+    N_SYMBOLS = 1000 cells per box). Left panel: avg. half-width (bps).
+    Right panel: avg. realised coverage. M5 rows are red; LWC (deployed
+    sigma-hat-standardised) rows are blue and bold. A median pill is
+    annotated to the left of each box. The right panel's dotted vertical
+    line marks the nominal tau = 0.95.
+
+    Visual idiom adapted from Romano-Patterson-Candes (2019), Fig. 4,
+    extended to the per-symbol Mondrian setting.
+    """
     sub = all_df[all_df["tau"] == 0.95].copy()
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9), sharey=True)
-    dgp_titles = {
-        "A": "DGP A — Homoskedastic Student-t",
-        "B": "DGP B — Regime-switching vol multiplier",
-        "C": "DGP C — Non-stationary scale (drift)",
-        "D": "DGP D — Structural break (exchangeability stress)",
-    }
-    for ax, dgp_key in zip(axes.flat, ["A", "B", "C", "D"]):
-        d = sub[sub["dgp"] == dgp_key]
-        if d.empty:
-            ax.set_title(f"{dgp_titles[dgp_key]}  (no data)")
-            continue
-        # Box plot per symbol × forecaster.
-        symbols = sorted(d["symbol"].unique())
-        positions = []
-        labels = []
-        boxes = []
-        colors = []
-        for j, sym in enumerate(symbols):
-            for k, fc in enumerate(("m5", "lwc")):
-                vals = d[(d["symbol"] == sym) & (d["forecaster"] == fc)]["kupiec_p"]
-                if len(vals) == 0:
-                    continue
-                positions.append(j * 3 + k)
-                boxes.append(vals.values)
-                colors.append("#d62728" if fc == "m5" else "#1f77b4")
-                labels.append(f"{sym}\n{fc}" if k == 0 else "")
-        bp = ax.boxplot(boxes, positions=positions, widths=0.7,
-                        patch_artist=True, showfliers=False)
-        for patch, c in zip(bp["boxes"], colors):
+    sub["realised"] = 1.0 - sub["viol_rate"]
+    if sub.empty or "mean_hw_bps" not in sub.columns:
+        print("  WARN: render_figure has no half-width data; "
+              "re-run after the schema upgrade.", flush=True)
+        return
+
+    # 8 rows: A-M5, A-LWC, B-M5, B-LWC, C-M5, C-LWC, D-M5, D-LWC.
+    dgp_keys = ["A", "B", "C", "D"]
+    forecasters = ("m5", "lwc")
+    rows = [(d, fc) for d in dgp_keys for fc in forecasters]
+
+    hw_data = []
+    cov_data = []
+    row_labels = []
+    row_colors = []
+    row_bold = []
+    for (d, fc) in rows:
+        cell = sub[(sub["dgp"] == d) & (sub["forecaster"] == fc)]
+        hw_data.append(cell["mean_hw_bps"].to_numpy())
+        cov_data.append(cell["realised"].to_numpy())
+        label = f"{d} · {'M5' if fc == 'm5' else 'LWC'}"
+        row_labels.append(label)
+        row_colors.append("#D55E00" if fc == "m5" else "#0072B2")
+        row_bold.append(fc == "lwc")
+
+    fig, (ax_hw, ax_cov) = plt.subplots(
+        1, 2, figsize=(11.0, 6.4),
+        gridspec_kw={"width_ratios": [1.0, 1.0], "wspace": 0.06},
+        sharey=True,
+    )
+
+    n_rows = len(rows)
+    positions = list(range(n_rows, 0, -1))  # top-to-bottom (A-M5 at top)
+
+    def _draw(ax, data, positions, colors, bold_flags):
+        bp = ax.boxplot(
+            data, positions=positions, widths=0.62, vert=False,
+            patch_artist=True, showfliers=True,
+            flierprops={"marker": "o", "markersize": 3,
+                        "markerfacecolor": "#777777",
+                        "markeredgecolor": "none", "alpha": 0.45},
+            medianprops={"color": "#000000", "linewidth": 1.4},
+            whiskerprops={"color": "#000000", "linewidth": 0.7},
+            capprops={"color": "#000000", "linewidth": 0.7},
+            boxprops={"linewidth": 0.6, "edgecolor": "#000000"},
+        )
+        for patch, c, bold in zip(bp["boxes"], colors, bold_flags):
             patch.set_facecolor(c)
-            patch.set_alpha(0.5)
-        ax.axhline(0.05, color="black", linestyle="--", linewidth=0.8,
-                   label="p = 0.05")
-        ax.set_xticks([j * 3 + 0.5 for j in range(len(symbols))])
-        ax.set_xticklabels(symbols, rotation=0, fontsize=8)
-        ax.set_ylim(-0.02, 1.02)
-        ax.set_ylabel("Kupiec p (per-symbol per-rep)")
-        ax.set_title(dgp_titles[dgp_key])
-        # Legend keys (one entry per forecaster).
-        from matplotlib.patches import Patch
-        legend_elems = [
-            Patch(facecolor="#d62728", alpha=0.5, label="M5"),
-            Patch(facecolor="#1f77b4", alpha=0.5, label="LWC"),
-        ]
-        ax.legend(handles=legend_elems, loc="upper right", fontsize=8)
-    fig.suptitle("Phase 3 simulation study — per-symbol Kupiec p at τ=0.95\n"
-                 "(100 Monte Carlo replications per DGP, seed=0)",
-                 fontsize=13)
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+            patch.set_alpha(0.85 if bold else 0.45)
+
+    _draw(ax_hw,  hw_data,  positions, row_colors, row_bold)
+    _draw(ax_cov, cov_data, positions, row_colors, row_bold)
+
+    # Median pills on the left edge of each panel.
+    def _annotate_medians(ax, data, positions, fmt, x_frac):
+        xmin, xmax = ax.get_xlim()
+        x = xmin + x_frac * (xmax - xmin)
+        for vals, y in zip(data, positions):
+            if len(vals) == 0:
+                continue
+            med = float(np.median(vals))
+            ax.annotate(fmt.format(med), xy=(x, y), xycoords="data",
+                        ha="left", va="center", fontsize=8.0,
+                        bbox=dict(boxstyle="round,pad=0.18,rounding_size=0.4",
+                                  facecolor="white", edgecolor="#777777",
+                                  linewidth=0.5))
+
+    # Cosmetic axis tweaks before annotating (so xlim is settled).
+    # Half-width: pad on the left so pills don't overlap the boxes.
+    hw_min = min((x.min() for x in hw_data if len(x)), default=0.0)
+    hw_max = max((x.max() for x in hw_data if len(x)), default=1.0)
+    pad = 0.15 * (hw_max - hw_min)
+    ax_hw.set_xlim(hw_min - 1.4 * pad, hw_max + 0.05 * pad)
+
+    # Coverage: fixed sensible range with nominal line.
+    ax_cov.set_xlim(0.78, 1.005)
+
+    _annotate_medians(ax_hw,  hw_data,  positions, "{:.0f}", x_frac=0.005)
+    _annotate_medians(ax_cov, cov_data, positions, "{:.3f}", x_frac=0.005)
+
+    # Coverage nominal line.
+    ax_cov.axvline(0.95, linestyle=":", color="#000000",
+                   linewidth=0.8, alpha=0.7, zorder=0)
+    ax_cov.text(0.95, 0.55, r"nominal $\tau = 0.95$",
+                ha="center", va="bottom", fontsize=8.0, color="#000000",
+                bbox=dict(boxstyle="round,pad=0.2",
+                          facecolor="white", edgecolor="none", alpha=0.85))
+
+    # Panel titles in a band above each panel (CQR Fig.4 idiom).
+    for ax, title in [(ax_hw, "Avg. Half-width (bps)"),
+                      (ax_cov, "Avg. Coverage")]:
+        ax.set_title(title, fontsize=10.5,
+                     bbox=dict(boxstyle="square,pad=0.4",
+                               facecolor="#DDDDDD", edgecolor="none"),
+                     pad=8)
+        ax.grid(axis="x", color="#CCCCCC", linewidth=0.4, alpha=0.6)
+        ax.set_axisbelow(True)
+        ax.tick_params(axis="y", left=False)
+
+    # Y-axis labels: one per row, M6/LWC bolded.
+    ax_hw.set_yticks(positions)
+    ax_hw.set_yticklabels(row_labels)
+    for tick, bold in zip(ax_hw.get_yticklabels(), row_bold):
+        tick.set_fontweight("bold" if bold else "normal")
+        tick.set_fontsize(9.5)
+
+    ax_hw.set_ylim(0.4, n_rows + 0.6)
+
+    # Faint horizontal separators between DGP groups (every 2 rows).
+    for r in range(2, n_rows, 2):
+        y = positions[r] + 0.5
+        for ax in (ax_hw, ax_cov):
+            ax.axhline(y, color="#BBBBBB", linewidth=0.4, alpha=0.5)
+
+    fig.suptitle(
+        "Phase 3 simulation study — half-width and coverage at "
+        r"$\tau = 0.95$, 100 reps $\times$ 10 symbols per DGP",
+        fontsize=11.0, y=0.99,
+    )
+    fig.text(
+        0.5, 0.005,
+        "Box = per-(rep, symbol) cell distribution, N = 1,000 per row. "
+        "M5 rows = unweighted Mondrian; LWC rows (bold) = deployed "
+        r"$\hat\sigma_s$-standardised. Visual idiom: Romano et al. (2019), Fig. 4.",
+        ha="center", va="bottom", fontsize=8.0, color="#555555",
+    )
+
+    fig.subplots_adjust(left=0.10, right=0.985, top=0.92, bottom=0.085,
+                        wspace=0.06)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     pdf_path = out_dir / "simulation_summary.pdf"

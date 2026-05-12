@@ -108,7 +108,8 @@ Current high-value venues/data_types for Soothsayer work:
 | `kamino` | `liquidations` | Paper 3 xStock empirical panel |
 | `marginfi` | `reserves` | MarginFi deployment-substrate scan |
 | `geckoterminal` | `trades` | pool trade signal |
-| `solana_dex` | `xstock_swaps` | Paper 4 AMM panel root |
+| `dex_xstock` | `swaps` | on-chain xStock DEX swap-IX tape (Paper 4 AMM panel root) |
+| `cex_stock_perp` | `ohlcv`, `tape` | 24/7 stock-perp 1m bars + multi-venue quote tape |
 | `kraken` | `funding` | xStock perp funding |
 
 Everything else should be checked against `../scryer/wishlist.md`.
