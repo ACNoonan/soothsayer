@@ -1,8 +1,8 @@
 # V1b — Incumbent oracle unified comparison
 
-**Question.** Across the four incumbent oracles serving xStock-relevant symbols on Solana (Pyth, Chainlink Data Streams, RedStone, Kamino Scope), what published-band half-width (in bps of price) does each require to deliver τ-coverage of the realised Friday-close → Monday-open weekend gap? How does that compare to Soothsayer's deployed v1 served band?
+**Question.** Across the incumbent oracles serving xStock-relevant symbols on Solana (Pyth, Chainlink Data Streams, RedStone, Kamino Scope) and the post-Cong tokenized-tracking baseline (kraken_futures xstock-backed perp), what published-band half-width (in bps of price) does each require to deliver τ-coverage of the realised Friday-close → Monday-open weekend gap? How does that compare to Soothsayer's deployed v1 served band?
 
-**Construction.** This table is *not* a single-panel head-to-head — incumbent tape recency varies (Pyth 2024+, Chainlink frozen 2026-02→04 panel, RedStone + Scope forward-tape 2026-04→ ongoing) and the symbol coverage differs (Pyth covers 8 underliers; RedStone covers SPY/QQQ/MSTR only; Scope covers 8 xStocks). Per-row n is the available-subset n on each oracle's own panel. The row-level comparison is *width-cost-to-target on each oracle's own data*. The Soothsayer v1 row uses the same OOS 2023+ panel that backs §6 / §7 of Paper 1.
+**Construction.** This table is *not* a single-panel head-to-head — incumbent tape recency varies (Pyth 2024+, Chainlink frozen 2026-02→04 panel, RedStone + Scope forward-tape 2026-04→ ongoing, tokenized-tracking post-launch 2025-12→ ongoing) and the symbol coverage differs (Pyth covers 8 underliers; RedStone covers SPY/QQQ/MSTR only; Scope covers 8 xStocks; tokenized-tracking covers 9 of Soothsayer's 10 underliers ex-TLT). Per-row n is the available-subset n on each oracle's own panel. The row-level comparison is *width-cost-to-target on each oracle's own data*. The Soothsayer v1 row uses the same OOS 2023+ panel that backs §6 / §7 of Paper 1.
 
 ## Headline table
 
@@ -13,16 +13,19 @@
 |  0.68 | pyth_smallest_k                  |  265 | OOS 2024+ available subset (n=265, SPY/QQQ/TLT/TSLA-heavy) |                    140 |                  0.800 | consumer-supplied k = 25.0 on `pyth_conf`         | Pyth `conf` is publisher-dispersion diagnostic, not coverage claim.                |
 |  0.68 | chainlink_streams_smallest_k_pct |   87 | frozen 87-obs panel 2026-02-06 → 2026-04-17                |                    150 |                  0.736 | consumer-supplied k_pct = 1.50% on stale mid      | Chainlink bid/ask zeroed under marketStatus=5 (weekend); we wrap the stale mid.    |
 |  0.68 | redstone_smallest_k_pct          |   12 | forward-tape, n=12 (4 weekends × 3 symbols)                |                    100 |                  0.750 | consumer-supplied k_pct = 1.00% on RedStone point | Forward-tape; sample grows weekly. Tape carries SPY/QQQ/MSTR underliers only.      |
+|  0.68 | tokenized_tracking_kraken_perp   |  105 | post-launch 2025-12-19→2026-04-24 (9 symbols ex-TLT)       |                    205 |                  0.724 | empirical-quantile residual on perp at mon_open    | Best snapshot in closed window. n=105 after 4-weekend walk-forward warm-up. §7.6.  |
 |  0.85 | soothsayer_v1_deployed           | 1730 | OOS 2023+ (yahoo daily, 173 weekends)                      |                    251 |                  0.856 | published                                         | Kupiec p_uc=0.477. Soothsayer publishes the calibrated band; no consumer back-fit. |
 |  0.85 | soothsayer_m5_v2_candidate       | 1730 | OOS 2023+ (yahoo daily, 173 weekends)                      |                    201 |                  0.850 | published                                         | Kupiec p_uc=0.973. v2 candidate; deployment deferred until post-2026-05-10.        |
 |  0.85 | pyth_smallest_k                  |  265 | OOS 2024+ available subset (n=265, SPY/QQQ/TLT/TSLA-heavy) |                    279 |                  0.951 | consumer-supplied k = 50.0 on `pyth_conf`         | Pyth `conf` is publisher-dispersion diagnostic, not coverage claim.                |
 |  0.85 | chainlink_streams_smallest_k_pct |   87 | frozen 87-obs panel 2026-02-06 → 2026-04-17                |                    250 |                  0.885 | consumer-supplied k_pct = 2.50% on stale mid      | Chainlink bid/ask zeroed under marketStatus=5 (weekend); we wrap the stale mid.    |
 |  0.85 | redstone_smallest_k_pct          |   12 | forward-tape, n=12 (4 weekends × 3 symbols)                |                    250 |                  1.000 | consumer-supplied k_pct = 2.50% on RedStone point | Forward-tape; sample grows weekly. Tape carries SPY/QQQ/MSTR underliers only.      |
+|  0.85 | tokenized_tracking_kraken_perp   |  105 | post-launch 2025-12-19→2026-04-24 (9 symbols ex-TLT)       |                    372 |                  0.867 | empirical-quantile residual on perp at mon_open    | Best snapshot in closed window. §7.6.                                              |
 |  0.95 | soothsayer_v1_deployed           | 1730 | OOS 2023+ (yahoo daily, 173 weekends)                      |                    443 |                  0.950 | published                                         | Kupiec p_uc=0.956. Soothsayer publishes the calibrated band; no consumer back-fit. |
 |  0.95 | soothsayer_m5_v2_candidate       | 1730 | OOS 2023+ (yahoo daily, 173 weekends)                      |                    355 |                  0.950 | published                                         | Kupiec p_uc=0.956. v2 candidate; deployment deferred until post-2026-05-10.        |
 |  0.95 | pyth_smallest_k                  |  265 | OOS 2024+ available subset (n=265, SPY/QQQ/TLT/TSLA-heavy) |                    279 |                  0.951 | consumer-supplied k = 50.0 on `pyth_conf`         | Pyth `conf` is publisher-dispersion diagnostic, not coverage claim.                |
 |  0.95 | chainlink_streams_smallest_k_pct |   87 | frozen 87-obs panel 2026-02-06 → 2026-04-17                |                    400 |                  0.977 | consumer-supplied k_pct = 4.00% on stale mid      | Chainlink bid/ask zeroed under marketStatus=5 (weekend); we wrap the stale mid.    |
 |  0.95 | redstone_smallest_k_pct          |   12 | forward-tape, n=12 (4 weekends × 3 symbols)                |                    250 |                  1.000 | consumer-supplied k_pct = 2.50% on RedStone point | Forward-tape; sample grows weekly. Tape carries SPY/QQQ/MSTR underliers only.      |
+|  0.95 | tokenized_tracking_kraken_perp   |  105 | post-launch 2025-12-19→2026-04-24 (9 symbols ex-TLT)       |                    656 |                  0.943 | empirical-quantile residual on perp at mon_open    | Best snapshot. Soothsayer's deployed 358 bps is 45% tighter at matched cov. §7.6.  |
 
 ## Reading
 
@@ -38,6 +41,7 @@ Three things this table makes precise:
 - Chainlink Data Streams: `reports/v1b_chainlink_comparison.md`
 - RedStone: `reports/v1b_redstone_comparison.md`
 - Kamino Scope: `reports/v1b_kamino_scope_comparison.md`
+- Tokenized-tracking baseline (post-Cong, kraken_futures xstock-backed perp): `reports/v1b_tokenized_tracking_baseline.md`
 
 ## How to keep this current
 
@@ -46,6 +50,7 @@ Re-run the four per-oracle scripts then this unified runner whenever a new weeke
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/redstone_benchmark_comparison.py
 PYTHONPATH=src .venv/bin/python scripts/kamino_scope_benchmark_comparison.py
+PYTHONPATH=src .venv/bin/python scripts/run_v1b_tokenized_tracking_baseline.py
 PYTHONPATH=src .venv/bin/python scripts/run_incumbent_oracle_unified_report.py
 ```
 

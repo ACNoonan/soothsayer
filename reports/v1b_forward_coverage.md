@@ -1,12 +1,12 @@
 # v1b — Live forward-tape realised coverage (W5)
 
-_Last run: 2026-05-05 13:00 UTC_
+_Last run: 2026-05-12 13:00 UTC_
 
 Reviewer-immune coverage check on weekends with `fri_ts > 2026-04-24` — the last Friday in the frozen calibration panel. The deployed M5 (AMM-profile) band is applied exactly as the live oracle would serve it; realised coverage is computed against Yahoo Monday open. Sample is small at first and grows by ≈10 observations (universe size) per evaluable weekend.
 
 ## Inputs (re-derived from scryer)
 
-- Panel-build window: 2024-01-01 → 2026-05-05
+- Panel-build window: 2024-01-01 → 2026-05-12
 - Frozen-panel cutoff: 2026-04-24
 - M5 serving constants: `soothsayer.oracle` (`REGIME_QUANTILE_TABLE`, `C_BUMP_SCHEDULE`, `DELTA_SHIFT_SCHEDULE`).
 
@@ -18,17 +18,17 @@ Reviewer-immune coverage check on weekends with `fri_ts > 2026-04-24` — the la
 
 ## Forward sample
 
-- Forward weekends evaluable: 1 (2026-05-01)
-- Symbol-weekend rows per τ: 10
+- Forward weekends evaluable: 2 (2026-05-01, 2026-05-08)
+- Symbol-weekend rows per τ: 20
 
 ## Realised coverage by τ
 
 | τ (target) | served τ' | n | hits | realised | 95% Wilson CI | mean half-width (bps) |
 |---:|---:|---:|---:|---:|---|---:|
-| 0.68 | 0.73 | 10 | 8 | 0.800 | [0.490, 0.943] | 113.0 |
-| 0.85 | 0.87 | 10 | 10 | 1.000 | [0.722, 1.000] | 189.7 |
-| 0.95 | 0.95 | 10 | 10 | 1.000 | [0.722, 1.000] | 280.5 |
-| 0.99 | 0.99 | 10 | 10 | 1.000 | [0.722, 1.000] | 535.5 |
+| 0.68 | 0.73 | 20 | 16 | 0.800 | [0.584, 0.919] | 112.8 |
+| 0.85 | 0.87 | 20 | 20 | 1.000 | [0.839, 1.000] | 189.4 |
+| 0.95 | 0.95 | 20 | 20 | 1.000 | [0.839, 1.000] | 279.9 |
+| 0.99 | 0.99 | 20 | 20 | 1.000 | [0.839, 1.000] | 534.5 |
 
 _τ' = τ + δ(τ) is the served claim after the walk-forward δ-shift; consumer-facing target is τ. Realised coverage should sit at or above τ on average (the schedule is conservative by construction); with this small a sample the Wilson CI is wide and a single miss can drop the headline materially._
 
@@ -36,10 +36,10 @@ _τ' = τ + δ(τ) is the served claim after the walk-forward δ-shift; consumer
 
 | τ | normal | long_weekend | high_vol |
 |---:|---:|---:|---:|
-| 0.68 | 10 | 0 | 0 |
-| 0.85 | 10 | 0 | 0 |
-| 0.95 | 10 | 0 | 0 |
-| 0.99 | 10 | 0 | 0 |
+| 0.68 | 20 | 0 | 0 |
+| 0.85 | 20 | 0 | 0 |
+| 0.95 | 20 | 0 | 0 |
+| 0.99 | 20 | 0 | 0 |
 
 ## Per-(symbol, τ) detail
 
@@ -85,6 +85,46 @@ _τ' = τ + δ(τ) is the served claim after the walk-forward δ-shift; consumer
 | TSLA | 2026-05-01 | normal | 0.85 | 390.2300 | 391.5749 | 189.7 | ✓ |
 | TSLA | 2026-05-01 | normal | 0.95 | 390.2300 | 391.5749 | 280.4 | ✓ |
 | TSLA | 2026-05-01 | normal | 0.99 | 390.2300 | 391.5749 | 535.4 | ✓ |
+| AAPL | 2026-05-08 | normal | 0.68 | 291.9790 | 292.6184 | 112.5 | ✓ |
+| AAPL | 2026-05-08 | normal | 0.85 | 291.9790 | 292.6184 | 188.9 | ✓ |
+| AAPL | 2026-05-08 | normal | 0.95 | 291.9790 | 292.6184 | 279.2 | ✓ |
+| AAPL | 2026-05-08 | normal | 0.99 | 291.9790 | 292.6184 | 533.1 | ✓ |
+| GLD | 2026-05-08 | normal | 0.68 | 434.1820 | 431.5845 | 112.2 | ✓ |
+| GLD | 2026-05-08 | normal | 0.85 | 434.1820 | 431.5845 | 188.4 | ✓ |
+| GLD | 2026-05-08 | normal | 0.95 | 434.1820 | 431.5845 | 278.5 | ✓ |
+| GLD | 2026-05-08 | normal | 0.99 | 434.1820 | 431.5845 | 531.7 | ✓ |
+| GOOGL | 2026-05-08 | normal | 0.68 | 393.6450 | 399.8413 | 112.5 | ✗ |
+| GOOGL | 2026-05-08 | normal | 0.85 | 393.6450 | 399.8413 | 188.9 | ✓ |
+| GOOGL | 2026-05-08 | normal | 0.95 | 393.6450 | 399.8413 | 279.2 | ✓ |
+| GOOGL | 2026-05-08 | normal | 0.99 | 393.6450 | 399.8413 | 533.1 | ✓ |
+| HOOD | 2026-05-08 | normal | 0.68 | 76.7900 | 76.8457 | 112.5 | ✓ |
+| HOOD | 2026-05-08 | normal | 0.85 | 76.7900 | 76.8457 | 188.9 | ✓ |
+| HOOD | 2026-05-08 | normal | 0.95 | 76.7900 | 76.8457 | 279.2 | ✓ |
+| HOOD | 2026-05-08 | normal | 0.99 | 76.7900 | 76.8457 | 533.1 | ✓ |
+| MSTR | 2026-05-08 | normal | 0.68 | 189.2000 | 188.9605 | 113.6 | ✓ |
+| MSTR | 2026-05-08 | normal | 0.85 | 189.2000 | 188.9605 | 190.7 | ✓ |
+| MSTR | 2026-05-08 | normal | 0.95 | 189.2000 | 188.9605 | 281.9 | ✓ |
+| MSTR | 2026-05-08 | normal | 0.99 | 189.2000 | 188.9605 | 538.3 | ✓ |
+| NVDA | 2026-05-08 | normal | 0.68 | 214.0350 | 214.6852 | 112.5 | ✓ |
+| NVDA | 2026-05-08 | normal | 0.85 | 214.0350 | 214.6852 | 188.9 | ✓ |
+| NVDA | 2026-05-08 | normal | 0.95 | 214.0350 | 214.6852 | 279.2 | ✓ |
+| NVDA | 2026-05-08 | normal | 0.99 | 214.0350 | 214.6852 | 533.1 | ✓ |
+| QQQ | 2026-05-08 | normal | 0.68 | 710.3600 | 709.5287 | 112.5 | ✓ |
+| QQQ | 2026-05-08 | normal | 0.85 | 710.3600 | 709.5287 | 188.9 | ✓ |
+| QQQ | 2026-05-08 | normal | 0.95 | 710.3600 | 709.5287 | 279.2 | ✓ |
+| QQQ | 2026-05-08 | normal | 0.99 | 710.3600 | 709.5287 | 533.1 | ✓ |
+| SPY | 2026-05-08 | normal | 0.68 | 736.4500 | 735.8556 | 112.5 | ✓ |
+| SPY | 2026-05-08 | normal | 0.85 | 736.4500 | 735.8556 | 188.9 | ✓ |
+| SPY | 2026-05-08 | normal | 0.95 | 736.4500 | 735.8556 | 279.2 | ✓ |
+| SPY | 2026-05-08 | normal | 0.99 | 736.4500 | 735.8556 | 533.1 | ✓ |
+| TLT | 2026-05-08 | normal | 0.68 | 85.8800 | 85.9044 | 112.5 | ✓ |
+| TLT | 2026-05-08 | normal | 0.85 | 85.8800 | 85.9044 | 189.0 | ✓ |
+| TLT | 2026-05-08 | normal | 0.95 | 85.8800 | 85.9044 | 279.4 | ✓ |
+| TLT | 2026-05-08 | normal | 0.99 | 85.8800 | 85.9044 | 533.5 | ✓ |
+| TSLA | 2026-05-08 | normal | 0.68 | 422.1600 | 427.3254 | 112.5 | ✗ |
+| TSLA | 2026-05-08 | normal | 0.85 | 422.1600 | 427.3254 | 188.9 | ✓ |
+| TSLA | 2026-05-08 | normal | 0.95 | 422.1600 | 427.3254 | 279.2 | ✓ |
+| TSLA | 2026-05-08 | normal | 0.99 | 422.1600 | 427.3254 | 533.1 | ✓ |
 
 ## Re-run
 
