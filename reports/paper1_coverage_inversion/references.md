@@ -55,6 +55,69 @@ Buckets:
 - **Why we cite it:** Top-level entry point used in §1.1 and §2.1 when the claim is about the Data Streams product family rather than a specific schema; per-schema citations are `[chainlink-v10]` and `[chainlink-v11]`.
 - **Bucket:** oracles
 
+### [chainlink-v8] Chainlink Labs. 2025. Data Streams v8 ("RWA Standard") report schema.
+- **Venue:** Chainlink product documentation; SDK source (authoritative pin)
+- **URL / DOI:** https://docs.chain.link/data-streams/reference/report-schema-v8
+- **Contribution:** Specifies the v8 RWA Standard report layout — schema id `0x0008`, mid-only fields: `feedId`, `validFromTimestamp`, `observationsTimestamp`, `nativeFee`, `linkFee`, `expiresAt`, `lastUpdateTimestamp`, `midPrice` (int192), `marketStatus` (uint32: `0=Unknown, 1=Closed, 2=Open`). **Carries no `bid`, `ask`, `confidence`, or `last_traded_price` field on the wire.**
+- **Why we cite it:** v8 is the load-bearing schema for tokenized-equity lending on Solana — Kamino Finance ($4B TVL) consumes every xStock collateral asset via this schema, routed through Kamino Scope's `OracleType::ChainlinkRWA` adaptor (see [scope-oracle-type], [scope-mainnet-cfg]). Direct primary source for the §1.1 "stale-hold" and "bounded-deviation off-hours" archetype representatives and the §2.1 categorical claim that the production xStock-lending oracle path emits no on-wire confidence.
+- **Bucket:** oracles
+
+### [scope-oracle-type] Kamino Finance. 2025–2026. Scope oracle-type registry (`oracle_type.rs`).
+- **Venue:** Kamino-Finance/scope GitHub repository (Rust source, on-chain program)
+- **URL / DOI:** https://github.com/Kamino-Finance/scope/blob/master/programs/scope/src/states/oracle_type.rs
+- **Contribution:** Defines the `OracleType` enum that maps upstream-oracle adaptors to discriminants — `ChainlinkRWA = 34` is the variant Scope uses for every xStock collateral asset accepted by Kamino, decoding Chainlink Data Streams v8 RWA Standard reports via the `update_price_v8` handler at `programs/scope/src/oracles/chainlink.rs`.
+- **Why we cite it:** Primary on-chain evidence that the Kamino xStock-lending oracle path is v8, not v10 or v11. Disambiguates the canonical Solana xStock pricing plane and is the source for the §1.1 archetype-table representative.
+- **Bucket:** oracles
+
+### [scope-mainnet-cfg] Kamino Finance. 2026. Scope mainnet configuration — xStocks reserve mapping.
+- **Venue:** Kamino-Finance/scope GitHub repository (mainnet config JSON, account `3NJYftD5sjVfxSnUdZ1wVML8f3aC6mp1CXCL6L7TnU8C`)
+- **URL / DOI:** https://github.com/Kamino-Finance/scope/blob/master/configs/mainnet/3NJYftD5sjVfxSnUdZ1wVML8f3aC6mp1CXCL6L7TnU8C.json
+- **Contribution:** Mainnet wiring for every xStock Kamino prices: TSLAx (token-ids 334 `Open` / 335 `AllUpdates`), AAPLx (343/344), SPYx (348/370), NVDAx (341/350), GOOGLx (342/357), QQQx (361/371), MSTRx (365/366), HOODx (374/375), AMZNx (340/355), COINx (337/338). Each xStock has two parallel v8 feeds: an `Open` feed (rejects updates when `marketStatus ≠ Open`) and an `AllUpdates` feed (accepts off-hours `midPrice` subject to `ref_price_tolerance_bps: 500` against the Open feed).
+- **Why we cite it:** Authoritative source for the dual-feed architecture cited in §1.0 and §1.1: each Kamino xStock reserve picks either `Open` (stale-hold) or `AllUpdates` (bounded-deviation off-hours) as a governance-set parameter; neither feed publishes a calibrated coverage band. Establishes that the §1.0 architectural-choice-space claim is sourced from live mainnet config rather than docs.
+- **Bucket:** oracles
+
+### [kamino-xstocks-gov] Kamino Finance. 2025. Kamino is integrating xStocks powered by the Chainlink Data Standard.
+- **Venue:** Kamino governance forum (proposal thread)
+- **URL / DOI:** https://gov.kamino.finance/t/kamino-is-integrating-xstocks-powered-by-the-chainlink-data-standard-to-enable-tokenized-equities-lending/792
+- **Contribution:** Governance proposal authorising Kamino to integrate xStocks as collateral, explicitly naming Chainlink Data Streams as the price-feed source and describing the closed-market price-band behaviour qualitatively.
+- **Why we cite it:** Independent corroboration (from Kamino's governance record, not third-party reporting) that Chainlink Data Streams is the canonical Solana xStock-lending oracle source. Anchors the §1.0 "Kamino prices TSLAx through Kamino Scope, decoding Chainlink Data Streams v8" claim to a live operational decision.
+- **Bucket:** oracles
+
+### [cfb-xstocks-indices] CF Benchmarks. 2026. CF Benchmarks xStocks product suite is live with regulated indices and a corporate-actions feed.
+- **Venue:** CF Benchmarks blog (launch announcement, 2026-05-07)
+- **URL / DOI:** https://cfbenchmarks.com/blog/cf-benchmarks-xstocks-product-suite-is-live-with-regulated-indices-and-a-corporate-actions-feed
+- **Contribution:** Announces the CFB xStocks Indices product family: ~100 FCA-supervised, BMR-aligned benchmarks (Price Return + Total Return variants per xStock) plus a separate Corporate Action Feed. Distribution is REST/WebSocket to venues; powers Kraken's tokenized-equity perpetual futures (live 2026-02-24).
+- **Why we cite it:** Direct primary source for the regulated tokenized-equity benchmark surface cited in §1.2 and §2.1. CFB is the Kraken-owned regulatory-rigor extreme of the methodology-disclosure axis; we cite it to show that even FCA + BMR regulation does not produce a coverage-disclosed equity benchmark.
+- **Bucket:** oracles
+
+### [cfb-methodology-guide] CF Benchmarks. 2026. Token Market Price Benchmarks Series — Methodology Guide (v1.0, 02 Feb 2026) and Benchmark Statement (BMR Article 27 disclosure).
+- **Venue:** CF Benchmarks documentation portal
+- **URL / DOI:** http://docs.cfbenchmarks.com/Token%20Market%20Price%20Benchmarks%20Series%20-%20Methodology%20Guide.pdf ; https://docs.cfbenchmarks.com/Token%20Market%20Price%20Benchmarks%20Series%20-%20Benchmark%20Statement.pdf
+- **Contribution:** Methodology Guide defines $CCRTI_T$ (Eq. 3) as the per-second benchmark scalar derived from a consolidated order book across Contributed Exchanges, with input-side trimming via the `D` deviation-from-mid filter (§5) and §5.3 Potentially Erroneous Data outlier removal; §5.5 specifies Calculation Failure (no publication) when all contributing books exceed 30s staleness. The Benchmark Statement is the BMR Article 27 disclosure governing the family; it contains the family's published methodology, discretion governance, cessation provisions, and ESG framework, but no statistical-coverage or realised-error claim on the served value.
+- **Why we cite it:** Primary methodology source for §1.2 (binding-consumer paragraph notes the BMR Article 27 disclosure does not approach the SR 11-7 / SR 26-2 documentation bar) and §2.1 (categorical claim CFB does not publish a calibration claim despite its regulatory rigor). Exhaustive search of both documents for `coverage`, `confidence`, `calibration`, `uncertainty`, `band`, `standard error`, `dispersion`, `tolerance`, and `interval` returned zero substantive matches.
+- **Bucket:** oracles
+
+### [seda-benchmark] SEDA Protocol. 2026. SEDA Benchmark — session-aware oracle programs and the USA500 composite.
+- **Venue:** SEDA Protocol product / documentation site
+- **URL / DOI:** https://www.seda.xyz/ ; https://docs.seda.xyz/home/session-aware-oracle-programs ; https://docs.seda.xyz/home/llms-full.txt
+- **Contribution:** SEDA Protocol (successor to Flux Protocol) publishes the SEDA Benchmark family — session-aware per-symbol feeds and a USA500 composite (60% equities / 25% crypto / 15% commodities). Wire output is a single continuous on-chain price scalar with `active_session` (PREMARKET/REGULAR/POSTMARKET/OVERNIGHT) and `was_stale` (bool) auxiliary fields; no confidence interval, band, or dispersion field. Four-pillar continuity methodology: session awareness, cost-of-carry futures-to-spot conversion, self-referencing EMA during closed hours, staleness fallback. Production consumers as of mid-2026: Hyperliquid (via Dreamcash HIP-3), Injective, Perps.Fun, Outcome, Nunchi.
+- **Why we cite it:** Primary source for the SEDA archetype in the §1.1 archetype table (Continuous tokenized-tracking) and §2.1 (perp-DEX-oriented equity oracle). Represents the explicit-carry-methodology disclosure pole — the most granular closed-market continuity rule in the survey — while still emitting a scalar with no coverage statement.
+- **Bucket:** oracles
+
+### [volcano-postmortem] Volcano Exchange. 2025. Post-mortem: tokenised-asset perpetual oracle propagation episode on Hyperliquid.
+- **Venue:** Volcano Exchange incident write-up (2025)
+- **URL / DOI:** https://volcano.exchange/blog/postmortem-tokenized-asset-perp-oracle-propagation
+- **Contribution:** Documents a tokenised-asset perpetual-futures incident on Hyperliquid in which $9.21M of liquidations were processed against a venue-fed oracle whose input volume from Binance was demonstrably smaller than the liquidation volume it triggered. Identifies the propagation mechanism in plain language: *uncertainty present in the input was not represented in the output*.
+- **Why we cite it:** Source of the load-bearing thematic quote used in §1.0 to motivate the integrity-versus-calibration framing. The Volcano episode is a directly tokenized-asset analogue of the soothsayer use case, parallel to (but distinct from) the JELLYJELLY incident.
+- **Bucket:** oracles
+
+### [jellyjelly] Hyperliquid HLP. 2025. JELLYJELLY perpetual incident report.
+- **Venue:** Hyperliquid incident announcement (March 2025)
+- **URL / DOI:** https://hyperliquid.xyz/blog/jellyjelly-incident-mar-2025
+- **Contribution:** Hyperliquid's incident report documenting ~$12M in HLP losses on the JELLYJELLY perpetual market driven by a manipulable single-venue oracle path during a low-liquidity window; the venue-feed mechanism allowed a targeted manipulation to feed the oracle a value disconnected from broader market activity.
+- **Why we cite it:** Crypto-native oracle-attack precedent for the propagation mechanism this paper addresses. Cited briefly in §1.0 to establish that the integrity-versus-calibration distinction has been operationally tested in crypto-native markets before the tokenized-equity wave; demoted from the centrepiece role in earlier drafts because the Cong-anchored Kamino-TSLAx exposure is the directly on-point empirical hook.
+- **Bucket:** oracles
+
 ### [chainlink-v10] Chainlink Labs. 2025. Data Streams v10 ("Tokenized Asset") report schema.
 - **Venue:** Chainlink product documentation; SDK source (authoritative pin)
 - **URL / DOI:** https://docs.chain.link/data-streams/reference/report-schema-v10

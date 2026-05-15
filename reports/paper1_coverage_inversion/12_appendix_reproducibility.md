@@ -190,6 +190,7 @@ uv run python scripts/run_v1b_split_sensitivity.py
 uv run python scripts/run_v1b_loso.py
 uv run python scripts/run_v1b_per_class.py
 uv run python scripts/run_v1b_path_fitted_conformal.py
+uv run python scripts/run_v1b_tokenized_tracking_baseline.py    # §7.6 tokenized-tracking baseline (post-Cong)
 
 # 6. Phase 7 / 8 paper-strengthening runners.
 uv run python scripts/run_portfolio_clustering.py               # §6.3.4 joint-tail empirical distribution

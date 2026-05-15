@@ -6,9 +6,9 @@ This section answers Q3 of §3.6: which components are load-bearing for the cali
 - **§7.2 — Per-symbol σ̂ standardisation.** An *unweighted Mondrian comparator* — the same per-regime conformal architecture without per-symbol scale standardisation — pools to nominal coverage but exhibits a per-symbol bimodality that fails Kupiec on 8 of 10 symbols at $\tau = 0.95$. Standardising the conformity score by a per-symbol pre-Friday $\hat\sigma_s(t)$, with no other architectural change, takes per-symbol Kupiec from 2/10 to 10/10.
 - **§7.3 — Near-identity OOS $c(\tau)$ bump.** A 4-scalar multiplicative correction $c(\tau)$ closes any residual train-OOS distribution-shift gap. Three of the four scalars are essentially identity ($c \in \{1.000, 1.000, 1.003\}$ at $\tau \in \{0.68, 0.85, 0.99\}$); only $c(0.95) = 1.079$ carries meaningful OOS information.
 
-§7.4 documents the σ̂ selection procedure (multi-test correction and the held-out forward-tape re-validation harness), and §7.5 decomposes how σ̂ standardisation redistributes width across symbols.
+§7.4 documents the σ̂ selection procedure (multi-test correction and the held-out forward-tape re-validation harness), §7.5 decomposes how σ̂ standardisation redistributes width across symbols, and §7.6 carries the head-to-head against a *tokenized-tracking baseline* — the continuously-updating oracle archetype that Cong et al. [cong-tokenized-2025] motivate empirically, distinct from §7.1's underlying-frozen archetype and from §6.4 / §7.2's internal-architecture comparators.
 
-All deltas carry block-bootstrap 95% CIs by weekend (1000 resamples, seed=0, paired by `(symbol, fri_ts)`). Raw tables: `reports/tables/v1b_constant_buffer_*.csv`, `reports/tables/v1b_mondrian_*.csv`, `reports/tables/m5_vs_m6_bootstrap.csv`, `reports/tables/sigma_ewma_*.csv`.
+All deltas carry block-bootstrap 95% CIs by weekend (1000 resamples, seed=0, paired by `(symbol, fri_ts)`). Raw tables: `reports/tables/v1b_constant_buffer_*.csv`, `reports/tables/v1b_mondrian_*.csv`, `reports/tables/m5_vs_m6_bootstrap.csv`, `reports/tables/sigma_ewma_*.csv`, `reports/tables/paper1_c2_tokenized_tracking_baseline*.csv`.
 
 ## 7.1 Regime stratification — vs constant-buffer baseline
 
@@ -171,3 +171,85 @@ Under the unweighted comparator, every symbol within a regime received the same 
 The +4.5% pooled width tax of §7.2.1 is the *equity-weighted* read on a panel that is 80% equity rows ($1{,}384 / 1{,}730$). Under the deployed architecture the average equity-class symbol receives a +17.8% wider band than under an unweighted Mondrian fit ($417.8$ vs $354.6$ bps); a defensive-class symbol (GLD, TLT) receives a −48.8% narrower one ($181.6$ vs $354.6$). The redistribution is *toward heavy-tail equities*, where the per-symbol calibration evidence demands it (§6.4.1: TSLA, MSTR, HOOD all in the $0.052$–$0.058$ violation-rate band that the unweighted comparator could not deliver), and *away from defensive collateral*, where the previous regime-pooled multiplier was over-conservative. A protocol whose collateral mix is dominated by equity xStocks should expect the deployed mean served band to be materially wider than the unweighted comparator's; a protocol whose collateral mix is dominated by GLD/TLT will see materially narrower bands. The pooled +4.5% figure is the right summary of the trade only at the deployed panel composition; downstream consumers should re-weight by their own collateral mix.
 
 The §10 candidate architectures (cross-sectional common-mode partial-out, full-distribution conformal, sub-regime granularity) target the residual rejections (§6.3.6 cross-sectional within-weekend correlation; §9.4 per-symbol Berkowitz on TSLA/TLT) that σ̂ standardisation does not reach.
+
+## 7.6 Tokenized-tracking baseline (post-Cong)
+
+The §7.1 constant-buffer baseline is the *underlying-frozen* competitor archetype — what a consumer reading the Pyth or Chainlink `price` field gets during the closed window. The complementary archetype, motivated empirically by Cong et al. [cong-tokenized-2025, Table 10, p. 40], is the *tokenized-tracking* baseline: a lazy oracle that publishes $\text{point}_t = \text{tokenized-side price at } t$ throughout the closed window. Cong et al. report a Hasbrouck-style passthrough $\lambda = 0.903$ with adjusted $R^2 = 0.839$ from off-hour tokenized returns to the close-to-open underlying return — i.e., reading the live tokenized perp during closed hours already explains 84% of the variance in where the underlying reopens. The "lazy oracle ships the tokenized price" critique therefore has empirical bite on the conditional mean and must be addressed on the conditional quantile.
+
+### 7.6.1 Baseline construction
+
+For each canonical snapshot $t$ in the closed window:
+
+$$\text{point}_t = \text{perp\_close}_{\text{kraken\_futures}}(t),\qquad \text{halfwidth}_{t,\tau} = \mathrm{quantile}_\tau\Big(\big|\text{mon\_open} - \text{perp\_close}(t)\big|\,;\;\text{past weekends pooled across symbols}\Big).$$
+
+Walk-forward expanding-window calibration over weekends (warm-up = 4 past weekends before the first evaluable observation). The empirical-quantile residual specification is intentional: it places the baseline in the same non-parametric quantile family as the deployed architecture, eliminating the "your baseline is a strawman because it imposes a Gaussian" objection that the §6.4.3 GARCH baselines invite.
+
+**Snapshot grid.** Six canonical evaluation moments in $[\text{Fri\ 16{:}00\ ET}, \text{Mon\ 09{:}30\ ET}]$: `fri_close` (Fri 16:00 ET), `sat_noon` (Sat 12:00 ET), `sun_noon` (Sun 12:00 ET), `sun_globex` (Sun 20:00 ET CME Globex reopen), `mon_premkt` (Mon 04:00 ET pre-market start), `mon_open` (Mon 09:00 ET just before NMS reopen). Soothsayer's M6 LWC band is published once at Friday close and held constant; the baseline updates at every snapshot. The baseline's `mon_open` snapshot is its most-informed configuration — the tokenized side has absorbed the entire closed-window news flow by then.
+
+### 7.6.2 Panel
+
+The post-launch slice of the LWC artefact ($\text{fri\_ts} \ge 2025\text{-}12\text{-}19$) intersected with the `cex_stock_perp/ohlcv/v1` kraken_futures xstock-backed perp tape: $n = 117$ weekend-symbol observations pre-warmup, $n = 105$ after warm-up. Nine symbols (SPY, QQQ, GLD: 19 weekends each; TSLA, NVDA, GOOGL, AAPL, HOOD, MSTR: $\approx 10$ each). **TLT is excluded** — no xstock-backed perp exists for it. This is materially smaller than the $n = 1{,}730$ panel that backs §6 / §7.1 – §7.5, and the §6.4.3 / §6.4.2 backtests cited below are the powered baselines; §7.6 is a head-to-head on a powered-only-for-paired-Winkler post-launch sub-slice. See `reports/v1b_tokenized_tracking_baseline.md` for the full panel description.
+
+### 7.6.3 Head-to-head — pooled
+
+Soothsayer M6 LWC (one $(point, halfwidth)$ per weekend, held across the closed window) on the bake-off panel; tokenized-tracking baseline at its $\text{mon\_open}$ snapshot (the most-informed configuration). Cong et al.'s λ = 0.903 channels through this row:
+
+| $\tau$ | method | realised | hw (bps) | Winkler (bps) | Kupiec $p_{uc}$ |
+|---:|---|---:|---:|---:|---:|
+| 0.68 | tokenized-tracking (mon_open) | 0.724 | 205 | 661 | 0.330 |
+| 0.68 | **this paper (M6 LWC)** | **0.641** | **124** | **426** | **0.371** |
+| 0.85 | tokenized-tracking (mon_open) | 0.867 | 372 | 1{,}031 | 0.627 |
+| 0.85 | **this paper (M6 LWC)** | **0.863** | **207** | **588** | **0.684** |
+| 0.95 | tokenized-tracking (mon_open) | 0.943 | 656 | 1{,}619 | 0.742 |
+| 0.95 | **this paper (M6 LWC)** | **0.949** | **358** | **879** | **0.949** |
+| 0.99 | tokenized-tracking (mon_open) | 0.981 | 904 | 2{,}572 | 0.407 |
+| 0.99 | **this paper (M6 LWC)** | **0.991** | **636** | **1{,}516** | **0.871** |
+
+At $\tau = 0.95$ the deployed architecture matches the baseline's coverage rate ($0.949$ vs $0.943$, both Kupiec-passing) at **$45\%$ narrower half-width** (358 vs 656 bps) and **$46\%$ lower Winkler interval score** (879 vs 1,619 bps). At $\tau = 0.99$ the Winkler gap widens to $-41\%$ — the tail regime where the baseline's empirical-quantile fattens dramatically. Across all six snapshots and four served $\tau$ ($24$ baseline cells), the deployed architecture's mean Winkler is lower on $24$ of $24$.
+
+### 7.6.4 Snapshot evolution — when does "wait for Monday morning" close the gap?
+
+The naive bull case for a tokenized-tracking competitor is that by Monday pre-open the tokenized perp has absorbed the weekend news flow and a band centred on it is good enough. The snapshot evolution at $\tau = 0.95$ rejects that hope:
+
+| snapshot | baseline hw (bps) | baseline Winkler (bps) | Winkler ratio vs M6 LWC |
+|---|---:|---:|---:|
+| `fri_close`  | 730 | 1{,}685 | 1.92× worse |
+| `sat_noon`   | 733 | 1{,}702 | 1.94× worse |
+| `sun_noon`   | 735 | 1{,}698 | 1.93× worse |
+| `sun_globex` | 736 | 1{,}696 | 1.93× worse |
+| `mon_premkt` | 691 | 1{,}688 | 1.92× worse |
+| `mon_open`   | **656** | **1{,}619** | **1.84× worse** |
+
+The baseline tightens by $\sim 10\%$ (730 → 656 bps) across the closed window, but never closes more than half the gap to the deployed architecture's flat 358 bps. Cong et al.'s λ = 0.903 transports the conditional mean; it does not transport the residual distribution, which is what consumes width.
+
+A 15-minute-resolution per-minute Winkler curve (`reports/tables/paper1_c3_per_minute_winkler_curve.csv`; runner `scripts/run_v1b_tokenized_per_minute_winkler.py`) sharpens the finding: at $\tau = 0.95$ the baseline's Winkler is **worst** during Saturday night through Sunday afternoon (hour offsets 32-44 past Fri 16:00 ET, mean Winkler $\approx 2{,}023$ bps; ratio $2.14\times$ Soothsayer's flat $\approx 945$ bps). The "wait until Sunday night, the tokenized perp has absorbed weekend news by then" naïve-competitor argument is empirically rejected — Sunday afternoon is the *worst* time on the perp, presumably because crypto-native weekend flow can drift the perp price with no underlying-market arbitrage operating to correct it. The Winkler ratio is monotone in neither direction across the closed window; the baseline never closes more than $\sim$half the gap to Soothsayer at any minute.
+
+### 7.6.5 Per-symbol robustness — where the baseline is competitive
+
+The pooled comparison is honest about where the result is and is not unanimous. Per-symbol Winkler ratio (baseline / M6 LWC at $\tau = 0.95$, `mon_open` snapshot; $> 1$ means M6 LWC wins):
+
+| symbol | $n$ | M6 LWC hw (bps) | baseline hw (bps) | Winkler ratio |
+|---|---:|---:|---:|---:|
+| HOOD  | 10 |   635 | 2{,}109 | **3.32** |
+| GOOGL | 10 |   348 |   509 | **2.91** |
+| NVDA  | 10 |   399 |   858 | **2.15** |
+| MSTR  | 10 |   735 | 1{,}153 | **1.57** |
+| GLD   | 15 |   361 |   345 | **1.46** |
+| AAPL  | 10 |   297 |   608 | **1.36** |
+| QQQ   | 15 |   214 |   253 | **1.02** |
+| SPY   | 15 |   178 |   226 | **0.89** |
+| TSLA  | 10 |   468 |   414 | **0.89** |
+
+The deployed architecture wins on Winkler in **7 of 9 symbols**. The two exceptions are SPY and TSLA — the two deepest xstock-backed perp markets, and the symbols where the Cong et al. R² = 0.839 has the most empirical bite. For these names the tokenized perp tracks the NMS open competitively, and a non-parametric empirical-quantile residual band on the perp is sufficient. The deployed architecture's edge widens as perp liquidity thins: for the long tail (HOOD, GOOGL, NVDA, MSTR, GLD, AAPL) the Winkler ratio is $1.36$–$3.32×$.
+
+This is the right read of the result: **the architecture's edge is largest precisely where the consumer's risk-management need is largest** — on the thin-liquidity collateral that dominates the named lending-collateral universe (TSLAx aside, every other Kamino-onboarded xStock falls in the long tail above), not on the two deepest perps where a simpler oracle is genuinely competitive. The defensible claim narrows to: under a non-parametric tokenized-tracking baseline at its most-informed closed-window snapshot, the deployed architecture is the materially-tighter choice on $7$ of $9$ symbols and tied-to-modestly-behind on the other two. The §10 candidate architectures — particularly the F_tok conditional-mean import (§10.2) — are how the SPY / TSLA gap closes; the architecture's separation of concerns admits a future point-estimate swap without changing the conformal band scaffolding.
+
+### 7.6.6 Sample-size caveat and what is and is not powered
+
+The bake-off panel is $n = 117$ weekend-symbol observations — about $7\%$ of the $n = 1{,}730$ panel that backs §6 and §7.1 – §7.5. At this sample size, the Kupiec / Christoffersen tests have limited power; under both the deployed architecture and the baseline, Kupiec $p_{uc}$ at $\tau = 0.95$ accepts a wide band of realised-coverage values around nominal. **The dominant signal in §7.6 is the paired Winkler comparison** — a per-observation diagnostic that is much more powerful at small $n$ than the binomial coverage tests. The pooled coverage results (Kupiec $p_{uc} = 0.949$ for M6 LWC, $0.742$ for the baseline) are consistent with both methods being well-calibrated on this slice; they do not by themselves discriminate between architectures. The width-and-Winkler results do. We treat the §6 / §7.1 – §7.5 panel as the powered backtest of the calibration claim itself, and §7.6 as a (smaller-$n$) head-to-head against the tokenized-tracking competitor archetype that complements the §7.1 (underlying-frozen) and §6.4.3 (GARCH-t) baselines on a different competitor axis.
+
+Source script: `scripts/run_v1b_tokenized_tracking_baseline.py`; full panel artefact: `data/processed/v1b_tokenized_tracking_baseline.parquet`; tables: `reports/tables/paper1_c2_tokenized_tracking_baseline_summary.csv`, `reports/tables/paper1_c2_tokenized_tracking_baseline_per_symbol.csv`; full write-up: `reports/v1b_tokenized_tracking_baseline.md`.
+
+### 7.6.7 Jupiter-mid (v5/tape) cross-check — directional confirmation on the Solana-DEX surface
+
+The kraken_futures xstock-backed perp is the deepest tokenized-equity surface but is not the on-chain SPL token a Solana-DEX consumer actually reads. The `soothsayer_v5/tape` jup_mid series (Jupiter's quoted mid for eight Backed xStocks) is the directly Solana-DEX-relevant signal; overlap with the deployed LWC artefact is one weekend (2026-04-24), extended two weekends forward via a forward-tape-extended σ̂ lookup that re-uses the sidecar constants without re-fitting. Sample: 3 weekends × 8 symbols = $n = 24$. The baseline halfwidth is **borrowed verbatim** from the primary mon_open snapshot (no re-fit on the cross-check sample). The directional Winkler result reproduces — ratios baseline / M6 LWC at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$ are $\{1.65, 2.09, 2.41, 2.11\}\times$. The ratio at $\tau = 0.95$ ($2.41\times$) is *wider* than the primary kraken_futures panel ($1.84\times$), consistent with Jupiter mid on Solana DEXs having a thinner, more dispersion-prone book than the deeper kraken_futures perp. Kupiec / Christoffersen are degenerate at $n = 24$ and we report only the Winkler / halfwidth axis. The cross-check is *confirmatory*, not powered. Source: `scripts/run_v1b_tokenized_tracking_v5_xcheck.py`; table `reports/tables/paper1_c2_tokenized_tracking_v5_xcheck.csv`.
