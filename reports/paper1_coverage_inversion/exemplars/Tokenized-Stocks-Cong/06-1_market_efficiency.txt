@@ -1,0 +1,48 @@
+# 6 / 6.1 Market Efficiency and Price Discovery
+# Source pages: 41–41 of Tokenized-Stocks-Cong.pdf
+
+Table 10. Price discovery during off-hours. This table reports regressions of the underlying stock’s close-to-open return on the cumulative return of the corresponding tokenized stock during off-hours when the primary exchange is closed. The sample comprises the top 100
+tokenized stocks by market capitalization as of September 2025. Time and token fixed effects are included. Standard errors are clustered at
+the token level. ***, **, and * denote statistical significance at the 1%, 5%, and 10% levels, respectively.
+Close-to-open stock return
+
+6
+
+Cumulative token return
+
+0.903***
+(22.099)
+
+N
+Adjusted R2
+Time FE
+Token FE
+
+1913
+0.839
+Yes
+Yes
+
+Economic Implications and Future Research
+The emergence of tokenized equities raises several important implications and open questions for accounting
+
+academics, practitioners, and regulators. In this section, we discuss these issues in light of our findings and outline
+directions for future inquiry.
+
+6.1
+
+Market Efficiency and Price Discovery
+One fundamental question is whether a near-24/7 market leads to more efficient pricing of assets. Our evidence
+
+shows that token markets quickly incorporate information outside of standard hours, effectively extending the
+price discovery process. In theory, this could reduce the stale pricing periods and improve overall market efficiency,
+as prices adjust continuously rather than waiting for the next market opening to reflect new information. This is
+akin to moving from call auctions to continuous trading in the history of exchanges.
+However, the benefit is only realized if the continuous market is liquid enough. In our data, off-hour token
+trading is often thin, which can result in noisy signals in which prices bounce on little volume. An inefficient continuous market could, paradoxically, introduce inefficiency—for example, if a false rumor on a Saturday causes the
+token price to crash with no circuit breaker, some traders might panic, or algorithms might feed off that, only for
+it to revert when humans intervene. Traditional markets, by being closed, sometimes act as a cooling-off period,
+though at the cost of delaying price reactions to new information. Which is preferable depends on one’s view of
+rationality and need for cooling off. Newbery (2025) notes concerns that 24/7 trading might lead to more emotional or impulsive trading because people can react instantly at any hour, potentially harming the returns of retail
+
+41

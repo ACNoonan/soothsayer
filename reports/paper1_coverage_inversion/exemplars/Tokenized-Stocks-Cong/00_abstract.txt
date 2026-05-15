@@ -1,0 +1,56 @@
+# 0 Title page + Abstract
+# Source pages: PDF p. 1 (unnumbered) of Tokenized-Stocks-Cong.pdf
+
+TOKENIZED STOCKS
+Lin William Cong*
+
+Wayne Landsman†
+Che Zhang¶
+
+Daniel Rabetti‡§
+
+Wenqi Zhao∥
+
+December 2025
+
+Abstract
+Tokenized stocks—blockchain-based representations of traditional equities—are reshaping how markets incorporate
+information. They enable continuous 24/7 trading, global accessibility to several trading platforms, and fractional ownership. Leveraging a novel dataset covering the hundreds of tokenized stocks launched since July 2025, we provide the
+first empirical assessment of this market, with a focus on price discovery under continuous fractional trading. While
+token markets remain small ($420M market capitalization), they exhibit several economically meaningful dynamics:
+(i) tokenized stocks incorporate value-relevant news (e.g., earnings announcements) in real time, including announcements released on weekends; (ii) token prices closely track their underlying stocks during regular trading hours but
+can deviate modestly during off-hours when primary markets are closed; (iii) off-hour trading redistributes the traditional Monday return, with weekend price movements anticipating rather than amplifying subsequent stock market
+openings; (iv) fractionalization enables a high volume of micro-trades without persistent mispricing, consistent with
+effective arbitrage; and (v) short-horizon off-hour token returns exhibit reversals, highlighting the role of liquidity and
+market microstructure when only one trading venue is open. Our results provide a comprehensive empirical assessment
+of tokenized stocks, offering early insights with broad implications for market efficiency, disclosure, and investor access
+as traditional equity exposure migrates to fast-growing crypto markets.
+
+JEL classification: G12, G14, G15, G18, G19, G29, M41, M42, M48, K22, K24, O16.
+Keywords: DeFi, tokenized stocks, value-relevant news, price discovery, continous trading, micro trading.
+
+* Cornell University, NBER, and ABFER, cong@cornell.edu.
+
+†
+
+University of North Carolina, wayne_landsman@unc.edu.
+Corresponding Author: NUS Business School, 15 Kent Ridge Drive, Singapore, 119245, rabetti@nus.edu.sg.
+§
+Harvard Business School (visiting) and ABFER, drabetti@hbs.edu.
+¶
+Tsinghua University, zhangche@sem.tsinghua.edu.cn.
+∥
+National University of Singapore, zhao_wenqi@u.nus.edu.
+‡
+
+0
+
+We thank Lin Chen, Renbao Chen, Stephen Dimmock, Cam Harvey, Allaudeen Hameed, Emir Hrnkic, Erica Li, Yupeng Lin, Evgeny Lyandres,
+Mei Luo, Danqing Mei, Karsten Muller, Shiva Rajgopal, Dan Su, Johan Sulaeman, Xuan Tian, David Reeb, Eswar Prasad, Simon Mayer, Yen Teik
+Lee, Charles Wang, Alminas Zaldokas, and Jin Zhao, as well as discussions at the European Bank Authority, Monetary Authority of Singapore,
+Harvard Business School, Cheung Kong Graduate School of Business, Harvard Business School, National University of Singapore, PBC Tsinghua
+University, Bank of Japan, Securities and Exchange Commission, International Monetary Fund, and Hong Kong University for invaluable comments
+and suggestions. Rabetti thanks the Digital Economy and Financial Technology (DEFT) Lab at Cornell Fintech Initiative, the Research Center
+for Digital Financial Assets at Tsinghua University, and the Asian Institute of Digital Finance (AIDF) at the National University of Singapore for
+extended discussions. Zhang acknowledges financial support from the National Natural Science Foundation of China (grant no. 72502128). Zekun
+Bian, Shimin Cui, Suyao Liu, Qianyu Wang, Li Ziting, Shimin Zhang, and Xinyi Zhang provided excellent research assistance.

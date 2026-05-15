@@ -1,0 +1,85 @@
+# 4.6 Return Distributions by Day of Week
+# Source pages: 26–26 of Tokenized-Stocks-Cong.pdf
+
+Panel A. Tesla: Tokenized vs. underlying price
+460
+
+xStock
+Ondo
+Underlying
+
+Price (USD)
+
+440
+
+420
+
+400
+
+380
+
+360
+
+340
+
+09 Sep 2025
+
+13 Sep 2025
+
+17 Sep 2025
+
+21 Sep 2025 25 Sep 2025
+Time (ET)
+
+29 Sep 2025
+
+03 Oct 2025
+
+07 Oct 2025
+
+03 Oct 2025
+
+07 Oct 2025
+
+Panel B. Tesla: Cross-platform differentials
+50
+
+xStock − Ondo
+xStock − Underlying
+Ondo − Underlying
+
+Price differentials (USD)
+
+40
+30
+20
+10
+0
+−10
+09 Sep 2025
+
+13 Sep 2025
+
+17 Sep 2025
+
+21 Sep 2025 25 Sep 2025
+Time (ET)
+
+29 Sep 2025
+
+Figure 7. Tesla (TSLA) tokenized stock prices versus underlying equity. Panel A plots Tesla tokenized prices against the underlying
+stock price. The underlying stock prices are forward-filled to align with continuous token trading. Panel B presents cross-platform and
+token-versus-underlying price differentials, where positive values indicate a premium relative to the reference price.
+
+4.6
+
+Return Distributions by Day of Week
+We next analyze daily returns (close-to-close percentage changes) by day of the week. Figure 10 presents the
+
+return distribution for the underlying stock and its tokenized counterparts, using Tesla, Nvidia, and Alphabet as
+examples. The underlying stock returns are only defined from Monday to Friday, whereas the tokenized stocks
+exhibit returns throughout the week.
+The xStock and Ondo boxplots show non-zero return distributions over weekends, while their Monday return
+distributions are generally less extreme than those of the underlying stock. This pattern suggests that tokenized
+
+26

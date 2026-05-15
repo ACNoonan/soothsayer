@@ -1,0 +1,36 @@
+# 4 / 4.1 TSLAx Market Activity (First 3 Months)
+# Source pages: 18–18 of Tokenized-Stocks-Cong.pdf
+
+Overall, these mechanisms define a rich microstructure environment in which tokenized equities serve both
+as complements and as challengers to traditional trading windows. The empirical analyses that follow evaluate
+how these mechanisms manifest in practice through co-movement patterns, return redistribution across the weekend, deviations from fundamentals, arbitrage dynamics, and information flows across decentralized and traditional
+trading venues.
+
+4
+
+Descriptive Insights
+Tokenized Tesla (TSLAx) is one of the newly launched xStocks on Solana, a platform that brings real U.S. equi-
+
+ties on-chain. Backed Finance launched over 60 tokenized stocks, such as NVDAx and TSLAx, on June 30, 2025.
+Each TSLAx token is fully backed 1:1 by a real Tesla share held in custody, and trades as an SPL token on Solana.
+These tokens enable 24/7 trading and settlement globally, bypassing intermediaries and traditional market hours.
+In practice, non-US traders can now trade TSLAx around the clock with just a Solana wallet and USDC. This
+innovation has driven explosive volumes: within 6 weeks of launch, xStocks saw roughly $2.1B of cumulative trading volume, about $0.5B of which occurred on-chain. Solana captured the majority (≈58%) of tokenized stock
+trading volume by mid-2025, underlining its dominance for on-chain equities. The Solana xStocks design also includes programmable compliance, for example KYC gating, and supports composability with DeFi: tokens can be
+swapped, pooled in AMMs, or used as collateral in lending markets.
+
+4.1
+
+TSLAx Market Activity (First 3 Months)
+Figure 1 shows TSLAx trading price since launch. Starting around $330 in late-June 2025, the price trended
+
+upwards in line with Tesla equity, rising to roughly $440 by late September. Several price jumps coincide with
+major events, such as Tesla earnings and the debut of leverage on exchanges. These price levels are consistent with
+on-chain xStock quotes and reflect the underlying NASDAQ TSLA price.
+Daily trading activity on Solana AMMs, including Raydium and Orca, has been robust (Figure 2). At its trading
+volume peak around late September, TSLAx saw daily volumes on the order of $2–2.5 million in Panel A, with 10–
+12K daily trades in Panel B. In general, daily buy and sell volumes are roughly balanced. Overall, TSLAx DEX
+trading records weekly trading volumes in the millions of dollars, with thousands of trades per week.
+On-chain transfer activity, not shown here, similarly exhibits thousands of transfers per day. The TSLAx supply
+has grown in steps to meet demand, increasing from 40K tokens at launch to 60K by October. The number of
+18

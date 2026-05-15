@@ -1,0 +1,42 @@
+# 3 / 3.1 Setting + 3.2 Data
+# Source pages: 14–14 of Tokenized-Stocks-Cong.pdf
+
+3
+
+Setting, Data, and Framework
+
+3.1
+
+Setting
+Our empirical setting leverages the emergence of tokenized equities—blockchain-based representations of tra-
+
+ditional stocks that trade continuously and in fractional units. These instruments mirror the economic value of the
+underlying shares, typically backed one-to-one by custodial holdings, while transacting on decentralized or hybrid
+crypto infrastructures. Two dominant issuers—Backed Finance and Ondo Finance—jointly account for over 95%
+of the market capitalization of tokenized equities, amounting to $420 million as of October 2025. Their contrasting
+market architectures provide natural variation for studying how trading design affects information incorporation
+and liquidity.
+Backed Finance’s xStocks enable 24/7 decentralized trading across multiple blockchains, primarily on Solana,
+with cross-chain versions on Ethereum and BNB. Tokens can be swapped peer-to-peer on decentralized exchanges
+such as Raydium or Orca, and balances update automatically for dividends through programmable contracts. By
+contrast, Ondo Finance’s Ondo Global Markets operates on Ethereum and restricts minting and redemption to
+U.S. market hours, effectively a 24/5 regime synchronized with the underlying exchanges. These design choices
+create meaningful contrasts in market openness, liquidity timing, and investor composition—Backed’s user base is
+predominantly retail and global, while Ondo’s participation skews institutional.
+Each token trades as a bearer instrument on-chain, typically against USD-denominated stablecoins such as
+USDC. Settlement occurs within seconds, eliminating the T+1 delay characteristic of traditional equity markets.
+The blockchain infrastructure thus allows continuous trading, global access, and fractional participation. Yet, it
+also introduces new frictions: fragmented liquidity across chains, varying transaction costs (notably on Ethereum),
+and regulatory segmentation with Backed in Switzerland and Ondo under U.S. exemptions. This environment
+provides a quasi-experimental laboratory to examine how continuous trading, fractionalization, and decentralized
+settlement alter price discovery relative to conventional exchanges.
+
+3.2
+
+Data
+Our dataset integrates on-chain, off-chain, and market-level information for the top 100 most liquid tokenized
+
+stocks listed by Backed Finance and Ondo Finance between July and October 2025. The construction proceeds in
+three steps.
+
+14

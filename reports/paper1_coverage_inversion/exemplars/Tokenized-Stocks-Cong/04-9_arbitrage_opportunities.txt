@@ -1,0 +1,59 @@
+# 4.9 Arbitrage Opportunities (Threshold Exceedance)
+# Source pages: 31–31 of Tokenized-Stocks-Cong.pdf
+
+day t + 1 on weekdays (with 09:00 used in place of the market open due to the hourly frequency of token prices)
+and 09:00 on day t to 09:00 on day t + 1 on weekends. This measures how far tokens diverge overnight or over the
+weekend before converging. Figure 12 plots the daily maximum slippage of Tesla, NVIDIA, and Alphabet over the
+analysis period.
+14
+
+Tesla
+Nvidia
+Alphabet
+
+Daily Max Slippage (%)
+
+12
+10
+8
+6
+4
+2
+0
+06 Sep 2025
+
+10 Sep 2025
+
+14 Sep 2025
+
+18 Sep 2025
+22 Sep 2025
+Date (ET)
+
+26 Sep 2025
+
+30 Sep 2025
+
+04 Oct 2025
+
+Figure 12. Daily maximum slippage (xStocks vs. underlying stocks). The figure presents the daily maximum absolute percentage
+deviations of xStock tokenized stock prices from Yahoo closing prices of Tesla, NVIDIA, and Alphabet.
+
+The largest deviations typically correspond to weekend closures where news or order imbalance occur. For
+instance, Tesla’s 14% slippage, driven by the pre-market news on September 15, is attributed to the September 14
+weekend interval. By contrast, overnight slippage from Monday to Thursday are generally minor. Overall, slippage is modest in most case, with extreme divergences tied to material news events, and any larger gaps are quickly
+arbitraged away by the next trading session.
+Notably, Tesla’s token exhibited both the highest volatility and the largest single-day slippage. This aligns with
+Tesla’s reputation for significant news and trader interest. Nvidia and Alphabet tokens had low slippage, mostly
+under 2%, reflecting more efficient pricing or fewer off-hour surprises. Our findings suggest that for blue-chip
+stocks, tokenized markets generally stay in sync with underlying prices, with slippage on the order of a few percent
+or less. Larger deviations only arise in exceptional circumstances, such as major off-hour news, and are corrected
+when markets reopen.
+
+4.9
+
+Arbitrage Opportunities (Threshold Exceedance)
+Finally, we assess how often sizable arbitrage opportunities arise, measured by instances when the price gap be-
+
+tween platforms exceeded certain thresholds. Table 4 summarizes the frequency with which the token price deviated
+31

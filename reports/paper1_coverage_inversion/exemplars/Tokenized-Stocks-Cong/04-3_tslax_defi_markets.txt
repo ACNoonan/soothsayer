@@ -1,0 +1,286 @@
+# 4.3 TSLAx DeFi Markets
+# Source pages: 20–22 of Tokenized-Stocks-Cong.pdf
+
+Panel A. Buy and sell volumes
+2.5
+
+Buy volume
+Sell volume
+
+Volume (USD Millions)
+
+2.0
+
+1.5
+
+1.0
+
+0.5
+
+0.0
+12 Jul 2025
+
+26 Jul 2025
+
+09 Aug 2025
+
+23 Aug 2025
+06 Sep 2025
+Date (UTC)
+
+20 Sep 2025
+
+04 Oct 2025
+
+20 Sep 2025
+
+04 Oct 2025
+
+Panel B. Total number of trades
+16000
+14000
+
+Total trades
+
+12000
+10000
+8000
+6000
+4000
+2000
+12 Jul 2025
+
+26 Jul 2025
+
+09 Aug 2025
+
+23 Aug 2025
+06 Sep 2025
+Date (UTC)
+
+Figure 2. TSLAx DEX trading activity. Panel A shows the daily buy and sell volumes of TSLAx. Panel B plots the daily total number of
+trades.
+
+4.3
+
+TSLAx DeFi Markets
+Beyond spot trading, TSLAx has already been integrated into DeFi protocols. By mid-July 2025, TSLAx was
+
+added as collateral on Kamino Finance, Solana’s leading lending market with $4 billion in total value locked. This
+allows users to borrow against their TSLAx positions, as with other tokens, without selling their exposure. Industry commentaries also highlights this milestone17 . Such collateral use-cases extend TSLAx utility into lending/borrowing and margin.
+Daily on-chain DeFi activity (swaps, liquidity actions, deposits) has followed an upward trend, as illustrated in
+Figure 4. In late September/early October, the number of daily TSLAx-related DeFi operations regularly exceeded
+17
+
+See https://www.gate.com/crypto-wiki/article/how-active-is-the-tslax-community-in-2025
+
+20
+
+
+50
+
+47.8%
+
+Distribution (%)
+
+40
+30.2%
+
+30
+
+18.7%
+
+20
+
+10
+2.9%
+
+0
+
+<$10
+
+$10-$100
+
+$100-$1k
+
+$1k-$10k
+
+0.3%
+
+0.0309%
+
+0.0005%
+
+$10k-$100k
+
+$100k-$1M
+
+>$1M
+
+Transfer value
+
+Figure 3. Distribution of TSLAx transfer values (first 3 months). The histogram reports the distribution of TSLAx transactions by
+transfer value.
+12000
+Number of activities
+Number of traders
+10000
+
+Count
+
+8000
+
+6000
+
+4000
+
+2000
+
+0
+
+27 Sep 2025
+
+29 Sep 2025
+
+01 Oct 2025
+
+03 Oct 2025
+Date (UTC)
+
+05 Oct 2025
+
+07 Oct 2025
+
+09 Oct 2025
+
+Figure 4. Daily number of activity of TSLAx. The figure plots the daily number of activities (blue line) and the number of unique
+traders (orange line) over the sample period.
+
+5–10K per day, with the number of distinct traders reached 0.5–2K per day. In total, TSLAx saw roughly 96,000
+swap transactions in 3 months, including token and aggregated swaps, totaling over $20M in volume. In addition,
+there were several thousand liquidity-add/remove events of approximately $4.8 million in volume, according to
+protocol analytics. This level of activity indicates real engagement, as TSLAx has liquidity pools on major AMMs
+and is available through wallet-based swaps interfaces such as Jupiter.
+Table 1 shows that the types of DeFi actions are concentrated in trading: aggregated and direct token swaps
+account for the vast majority of TSLAx DeFi volume. Liquidity provision is present but smaller, typically accounting for a few percent of total volume. Moreover, Table 2 indicates that most of the on-chain trading volume flows
+
+21
+
+
+through centralized exchange deposit addresses and AMM pools. For example, in the first three months, Binance
+and Gate.io deposit accounts received about $31 million and $25 million of TSLAx, respectively. Major Raydium
+and Orca pool accounts also handled multi-million-dollar flows. For example, the Raydium TSLAx–USDC pool
+saw on the order of $6–7M in both inflows and outflows. Notably, daily inflows and outflows often roughly balance, yielding small net flows, since tokens circulate through DeFi liquidity channels.
+Table 1. Distribution of TSLAx activity types. This table reports the number of activities and the total transaction volume for each
+activity type observed for TSLAx. Monetary values are reported in U.S. dollars (USD). “M” and “K” denote million and thousand, respectively.
+Activity type
+
+No. Activities
+
+Total Volume (USD)
+
+41,113
+55,396
+1,112
+2,108
+63
+97
+108
+3
+
+11.17M
+9.16M
+2.44M
+2.38M
+740.02K
+448.71K
+204.38K
+–
+
+Token Swap
+Aggregated Token Swap
+Add Liquidity
+Remove Liquidity / Fees
+Withdraw / Claim
+Deposit Vault
+Place Order
+Create Pool
+
+Table 2. Top on-chain inflows and outflows of TSLAx. This table reports the largest on-chain inflows (Panel A) and outflows (Panel B)
+of TSLAx over a three-month window. For each account, the table lists the number of transfers and the total U.S. dollar value transferred.
+Account
+
+Number of Transfers
+
+Total Value Transferred (USD)
+
+Panel A. Top inﬂow
+Binance 2
+Gate.io
+Raydium Vault Authority #2
+Raydium Authority V4
+Raydium (CRCLx–USDC) Market
+Raydium (TSLAx–USDC) Market
+Orca (SOL–HNT) Market
+Raydium (WSOL–TSLAx) Market
+Orca (TSLAx–USDC) Market
+Orca (WSOL–USELESS) Market
+
+443
+4,300
+31,959
+31,558
+18,202
+15,147
+21,209
+13,581
+13,165
+8,269
+
+31,165,159.32
+25,362,257.00
+14,305,780.95
+9,489,036.48
+7,011,168.64
+6,832,747.79
+6,508,949.28
+5,228,253.38
+3,836,512.41
+3,719,853.25
+
+Panel B. Top outﬂow
+3MnDSR...ExtzB8
+3gX2YN...tkHPrT
+Raydium Vault Authority #2
+Raydium Authority V4
+Raydium (CRCLx–USDC) Market
+Raydium (TSLAx–USDC) Market
+Orca (SOL–HNT) Market
+Raydium (WSOL–TSLAx) Market
+D7z1V8...vFg6A6
+Orca (TSLAx–USDC) Market
+
+7,605
+142
+31,959
+31,558
+18,202
+15,147
+21,209
+13,581
+72
+13,165
+
+51,398,025.58
+16,782,739.62
+14,353,468.90
+9,510,323.89
+7,033,439.69
+6,844,229.13
+6,519,396.71
+5,240,974.27
+4,933,196.35
+3,838,819.51
+
+Overall, the picture is that TSLAx is fully composable in Solana DeFi. Any user or protocol can treat TSLAx
+22

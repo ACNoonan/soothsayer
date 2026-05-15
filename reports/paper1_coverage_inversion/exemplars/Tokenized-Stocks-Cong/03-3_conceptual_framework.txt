@@ -1,0 +1,30 @@
+# 3.3 Conceptual Framework (intro)
+# Source pages: 15–15 of Tokenized-Stocks-Cong.pdf
+
+First, we collect token-level trading data directly from public blockchain explorers, such as Solana Explorer
+and Etherscan, and DeFi analytics interfaces including Jupiter, Orca, and Raydium. These data include transaction identifiers, wallet addresses, timestamps, quantities, token prices, and counterparty types. For Solana-based
+xStocks, we record over 2.1 million transactions across 60 tickers during the first three months post-launch. Each
+transaction is denominated in USDC and timestamped at the block level, enabling continuous intraday aggregation. We also obtain on-chain metrics—such as transfers, distributions, and holder counts—from Solana explorer
+analytics.
+Second, we merge these token prices with corresponding underlying stock prices from Yahoo Finance. For each
+token–stock pair, for example TSLAx–TSLA, we align observations using Eastern Time (ET) to ensure consistency
+with U.S. equity market hours. This allows us to measure (i) deviations between tokenized and listed prices, (ii)
+off-hour returns, and (iii) return redistributions across weekdays and weekends. To study price co-movement, we
+compute token–stock differentials and cross-platform spreads across xStock and Ondo.
+Third, we complement market-wide indicators with micro-structure and holder-level metrics. Wallet distributions reveal that over 78% of all token transfers are under $100 in value, underscoring the dominance of microtrading and retail participation. The median daily trading volume per token is approximately $58 thousand, with
+highly skewed liquidity—Tesla, Apple, and Nvidia account for most turnover. Additional DeFi integrations, such
+as TSLAx as collateral in Kamino Finance, expand our analysis to secondary uses of tokenized equities.
+All price and volume data are resampled to a uniform hourly frequency to match continuous blockchain time
+with traditional daily stock-market intervals. Token data are cleaned for anomalous transactions, including test
+mints and airdrops, and cross-checked against issuer-reported supply curves. Market capitalization and token count
+are obtained from Backed Finance and Ondo Finance dashboards as of October 2025.
+
+3.3
+
+Conceptual Framework
+Asset prices summarize a firm’s fundamental value, with market price reflecting the information set captured
+
+by accounting and non-accounting data (Ohlson, 1995). The extent to which such information is incorporated is
+contingent on the institutional environment in which trading occurs. Consequently, when these institutional features change, the mapping from information to prices may strengthen or weaken accordingly (Barth et al., 2008).
+Tokenized equities represent a shift in this institutional mapping by incorporating three structural features: (i)
+continuous and global 24/7 trading, (ii) granular fractional ownership, and (iii) decentralized settlement infrastructure. These features jointly reshape the temporal and cross-venue mechanics of price discovery relative to tradi15

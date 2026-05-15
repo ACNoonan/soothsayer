@@ -1,0 +1,116 @@
+# References / Appendix
+# Source pages: 47–50 of Tokenized-Stocks-Cong.pdf
+
+kenized stocks partially impound news during off-hours, redistribute return timing over weekends, and enable
+high-frequency micro-trading without persistent mispricing. These results suggest that blockchain-based trading
+venues can support timely price discovery and broaden market participation.
+Looking ahead, tokenized markets may reshape how and when information enters prices, how corporate events
+are disseminated, and how investors access equity exposure. As adoption expands and regulatory clarity improves,
+these venues could evolve from experimental complements to meaningful extensions of public equity markets. Future research will be critical in understanding their impact on price discovery, volatility, and the global accessibility
+of financial markets.
+
+Declaration of generative AI and AI-assisted technologies in the writing process: During the preparation of this manuscript, the authors utilized AI tools for copyediting purposes, specifically to enhance readability
+and clarity, as well as to code LaTeX-based tables and figures. All substantive content, analysis, and interpretations
+are solely the authors’ own. The authors thoroughly reviewed and revised all AI-assisted edits in this manuscript.
+47
+
+
+References
+Aloosh, A. and Li, J. (2024). Direct evidence of bitcoin wash trading. Management Science, 70(12):8875–8921.
+Amiram, D., Jørgensen, B. N., and Rabetti, D. (2022). Coins for bombs: The predictive ability of on-chain transfers
+for terrorist attacks. Journal of Accounting Research, 60(2):427–466.
+Amiram, D., Lyandres, E., and Rabetti, D. (2025). Trading volume manipulation and competition among centralized crypto exchanges. Management Science, 71(3):1369–1387.
+Anderson, C. M., Fang, V. W., Moon, J. R., and Shipman, J. E. (2025). Accounting for cryptocurrencies. Journal
+of Accounting Research, pages 00–00.
+Awyong, A. (2024). The role of disclosure in decentralized finance markets: Evidence from Twitter. Working
+paper. Available at http://dx.doi.org/10.2139/ssrn.5150613.
+Ball, R. and Brown, P. (1968). An empirical evaluation of accounting income numbers. Journal of Accounting
+Research, 6(2):159.
+Barth, M. E., Landsman, W. R., and Lang, M. H. (2008). International accounting standards and accounting
+quality. Journal of Accounting Research, 46(3):467–498.
+Bhambhwani, S. and Huang, A. H. (2024).
+
+Auditing decentralized finance.
+
+British Accounting Review,
+
+56(2):101270.
+Bourveau, T., Brendel, J., and Schoenfeld, J. (2024). Decentralized finance (DeFi) assurance: Early evidence.
+Review of Accounting Studies, 29:2209–2253.
+Bourveau, T., De George, E. T., Ellahie, A., and Macciocchi, D. (2022). The role of disclosure and information
+intermediaries in an unregulated capital market: Evidence from initial coin offerings. Journal of Accounting
+Research, 60(1):129–167.
+Brown, P. (2024). Tokenized markets and the limits of regulation. StarCompliance white paper. Available at
+https://www.starcompliance.com/tokenized-stocks-raise-big-questions-for-compliance-teams/.
+Cong, L., Harvey, C. R., Rabetti, D., and Wu, Z.-Y. (2025a).
+
+An anatomy of crypto-enabled cybercrimes.
+
+Management Science, 71(4):2751–3636.
+Cong, L. W., Grauer, K., Rabetti, D., and Updegrave, H. (2023a). Blockchain forensics and crypto-related cybercrimes. Book chapters. Available at http://dx.doi.org/10.2139/ssrn.4358561.
+Cong, L. W., He, Z., and Tang, K. (2023b). Tokenomics: Dynamic adoption and valuation. Review of Financial
+Studies, 36(5):2001–2048.
+Cong, L. W., Landsman, W. R., Maydew, E. L., and Rabetti, D. (2023c). Tax-loss harvesting with cryptocurrencies.
+Journal of Accounting and Economics, 76(2-3):101607.
+48
+
+
+Cong, L. W., Li, X., Tang, K., and Yang, Y. (2023d). Crypto wash trading. Management Science, 69(11):6427–6454.
+Cong, L. W., Mayer, S., and Rabetti, D. (2025b). Tokenizing real-world assets. Wharton Initiative on Financial
+Policy and Regulation (WIFPR) working paper.
+Cong, L. W., Rabetti, D., Wang, C. C., and Yan, Y. (2025c). Centralized governance in decentralized organizations.
+Harvard Business School Working Paper. Available at http://dx.doi.org/10.2139/ssrn.5168660.
+De Simone, L., Jin, P., and Rabetti, D. (2024). Tax planning, illiquidity, and credit risks: Evidence from DeFi
+lending. Working paper. Available at http://dx.doi.org/10.2139/ssrn.4764605.
+Fama, E. F. (1965). The behavior of stock-market prices. Journal of Business, 38:34–105.
+Fang, V. W., Da, Z., and Lin, W. (2024). Fractional trading. Review of Financial Studies. Advance Access publication 19 March 2024.
+Foley, S., Karlsen, J. R., and Putnins, T. J. (2019). Sex, drugs, and Bitcoin: How much illegal activity is financed
+through cryptocurrencies? The Review of Financial Studies, 32(5):1798–1853.
+Gefen, O., Rabetti, D., Sun, Y., and Zhang, C. (2024). Code-washing: Evidence from open-source blockchain
+startups. Working paper. Available at http://dx.doi.org/10.2139/ssrn.5068292.
+Harvey, C. R., Lin, C., Rabetti, D., and Zhang, C. (2025). Tokenized gold. Working paper. Available at https:
+//papers.ssrn.com/sol3/papers.cfm?abstract_id=5995434.
+Harvey, C. R. and Rabetti, D. (2024). International business and decentralized finance. Journal of International
+Business Studies, 55:840–863.
+Hasbrouck, J. (1995). One security, many markets: determining the contributions to price discovery. The Journal
+of Finance, 50(4):1175–1199.
+Hoopes, J. L., Menzer, T., and Wilde, J. H. (2022). Who sells cryptocurrency? Working Paper. Available at
+http://dx.doi.org/10.2139/ssrn.4261066.
+Hung, M., Li, X., and Wang, S. (2015). Post-earnings-announcement drift in global markets: evidence from an
+information shock. The Review of Financial Studies, 28(4):1242–1283.
+Karolyi, S., Ruchti, T., and Truong, P. (2025). Number processing constraints and earnings news. Management
+Science, 71(3):2413–2442.
+Knechel, W. R., Maex, S., and Park, H. J. (2025). The role of auditor reputation in an emerging audit marketplace:
+evidence from decentralized finance(Defi). Management Science, page mnsc.2023.02245.
+Landsman, W., Chen, L., Rabetti, D., and Zhang, C. (2025a). Beyond coding: Open-source innovation and startup
+growth. Working paper. Available at http://dx.doi.org/10.2139/ssrn.5840682.
+
+49
+
+
+Landsman, W. R., Lyandres, E., Maydew, E. L., Rabetti, D., and Zhang, C. (2025b). Auditing smart contracts.
+HKU Jockey Club Enterprise Sustainability Global Research Institute Archive. Available at https://dx.doi.org/
+10.2139/ssrn.5198563.
+Lee, S. W., Pinto, J., Rabetti, D., and Sadka, G. (2024). Blockchain-induced supply chain transparency and firm performance: The role of capacity utilization. Working paper. Available at http://dx.doi.org/10.2139/ssrn.4921795.
+Luo, M., Rabetti, D., and Yu, S. (2024). Blockchain adoption and audit quality. Working paper. Available at
+http://dx.doi.org/10.2139/ssrn.5074602.
+Luo, M. and Yu, S. (2024). Financial reporting for cryptocurrency. Review of Accounting Studies, 29:1707–1740.
+Lyandres, E., Palazzo, B., and Rabetti, D. (2022). Initial coin offering (ico) success and post-ico performance.
+Management Science, 68(12):8658–8679.
+Makarov, I. and Schoar, A. (2022). Blockchain analysis of the Bitcoin market. Working paper. Available at https:
+//dx.doi.org/10.2139/ssrn.3942181.
+Michaely, R., Rubin, A., and Vedrashko, A. (2016). Further evidence on the strategic timing of earnings news:
+Joint analysis of weekdays and times of day. Journal of Accounting and Economics, 62(1):24–45.
+Newbery, T. (2025). Why around-the-clock trading for stocks could be coming soon. Published on Nasdaq.com,
+https://www.nasdaq.com/articles/24-7-trading-coming-it-good-thing.
+O’Hara, M. (2015a). High frequency market microstructure. Journal of Financial Economics, 116(2):257–270.
+O’Hara, M. (2015b). Market Microstructure Theory. Blackwell Publishing.
+O’Hara, M., Bartlett, R. P., and McCrary, J. (2023). Tiny trades, big questions: Fractional shares and market
+microstructure. Journal of Financial Economics, 157:103836.
+Ohlson, J. A. (1995). Earnings, book values, and dividends in equity valuation. Contemporary Accounting
+Research, 11(2):661–687.
+Sokolov, K. (2021). Ransomware activity and blockchain congestion. Journal of Financial Economics, 141(2):771–
+782.
+Zhu, C. (2019). Big data as a governance mechanism. The Review of Financial Studies, 32(5):2021–2061.
+
+50

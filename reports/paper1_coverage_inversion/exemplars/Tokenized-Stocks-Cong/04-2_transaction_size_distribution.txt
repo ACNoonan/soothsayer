@@ -1,0 +1,57 @@
+# 4.2 Transaction Size Distribution and Fractional Trading
+# Source pages: 19–19 of Tokenized-Stocks-Cong.pdf
+
+440
+
+TSLAx
+TSLA
+
+420
+
+Price (USD)
+
+400
+380
+360
+340
+320
+300
+29 Jun 2025
+
+14 Jul 2025
+
+29 Jul 2025
+
+13 Aug 2025
+Date (ET)
+
+28 Aug 2025
+
+12 Sep 2025
+
+27 Sep 2025
+
+Figure 1. TSLAx and TSLA market price history (3-month view). This figure shows the daily TSLAx price together with the Tesla
+(TSLA) closing price over the period 30 June - 30 September 2025. TSLA prices on non-trading days are forward-filled to align with the
+continuous nature of token trading.
+
+distinct TSLAx holders has steadily risen from 10,000 in July to 14,000 in early October. This reflects growing
+retail adoption, as each new wallet can hold fractional shares and thereby lowering the barrier to entry.
+
+4.2
+
+Transaction Size Distribution and Fractional Trading
+Most TSLAx on-chain transfers are very small, as illustrated in Figure 3. Nearly half of all TSLAx transfers in
+
+the first 3 months were under $10 in value, and about 78% were under $100. Only a tiny fraction (≈0.3%) exceeded
+$10,000. In effect, small retail trades dominate the volume. This highlights the fractional nature of tokenized stocks:
+investors can move minute amounts, such as 0.01 TSLAx, corresponding to cents of value. Such micro-level trading
+is infeasible in traditional stock markets but becomes routine on-chain. The prevalence of sub-$100 trades suggests
+that TSLAx provides accessible U.S. equity exposure to many retail users.
+Solana’s xStocks architecture explicitly supports this inclusiveness: the foundation notes that tokenized equities
+offer “fractional ownership” and 24/7 global market access. In other words, TSLAx trading is inherently sliced into
+tiny units, which can greatly improve liquidity and participation. These micro-transactions align with the goal
+of financial inclusion: a trader in, say, India can buy a small fraction of a Tesla share on Solana without a broker
+account.
+
+19

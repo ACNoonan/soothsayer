@@ -1,0 +1,73 @@
+# 2 / 2.1 What Are Tokenized Stocks?
+# Source pages: 8–9 of Tokenized-Stocks-Cong.pdf
+
+2
+
+Institutional Background and Setting
+In this section, we provide an overview of tokenized equity markets and the institutional details of the major
+
+platforms studied. We explain how tokenized stocks operate in practice, including issuance, trading mechanisms,
+and differences between providers and blockchain platforms. Understanding these details is critical for interpreting
+our empirical results.
+
+2.1
+
+What Are Tokenized Stocks?
+Tokenized stocks are digital tokens on a blockchain that represent an economic interest in an underlying equity
+
+security. In substance, a tokenized stock functions much like a depository receipt or a share certificate: each token
+is backed 1:1 by a corresponding share held by a custodian in the fully collateralized model. For example, an Apple
+token, such as AAPLx or AAPLon depending on the issuer, represents one share of Apple Inc. held in custody by
+the token issuer or its banking partner. Investors who buy the token receive the financial returns of Apple stock.
+Increases in Apple’s share price are reflected in token prices, and dividends are designed to be passed through to
+token holders via changes in either token quantity or price. However, holding the token typically does not confer
+legal ownership of the share or shareholder rights such as voting or attending annual shareholder meetings. The
+token is purely an economic mirror of the stock.
+Two primary models exist for tokenized stocks: synthetic vs. fully backed. In the synthetic model, the token
+issuer might not hold the actual underlying shares but instead promises to pay the token holder the equivalent
+value. This is essentially a derivative contract and introduces counterparty risk. In contrast, the fully backed model,
+sometimes referred to as the “1:1 backed” or “wrapped” model, involves the issuer or a custodian holding the actual
+shares in reserve. Both Backed and Ondo follow the fully backed model for their public stock tokens, thereby
+providing more security to investors because the tokens are tied to real assets. There are also hybrid cases emerging,
+for instance, some platforms tokenizing private or pre-IPO stocks might hold contractual claims or special purpose
+vehicle interests rather than actual shares arising from legal complexities.13
+An important operational aspect is how tokens are created (minted) and destroyed (redeemed). Typically, eligible participants can deliver cash—often in the form of stablecoins such as USDC—to the issuer to mint new
+tokens, which triggers the issuer to buy the corresponding real shares in the market. Conversely, token holders can
+redeem tokens for cash equivalent to the underlying share value, and the issuer will subsequently retire or reallocate
+13
+
+See https://www.mexc.com/en-PH/news/tokenized-stock-market-dominated-by-only-two-players-study-reveals/117504.
+
+8
+
+
+the corresonding shares. This arbitrage mechanism is crucial in keeping the token’s price aligned with the stock’s
+price. If a token trades above the stock’s market price, arbitrageurs can mint new tokens, by buying stock and exchanging for tokens if permitted, and sell them, pushing the price down. If a token trades below the stock price,
+arbitrageurs can buy the cheap tokens and redeem them for the higher-valued share or cash, pushing the token
+price up. In practice, these actions may be subject to fees, Know Your Customer (KYC) or Anti-Money Laundering (AML) checks, and time lags. For example, Ondo only allows redemptions during market hours to ensure they
+can liquidate the shares. But the presence of any redemption/mint mechanism distinguishes these tokens from pure
+synthetic derivatives and should, in theory, tether prices more closely to fundamentals.
+Trading of tokenized stocks takes place on a cryptocurrency infrastructure. Unlike traditional stocks that trade
+on centralized exchanges such as the NYSE and NASDAQ via brokerage intermediaries, tokenized stocks trade on
+blockchain networks peer-to-peer. Investors use crypto wallets to hold tokens and can trade them on decentralized
+exchanges (DEXs) or through centralized crypto exchanges that list these tokens. For example, many Backed xStock
+tokens are listed on DEXs on Solana and decentralized finance platforms. There are also some centralized crypto
+exchanges—such as MEXC and Gate.io—that have listed tokenized stocks. Such exchanges effectively act as an
+interface for users to trade with order books, but settlement still occurs on-chain. One key point is that blockchains
+operate continuously. As a result, trading can occur at any time, and settlement is near-instant: trades typically settle
+within seconds or minutes on-chain, as opposed to the T+1 settlement in traditional equities where trades settle one
+business day after execution.
+The regulatory status of tokenized stocks is complex. Because they represent securities, a case could be made
+that they are securities and subject to securities laws. Issuers have taken different approaches to comply or to fit
+within exemptions. Ondo, for instance, restricts its offering to non-U.S. investors and qualified purchasers in certain jurisdictions, to avoid running afoul of U.S. securities registration.14 Backed’s tokens were initially offered
+under regulatory sandbox exemptions in Europe, such as in Liechtenstein, and similarly geo-fenced away from
+U.S. individuals. This means that although the tokens trade permissionlessly on-chain, the primary issuers only
+directly interface with regulated participants. How enforcement of geographic restrictions can occur on a public
+blockchain is an open question. For example, it is possible to obtain tokens on a DEX even if technically located
+in the U.S., thereby raising compliance issues. These regulatory grey areas are a reason why some commentators
+call tokenized stocks legally a potential “can of worms.” To date, there have been no major legal actions against the
+14
+See
+https://www.prnewswire.com/in/news-releases/ondo-brings-over-100-tokenized-us-stocks-and-etfs-onchain-starting-onethereum-302545276.html.
+
+9

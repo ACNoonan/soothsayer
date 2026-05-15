@@ -1,0 +1,38 @@
+# 6.3 Regulatory + 6.4 Issuers and Competition
+# Source pages: 44–44 of Tokenized-Stocks-Cong.pdf
+
+6.3
+
+Regulatory and Accounting Considerations
+An important consideration is the implications for financial reporting and valuation from an accounting per-
+
+spective:
+1. If token markets become material, could they provide another reference point for fair value measurement of
+equities? For instance, if a stock only trades thinly on its home exchange but has a 24/7 token market, would
+that token price be considered in marking to market? Likely not yet, as tokens are not recognized exchanges.
+But it’s an interesting thought for future GAAP/IFRS if these become mainstream.
+2. There might be effects on how information is disseminated. Firms typically try to release earnings after market close to avoid wild trading, but with token markets, there’s always a market open somewhere. They could
+see volatility immediately. Could this influence firms’ choices of timing disclosures? Possibly not significantly
+unless token volume is large enough to matter for existing shareholders.
+On the compliance side, as mentioned, insider trading is a major concern. Our findings of token markets
+quickly reflecting news imply that traders with inside information potentially can exploit their informational advantage out of the reach of regulators. Regulators will likely consider token trades in their surveillance if they suspect
+leaks, similar to the monitoring of ADRs or foreign market trading ahead of news.
+Another consideration is whether market manipulation may be more feasible in token venues. In principle, thin
+liquidity and limited oversight could make token prices more susceptible to temporary distortions, which might
+influence investor sentiment or related markets. For example, price movements in token markets during weekends
+could, in theory, affect expectations of the underlying stocks ahead of the subsequent trading session. Currently,
+the small scale of tokenized markets suggests that token prices play a limited role in mainstream financial decisionmaking. Nonetheless, as academics, we could be alert to any such linkages in the future.
+
+6.4
+
+Issuers and Competition
+Our study focuses on Backed and Ondo, but the landscape could evolve. Industry coverages have noted other
+
+tokenized stock issuers that emphasizes native issuance, such as Superstate,23 as well as players like Securitize24 and
+23
+
+See https://crypto.news/tokenized-stock-market-dominated-by-only-two-players/
+See https://www.coindesk.com/business/2025/12/17/securitize-to-offer-first-fully-onchain-trading-for-real-public-stocks-in-early2026
+24
+
+44

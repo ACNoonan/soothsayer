@@ -1,0 +1,70 @@
+# 2.2 Backed Finance (xStocks) vs. Ondo Finance
+# Source pages: 10–11 of Tokenized-Stocks-Cong.pdf
+
+leading token issuers, but the space is being watched closely by regulators globally.
+
+2.2
+
+Backed Finance (xStocks) vs. Ondo Finance
+Backed Finance (often referred to simply as “Backed”) and Ondo Finance have emerged as the two primary
+
+providers of tokenized stocks, but they have notable differences in strategy:
+Backed xStocks: Backed Finance, a Swiss-based firm, introduced its tokenized equities—branded as xStocks,
+with an “X” suffix in tickers—starting in 2022 and expanded through 2023. It initially offered a small selection of
+popular stocks, such as TSLAx and AAPLx for Tesla and Apple, on the Ethereum and Solana blockchains and
+supported by partnerships with crypto infrastructure firms and custodians to hold the underlying assets. Backed’s
+tokens are issued under Swiss law as tokenized securities and reportedly can be freely traded by non-U.S. individuals.
+A distinguishing feature is that Backed actively listed its tokens on multiple chains and exchanges. For instance,
+each xStock is available on the Solana network and often also as an ERC-20 on Ethereum or as a BEP-20 on BNB
+Chain, with the issuer using custodial bridging to mirror the token across chains. This multi-chain presence means
+xStocks can tap into liquidity on different ecosystems. Solana, with its low fees and high throughput, has exhibited
+particularly active trading of xStocks; the Phantom wallet (a popular Solana wallet) even integrated a Tokenized
+Stocks section specifically for Backed’s tokens.15 Users of Phantom can swap SOL or USDC directly for xStocks.
+Backed’s design choice is to allow 24/7 trading with no enforced market hour limitation, leaving it to arbitrage to
+keep prices aligned. Dividends on xStocks are handled by automatically increasing holders’ token balances, which
+is relatively easy to implement on Solana since tokens are account-based. For example, if Apple pays a dividend of
+1%, each AAPLx holder simply finds a balance that is 1% higher. This approach means the token price chart might
+appear to diverge from the stock price over long horizons because part of the return shows up as token quantity
+growth, but economically the total return is matched.
+Backed’s xStocks were among the first to be available and gained a head start in user adoption and exchange
+listings. By mid-2025, xStocks were listed on at least a half-dozen trading venues and integrated into DeFi protocols
+for borrowing/lending. This broad availability gave xStocks a larger investor base, as noted in a news report: “xStocks
+has more exchange listings, exposing it to a larger investor base, while Ondo’s offering is designed for deeper liquidity.”
+However, xStocks remained limited in the number of different assets, on the order of 50-60 tickers. Backed has
+taken a conservative approach to adding new stocks, presumably focusing on those with sufficient demand and
+liquidity.
+15
+
+See https://help.phantom.com/hc/en-us/articles/44063915243283-How-to-trade-Tokenized-Stocks-in-Phantom.
+
+10
+
+
+Ondo Global Markets: Ondo Finance launched its tokenized stock platform later, in September 2025, but
+with a splash—over 100 stocks and ETFs listed at once—and was touted as the largest launch of tokenized equities
+to date. Ondo’s offering (tickers ending in “on”) is notable for its scale and its emphasis on seamless conversion between on-chain and off-chain. Ondo built its platform with an eye to U.S. institutional standards: daily attestations
+of reserves, a robust legal structure for bankruptcy remoteness, and partnerships with well-known custodians and
+brokers in the U.S. to actually hold the stocks. Ondo tokens initially live on Ethereum (an ERC-20 standard token), and the company announced plans to enable cross-chain support to BNB Chain and Solana. Unlike xStocks,
+which already exist on multiple chains, Ondo, at launch, was only on Ethereum; thus, trading required paying gas
+fees, which might have kept small retail traders away. Indeed, as our data shows, many Ondo tokens have very few
+holders. This suggests that usage so far skews to larger players who might be willing to endure Ethereum transaction
+costs or possibly trade off-chain via partner exchanges. Ondo mentioned support by exchanges, such as MEXC and
+OKX, at launch.
+A key difference between the two markets is trading hours. Ondo explicitly aligns token trading with underlying market hours to some extent. Although participants can transfer tokens 24/7, Ondo only allows creations and
+redemptions during U.S. market hours and cautions that overnight or weekend trading may face limited liquidity.
+In fact, Phantom’s documentation noted: “Backed xStocks trade 24/7. . . . Ondo tokenized stocks follow U.S. market
+hours (24/5), with pre-market, core, post-market, and overnight sessions. There may be short pauses between sessions or
+during events like corporate actions or holidays. Overnight liquidity may be lower.” 16 This description implies that
+Ondo might intentionally pause trading over the weekend or that effectively no liquidity is present then. Interestingly, our dataset indicates that there have been price updates for Ondo tokens on weekends, perhaps reflecting
+sporadic trades or indicative pricing. It remains to be seen whether Ondo will more formally halt trading on weekends if it deems it necessary to maintain parity with underlying markets. The rationale for Ondo’s approach is to
+prevent large deviations when arbitrage to the underlying is unavailable. If no one can redeem on a Saturday, a
+token price could, in theory, drift far from economic reality; by discouraging or limiting such trading, Ondo may
+be trying to preserve stability. In contrast, Backed relies on arbitrageurs—presumably market makers running algorithms 24/7—to police the price. Given the smaller scale historically, this has worked reasonably well for Backed,
+but as volumes grow, Ondo’s more controlled approach might be more efficient at preserving the price parity of
+tokens and the underlying stocks.
+Another difference is asset breadth and focus. Ondo not only listed tech stocks—such as Apple, Tesla and
+16
+
+See https://help.phantom.com/hc/en-us/articles/44063915243283-How-to-trade-tokenized-stocks-in-Phantom
+
+11

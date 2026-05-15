@@ -1,0 +1,32 @@
+# 3.3.3 Arbitrage coupling + 3.3.4 Off-hour dynamics
+# Source pages: 17–17 of Tokenized-Stocks-Cong.pdf
+
+temporarily overshoot or undershoot fundamentals. The framework therefore emphasizes two competing mechanisms: (i) micro-trading as a conduit for dispersed information and global investor sentiment; and (ii) micro-trading
+as a source of transient volatility when liquidity is limited. Our empirical analysis quantifies how micro-level activity
+contributes to price co-movement, volatility, and the speed with which token markets adjust to news.
+3.3.3
+
+Arbitrage coupling and cross-market integration
+
+Because tokenized equities represent claims on underlying stocks, their pricing is anchored by arbitrage through
+mint and redeem mechanisms. When both venues are open, arbitrageurs can buy the cheaper asset and sell the
+expensive one, keeping prices tightly aligned. When the underlying stock market is closed, however, arbitrage constraints bind: minting and redemption may be paused, underlying liquidity is unavailable, and cross-chain fragmentation can widen effective arbitrage bands. As a result, price gaps may emerge overnight or over the weekend
+and persist until overlap in trading hours resumes or redemption mechanisms reactivate.
+This framework highlights platform design as an important determinant of cross-market integration. Backed’s
+uninterrupted 24/7 trading allows token prices to float more freely when the primary market is closed, potentially
+capturing new information but also drifting in response to liquidity shocks. Ondo’s synchronization with U.S.
+market hours, effectively a 24/5 regime, limits weekend liquidity and constrains the degree of off-hour price movement. Our empirical design leverages these contrasts to measure the magnitude, persistence, and correction speed
+of token–stock differentials and to evaluate how platform architecture shapes arbitrage dynamics.
+3.3.4
+
+Off-hour dynamics: reversals versus predictability
+
+Continuous trading does not guarantee continuous informational efficiency. Low-liquidity sessions—especially
+weekday nights—may exhibit return reversals, consistent with transient order imbalances or overreaction in thin
+markets. In contrast, full weekend intervals may exhibit informative drift if material public news arrives during the
+closure of the primary market. In this case, token markets may serve as an early barometer of sentiment, partially
+preempting Monday adjustments in the underlying stock.
+This framework motivates separating off-hour periods into two distinct segments: (i) weekday overnight windows, which are prone to liquidity-driven reversals, and (ii) weekend intervals, where informational re-assessment
+may accumulate and potentially lead the next official trading session. Our empirical tests examine both segments
+to disentangle noise-driven volatility from genuine information incorporation, allowing us to assess whether tokenized markets extend price discovery beyond traditional trading hours.
+17

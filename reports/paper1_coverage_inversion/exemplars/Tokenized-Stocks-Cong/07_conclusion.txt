@@ -1,0 +1,32 @@
+# 7 Conclusion
+# Source pages: 46–46 of Tokenized-Stocks-Cong.pdf
+
+3. Investor behavior: using addresses, one could study the holding periods and trading patterns of token holders, distinguishing short-term speculators from long-term hodlers and examining whether these patterns vary
+across assets. If address clustering is observed, future work could identify if the same addresses trade multiple
+token stocks, shedding lights on diversification strategies or sector rotations on-chain.
+4. Corporate events: how do token markets handle dividends, splits, voting events? For instance, when NVIDIA
+had a 4-for-1 split in 2023, a token representing it would ideally also split 4-for-1. These operational details
+can sometimes go awry and manual intervention might be needed for smart contracts. Studying a few events,
+such as Tesla’s 2022 split if any token existed then, could be instructive for operational robustness.
+5. Macroeconomic linkages: as tokenized bonds and stocks grow, one might examine if these on-chain RWA
+markets start correlating with crypto markets or remain siloed. For example, does Bitcoin crash ever spill into
+tokenized equity prices via liquidity crunch? While such spillovers are not evident so far, they may become
+more relevant if more token holders use crypto collateral.
+6. Legal structures and investor protection: future research could examine how the legal differences—such as
+the use of bankruptcy-remote structures by some issuers—affects investor confidence and token pricing. Differences in perceived risk across tokenized stocks might affect valuation, with higher-risk tokens potentially
+trading at a discount. While arbitrage should eliminate such discounts as long as redemption mechanisms
+remain credible, concerns about issuer solvency or legal enforceability could limit arbitrage and allow pricing
+differentials to persist.
+From an accounting standpoint, the tokenization of securities may soon surface in debates about how to treat
+digital representations of equity claims. While tokenization is unlikely to affect the accounting of the issuing firm,
+it raises classification questions for the holder. If an entity holds tokenized equities, should these tokens be treated
+as cash equivalents, marketable securities, or another class of financial asset on the balance sheet? This remains
+largely uncharted territory, but under current standards, such holdings would most plausibly be treated as equity
+investments measured consistently with their underlying economic exposure.
+
+7
+
+Conclusion
+Tokenized equities offer a glimpse into the future of capital markets—global, continuous, and fractionally ac-
+
+cessible. Using new data from two leading issuers on Ethereum and Solana blockchains, we document that to46

@@ -1,0 +1,80 @@
+# 5.4 Anticipation of Underlying Stock Returns
+# Source pages: 39–40 of Tokenized-Stocks-Cong.pdf
+
+Figure 15. Cumulative next-day stock returns of overnight token winners (Q5) and overnight token losers (Q1). This figure plots
+cumulative next-day stock returns for portfolios formed by sorting stocks on the overnight token return (from 4:00 PM t to 9:30 AM t+1).
+Q1 (Q5) represents stocks associated with the lowest (highest) token returns.
+
+In contrast, weekend sessions display patterns consistent with price discovery. Table 9 reports cumulative Monday stock returns for portfolios formed by sorting tokens on their weekend return. Stocks linked to higher weekend
+token returns earn higher Monday returns on average, consistent with token prices impounding information over
+the weekend.
+Table 9. Monday Stock Returns Sorted by Prior Weekend Token Returns. Each weekend, tokens are sorted by return from Friday 4
+PM to Monday 9:30 AM. Monday returns of the corresponding stocks are reported. The Q5–Q1 spread is statistically insignificant.
+Weekend Token Quintile
+Mean Monday stock return (%)
+
+Q1 (Worst)
+
+Q2
+
+Q3
+
+Q4
+
+Q5 (Best)
+
+Q5–Q1
+
+−0.23
+
+−0.22
+
+−0.08
+
++0.70
+
++0.54
+
++0.77
+
+Figure 16 visually confirms this weekend signal: cumulative Monday returns for weekend token winners (Q5)
+remain persistently higher than for weekend losers (Q1).
+Taken together, the results reveal a dichotomy between short-horizon weekday overnights, which exhibit patterns consistent with microstructural reversals, and longer weekend sessions, during which token returns appear
+more informative about fundamentals.
+
+5.4
+
+Anticipation of Underlying Stock Returns
+Finally, we test whether off-hour token returns anticipate the subsequent opening return of the underlying
+
+stock. O’Hara et al. (2023) and Fang et al. (2024) show that even small off-exchange or fractional trades can be
+39
+
+
+Figure 16. Cumulative Monday stock returns of weekend token winners (Q5) and weekend token losers (Q1). This figure shows
+cumulative Monday stock returns for portfolios formed by sorting stocks on the weekend token return (from Friday 4 PM to Monday 9:30
+AM).
+
+information-relevant, suggesting that token price movements during nights and weekends could impound new
+information and anticipate the underlying stock’s next-opening move. In theory, positive overnight or weekend
+token returns should predict a higher opening price for the stock, and vice versa, if tokens serve as efficient price
+discovery conduits (Fama, 1965; Hasbrouck, 1995).
+To examine whether this is the case, we estimate the following panel regression:
+stock
+Ri,t
+= α + λRtoken
++ µi + τt + ϵi,t ,
+i,t
+
+(4)
+
+stock is underlying stock’s close-to-open return and Rtoken is the cumulative token return over the correwhere Ri,t
+i,t
+
+sponding off-hour interval. Token and time fixed effects are included. A positive and significant λ indicates that
+tokenized stock returns contain information about stock price movements at the market opening, which is consistent with off-hour price discovery.
+The results from estimation of equation (4) presented in Table 10 suggest a near-complete passthrough of information: a 1% increase in the token return during off-hours predicts an approximate 0.90% increase in the underlying stock’s close-to-open return. The regression also exhibits high explanatory power, with an adjusted R2 of
+0.839. These results suggest that, on average, token price changes during exchange closures contain information
+about the next opening price of the underlying equity, consistent with off-hour price discovery.
+
+40

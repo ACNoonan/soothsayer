@@ -1,0 +1,73 @@
+# 6.2 Liquidity and Market Quality
+# Source pages: 42–43 of Tokenized-Stocks-Cong.pdf
+
+traders who lack discipline.19 Our observation of certain tokens having erratic overnight swings supports the notion
+that lower liquidity and immediate access can equal high volatility. That said, as markets mature and participation
+broadens at all hours, these swings should dampen.
+A related point is the integration of price discovery across venues. With tokenization, we effectively add more
+trading venues (blockchains) to an already fragmented equity market, which currently include lit exchanges, dark
+pools, and foreign exchanges. More venues can either enhance price discovery by bringing in unique participants
+and information, or cause fragmentation if liquidity is split and arbitrage is slow. We find that arbitrage between
+token and stock markets is fairly effective, but not instantaneous, especially when one venue is closed. The arbitrage
+is time-limited to when overlap exists or when redemption is possible. In those gap periods, fragmentation does
+temporarily occur, as the token market “floats” on its own. Yet, because one venue is closed, it’s not the typical
+fragmentation scenario; it’s sequential price discovery.
+If token trading volume grows, one could foresee the possibility that major price moves happen on-chain first.
+For example, Sunday night token trading sets a price, which then dictates where Monday opening auctions clear.
+This would effectively shift some price discovery away from NYSE/NASDAQ to the crypto realm. Exchanges
+might not favor that, which is perhaps why they themselves are exploring extended hours to not be left behind.
+Nasdaq’s plans for 24/5 trading by 2026 can be seen as a response to demand for round-the-clock trading that
+crypto has demonstrated.This reflects an interesting interplay in which crypto token markets acting as a catalyst for
+traditional market innovation.
+
+6.2
+
+Liquidity and Market Quality
+Our results discussed in section 4.4 highlight that liquidity is extremely skewed. This has several implications:
+From an investor standpoint, one must be cautious when trading less popular tokenized stocks due to the risk
+
+of large price impact and wide spreads. Although we do not have access to direct spread data, the lack of volume
+suggests poor liquidity. In contrast, highly traded tokens likely have market makers or automated market-maker
+pools ensuring tighter spreads.
+There is a network effect where liquidity attracts liquidity. The fact that flagship tokenized stocks, such as
+tokenized Tesla and tokenized Apple, attract the most liquidity is likely to reinforce their dominance. In contrast,
+niche tokens might never take off without targeted effort or underlying company events that spur investor interest.
+19
+
+See https://www.nasdaq.com/articles/24-7-trading-coming-it-good-thing.
+
+42
+
+
+The involvement of professional liquidity providers is key. Traditional equity markets rely on market makers
+and high-frequency firms to keep markets orderly. In token markets, similar actors—often crypto-native trading
+firms—have started to provide liquidity, but they face higher risks stemming from the absence of trading halts,
+more volatile retail flows, and regulatory uncertainty. Encouraging more market makers to participate, perhaps by
+having them share in fees or arbitrage opportunities, could improve market quality. Ondo’s approach of aligning
+with traditional liquidity—referred to as "inherited liquidity"20 —means that large trades ultimately rely on the
+liquidity of the underlying stock market via the redemption process. Under this design, sizable imbalance on-chain
+can be resolved by tapping the huge liquidity off-chain. However, this mechanism is not instantaneous, as the speed
+of adjustment is governed by the redemption process.
+The median daily trading volume per token of $58k we observe is in line with StarCompliance’s point that
+many tokens are lightly traded.21 That discussion also highlights unverified users, which adds to the risk of tokenized stocks. In thinly traded tokens, broad global access and limited oversight can increase vulnerability to price
+manipulation, such as short-lived pump-and-dump episodes. These considerations underscore the importance of
+monitoring by regulators and platform operators.
+Recent developments suggest that regulatory scrutiny is already emerging. For example, scrutiny surrounding
+Robinhood’s issuance of tokenized stocks linked to OpenAI and SpaceX22 highlights concerns when such products
+are introduced without company consent and proper safeguards. Our data does include pre-IPO tokens (likely
+issued via platforms such as PreStocksFi), which introduce extra liquidity complexities as the underlying shares are
+not freely tradable even off-chain.
+An open question is whether tokenization helps the liquidity of the underlying stock. Perhaps by engaging
+more global investors or by providing an outlet when the main market is closed, tokenized stocks could reduce pentup supply/demand imbalances at open and therefore smooth opening volatility. On the other hand, tokenization
+could drain some liquidity from the main market as some volume migrates to tokens, especially if tokenized stocks
+eventually are allowed in the U.S. At present, however, tokenized trading remains small in scale, and we observe no
+visible impact on underlying liquidity.
+20
+
+See https://ondo.finance/blog/the-growing-role-of-tokenized-securities
+See https://www.starcompliance.com/tokenized-stocks-raise-big-questions-for-compliance-teams/.
+22
+See https://www.cnbc.com/2025/07/07/robinhood-stock-tokens-face-scrutiny-in-the-eu-after-openai-warning.html
+21
+
+43
