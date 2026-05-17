@@ -29,6 +29,12 @@ from pathlib import Path
 BUILD_DIR = Path(__file__).resolve().parent
 PAPER_DIR = BUILD_DIR.parent
 
+# Human-readable copy of the final PDF kept alongside paper.pdf so the file
+# name matches the paper title when shared outside the repo. Refreshed on
+# every --pdf build; update this string if the title in pandoc-template.tex
+# changes.
+NAMED_PDF = "Coverage-Inversion - A Calibration-Transparent Oracle Primitive for Tokenized RWAs.pdf"
+
 # Canonical section order. Files prefixed by 0X are the body; references.md
 # is rendered separately via the BibTeX path.
 SECTION_ORDER = [
@@ -356,6 +362,9 @@ def main() -> None:
         pdf = tex_path.with_suffix(".pdf")
         if pdf.exists():
             print(f"\n✓ Built {pdf} ({pdf.stat().st_size:,} bytes)")
+            named = BUILD_DIR / NAMED_PDF
+            shutil.copyfile(pdf, named)
+            print(f"✓ Copied → {named.name}")
 
 
 if __name__ == "__main__":
