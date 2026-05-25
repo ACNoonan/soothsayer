@@ -96,6 +96,7 @@ class PanelSpec:
     end: date
     min_gap_days: int = 3
     vol_lookback: int = 20  # trading days for realized vol used in F0 CI
+    gap_mode: str = "weekend"  # "weekend" (gap >= min_gap_days) | "overnight" (gap == 1 weeknight)
 
 
 def _universe() -> list[str]:
@@ -109,9 +110,31 @@ def _vol_20d(close: pd.Series, window: int = 20) -> pd.Series:
     return r.rolling(window, min_periods=window // 2).std()
 
 
+def _accept_gap(gap: float, spec: PanelSpec) -> bool:
+    """Gap-selection predicate. This is the *only* weekend-vs-overnight
+    branch in panel assembly; everything downstream (factor joins, σ̂,
+    conformal serving, the calibration battery) is gap-length-agnostic and
+    consumes the panel by column, not by gap semantics.
+
+      weekend   — gap >= min_gap_days (3 normal, 4+ holiday-extended)
+      overnight — gap == 1 trading-day step (pure single weeknight,
+                  Mon→Tue … Thu→Fri). Mid-week-holiday 2-day bridges are
+                  excluded for a clean first cut; revisit as a
+                  `holiday_bridge` bucket if needed.
+    """
+    if pd.isna(gap):
+        return False
+    if spec.gap_mode == "overnight":
+        return int(gap) == 1
+    return gap >= spec.min_gap_days
+
+
 def _weekend_pairs_with_vol(daily: pd.DataFrame, spec: PanelSpec) -> pd.DataFrame:
-    """Per-symbol: for each Fri→Mon pair, attach fri_close, mon_open, gap_days,
-    and fri_vol_{vol_lookback}d computed from Fri-including history only."""
+    """Per-symbol: for each accepted (close→next-open) pair, attach fri_close,
+    mon_open, gap_days, and fri_vol_{vol_lookback}d computed from
+    publish-time-including history only. Column names retain the weekend
+    `fri_*`/`mon_*` convention in both modes — in overnight mode they denote
+    the (t0 close, t1 open) of a single weeknight, not a Friday/Monday."""
     out: list[dict] = []
     for sym, grp in daily.sort_values("ts").groupby("symbol", sort=False):
         g = grp.reset_index(drop=True).copy()
@@ -120,7 +143,7 @@ def _weekend_pairs_with_vol(daily: pd.DataFrame, spec: PanelSpec) -> pd.DataFram
         gaps = g["ts"].diff().dt.days
         for i in range(1, len(g)):
             gap = gaps.iloc[i]
-            if pd.isna(gap) or gap < spec.min_gap_days:
+            if not _accept_gap(gap, spec):
                 continue
             fri_vol = g.at[i - 1, "vol"]
             if pd.isna(fri_vol):
@@ -266,38 +289,74 @@ def _earnings_flags(spec: PanelSpec) -> pd.DataFrame:
             warnings.warn(f"earnings loader failed for {sym}: {exc}")
             continue
         if not df.empty:
-            rows.append(df[["symbol", "earnings_date"]].copy())
+            keep = ["symbol", "earnings_date"]
+            for c in ("session", "session_confirmed"):
+                if c in df.columns:
+                    keep.append(c)
+            rows.append(df[keep].copy())
     if not rows:
-        return pd.DataFrame(columns=["symbol", "earnings_date"])
+        return pd.DataFrame(columns=["symbol", "earnings_date", "session", "session_confirmed"])
     return pd.concat(rows, ignore_index=True).drop_duplicates(
         subset=["symbol", "earnings_date"]
     )
 
 
-def _attach_earnings_flag(panel: pd.DataFrame, earnings: pd.DataFrame) -> pd.DataFrame:
-    """earnings_next_week = True if earnings_date is in [mon_ts, mon_ts + 4 trading days]
-    for the row's symbol. We approximate the trading-week window as mon_ts + 4 calendar days,
-    which catches all weekday earnings after Monday open."""
+def _attach_earnings_flag(
+    panel: pd.DataFrame, earnings: pd.DataFrame, gap_mode: str = "weekend"
+) -> pd.DataFrame:
+    """Attach an earnings regime flag, keyed `earnings_next_week` in both modes
+    for downstream compatibility.
+
+    weekend mode — True if an earnings_date falls in [mon_ts, mon_ts + 4 days]
+        (the upcoming trading week the predicted Monday open opens into).
+
+    overnight mode — True iff the earnings event fires *inside* the gap
+        close(t0=fri_ts) → open(t1=mon_ts), using scryer earnings.v2 `session`
+        timing (US/Eastern): an **amc** report dated t0 (after t0 close) or a
+        **bmo** report dated t1 (before t1 open). `dmh`/`unknown` are not
+        gap-assignable. Forward-estimated rows (`session_confirmed == False`)
+        are excluded — they carry the near-duplicate ±1-day source-disagreement
+        the scryer team flagged, and lie beyond the historical panel anyway.
+        This is the single-gap rule that replaces the pre-timing both-nights stub.
+    """
     out = panel.copy()
     out["earnings_next_week"] = False
     if earnings.empty:
         return out
     e = earnings.copy()
     e["earnings_date"] = pd.to_datetime(e["earnings_date"]).dt.date
+
+    if gap_mode == "overnight":
+        has_session = "session" in e.columns
+        # Drop forward-estimated rows; None (migrated legacy) and True are kept.
+        if "session_confirmed" in e.columns:
+            e = e[e["session_confirmed"] != False]  # noqa: E712 (None/NaN must pass)
+        for sym in out["symbol"].unique():
+            es = e[e["symbol"] == sym]
+            if es.empty:
+                continue
+            if has_session:
+                amc_dates = set(es.loc[es["session"] == "amc", "earnings_date"])
+                bmo_dates = set(es.loc[es["session"] == "bmo", "earnings_date"])
+            else:  # no timing column at all → degrade to both-nights stub
+                alld = set(es["earnings_date"])
+                amc_dates = bmo_dates = alld
+            mask = out["symbol"] == sym
+            for idx in out.loc[mask].index:
+                t0, t1 = out.at[idx, "fri_ts"], out.at[idx, "mon_ts"]
+                if (t0 in amc_dates) or (t1 in bmo_dates):
+                    out.at[idx, "earnings_next_week"] = True
+        return out
+
+    # weekend mode (unchanged): earnings anywhere in the upcoming trading week.
     for sym in out["symbol"].unique():
         sym_earnings = set(e.loc[e["symbol"] == sym, "earnings_date"].tolist())
         if not sym_earnings:
             continue
         mask = out["symbol"] == sym
-        for_idx = out.loc[mask].index
-        for idx in for_idx:
+        for idx in out.loc[mask].index:
             mon = out.at[idx, "mon_ts"]
-            # check if any earnings date falls within [mon, mon + 4 days]
-            in_window = any(
-                (ed >= mon) and (ed <= mon + timedelta(days=4))
-                for ed in sym_earnings
-            )
-            if in_window:
+            if any((ed >= mon) and (ed <= mon + timedelta(days=4)) for ed in sym_earnings):
                 out.at[idx, "earnings_next_week"] = True
     return out
 
@@ -383,7 +442,7 @@ def build(spec: PanelSpec) -> pd.DataFrame:
     # Earnings flag — not blocking if absent for some tickers
     try:
         earnings = _earnings_flags(spec)
-        panel = _attach_earnings_flag(panel, earnings)
+        panel = _attach_earnings_flag(panel, earnings, gap_mode=spec.gap_mode)
     except Exception as exc:
         warnings.warn(f"earnings flag step failed, defaulting all False: {exc}")
         panel["earnings_next_week"] = False

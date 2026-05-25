@@ -35,23 +35,43 @@ def _realized_zscore(panel: pd.DataFrame) -> pd.Series:
     return z.abs()
 
 
-def _high_vol_flag(panel: pd.DataFrame) -> pd.Series:
-    """Flag weekends where VIX at Friday close is in the top quartile of its
-    trailing 252-trading-day window, computed per fri_ts."""
+def _high_vol_flag(panel: pd.DataFrame, lookback: int = 52) -> pd.Series:
+    """Flag rows where VIX at the publish-time close is in the top quartile of
+    its trailing window, computed per `fri_ts`. `lookback` is in *rows of the
+    deduplicated fri_ts series* — 52 for the weekly weekend cadence (~1 yr),
+    252 for the daily overnight cadence (~1 yr), so the "trailing year" intent
+    is preserved across cadences."""
     vix = panel[["fri_ts", "vix_fri_close"]].drop_duplicates().sort_values("fri_ts")
-    rolling = vix["vix_fri_close"].rolling(52, min_periods=20).quantile(0.75)
+    rolling = vix["vix_fri_close"].rolling(lookback, min_periods=20).quantile(0.75)
     lookup = pd.Series(rolling.values, index=vix["fri_ts"].values)
     return panel["fri_ts"].map(lookup).lt(panel["vix_fri_close"]).fillna(False)
 
 
-def tag(panel: pd.DataFrame) -> pd.DataFrame:
-    """Add `regime_pub` and `realized_bucket` columns. Non-destructive."""
+def tag(panel: pd.DataFrame, mode: str = "weekend") -> pd.DataFrame:
+    """Add `regime_pub` and `realized_bucket` columns. Non-destructive.
+
+    weekend mode (default, unchanged): normal / long_weekend (gap>=4) /
+        high_vol (top-quartile VIX), high_vol top priority.
+
+    overnight mode: normal / high_vol / earnings_night. `long_weekend` has no
+        analog and is dropped; `earnings_night` (the dominant overnight fat
+        tail, from the `earnings_next_week` flag which panel.build computes as
+        an earnings-straddling-the-gap stub in overnight mode) is *top*
+        priority — a symbol reporting earnings dominates that symbol-night's
+        move regardless of market-wide VIX state.
+    """
     out = panel.copy()
-    high_vol = _high_vol_flag(out)
+    lookback = 252 if mode == "overnight" else 52
+    high_vol = _high_vol_flag(out, lookback=lookback)
 
     regime_pub = pd.Series("normal", index=out.index, dtype=object)
-    regime_pub.loc[out["gap_days"] >= 4] = "long_weekend"
-    regime_pub.loc[high_vol] = "high_vol"  # overrides long_weekend if both — top priority
+    if mode == "overnight":
+        regime_pub.loc[high_vol] = "high_vol"
+        if "earnings_next_week" in out.columns:
+            regime_pub.loc[out["earnings_next_week"].fillna(False).astype(bool)] = "earnings_night"
+    else:
+        regime_pub.loc[out["gap_days"] >= 4] = "long_weekend"
+        regime_pub.loc[high_vol] = "high_vol"  # overrides long_weekend if both — top priority
     out["regime_pub"] = regime_pub.values
 
     # Post-hoc realized-move tertile (calm / normal / shock) for diagnostic splits only

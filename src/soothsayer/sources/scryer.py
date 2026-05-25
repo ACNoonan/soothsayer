@@ -232,17 +232,25 @@ def load_cme_daily_from_intraday(
 def load_yahoo_earnings(symbol: str, start: DateLike, end: DateLike) -> pd.DataFrame:
     """Yahoo earnings-calendar rows for one symbol in ``[start, end]``.
 
-    Schema: ``earnings.v1``. Columns include ``symbol``, ``earnings_date``
-    (arrow Date32) plus the four scryer metadata columns.
+    Schema: ``earnings.v2``. Columns include ``symbol``, ``earnings_date``
+    (arrow Date32), ``session`` (enum: bmo / amc / dmh / unknown, relative to
+    ``earnings_date`` in US/Eastern), ``session_confirmed`` (nullable bool:
+    True = already reported / timing is fact, False = forward-estimated,
+    None = migrated legacy row) plus the four scryer metadata columns.
+
+    Timing (session) is 100% complete for already-reported earnings from 2015
+    onward on the reporting universe; pre-2015 rows carry dates with
+    session="unknown" (no source times that far back).
     """
     paths = _yearly_partition_paths(
-        "yahoo", "earnings", start, end, key=("symbol", symbol)
+        "yahoo", "earnings", start, end, key=("symbol", symbol),
+        schema_version="v2",
     )
     df = _read_concat(
         paths,
         empty_columns=[
-            "symbol", "earnings_date", "_schema_version", "_fetched_at",
-            "_source", "_dedup_key",
+            "symbol", "earnings_date", "session", "session_confirmed",
+            "_schema_version", "_fetched_at", "_source", "_dedup_key",
         ],
     )
     if df.empty:

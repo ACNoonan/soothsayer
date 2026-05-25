@@ -278,6 +278,7 @@ def add_sigma_hat_sym_ewma(
     panel: pd.DataFrame,
     half_life: int,
     min_obs: int = SIGMA_HAT_MIN,
+    exclude_mask_col: str | None = None,
 ) -> pd.DataFrame:
     """Add `rel_resid` and `sigma_hat_sym_ewma_pre_fri_hl{N}` columns to `panel`.
 
@@ -295,6 +296,16 @@ def add_sigma_hat_sym_ewma(
     RiskMetrics-style EWMA volatility estimator used in financial-econometrics
     backtests.
 
+    `exclude_mask_col` (default None, weekend deployment behaviour — unchanged):
+    when set to a boolean column name, residuals on flagged rows are **excluded
+    from the past-observation pool** that builds σ̂ (but every row still receives
+    a σ̂). Used for the overnight panel to keep earnings-night jumps out of the
+    *baseline scale* — earnings fatness is a regime effect (carried by the
+    earnings_night quantile), not a per-symbol scale effect, and letting an
+    8σ earnings residual into the EWMA over-widens the next ~`half_life` normal
+    nights. Decay is applied over the *retained* (non-excluded, finite) past
+    observations by recency rank.
+
     Validates the Phase 5 σ̂ fast-reacting variant brief (reports/active/m6_refactor.md §5.1).
     """
     if half_life <= 0:
@@ -306,18 +317,24 @@ def add_sigma_hat_sym_ewma(
              - work["fri_close"].astype(float) * (1.0 + work["factor_ret"].astype(float)))
             / work["fri_close"].astype(float)
         )
+    use_excl = exclude_mask_col is not None and exclude_mask_col in work.columns
     decay = 0.5 ** (1.0 / float(half_life))
     sigma = np.full(len(work), np.nan)
     sorted_view = work.sort_values(["symbol", "fri_ts"])
     for _, idx in sorted_view.groupby("symbol", sort=False).groups.items():
         sub = sorted_view.loc[idx]
         rr = sub["rel_resid"].to_numpy(float)
+        excl = (sub[exclude_mask_col].fillna(False).astype(bool).to_numpy()
+                if use_excl else None)
         for i, src_idx in enumerate(idx):
             past = rr[:i]
-            past = past[np.isfinite(past)]
+            keep = np.isfinite(past)
+            if excl is not None:
+                keep = keep & (~excl[:i])  # drop flagged rows from the scale pool
+            past = past[keep]
             if past.size < min_obs:
                 continue
-            # Weights decay backwards from the most recent past observation:
+            # Weights decay backwards from the most recent *retained* observation:
             # weight[t-1] = 1, weight[t-2] = decay, weight[t-3] = decay**2, ...
             ages = np.arange(past.size - 1, -1, -1, dtype=float)
             weights = decay ** ages
