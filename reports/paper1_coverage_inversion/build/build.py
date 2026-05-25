@@ -33,7 +33,7 @@ PAPER_DIR = BUILD_DIR.parent
 # name matches the paper title when shared outside the repo. Refreshed on
 # every --pdf build; update this string if the title in pandoc-template.tex
 # changes.
-NAMED_PDF = "Coverage-Inversion - A Calibration-Transparent Oracle Primitive for Tokenized RWAs.pdf"
+NAMED_PDF = "Coverage-Inversion - Calibration-Transparent Fair-Value Oracles for Closed-Market Hours.pdf"
 
 # Canonical section order. Files prefixed by 0X are the body; references.md
 # is rendered separately via the BibTeX path.
