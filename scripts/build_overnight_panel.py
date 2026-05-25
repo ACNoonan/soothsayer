@@ -33,11 +33,41 @@ from soothsayer.backtest import panel as panel_mod
 from soothsayer.backtest import regimes
 from soothsayer.backtest.calibration import add_sigma_hat_sym_ewma, SIGMA_HAT_MIN
 from soothsayer.config import DATA_PROCESSED
+from soothsayer.sources.scryer import load_yahoo_corp_actions
 
 START = date(2012, 1, 1)
 END = date(2026, 4, 25)
 SIGMA_HL = 8  # match the deployed weekend variant for a like-for-like first read
 OUT = DATA_PROCESSED / "overnight_panel.parquet"
+
+
+def _apply_ex_div_adjustment(p: pd.DataFrame, start: date, end: date) -> pd.DataFrame:
+    """Dividend-adjust the open on ex-dividend mornings.
+
+    On an ex-date the open prints ~`dividend` below the cum-dividend level,
+    while the factor-projected point is dividend-blind (the index factor does
+    not drop for a single name's distribution) — a deterministic, scheduled
+    negative residual. We reconstruct the cum-dividend open
+    (`mon_open += dividend`) on gaps whose open side `mon_ts` is an ex-date for
+    cash/special dividends, so the residual reflects only non-dividend price
+    movement. (Adds the dividend back; the ex-date open is *depressed* by it.)
+    Records the per-row adjustment in `ex_div_adj` for transparency.
+    """
+    out = p.copy()
+    out["ex_div_adj"] = 0.0
+    for sym in out["symbol"].unique():
+        ca = load_yahoo_corp_actions(sym, start, end)
+        if ca.empty:
+            continue
+        div = ca[ca["event_type"].isin(["cash_dividend", "special_dividend"])].copy()
+        if div.empty:
+            continue
+        div["event_date"] = pd.to_datetime(div["event_date"]).dt.date
+        by_date = div.groupby("event_date")["dividend_amount"].sum()
+        mask = out["symbol"] == sym
+        out.loc[mask, "ex_div_adj"] = out.loc[mask, "mon_ts"].map(by_date).fillna(0.0).values
+    out["mon_open"] = out["mon_open"].astype(float) + out["ex_div_adj"].astype(float)
+    return out
 
 
 def _abs_z(p: pd.DataFrame) -> pd.Series:
@@ -61,6 +91,13 @@ def main() -> None:
     print(f"Building overnight panel  {START} → {END}  (gap_mode=overnight) …", flush=True)
     p = panel_mod.build(spec)
     p = regimes.tag(p, mode="overnight")
+
+    # Dividend-adjust ex-dividend-morning opens (reconstruct cum-dividend level)
+    # before σ̂ / score so every downstream object uses the adjusted open.
+    p = _apply_ex_div_adjustment(p, START, END)
+    _n_adj = int((p["ex_div_adj"] > 0).sum())
+    print(f"ex-div adjustment: {_n_adj} rows adjusted "
+          f"(mean +{p.loc[p['ex_div_adj'] > 0, 'ex_div_adj'].mean():.3f} px units)", flush=True)
 
     # σ̂ (overnight cadence). De-contaminate the baseline scale by excluding
     # earnings-night residuals from the EWMA pool (their fat tail is carried by

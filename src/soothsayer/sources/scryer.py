@@ -262,6 +262,40 @@ def load_yahoo_earnings(symbol: str, start: DateLike, end: DateLike) -> pd.DataF
     return df.loc[mask].reset_index(drop=True)
 
 
+def load_yahoo_corp_actions(symbol: str, start: DateLike, end: DateLike) -> pd.DataFrame:
+    """Corporate-action rows (dividends + splits) for one symbol in ``[start, end]``.
+
+    Schema: ``corp_actions.v1``. Columns include ``symbol``, ``event_date``
+    (the US/Eastern ex-date), ``event_type`` (``cash_dividend`` /
+    ``special_dividend`` / ``split``), ``dividend_amount`` (per-share USD; null
+    on split rows), ``split_ratio_num`` / ``split_ratio_den``,
+    ``dividend_currency`` and ``announce_date``, plus the four scryer metadata
+    columns. Filtered to events with ``event_date`` in ``[start, end]``.
+
+    Non-distributing names (e.g. GLD, HOOD) return zero rows by design.
+    """
+    paths = _yearly_partition_paths(
+        "yahoo", "corp_actions", start, end, key=("symbol", symbol),
+        schema_version="v1",
+    )
+    df = _read_concat(
+        paths,
+        empty_columns=[
+            "symbol", "event_date", "event_type", "dividend_amount",
+            "split_ratio_num", "split_ratio_den", "dividend_currency",
+            "announce_date", "_schema_version", "_fetched_at",
+            "_source", "_dedup_key",
+        ],
+    )
+    if df.empty:
+        return df
+    event_date = pd.to_datetime(df["event_date"]).dt.date
+    start_d = _to_date(start)
+    end_d = _to_date(end)
+    mask = (event_date >= start_d) & (event_date <= end_d)
+    return df.loc[mask].reset_index(drop=True)
+
+
 def load_kamino_scope_window(start: DateLike, end: DateLike) -> pd.DataFrame:
     """Scope oracle-tape rows in ``[start, end]``.
 
