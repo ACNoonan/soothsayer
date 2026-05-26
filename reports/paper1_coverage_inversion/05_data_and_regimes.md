@@ -1,6 +1,6 @@
 # §5 — Data and Regime Labeler
 
-This section specifies the symbol universe, the weekend-panel construction, the per-symbol factor and volatility-index switchboards, the regime labeler $\rho$, and the train/test split underlying §6. All inputs are publicly available and free; the panel rebuilds end-to-end via `scripts/run_calibration.py`.
+This section specifies the symbol universe, the construction of the two closed-market panels (weekend and overnight), the per-symbol factor and volatility-index switchboards, the regime labeler $\rho$, and the train/test split underlying §6. All inputs are publicly available and free; the weekend panel rebuilds end-to-end via `scripts/run_calibration.py` and the overnight panel via `scripts/build_overnight_panel.py`.
 
 ## 5.1 Symbol universe
 
@@ -15,6 +15,10 @@ Each row is a single $(s, t)$ weekend prediction window. For each symbol we walk
 The panel spans 2014-01-17 (first Friday on which rolling 20-day vol is defined for all symbols) through 2026-04-24, yielding $|\mathcal{T}_\text{hist}| = 5{,}996$ raw rows across 639 distinct weekend dates (9 full-history symbols × 639 weekends + 245 HOOD weekends). MSTR begins 2014-01-17; HOOD begins 2021-08-13 (post-IPO), contributing ~245 weekends. After the σ̂ warm-up rule (≥8 past observations per symbol) drops the first eight weekends per ticker, $5{,}916$ rows remain evaluable (§6.1).
 
 ![Weekend log-returns (Friday close → Monday open) for the 10-symbol panel, 2014-01-17 through 2026-04-24, with the 2023-01-01 train/OOS split marked. Right marginal: each symbol's weekend-return histogram. Heavy-tail tickers (MSTR, HOOD, NVDA, TSLA), low-vol tickers (SPY, QQQ, GLD, TLT), and the equity middle (AAPL, GOOGL) are all visible at panel-relative scale. The 2024-08-05 BoJ unwind, 2020-03 COVID, and 2025 tariff weekend appear as the largest spikes across symbols.\label{fig:weekend-returns}](figures/fig0_weekend_returns.pdf)
+
+### 5.2.1 Overnight panel construction
+
+The overnight panel applies the same row schema and pipeline to the single-weeknight cadence: the gap selector admits consecutive-trading-day pairs ($\texttt{gap\_days} = 1$, close → next-open) rather than Friday→Monday pairs (the `gap_mode` parameter, §4.3.1), with no other component changed. It spans 2014-01-16 → 2026-04-23, yielding **22,624 rows across 2,412 weeknights** on the same ten symbols (≈3.8× the weekend panel); 22,544 remain evaluable after the σ̂ warm-up. Two cadence-specific data treatments apply. **(i) Earnings timing:** the `earnings_next_week` flag is reassigned by session — an after-close (`amc`) release dated $t_0$ or a before-open (`bmo`) release dated $t_1$ fires inside the close$(t_0)$→open$(t_1)$ gap — using the `session` field of scryer `yahoo/earnings/v2`; session timing is complete for reported earnings from 2015 onward, covering the held-out window. **(ii) Ex-dividend adjustment:** because the index factor does not drop for a single name's distribution, the ex-dividend-morning open is reconstructed to its cum-dividend level (`mon_open += dividend`) from scryer `yahoo/corp_actions/v1` on the 241 affected mornings — this removes the only systematic price-level artefact and leaves pooled coverage unchanged (§6.8, §9.8).
 
 ## 5.3 Pre-publish features
 
@@ -44,6 +48,8 @@ $\rho: \mathcal{F}_t(s) \to \{\texttt{normal}, \texttt{long\_weekend}, \texttt{h
 
 Sample sizes on the 5,996-row raw panel: normal 3,934 (65.6%), high_vol 1,432 (23.9%), long_weekend 630 (10.5%).
 
+On the **overnight** panel the partition is re-derived (§4.3.1): `long_weekend` has no analog and is dropped; `high_vol` is retained but its trailing-VIX quartile uses a 252-trading-day lookback (≈1 year, matching the weekend's 52-weekend window); and `earnings_night` is added as the top-priority bucket — a gap is `earnings_night` iff a scheduled earnings release (by `amc`@$t_0$ / `bmo`@$t_1$ session timing) falls inside it. Because earnings timing is known a priori, this is the architecture's only *calendar-conditioned* regime: the band pre-widens for a scheduled event rather than reacting to realised volatility (§4.3.1). Overnight sample sizes on the 22,624-row panel: normal 16,604 (73.4%), high_vol 5,791 (25.6%), earnings_night 229 (1.0%).
+
 A separate post-hoc tertile labeler tags each weekend by realised-move z-score (calm / normal / shock); this `realized_bucket` is *not* a regime in the §3.1 sense — it depends on the realised target — and is used only for diagnostic stratification (the shock-tertile coverage ceiling reported in §9.1).
 
 We considered two refinements that were tested and dropped: a sub-regime split of `normal` into `post_shock` / `calm` / `range_bound`, and an FOMC/CPI/NFP macro-event regressor. Neither lifted shock-tertile coverage measurably; the implied-vol indices already absorb that signal. Sub-regime granularity is retained as a next-generation candidate (§10).
@@ -63,13 +69,15 @@ The 2023-01-01 split is conservative: it places the 2023 banking turbulence and 
 
 ## 5.7 Provenance and reproducibility
 
-All Phase 0 equity inputs are read from Scryer parquet: `yahoo/equities_daily/v1` for daily OHLCV and `yahoo/earnings/v1` for the earnings-calendar flag (the trailing `/v1` is the scryer schema version, distinct from the M-series methodology generations used elsewhere in this paper). No credentials are required for the consumer path in soothsayer; upstream fetch, retry, and schema ownership live in the sibling Scryer repo.
+All Phase 0 equity inputs are read from Scryer parquet: `yahoo/equities_daily/v1` for daily OHLCV, `yahoo/earnings/v2` for the earnings-calendar flag and BMO/AMC session timing, and `yahoo/corp_actions/v1` for the overnight ex-dividend adjustment (the trailing `/vN` is the scryer schema version, distinct from the M-series methodology generations used elsewhere in this paper). No credentials are required for the consumer path in soothsayer; upstream fetch, retry, and schema ownership live in the sibling Scryer repo.
 
 The end-to-end calibration backtest runs under fifteen minutes from a cold cache, under one minute warm. Reproduction:
 
 ```
 uv sync
-uv run python scripts/run_calibration.py
+uv run python scripts/run_calibration.py          # weekend panel + §6.2–§6.7 tables
+uv run python scripts/build_overnight_panel.py     # overnight panel (§5.2.1)
+uv run python scripts/build_overnight_artefact.py  # overnight artefact + §6.8 battery
 ```
 
-This single script materialises `data/processed/v1b_bounds.parquet`, the per-symbol and pooled calibration surfaces, and refreshes the §6 OOS-evaluation tables.
+`run_calibration.py` materialises `data/processed/v1b_bounds.parquet`, the per-symbol and pooled calibration surfaces, and refreshes the §6 OOS-evaluation tables; the two overnight scripts materialise the overnight panel and its calibration battery (§6.8).

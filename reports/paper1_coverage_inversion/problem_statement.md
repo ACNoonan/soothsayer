@@ -2,13 +2,13 @@
 
 ## 3.1 Setup and notation
 
-Let $\mathcal{S} = \{s_1, \ldots, s_K\}$ be a finite universe of assets (in our evaluation, ten US equities, ETFs, and hybrid crypto-proxies) and let $t \in \mathbb{N}$ index a sequence of *prediction windows* — in this paper, non-trading weekends defined by $[t_\mathrm{pub}, t_\mathrm{tgt}] =$ (Friday 16:00 ET, Monday 09:30 ET).
+Let $\mathcal{S} = \{s_1, \ldots, s_K\}$ be a finite universe of assets (in our evaluation, ten US equities, ETFs, and hybrid crypto-proxies) and let $t \in \mathbb{N}$ index a sequence of *closed-market prediction windows* $[t_\mathrm{pub}, t_\mathrm{tgt}]$, each the interval between a venue close ($t_\mathrm{pub}$) and its next open ($t_\mathrm{tgt}$). We evaluate two instances: the **weekend** window (Friday 16:00 ET → Monday 09:30 ET), the primary panel of §6.2–§6.7, and the **overnight** window (close → next-day 09:30 ET open), the generalisation panel of §6.8.
 
 For each $(s, t)$ we observe:
 
-- $P_t(s) \in \mathbb{R}_{>0}$: the realised reference price at $t_\mathrm{tgt}$ (Monday open).
-- $\mathcal{F}_t(s)$: pre-publish information available at $t_\mathrm{pub}$. This includes $P_{t^-}(s)$ (Friday close), contemporaneous factor returns (E-mini S&P, gold, 10Y treasury, BTC futures), implied-vol indices (VIX, GVZ, MOVE), a calendar flag $\mathrm{earn}_t(s) \in \{0,1\}$ for an earnings release in the coming week, and a gap-length flag $\ell_t \in \{0,1\}$ for calendar weekends $\geq 4$ days.
-- A *regime labeler* $\rho: \mathcal{F}_t(s) \to \mathcal{R}$ with $\mathcal{R} = \{\texttt{normal}, \texttt{long\_weekend}, \texttt{high\_vol}\}$, defined purely on pre-publish information.
+- $P_t(s) \in \mathbb{R}_{>0}$: the realised reference price at $t_\mathrm{tgt}$ (the next open).
+- $\mathcal{F}_t(s)$: pre-publish information available at $t_\mathrm{pub}$. This includes $P_{t^-}(s)$ (the close), contemporaneous factor returns (E-mini S&P, gold, 10Y treasury, BTC futures), implied-vol indices (VIX, GVZ, MOVE), a calendar flag $\mathrm{earn}_t(s) \in \{0,1\}$ for a scheduled earnings release inside the window (a release in the coming week on the weekend panel; a release dated inside the close→open gap, by BMO/AMC session, on the overnight panel), and a gap-length flag $\ell_t \in \{0,1\}$ for calendar weekends $\geq 4$ days (weekend panel only).
+- A *regime labeler* $\rho: \mathcal{F}_t(s) \to \mathcal{R}$ defined purely on pre-publish information, with a cadence-specific partition: $\mathcal{R}_\text{weekend} = \{\texttt{normal}, \texttt{long\_weekend}, \texttt{high\_vol}\}$ and $\mathcal{R}_\text{overnight} = \{\texttt{normal}, \texttt{high\_vol}, \texttt{earnings\_night}\}$ (§5.5).
 
 A *base forecaster* $f$ emits, at each $(s, t, q)$ with claimed quantile $q \in (0,1)$, a band $\bigl[L^f_t(s; q), U^f_t(s; q)\bigr]$.
 
