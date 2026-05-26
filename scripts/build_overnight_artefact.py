@@ -91,6 +91,38 @@ def _block_boot_coverage(panel: pd.DataFrame, bounds: dict[float, pd.DataFrame],
     return pd.DataFrame(rows)
 
 
+def _save_figure(cc: pd.DataFrame, per_regime: dict[str, pd.DataFrame]) -> None:
+    """Overnight calibration curve (realised vs nominal), paper visual idiom.
+    Saves figures/fig8_overnight_calibration.pdf for §6.8."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({
+        "text.usetex": False, "mathtext.fontset": "cm", "font.family": "serif",
+        "font.serif": ["DejaVu Serif", "Times"], "font.size": 10,
+        "axes.labelsize": 10, "legend.fontsize": 8, "xtick.labelsize": 9,
+        "ytick.labelsize": 9, "axes.spines.top": False, "axes.spines.right": False,
+        "axes.linewidth": 0.7, "lines.linewidth": 1.4, "pdf.fonttype": 42,
+        "savefig.bbox": "tight", "savefig.pad_inches": 0.02,
+    })
+    taus = list(TARGETS)
+    pooled = [1.0 - float(cc.loc[cc["claimed"] == t, "violation_rate"].iloc[0]) for t in taus]
+    fig, ax = plt.subplots(figsize=(6.0, 4.2))
+    ax.plot([0.63, 1.0], [0.63, 1.0], ls="--", lw=0.8, color="0.6", zorder=1, label="nominal (y = x)")
+    colors = {"normal": "#7a7a7a", "high_vol": "#c98a00", "earnings_night": "#c0392b"}
+    for r, tbl in per_regime.items():
+        ax.plot(tbl["tau"], tbl["realized_cov"], "-s", ms=4, lw=1.0,
+                color=colors.get(r, "0.4"), alpha=0.85, zorder=3, label=r)
+    ax.plot(taus, pooled, "-o", color="#1f5fa6", lw=1.8, ms=6, zorder=4, label="overnight pooled")
+    ax.set_xlabel("nominal coverage  $\\tau$")
+    ax.set_ylabel("realised OOS coverage")
+    ax.set_xticks(taus); ax.set_xlim(0.63, 1.01); ax.set_ylim(0.54, 1.02)
+    ax.legend(loc="lower right", frameon=False)
+    out = REPORTS / "paper1_coverage_inversion" / "figures" / "fig8_overnight_calibration.pdf"
+    fig.savefig(out); plt.close(fig)
+    print(f"wrote {out}", flush=True)
+
+
 def _cov_table(panel: pd.DataFrame, bounds: dict[float, pd.DataFrame]) -> pd.DataFrame:
     """Pooled realized coverage at each τ (helper for per-regime slices where
     the full Kupiec/Christoffersen object is overkill)."""
@@ -144,6 +176,12 @@ def main() -> None:
 
     # Block-bootstrap coverage robustness (consecutive-night autocorrelation).
     bb = _block_boot_coverage(oos, oos_bounds)
+
+    # Paper figure (§6.8).
+    try:
+        _save_figure(cc, per_regime)
+    except Exception as exc:  # figure is non-essential to the artefact
+        print(f"[warn] figure generation skipped: {exc}", flush=True)
 
     # ---- write artefact (parquet lookup + json sidecar)
     rows = work[["symbol", "fri_ts", "regime_pub", "fri_close", "point", "sigma_hat_sym_pre_fri"]].copy()

@@ -74,3 +74,15 @@ PYTHONUNBUFFERED=1 uv run python scripts/verify_rust_oracle.py
 ```
 
 A lending-protocol integrator depends on `soothsayer-consumer` (the `no_std` decoder) and reads the `PriceUpdate` PDA at the symbol's derived address; the demo Kamino-style consumer at `crates/soothsayer-demo-kamino/` shows the full integration in ~400 lines, including LTV decision logic that uses the band's lower bound as the collateral valuation input — the third audience of §8.1 reading the same wire bytes the on-chain program emits.
+
+## 8.7 Practitioner integration — a worked $\tau \to$ reserve example
+
+To make the consumer contract concrete we walk one illustrative mapping from served coverage to a reserve decision. It is an *example of the mechanics*, not a recommended policy: choosing $\tau$, the LTV ladder, and reserves to minimise expected protocol loss under an explicit cost model is the decision-theoretic problem we explicitly hold out of scope (§9.7).
+
+Consider a market holding SPYx as collateral with a liquidation-LTV threshold $\theta$ and a position at current LTV $\ell < \theta$. Its *adverse-move buffer* — the fractional collateral drawdown that exhausts the position's headroom — is $b = 1 - \ell/\theta$. The protocol reads the served lower bound $L_\tau = \hat P\,(1 - d_\tau)$ and treats the fractional band drawdown $d_\tau = q_\text{eff}(\tau)\,\hat\sigma_s$ as the closed-market collateral shock it must survive with probability $\tau$.
+
+- **$\tau$ selection.** Choosing $\tau$ sets the per-name closed-market breach budget to $1-\tau$: at $\tau = 0.95$ the served lower bound is breached on $\sim 5\%$ of windows, at $\tau = 0.99$ on $\sim 1\%$. A protocol picks $\tau$ so its tolerated per-name bad-debt frequency matches $1-\tau$.
+- **Reserve headroom.** A position survives the $\tau$-band shock iff $b \ge d_\tau$. For SPYx at $\tau = 0.95$ the served half-width is $\approx 178$ bps ($d_\tau \approx 1.78\%$; §7.6.5); against the production origination-to-liquidation buffer of $\sim 2.7\%$ on SPYx/QQQx, a typical position clears the $\tau = 0.95$ band shock with $\sim 0.9\%$ to spare, but a position opened near the liquidation threshold ($b < 1.78\%$) does not and should be pre-emptively de-risked or reserved against. This is exactly the **narrow-buffer** reserve class where the band has decision-flipping headroom; wide-buffer names ($14$–$25\%$ buffers) are only bound by the band at $\tau = 0.99$ or under the joint tail.
+- **Portfolio reserve.** For a book of $m$ correlated names the single-name $d_\tau$ does not aggregate independently; the protocol sizes its reserve against the joint breach-count $k_w$ distribution (§6.3.4) — $P(k_w \ge 3) = 4.62\%$ at $\tau = 0.95$ vs the binomial $1.15\%$ — with $k^\ast = 3$ as the circuit-breaker trigger (§9.4).
+
+Every quantity above is on the served receipt ($\hat P$, $d_\tau = q_\text{eff}\hat\sigma_s$, $\tau$) plus the public $k_w$ CDF; no incumbent oracle exposes the inputs this mapping needs. The full policy optimisation is the companion liquidation-policy work.

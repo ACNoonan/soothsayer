@@ -130,7 +130,7 @@ The $\delta$ schedule is retained as a 4-zero vector in the artefact JSON for sh
 
 ## A.3 Data and code availability
 
-**Data.** All upstream data is publicly available (Yahoo Finance daily bars, CME 1m futures, VIX/GVZ/MOVE, BTC-USD, Yahoo earnings calendar, Kraken Futures perp tape, Pyth Hermes archive, Chainlink Data Streams archive). Soothsayer consumes pre-fetched parquet from the sibling `scryer` repo at `SCRYER_DATASET_ROOT`. The decade-scale weekend panel `data/processed/v1b_panel.parquet` (5,996 rows × 35 columns, 2014-01-17 → 2026-04-24) is built by `scripts/run_calibration.py` calling `soothsayer.backtest.panel.build()`. All `_fetched_at` cutoffs are preserved in the parquet metadata.
+**Data.** All upstream data is publicly available (Yahoo Finance daily bars, CME 1m futures, VIX/GVZ/MOVE, BTC-USD, Yahoo earnings calendar, Kraken Futures perp tape, Pyth Hermes archive, Chainlink Data Streams archive). Soothsayer consumes pre-fetched parquet from the sibling `scryer` repo at `SCRYER_DATASET_ROOT`. The decade-scale weekend panel `data/processed/v1b_panel.parquet` (5,996 rows × 35 columns, 2014-01-17 → 2026-04-24) is built by `scripts/run_calibration.py` calling `soothsayer.backtest.panel.build()`; the overnight panel `data/processed/overnight_panel.parquet` (22,624 rows, 2014-01-16 → 2026-04-23) is built by `scripts/build_overnight_panel.py` calling the same `build()` with `gap_mode="overnight"` plus `yahoo/earnings/v2` session timing and the `yahoo/corp_actions/v1` ex-dividend adjustment (§5.2.1). All `_fetched_at` cutoffs are preserved in the parquet metadata.
 
 **Repository.** Code at `https://github.com/ACNoonan/soothsayer`. Tag the experimental snapshot at submission time; this paper's results were produced from the `main` branch as of 2026-05-05. License: see repository LICENSE file.
 
@@ -178,8 +178,13 @@ uv run python scripts/freeze_lwc_artefact.py        # content-addressed freeze f
 # 3. Verify Python ↔ Rust serving parity on the M5 reference path (90/90 cases).
 uv run python scripts/verify_rust_oracle.py
 
-# 4. §6.5 path-coverage diagnostic (CME + perp + on-chain).
+# 4. §6.5 path-coverage diagnostic (CME + perp + on-chain) + excursion-inflation λ.
 uv run python scripts/run_path_coverage.py
+uv run python scripts/proto_excursion_inflation.py              # §6.5 λ(τ) endpoint-vs-path diagnostic
+
+# 4b. §6.8 off-hours generalisation — overnight panel + calibration battery.
+uv run python scripts/build_overnight_panel.py                  # overnight close→open panel (§5.2.1)
+uv run python scripts/build_overnight_artefact.py               # overnight artefact + Kupiec/Christoffersen/block-bootstrap (§6.8)
 
 # 5. §6 / §7 robustness battery.
 uv run python scripts/run_v1b_per_symbol_diagnostics.py
