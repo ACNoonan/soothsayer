@@ -11,6 +11,35 @@ Buckets:
 
 ---
 
+## Bucket: market-context
+
+*Point-in-time market-context figures (May 2026) used for §1 motivation only; secondary/aggregator sources, to be re-verified at submission. Not load-bearing for any empirical claim.*
+
+### [coindesk-tokenized-2026] CoinDesk. 2026. The market for tokenized equities has exploded by almost 3,000% in a single year.
+- **Venue:** CoinDesk (Business)
+- **URL / DOI:** https://www.coindesk.com/business/2026/01/30/the-market-for-tokenized-equities-has-exploded-by-almost-3-000-in-a-single-year
+- **Note:** ~\$963M segment, +2,878% YoY (Jan 2025→2026); Ondo Global Markets / xStocks volume figures.
+
+### [rwa-market-2026] RWA.xyz / InvestAX. 2026. Q1 2026 Real-World Asset Tokenization Market Report.
+- **Venue:** Industry market report (aggregator)
+- **URL / DOI:** https://investax.io/blog/q1-2026-real-world-asset-tokenization-market-report
+- **Note:** ~\$29B on-chain RWA total; BlackRock BUIDL ~\$2.5B used as on-chain collateral.
+
+### [bcg-tokenization-2030] Boston Consulting Group and ADDX. 2022. Relevance of On-Chain Asset Tokenization in 'Crypto Winter'.
+- **Venue:** BCG / ADDX report
+- **URL / DOI:** https://web-assets.bcg.com/1e/a2/5b5f2b7e42dfad2cb3113a291222/on-chain-asset-tokenization.pdf
+- **Note:** Projects tokenized-asset market reaching ~\$16T by 2030 (~10% of global GDP).
+
+### [sec-24x] U.S. Securities and Exchange Commission. 2025. Orders granting accelerated approval for extended trading hours (24X National Exchange; NYSE Arca).
+- **Venue:** SEC release / SIFMA extended-trading-hours tracker
+- **URL / DOI:** https://www.sifma.org/issues/market-structure/extended-trading-hours
+- **Note:** Preliminary approval of 24X and NYSE Arca 22-hour (Mon–Thu) schedule; clearing/SIP infrastructure targeting late 2026.
+
+### [nasdaq-24h] Nasdaq. 2025. Proposal for near-24-hour weekday trading of US-listed equities.
+- **Venue:** Nasdaq announcement (Dec 2025), reported via CNBC
+- **URL / DOI:** https://www.cnbc.com/2025/12/16/nasdaq-moves-to-near-24-hour-trading-some-say-thats-a-bad-idea.html
+- **Note:** Day session 4am–8pm ET + night session 9pm–4am with a one-hour maintenance pause; five-day, weekend uncovered.
+
 ## Bucket: oracles
 
 ### [pyth-agg] Pyth Network. 2021. A proposal for price feed aggregation.
