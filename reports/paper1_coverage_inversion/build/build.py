@@ -14,6 +14,7 @@ author info, and the \\usepackage{arxiv}.
 Usage:
   uv run python build.py            # produces paper.tex + references.bib
   uv run python build.py --pdf      # additionally produces paper.pdf
+  uv run python build.py --arxiv    # additionally writes arxiv_submission.tar.gz (source-only)
   uv run python build.py --check    # parse-only; verifies citation closure
 """
 
@@ -34,6 +35,8 @@ PAPER_DIR = BUILD_DIR.parent
 # every --pdf build; update this string if the title in pandoc-template.tex
 # changes.
 NAMED_PDF = "Coverage-Inversion - Calibration-Transparent Fair-Value Oracles for Closed-Market Hours.pdf"
+# Source-only arXiv submission tarball (paper.tex + arxiv.sty + paper.bbl + figures).
+ARXIV_TARBALL = "arxiv_submission.tar.gz"
 
 # Canonical section order. Files prefixed by 0X are the body; references.md
 # is rendered separately via the BibTeX path.
@@ -301,9 +304,54 @@ def run_latex(tex_path: Path) -> None:
             raise subprocess.CalledProcessError(result.returncode, cmd)
 
 
+def make_arxiv_package(tex_path: Path) -> None:
+    """Assemble the source-only arXiv submission tarball next to paper.tex.
+
+    Contents: paper.tex, arxiv.sty, paper.bbl, and *exactly* the figures
+    referenced by paper.tex (auto-detected, so adding/removing a figure needs
+    no edit here). No .pdf/.aux/.log — arXiv wants source only and rebuilds the
+    PDF from the bundled .bbl (no .bib / bibtex pass needed). Uses Python's
+    tarfile so the archive is flat, deterministic, dereferences the
+    `build/figures` symlink, and carries no macOS AppleDouble cruft.
+
+    Requires the .bbl, which the bibtex pass of run_latex() produces — so this
+    runs only after a --pdf compile (the --arxiv flag implies it).
+    """
+    import tarfile
+
+    bbl = tex_path.with_suffix(".bbl")
+    sty = BUILD_DIR / "arxiv.sty"
+    missing = [p.name for p in (tex_path, bbl, sty) if not p.exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"arXiv package needs {missing} — run with --pdf to generate the .bbl first."
+        )
+
+    tex = tex_path.read_text()
+    rels = sorted(set(re.findall(r"\{(figures/[^{}]+\.(?:pdf|png|jpe?g))\}", tex)))
+    figs: list[tuple[Path, str]] = []
+    for rel in rels:
+        src = (BUILD_DIR / rel).resolve()  # follows the figures -> ../figures symlink
+        if not src.exists():
+            raise FileNotFoundError(f"referenced figure missing: {rel} -> {src}")
+        figs.append((src, rel))
+
+    out = BUILD_DIR / ARXIV_TARBALL
+    with tarfile.open(out, "w:gz") as tf:
+        tf.add(tex_path, arcname="paper.tex")
+        tf.add(sty, arcname="arxiv.sty")
+        tf.add(bbl, arcname="paper.bbl")
+        for src, rel in figs:
+            tf.add(src, arcname=rel)  # arcname keeps the flat figures/<name> layout
+    print(f"✓ arXiv package → {out.name} ({out.stat().st_size:,} bytes; "
+          f"paper.tex + arxiv.sty + paper.bbl + {len(figs)} figures)")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--pdf", action="store_true", help="also compile to PDF")
+    ap.add_argument("--arxiv", action="store_true",
+                    help="also assemble the source-only arXiv tarball (implies --pdf, for the .bbl)")
     ap.add_argument("--check", action="store_true",
                     help="parse-only; verify citation closure and exit")
     args = ap.parse_args()
@@ -351,7 +399,7 @@ def main() -> None:
     print(f"\nRunning pandoc → {tex_path.name} ...")
     run_pandoc(md_concat, tex_path)
 
-    if args.pdf:
+    if args.pdf or args.arxiv:
         if shutil.which("pdflatex") is None or shutil.which("bibtex") is None:
             print("\n✗ pdflatex/bibtex not found. Install: brew install --cask basictex")
             print("  After install, also run: sudo /Library/TeX/texbin/tlmgr install"
@@ -365,6 +413,9 @@ def main() -> None:
             named = BUILD_DIR / NAMED_PDF
             shutil.copyfile(pdf, named)
             print(f"✓ Copied → {named.name}")
+
+        if args.arxiv:
+            make_arxiv_package(tex_path)
 
 
 if __name__ == "__main__":

@@ -14,3 +14,5 @@ paper.out
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+# Regenerable arXiv source bundle (reproduce with: build.py --arxiv)
+arxiv_submission.tar.gz
