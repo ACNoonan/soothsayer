@@ -15,6 +15,7 @@ Usage:
   uv run python build.py            # produces paper.tex + references.bib
   uv run python build.py --pdf      # additionally produces paper.pdf
   uv run python build.py --arxiv    # additionally writes arxiv_submission.tar.gz (source-only)
+  uv run python build.py --aft      # builds the AFT 20-page main text → aft_paper.pdf
   uv run python build.py --check    # parse-only; verifies citation closure
 """
 
@@ -224,11 +225,21 @@ def fix_typographic_numbers(body: str) -> str:
     return re.sub(r"(\d+)\{,\}(\d+)", r"\1,\2", body)
 
 
-def concat_sections(defined_keys: set[str]) -> str:
-    """Concatenate the body sections in canonical order, transforming citations."""
+def concat_sections(defined_keys: set[str], aft: bool = False) -> str:
+    """Concatenate the body sections in canonical order, transforming citations.
+
+    `aft=True` builds the AFT main text: each section prefers its condensed
+    override in `aft/<file>` when present (else the full version), and the
+    reproducibility section is dropped (it belongs in the appendix, which is not
+    part of the 20-page main text). See reports/active/aft_carve_plan.md.
+    """
     parts: list[str] = []
     for fname in SECTION_ORDER:
+        if aft and fname == "12_appendix_reproducibility.md":
+            continue
         path = PAPER_DIR / fname
+        if aft and (PAPER_DIR / "aft" / fname).exists():
+            path = PAPER_DIR / "aft" / fname
         if not path.exists():
             print(f"WARN: missing section {fname}", file=sys.stderr)
             continue
@@ -352,14 +363,17 @@ def main() -> None:
     ap.add_argument("--pdf", action="store_true", help="also compile to PDF")
     ap.add_argument("--arxiv", action="store_true",
                     help="also assemble the source-only arXiv tarball (implies --pdf, for the .bbl)")
+    ap.add_argument("--aft", action="store_true",
+                    help="build the AFT 20-page main text (aft/ section overrides, no appendix) → aft_paper.pdf")
     ap.add_argument("--check", action="store_true",
                     help="parse-only; verify citation closure and exit")
     args = ap.parse_args()
 
+    stem = "aft_paper" if args.aft else "paper"
     refs_md = PAPER_DIR / "references.md"
     bib_path = BUILD_DIR / "references.bib"
-    md_concat = BUILD_DIR / "paper.md"
-    tex_path = BUILD_DIR / "paper.tex"
+    md_concat = BUILD_DIR / f"{stem}.md"
+    tex_path = BUILD_DIR / f"{stem}.tex"
 
     print(f"Parsing {refs_md.name} ...")
     entries = parse_references_md(refs_md)
@@ -369,8 +383,8 @@ def main() -> None:
     print(f"Writing {bib_path.name} ...")
     write_bibtex(entries, bib_path)
 
-    print(f"Concatenating {len(SECTION_ORDER)} sections ...")
-    body = concat_sections(defined_keys)
+    print(f"Concatenating sections ({'AFT main text' if args.aft else 'full'}) ...")
+    body = concat_sections(defined_keys, aft=args.aft)
     md_concat.write_text(body)
     print(f"  → {md_concat.name} ({len(body):,} bytes)")
 
@@ -399,21 +413,21 @@ def main() -> None:
     print(f"\nRunning pandoc → {tex_path.name} ...")
     run_pandoc(md_concat, tex_path)
 
-    if args.pdf or args.arxiv:
+    if args.pdf or args.arxiv or args.aft:
         if shutil.which("pdflatex") is None or shutil.which("bibtex") is None:
             print("\n✗ pdflatex/bibtex not found. Install: brew install --cask basictex")
             print("  After install, also run: sudo /Library/TeX/texbin/tlmgr install"
                   " collection-latexrecommended units multirow")
             sys.exit(1)
-        print(f"\nCompiling {tex_path.name} → paper.pdf ...")
+        print(f"\nCompiling {tex_path.name} → {stem}.pdf ...")
         run_latex(tex_path)
         pdf = tex_path.with_suffix(".pdf")
         if pdf.exists():
             print(f"\n✓ Built {pdf} ({pdf.stat().st_size:,} bytes)")
-            named = BUILD_DIR / NAMED_PDF
-            shutil.copyfile(pdf, named)
-            print(f"✓ Copied → {named.name}")
-
+            if not args.aft:  # named copy + arXiv tarball are for the full/arXiv build only
+                named = BUILD_DIR / NAMED_PDF
+                shutil.copyfile(pdf, named)
+                print(f"✓ Copied → {named.name}")
         if args.arxiv:
             make_arxiv_package(tex_path)
 

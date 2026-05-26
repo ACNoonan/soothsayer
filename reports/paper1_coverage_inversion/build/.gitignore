@@ -16,3 +16,5 @@ paper.out
 *.synctex.gz
 # Regenerable arXiv source bundle (reproduce with: build.py --arxiv)
 arxiv_submission.tar.gz
+# Regenerable AFT main-text build (reproduce with: build.py --aft)
+aft_paper.*

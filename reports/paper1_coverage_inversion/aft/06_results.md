@@ -17,6 +17,8 @@ The primary panel is $N = 5{,}996$ weekend prediction windows (ten US-listed tic
 
 Kupiec and Christoffersen pass at every served anchor; the $\tau = 0.95$ headline realises $0.9503$ at mean half-width $370.6$ bps.
 
+![Weekend calibration on the 1,730-row 2023+ OOS slice. The deployed architecture (blue) tracks the $45^\circ$ diagonal across $\tau \in [0.68, 0.99]$; GARCH(1,1)-$t$ markers (vermilion) under-cover at $\tau \in \{0.68, 0.85, 0.95\}$. Star marks the $\tau = 0.95$ headline.\label{fig:calibration}](figures/fig2_calibration.pdf)
+
 ## 6.3 Held-out calibration — leave-one-symbol-out and temporal holdout
 
 The headline is held out on two orthogonal axes. **Symbol:** leave-one-symbol-out CV — each symbol's rows withheld from both the quantile and $c(\tau)$ fits — realises $0.9497 \pm 0.0128$ at $\tau = 0.95$ with all 10 held-out bands passing Kupiec. **Time:** a nested split fitting $c(0.95)$ on 2023 alone and evaluating on the true-holdout 2024-01-05 → 2026-04-24 slice realises $0.9504$ (Kupiec $p = 0.947$, Christoffersen $p = 0.989$, per-symbol Kupiec 10/10); $c(0.95)$ on the TUNE slice matches the full-OOS fit to three decimals. Calibration holds across the 2023 / 2024 / 2025 / 2026-YTD calendar sub-periods (Appendix B).
