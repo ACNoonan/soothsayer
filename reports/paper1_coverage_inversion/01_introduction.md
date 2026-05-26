@@ -35,7 +35,7 @@ The binding consumer set is narrower than the surface set of "any DeFi protocol 
 
 ## 1.3 What this paper shows
 
-We evaluate the deployed locally-weighted Mondrian split-conformal architecture (full specification in §4) on 5,996 weekend prediction-window rows (639 weekends × 10 symbols) spanning 2014-01-17 through 2026-04-24: seven US equities/ETFs (SPY, QQQ, AAPL, GOOGL, NVDA, TSLA, HOOD), gold (GLD), long treasuries (TLT), and a Bitcoin-proxy equity (MSTR). Each window runs Friday 16:00 ET to Monday 09:30 ET. The contribution is the *primitive* — the artefact, its serving-time lookup, and the audit receipts — together with empirical evidence that the architecture delivers per-anchor *and* per-symbol calibration on a decade-scale public-data panel.
+We evaluate the deployed locally-weighted Mondrian split-conformal architecture (full specification in §4) on 5,996 weekend prediction-window rows (639 weekends × 10 symbols) spanning 2014-01-17 through 2026-04-24: seven US equities/ETFs (SPY, QQQ, AAPL, GOOGL, NVDA, TSLA, HOOD), gold (GLD), long treasuries (TLT), and a Bitcoin-proxy equity (MSTR). Each window runs Friday 16:00 ET to Monday 09:30 ET. §6.8 then extends the identical architecture — only the gap selector changes — to a 22,624-row overnight (close → next-open) panel on the same symbols, establishing the result across closed-market hours rather than weekends alone. The contribution is the *primitive* — the artefact, its serving-time lookup, and the audit receipts — together with empirical evidence that the architecture delivers per-anchor *and* per-symbol calibration on a decade-scale public-data panel.
 
 Three headline empirical claims:
 
