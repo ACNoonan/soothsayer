@@ -119,20 +119,22 @@ A consumer holding a portfolio of correlated RWAs needs to know not only the per
 
 ### 6.3.5 Worst-observed weekend — 2024-08-05 BoJ yen-carry-unwind
 
-The single OOS weekend with all 10 symbols breaching the $\tau = 0.85$ band simultaneously is **Friday 2024-08-02 → Monday 2024-08-05** — the Bank of Japan rate-hike yen-carry-trade unwind, one of the largest single-weekend global risk-off events of the post-2020 period. The same weekend has $k_w = 8$ at $\tau = 0.95$ (only TSLA and TLT inside that band) and $k_w = 5$ at $\tau = 0.99$. The deployed served band re-evaluated on the 2024-08-02 row at the deployed $\text{split} = \text{2023-01-01}$:
+The single OOS weekend with all 10 symbols breaching the $\tau = 0.85$ band simultaneously is **Friday 2024-08-02 → Monday 2024-08-05** — the Bank of Japan rate-hike yen-carry-trade unwind, one of the largest single-weekend global risk-off events of the post-2020 period. The same weekend has $k_w = 9$ at $\tau = 0.95$ (only TLT inside that band — consistent with the §6.3.4 worst-weekend maximum) and $k_w = 5$ at $\tau = 0.99$. The deployed served band, computed directly from the deployment artefact (per-Friday parquet row + sidecar schedules, EWMA HL=8 σ̂) on the 2024-08-02 row:
 
 | Symbol | Weekend return | HW @ $\tau=0.85$ | Breach @ $\tau=0.85$ | @ $\tau=0.95$ |
 |---|---:|---:|---:|---|
-| MSTR  | $-27.4\%$ | 783 bps  | $-1416$ bps | breach ($-720$) |
-| HOOD  | $-17.8\%$ | 368 bps  | $-1325$ bps | breach ($-997$) |
-| NVDA  | $-14.2\%$ | 324 bps  | $-1008$ bps | breach ($-720$) |
-| TSLA  | $-10.8\%$ | 587 bps  | $-409$ bps  | inside |
-| AAPL  | $-9.4\%$  | 202 bps  | $-657$ bps  | breach ($-478$) |
-| GOOGL | $-6.7\%$  | 230 bps  | $-354$ bps  | breach ($-149$) |
-| QQQ   | $-5.4\%$  | 110 bps  | $-340$ bps  | breach ($-242$) |
-| SPY   | $-4.0\%$  | 84 bps   | $-229$ bps  | breach ($-154$) |
-| GLD   | $-2.1\%$  | 126 bps  | $-153$ bps  | breach ($-41$) |
-| TLT   | $+1.4\%$  | 128 bps  | $+12$ (just past) | inside |
+| MSTR  | $-27.4\%$ | 663 bps  | $-1537$ bps | breach ($-1060$) |
+| HOOD  | $-17.8\%$ | 357 bps  | $-1336$ bps | breach ($-1079$) |
+| NVDA  | $-14.2\%$ | 332 bps  | $-1000$ bps | breach ($-762$) |
+| TSLA  | $-10.8\%$ | 499 bps  | $-496$ bps  | breach ($-137$) |
+| AAPL  | $-9.4\%$  | 201 bps  | $-659$ bps  | breach ($-514$) |
+| GOOGL | $-6.7\%$  | 194 bps  | $-390$ bps  | breach ($-250$) |
+| QQQ   | $-5.4\%$  | 120 bps  | $-330$ bps  | breach ($-243$) |
+| SPY   | $-4.0\%$  | 85 bps   | $-228$ bps  | breach ($-167$) |
+| GLD   | $-2.1\%$  | 108 bps  | $-171$ bps  | breach ($-94$) |
+| TLT   | $+1.4\%$  | 131 bps  | $+10$ (just past) | inside |
+
+![Anatomy of the served band on the worst observed weekend (2024-08-02 → 2024-08-05, BoJ yen-carry unwind). For each symbol: nested served bands at $\tau \in \{0.85, 0.95, 0.99\}$ (blue, darkest = 0.85), the factor-adjusted point $\hat p$ (black tick), and the realised Monday open (filled vermilion = breach at $\tau = 0.95$; open = inside), in weekend-return space relative to Friday close. Bands are computed from the deployment artefact, byte-aligned with what a consumer read. Per-symbol $\hat\sigma_s$ width differentiation is visible directly — MSTR's $\tau = 0.85$ half-width (663 bps) is $\approx 8\times$ SPY's (85 bps) — and so is the cross-sectional common-mode failure: nine realised opens march left past their bands in concert, which no per-symbol band, however well calibrated, can absorb. The $k_w$ distribution of §6.3.4 is the operational handle for exactly this event class.\label{fig:boj-anatomy}](figures/fig9_boj_anatomy.pdf)
 
 Cross-section: 9 of 10 symbols sold off in concert (mean weekend return $-963$ bps, median $-807$ bps); only TLT delivered the classic flight-to-quality bid. Macro context: the 2024-08-02 US July nonfarm-payrolls print landed at 114k vs ~175k consensus with the Sahm-rule recession indicator triggering; the 2024-07-31 BoJ rate hike combined with hawkish Powell/Yellen language drove an accelerating yen-carry unwind through Asian time zones over the weekend; the Monday 2024-08-05 Nikkei fell 12.4% (largest single-day drop since Black Monday 1987) and intraday VIX spiked to ~65, the highest reading since the COVID-19 March 2020 panic.
 

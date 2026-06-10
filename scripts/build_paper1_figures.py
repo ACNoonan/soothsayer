@@ -1,5 +1,5 @@
 """
-Build all seven Paper 1 figures.
+Build the Paper 1 figures.
 
 Outputs PDFs into `reports/paper1_coverage_inversion/figures/`:
 
@@ -19,6 +19,10 @@ Outputs PDFs into `reports/paper1_coverage_inversion/figures/`:
                              well-defined.
   fig6_path_coverage.pdf     Endpoint vs path coverage across τ
                              (single panel; perp reference, n = 118)
+  fig9_boj_anatomy.pdf       Anatomy of the served band on the worst observed
+                             weekend (2024-08-02 BoJ unwind) — nested bands,
+                             factor-adjusted point, realised opens, from the
+                             deployed artefact
   simulation_summary.pdf     4-DGP simulation study (copied from
                              reports/figures/ produced by run_simulation_study.py)
 
@@ -1003,6 +1007,144 @@ def _per_symbol_metrics_at(
     return rows
 
 
+# =================================================================== Fig 9
+
+
+def fig9_boj_anatomy() -> None:
+    """Anatomy of a served band on the worst observed weekend (§6.3.5).
+
+    The 2024-08-02 → 2024-08-05 BoJ yen-carry-unwind weekend: for each of
+    the 10 symbols, the deployed nested bands at τ ∈ {0.85, 0.95, 0.99}
+    (artefact schedules, byte-aligned with what a consumer read), the
+    factor-adjusted point, and the realised Monday open — all in
+    weekend-return space relative to Friday close. Shows in one image
+    (i) what the product is, (ii) per-symbol σ̂ width differentiation
+    (MSTR's τ=0.85 half-width is ~9× SPY's), and (iii) the cross-
+    sectional common-mode joint breach no per-symbol band can absorb
+    (revision_critique ADD-1).
+
+    Bands are computed FROM THE DEPLOYED ARTEFACT (parquet rows +
+    sidecar schedules), not refit — byte-aligned with what a
+    consumer read. This is what exposed the stale K=26-era numbers
+    in the old §6.3.5 table (TSLA breaches at τ=0.95 under the
+    deployed EWMA σ̂; k_w = 9, consistent with §6.3.4's max k_w)."""
+    ANATOMY_TAUS = (0.85, 0.95, 0.99)
+
+    art = pd.read_parquet(DATA_PROCESSED / "lwc_artefact_v1.parquet")
+    art = art[pd.to_datetime(art["fri_ts"]).dt.date.astype(str)
+              == "2024-08-02"]
+    if art.empty:
+        print("  WARN: 2024-08-02 weekend not in artefact — skipping fig9.")
+        return
+    side = json.loads((DATA_PROCESSED / "lwc_artefact_v1.json").read_text())
+    qt, cbump = side["regime_quantile_table"], side["c_bump_schedule"]
+
+    panel = _load_panel()
+    mon = (panel[panel["fri_ts"].astype(str) == "2024-08-02"]
+           .set_index("symbol")["mon_open"])
+
+    rows = []
+    for _, r in art.iterrows():
+        fri = float(r["fri_close"])
+        point_pct = (float(r["point"]) / fri - 1.0) * 100.0
+        entry = {
+            "symbol": r["symbol"],
+            "realised_pct": (float(mon[r["symbol"]]) / fri - 1.0) * 100.0,
+            "point_pct": point_pct,
+        }
+        for tau in ANATOMY_TAUS:
+            hw_pct = (float(cbump[str(tau)])
+                      * float(qt[r["regime_pub"]][str(tau)])
+                      * float(r["sigma_hat_sym_pre_fri"]) * 100.0)
+            entry[f"lo_{tau}"] = point_pct - hw_pct
+            entry[f"hi_{tau}"] = point_pct + hw_pct
+        rows.append(entry)
+    df = pd.DataFrame(rows).sort_values("realised_pct",
+                                        ascending=True).reset_index(drop=True)
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.6))
+    y = np.arange(len(df))
+
+    # Nested bands: widest τ lightest, drawn first.
+    BAND_STYLE = {
+        0.99: dict(color=OI["blue"], alpha=0.18, lw=9),
+        0.95: dict(color=OI["blue"], alpha=0.40, lw=6),
+        0.85: dict(color=OI["blue"], alpha=0.80, lw=3),
+    }
+    for tau in (0.99, 0.95, 0.85):  # widest first, 0.85 on top
+        st = BAND_STYLE[tau]
+        ax.hlines(y, df[f"lo_{tau}"], df[f"hi_{tau}"],
+                  color=st["color"], alpha=st["alpha"],
+                  linewidth=st["lw"], zorder=2)
+
+    # Factor-adjusted point (band centre).
+    ax.scatter(df["point_pct"], y, marker="|", s=120, color="black",
+               linewidth=1.2, zorder=4)
+
+    # Realised Monday open — breach state judged against the τ=0.95 band.
+    breach95 = ((df["realised_pct"] < df["lo_0.95"])
+                | (df["realised_pct"] > df["hi_0.95"]))
+    ax.scatter(df.loc[breach95, "realised_pct"], y[breach95.to_numpy()],
+               marker="o", s=55, color=OI["vermilion"],
+               edgecolor="black", linewidth=0.5, zorder=5)
+    ax.scatter(df.loc[~breach95, "realised_pct"], y[(~breach95).to_numpy()],
+               marker="o", s=55, color="white",
+               edgecolor=OI["blue"], linewidth=1.2, zorder=5)
+
+    # Per-symbol realised-return annotation: breached dots are far left
+    # of their bands (label to the left); inside dots sit within the
+    # band (label above, so it doesn't hide behind the band fill).
+    for yi, (_, r) in zip(y, df.iterrows()):
+        if breach95.loc[_]:
+            kw = dict(xytext=(-6, -1), ha="right", va="center",
+                      color=OI["vermilion"])
+        else:
+            kw = dict(xytext=(0, 8), ha="center", va="bottom",
+                      color=OI["grey"])
+        ax.annotate(rf"${r['realised_pct']:+.1f}\%$",
+                    (r["realised_pct"], yi),
+                    textcoords="offset points", fontsize=7.5, **kw)
+
+    ax.axvline(0.0, color=OI["grey"], lw=0.6, ls="--", alpha=0.6, zorder=1)
+    ax.set_xlim(df["realised_pct"].min() - 4.0,
+                df[[c for c in df.columns if c.startswith("hi_")]]
+                .to_numpy().max() + 1.5)
+    ax.set_yticks(y)
+    ax.set_yticklabels(df["symbol"], fontsize=9)
+    ax.set_xlabel(r"weekend return, Fri 16:00 ET close $\to$ Mon 09:30 ET open (%)")
+    ax.set_ylim(-0.6, len(df) - 0.4)
+
+    # Legend.
+    from matplotlib.lines import Line2D
+    handles = [
+        Line2D([0], [0], color=OI["blue"], alpha=0.18, lw=9,
+               label=r"served band, $\tau = 0.99$"),
+        Line2D([0], [0], color=OI["blue"], alpha=0.40, lw=6,
+               label=r"served band, $\tau = 0.95$"),
+        Line2D([0], [0], color=OI["blue"], alpha=0.80, lw=3,
+               label=r"served band, $\tau = 0.85$"),
+        Line2D([0], [0], marker="|", color="black", lw=0, markersize=10,
+               markeredgewidth=1.2, label=r"factor-adjusted point $\hat p$"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=OI["vermilion"],
+               markeredgecolor="black", markersize=7,
+               label=r"realised Mon open (breach at $\tau = 0.95$)"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="white",
+               markeredgecolor=OI["blue"], markersize=7,
+               label=r"realised Mon open (inside)"),
+    ]
+    # Legend below the axes — the data fills the full plot area, so any
+    # in-axes placement occludes a band or a dot.
+    ax.legend(handles=handles, loc="upper center",
+              bbox_to_anchor=(0.5, -0.14), ncol=3, frameon=False,
+              fontsize=7.5, columnspacing=1.2, handletextpad=0.6)
+
+    plt.tight_layout()
+    out_path = FIG_DIR / "fig9_boj_anatomy.pdf"
+    fig.savefig(out_path)
+    plt.close(fig)
+    print(f"  wrote {out_path}")
+
+
 # =================================================================== Fig 7
 
 
@@ -1038,6 +1180,7 @@ def main() -> None:
     fig6_path_coverage()
     fig7_simulation_summary()
     fig7b_oos_ablation()
+    fig9_boj_anatomy()
     print("done.")
 
 
