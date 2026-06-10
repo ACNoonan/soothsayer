@@ -314,6 +314,19 @@ def run_latex(tex_path: Path) -> None:
         if must_succeed and result.returncode != 0:
             raise subprocess.CalledProcessError(result.returncode, cmd)
 
+    # pdflatex DROPS raw-Unicode glyphs that lack a \DeclareUnicodeCharacter,
+    # leaving only a log error — the 2026-05 builds shipped blank gate-table
+    # cells this way. Fail loudly so a new undeclared glyph can't slip out.
+    log = (cwd / f"{stem}.log").read_text(errors="replace")
+    flat = log.replace("\n", "")
+    dropped = sorted(set(re.findall(
+        r"Unicode character\s+\S+\s+\((U\+[0-9A-Fa-f]+)\)", flat)))
+    if dropped:
+        raise RuntimeError(
+            f"pdflatex dropped undeclared Unicode characters: {dropped} — "
+            "add \\DeclareUnicodeCharacter entries to pandoc-template.tex"
+        )
+
 
 def make_arxiv_package(tex_path: Path) -> None:
     """Assemble the source-only arXiv submission tarball next to paper.tex.
@@ -385,6 +398,13 @@ def main() -> None:
 
     print(f"Concatenating sections ({'AFT main text' if args.aft else 'full'}) ...")
     body = concat_sections(defined_keys, aft=args.aft)
+    # Combining-accent sequences (sigma/p + U+0302) cannot be declared via
+    # \DeclareUnicodeCharacter — normalise them to math macros before
+    # pandoc. Any *other* stray undeclared glyph is caught loudly by the
+    # post-compile log check in run_latex().
+    body = (body
+            .replace("\u03c3\u0302", "\\ensuremath{\\hat\\sigma}")
+            .replace("p\u0302", "\\ensuremath{\\hat p}"))
     md_concat.write_text(body)
     print(f"  → {md_concat.name} ({len(body):,} bytes)")
 
