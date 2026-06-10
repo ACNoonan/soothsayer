@@ -474,7 +474,7 @@ def render_figure(all_df: pd.DataFrame, out_dir) -> None:
             ax.axhline(y, color="#BBBBBB", linewidth=0.4, alpha=0.5)
 
     fig.suptitle(
-        "Phase 3 simulation study — half-width and coverage at "
+        "Simulation study — half-width and coverage at "
         r"$\tau = 0.95$, 100 reps $\times$ 10 symbols per DGP",
         fontsize=11.0, y=0.99,
     )

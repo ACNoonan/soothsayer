@@ -3,25 +3,28 @@ Build all seven Paper 1 figures.
 
 Outputs PDFs into `reports/paper1_coverage_inversion/figures/`:
 
-  fig1_pipeline.pdf          M6 architecture / data-flow block diagram
-  fig2_calibration.pdf       Calibration curve: M6 vs M5 vs Soothsayer-v0
-                             vs constant-buffer baseline
-  fig3_stability.pdf         M6 walk-forward + split-date sensitivity
-  fig4_per_symbol.pdf        M6 per-symbol violation rate vs nominal at τ=0.95
-                             (single panel; binomial 95% CI shaded)
-  fig5_pareto.pdf            Coverage vs half-width Pareto across methods
-                             (M6 / Soothsayer-v0 / GARCH / Pyth / Chainlink)
-  fig6_path_coverage.pdf     M6 endpoint vs path coverage across τ
+  fig1_pipeline.pdf          Architecture / data-flow block diagram
+  fig2_calibration.pdf       Calibration curve: deployed architecture vs
+                             GARCH(1,1)-t anchor markers (caption-matching
+                             design; only methods that emit a calibrated band)
+  fig3_stability.pdf         Walk-forward + split-date sensitivity
+  fig4_per_symbol.pdf        Per-symbol violation rate vs nominal at τ=0.95,
+                             deployed (blue) vs unweighted-Mondrian comparator
+                             (grey) — the §6.4.1 contrast in one panel
+  fig5_pareto.pdf            Coverage vs half-width across the two methods
+                             that emit a calibrated coverage band (deployed +
+                             GARCH-t). Incumbent oracle surfaces are
+                             deliberately excluded — §9.6: a coverage-vs-
+                             sharpness comparison against them is not
+                             well-defined.
+  fig6_path_coverage.pdf     Endpoint vs path coverage across τ
                              (single panel; perp reference, n = 118)
-  simulation_summary.pdf     Phase-3 4-DGP simulation study (copied from
+  simulation_summary.pdf     4-DGP simulation study (copied from
                              reports/figures/ produced by run_simulation_study.py)
 
-The paper's M-series naming maps to internal codenames as:
-  Soothsayer-v0 = the 2025 deployed hybrid Oracle (finite-sample cap at 0.972;
-                  appears as the legacy comparator in fig 2 / fig 5)
-  M5            = Mondrian split-conformal by regime; no per-symbol σ̂
-                  standardisation (the un-LWC predecessor to the deployed M6)
-  M6            = Locally-Weighted Conformal under EWMA HL=8 σ̂ (deployed)
+Internal codenames (M5 / M6 / LWC / Soothsayer-v0) are deliberately kept OUT
+of figure artwork — legends use the paper's descriptive names ("this paper",
+"unweighted Mondrian", "constant buffer"). See revision_critique.md A5.
 
 Conventions
 -----------
@@ -48,13 +51,10 @@ from matplotlib.patches import FancyBboxPatch
 
 from soothsayer.backtest.calibration import (
     add_sigma_hat_sym_ewma,
-    compute_score,
     compute_score_lwc,
     fit_c_bump_schedule,
-    serve_bands,
     serve_bands_lwc,
     train_lwc_quantile_table,
-    train_quantile_table,
 )
 from soothsayer.config import DATA_PROCESSED, REPORTS
 
@@ -188,6 +188,15 @@ def fig0_weekend_returns() -> None:
     )
 
     split_dt = pd.Timestamp("2023-01-01")
+    # The three named stress weekends the §5.2 caption points at —
+    # annotated so a reader can tell which spike is which (critique C/fig0).
+    # (date, label, label y-offset pts) — BoJ and tariff are ~8 months
+    # apart on a 12-year axis, so their labels are staggered vertically.
+    EVENTS = [
+        (pd.Timestamp("2020-03-06"), "COVID", 3),
+        (pd.Timestamp("2024-08-02"), "BoJ", 3),
+        (pd.Timestamp("2025-04-04"), "tariff", 11),
+    ]
     for i, sym in enumerate(sym_order):
         sub = panel[panel["symbol"] == sym].sort_values("fri_ts")
         if sub.empty:
@@ -199,6 +208,17 @@ def fig0_weekend_returns() -> None:
                    color=OI["blue"], linewidth=0.55, alpha=0.85)
         ax_ts.axvline(split_dt, color=OI["vermilion"],
                       linewidth=0.8, linestyle="--", alpha=0.7)
+        for ev_dt, ev_label, ev_dy in EVENTS:
+            ax_ts.axvline(ev_dt, color=OI["grey"],
+                          linewidth=0.5, linestyle="-", alpha=0.35)
+            if i == 0:  # label once, on the top (SPY) panel
+                ax_ts.annotate(
+                    ev_label, xy=(ev_dt, 1.0),
+                    xycoords=("data", "axes fraction"),
+                    xytext=(0, ev_dy), textcoords="offset points",
+                    ha="center", va="bottom", fontsize=6.5,
+                    color=OI["grey"], annotation_clip=False,
+                )
         ax_ts.axhline(0.0, color=OI["grey"], linewidth=0.4, alpha=0.5)
         ymax = float(np.nanpercentile(np.abs(rets_pct), 99.5))
         ymax = max(ymax * 1.1, 1.0)
@@ -280,7 +300,7 @@ def fig1_pipeline() -> None:
         linewidth=1.0, facecolor="#E8F1FA", edgecolor=OI["blue"],
     )
     ax.add_patch(p)
-    ax.text(50, 35.5, "Five-line serving lookup (M6 / LWC)", ha="center",
+    ax.text(50, 35.5, "Five-line serving lookup", ha="center",
             fontsize=9.5, color=OI["blue"], fontweight="bold")
     eqs = [
         r"$\hat p_t = p_t^{\mathrm{Fri}} \cdot (1 + r_t^F)$",
@@ -292,17 +312,22 @@ def fig1_pipeline() -> None:
         ax.text(7, 31.5 - 4.0 * i, eq, ha="left", va="center",
                 fontsize=9, color=OI["black"])
 
-    # Bottom: receipt with M6 diagnostic quartet.
+    # Bottom: receipt with the diagnostic quartet. Field names follow
+    # §4.7: target and served coverage are both τ (δ ≡ 0), shown as
+    # named fields rather than a bare repeated τ (critique A3).
     box(2, 1, 96, 9,
-        r"$\mathrm{PricePoint}\{\,\mathrm{symbol},\, \mathrm{as\_of},\, \tau,\, \delta(\tau){=}0,\, \tau,\, \hat p_t,\, L_t,\, U_t,\, r,\, \mathrm{sharpness\,bps},\, \mathrm{diagnostics}\{c,\, q_{\mathrm{eff}},\, q_r,\, \hat\sigma_s\}\,\}$",
-        "#F5F5F5", ec=OI["grey"], fontsize=7.2)
-    ax.text(50, 11.2, "Per-read receipt (P1: auditability) — 16 deployment scalars + per-symbol $\\hat\\sigma_s(t)$",
+        r"$\mathrm{PricePoint}\{\,\mathrm{symbol},\, \mathrm{as\_of},\, \tau_{\mathrm{target}}{=}\tau,\, \tau_{\mathrm{served}}{=}\tau,\, \delta(\tau){=}0,\, \hat p_t,\, L_t,\, U_t,\, r,\, \mathrm{sharpness\,bps},\, \mathrm{diagnostics}\{c,\, q_{\mathrm{eff}},\, q_r,\, \hat\sigma_s\}\,\}$",
+        "#F5F5F5", ec=OI["grey"], fontsize=7.0)
+    ax.text(50, 11.2,
+            "Per-read receipt (P1: auditability) — 16 deployment scalars "
+            "(12 $q_r$ + 4 $c(\\tau)$) + per-symbol $\\hat\\sigma_s(t)$",
             ha="center", fontsize=8.5, color=OI["grey"], fontweight="bold")
 
-    # Arrows down from inputs into shaded box.
+    # Arrows down from inputs into shaded box. The lookup→receipt arrow
+    # is offset from centre so it doesn't pierce the receipt label text.
     for (x, _, w, _, _, _) in inputs:
         arrow(x + w / 2, 44, x + w / 2, 38.5)
-    arrow(50, 14, 50, 10.2)
+    arrow(25, 14, 25, 10.2)
 
     plt.savefig(FIG_DIR / "fig1_pipeline.pdf")
     plt.close(fig)
@@ -313,46 +338,20 @@ def fig1_pipeline() -> None:
 
 
 def fig2_calibration() -> None:
-    """Calibration curve: M6 vs M5 vs Soothsayer-v0 vs constant-buffer baseline.
+    """Calibration curve: deployed architecture vs GARCH(1,1)-t markers.
 
-    All four lines plotted on the same 1,730-row 2023+ OOS slice. M6 from
-    LWC under EWMA HL=8 σ̂ at a fine τ grid; M5 from Mondrian-by-regime
-    at the same fine grid; Soothsayer-v0 from the v1b_bounds.parquet
-    surface (its 12 native anchors); constant-buffer from F0_stale +
-    Gaussian z·σ_20d at the fine grid."""
+    Caption-matching design (§6.3.2): the deployed architecture (blue) on
+    a fine τ grid over the 1,730-row 2023+ OOS slice tracks the 45°
+    diagonal; GARCH(1,1)-t (vermilion squares) at the four served anchors
+    visibly under-covers at τ ∈ {0.68, 0.85, 0.95}. Star marks the
+    headline τ=0.95 result. Restricted to methods that emit a calibrated
+    coverage band (§9.6) — no incumbent surfaces, no internal-codename
+    comparators."""
     panel = _load_panel()
-    train_full = panel[panel["fri_ts"] < SPLIT_DATE]
-    oos_full = (
-        panel[panel["fri_ts"] >= SPLIT_DATE]
-        .sort_values(["symbol", "fri_ts"])
-        .reset_index(drop=True)
-    )
 
     fine_taus = tuple(np.round(np.linspace(0.10, 0.99, 60), 4))
 
-    # ---- M5 fine-grid serve.
-    panel_m5 = panel.copy()
-    panel_m5["score"] = compute_score(panel_m5)
-    train_m5 = panel_m5[panel_m5["fri_ts"] < SPLIT_DATE].dropna(subset=["score"])
-    oos_m5 = (panel_m5[panel_m5["fri_ts"] >= SPLIT_DATE]
-              .dropna(subset=["score"])
-              .sort_values(["symbol", "fri_ts"])
-              .reset_index(drop=True))
-    qt_m5 = train_quantile_table(train_m5, cell_col="regime_pub", taus=fine_taus)
-    cb_m5 = fit_c_bump_schedule(oos_m5, qt_m5, cell_col="regime_pub", taus=fine_taus)
-    bounds_m5 = serve_bands(
-        oos_m5, qt_m5, cb_m5, cell_col="regime_pub", taus=fine_taus,
-        delta_shift_schedule={t: 0.0 for t in fine_taus},
-    )
-    m5_curve = []
-    for tau in fine_taus:
-        b = bounds_m5[tau]
-        cov = ((oos_m5["mon_open"] >= b["lower"]) &
-               (oos_m5["mon_open"] <= b["upper"])).mean()
-        m5_curve.append((tau, float(cov)))
-    m5 = pd.DataFrame(m5_curve, columns=["claimed", "realised"])
-
-    # ---- M6 (LWC + EWMA HL=8) fine-grid serve.
+    # ---- Deployed architecture (LWC + EWMA HL=8) fine-grid serve.
     panel_lwc = add_sigma_hat_sym_ewma(panel.copy(), half_life=SIGMA_HL)
     scale_col = f"sigma_hat_sym_ewma_pre_fri_hl{SIGMA_HL}"
     panel_lwc["score_lwc"] = compute_score_lwc(panel_lwc, scale_col=scale_col)
@@ -391,65 +390,22 @@ def fig2_calibration() -> None:
         m6_curve.append((tau, float(cov)))
     m6 = pd.DataFrame(m6_curve, columns=["claimed", "realised"])
 
-    # ---- Soothsayer-v0 (legacy hybrid Oracle from v1b_bounds.parquet).
-    bounds_v0 = pd.read_parquet(DATA_PROCESSED / "v1b_bounds.parquet")
-    bounds_v0["fri_ts"] = pd.to_datetime(bounds_v0["fri_ts"]).dt.date
-    bounds_v0 = bounds_v0[bounds_v0["fri_ts"] >= SPLIT_DATE]
-    REGIME_FC = {"normal": "F1_emp_regime",
-                 "long_weekend": "F1_emp_regime",
-                 "high_vol": "F0_stale"}
-    bounds_v0 = bounds_v0[bounds_v0.apply(
-        lambda r: r["forecaster"] == REGIME_FC.get(r["regime_pub"]),
-        axis=1
-    )].copy()
-    BUFFER_BY_TARGET = {0.68: 0.005, 0.85: 0.010, 0.95: 0.020, 0.99: 0.040}
-    v0_rows = []
-    for tau in sorted(bounds_v0["claimed"].unique()):
-        sub = bounds_v0[np.isclose(bounds_v0["claimed"], tau)]
-        anchors = sorted(BUFFER_BY_TARGET.keys())
-        if tau <= anchors[0]:
-            buf = BUFFER_BY_TARGET[anchors[0]]
-        elif tau >= anchors[-1]:
-            buf = BUFFER_BY_TARGET[anchors[-1]]
-        else:
-            for i in range(len(anchors) - 1):
-                lo, hi = anchors[i], anchors[i + 1]
-                if lo <= tau <= hi:
-                    frac = (tau - lo) / (hi - lo)
-                    buf = (BUFFER_BY_TARGET[lo]
-                           + frac * (BUFFER_BY_TARGET[hi] - BUFFER_BY_TARGET[lo]))
-                    break
-        lower = sub["lower"] - buf * sub["fri_close"]
-        upper = sub["upper"] + buf * sub["fri_close"]
-        cov = ((sub["mon_open"] >= lower) & (sub["mon_open"] <= upper)).mean()
-        v0_rows.append((float(tau), float(cov)))
-    v0 = pd.DataFrame(v0_rows, columns=["claimed", "realised"])
-
-    # ---- Constant-buffer baseline (F0_stale + Gaussian z·σ_20d).
-    from scipy.stats import norm
-    cb_oos = oos_full.dropna(subset=["fri_vol_20d"]).copy()
-    cb_curve = []
-    for tau in fine_taus:
-        z = norm.ppf(0.5 + tau / 2.0)
-        sig = cb_oos["fri_close"] * np.sqrt(2.0) * cb_oos["fri_vol_20d"]
-        lower = cb_oos["fri_close"] - z * sig
-        upper = cb_oos["fri_close"] + z * sig
-        cov = ((cb_oos["mon_open"] >= lower) & (cb_oos["mon_open"] <= upper)).mean()
-        cb_curve.append((tau, float(cov)))
-    cbdf = pd.DataFrame(cb_curve, columns=["claimed", "realised"])
+    # ---- GARCH(1,1)-t at the four served anchors (§6.4.3 baseline).
+    garch = pd.read_csv(TABLES / "m6_lwc_robustness_garch_t_baseline.csv")
+    if "garch_dist" in garch.columns:
+        garch = garch[garch["garch_dist"] == "t"]
+    garch = garch.sort_values("tau")
 
     # ---- Plot.
     fig, ax = plt.subplots(figsize=(6.0, 4.2))
     ax.plot([0, 1], [0, 1], lw=0.8, ls="--", color=OI["grey"],
             label=r"perfect calibration ($45^\circ$)")
-    ax.plot(cbdf["claimed"], cbdf["realised"], color=OI["vermilion"], lw=1.2,
-            label=r"constant-buffer baseline (F0\_stale, $\sigma_{20d}$)")
-    ax.plot(v0["claimed"], v0["realised"], color=OI["orange"],
-            marker="o", markersize=3.5, label=r"Soothsayer-v0 (legacy hybrid)")
-    ax.plot(m5["claimed"], m5["realised"], color=OI["green"], lw=1.4,
-            label=r"M5 (Mondrian, no $\hat\sigma$ standardisation)")
     ax.plot(m6["claimed"], m6["realised"], color=OI["blue"], lw=2.0,
-            label=r"M6 (this paper)")
+            label=r"this paper (deployed architecture)")
+    ax.scatter(garch["tau"], garch["realised"],
+               color=OI["vermilion"], marker="s", s=42, zorder=5,
+               edgecolor="black", linewidth=0.4,
+               label=r"GARCH(1,1)-$t$ baseline (four anchors)")
 
     # Anchor markers + headline annotation.
     for tau in TAUS:
@@ -526,7 +482,7 @@ def fig3_stability() -> None:
     ax_l.set_ylabel(r"realised coverage on test fold")
     ax_l.set_xlim(0.15, 0.75)
     ax_l.set_ylim(0.55, 1.02)
-    ax_l.set_title("(a) 6-split walk-forward (M6, $\\delta\\equiv 0$)",
+    ax_l.set_title("(a) 6-split walk-forward ($\\delta\\equiv 0$)",
                    fontsize=10, fontweight="bold")
     ax_l.legend(loc="lower right", ncol=2, framealpha=0.9, fontsize=7.5)
 
@@ -543,7 +499,7 @@ def fig3_stability() -> None:
     ax_r.errorbar(
         x, cov, yerr=[cov - lo, hi - cov],
         color=OI["blue"], marker="*", markersize=11,
-        lw=1.0, capsize=3.0, label=r"$\tau\!=\!0.95$ realised (M6)",
+        lw=1.0, capsize=3.0, label=r"$\tau\!=\!0.95$ realised",
     )
     ax_r.axhline(0.95, color=OI["blue"], ls=":", lw=0.6, alpha=0.6,
                  label=r"nominal $\tau\!=\!0.95$")
@@ -564,7 +520,7 @@ def fig3_stability() -> None:
     ax_r.set_ylabel(r"realised coverage on OOS slice")
     ax_r.set_xlim(-0.5, len(sd95) - 0.5)
     ax_r.set_ylim(0.93, 0.97)
-    ax_r.set_title("(b) split-date sensitivity (M6)",
+    ax_r.set_title("(b) split-date sensitivity",
                    fontsize=10, fontweight="bold")
     ax_r.legend(loc="lower right", framealpha=0.9, fontsize=7.5)
 
@@ -578,15 +534,25 @@ def fig3_stability() -> None:
 
 
 def fig4_per_symbol() -> None:
-    """Single-panel M6 per-symbol violation rate at τ=0.95.
+    """Single-panel per-symbol violation rate at τ=0.95 — deployed vs
+    unweighted-Mondrian comparator.
 
     x-axis: 10 symbols ordered by realised PIT variance σ̂²_z (low → high).
     y-axis: per-symbol violation rate at τ=0.95, with binomial 95% CI band
-    around the nominal 0.05 rate shaded. All 10 symbols sit inside the band —
-    the §6.4.1 headline. The single (symbol × τ) grid outlier (TSLA at
-    τ=0.85, p=0.044) is annotated separately, below the main panel."""
+    around the nominal 0.05 rate shaded. All 10 deployed-architecture
+    symbols sit inside the band (the §6.4.1 headline); the unweighted
+    Mondrian comparator's rates (grey ×, from
+    m6_per_symbol_kupiec_4methods.csv, method=m5) disperse outside it —
+    the 10/10-vs-2/10 contrast in one panel (revision_critique C/fig4)."""
     df = pd.read_csv(TABLES / "m6_lwc_robustness_per_symbol.csv")
     df = df.sort_values("var_z").reset_index(drop=True)
+
+    # Unweighted-Mondrian comparator rates at τ=0.95, aligned to the
+    # same symbol order.
+    grid = pd.read_csv(TABLES / "m6_per_symbol_kupiec_4methods.csv")
+    m5 = (grid[(grid["method"] == "m5") & np.isclose(grid["tau"], 0.95)]
+          .set_index("symbol")["viol_rate"]
+          .reindex(df["symbol"]))
 
     from scipy.stats import binom
     from matplotlib.lines import Line2D
@@ -607,6 +573,11 @@ def fig4_per_symbol() -> None:
     # Per-symbol violation rates.
     x = np.arange(len(df))
     ax.scatter(
+        x, m5.to_numpy(),
+        color=OI["grey"], marker="x", linewidth=1.6,
+        s=60, zorder=2, alpha=0.9,
+    )
+    ax.scatter(
         x, df["viol_rate_0.95"],
         color=OI["blue"], edgecolor="black", linewidth=0.5,
         s=85, zorder=3,
@@ -621,7 +592,12 @@ def fig4_per_symbol() -> None:
     )
     ax.set_ylabel(r"per-symbol violation rate at $\tau\!=\!0.95$", fontsize=9)
     ax.set_xlim(-0.6, len(df) - 0.4)
-    y_max = max(float(df["viol_rate_0.95"].max()) * 1.4, hi_rate * 1.3, 0.10)
+    y_max = max(
+        float(df["viol_rate_0.95"].max()) * 1.4,
+        float(np.nanmax(m5.to_numpy())) * 1.55,  # headroom so the legend
+        hi_rate * 1.3,                           # clears the comparator ×s
+        0.10,
+    )
     ax.set_ylim(0.0, y_max)
 
     # σ̂²_z values as a secondary x-axis on top.
@@ -641,7 +617,10 @@ def fig4_per_symbol() -> None:
                   label=rf"binomial 95% CI ($n={n_oos}$)"),
         Line2D([0], [0], marker="o", color="w",
                markerfacecolor=OI["blue"], markeredgecolor="black",
-               markersize=8, label=r"M6 violation rate"),
+               markersize=8, label=r"this paper (deployed $\hat\sigma_s$)"),
+        Line2D([0], [0], marker="x", color=OI["grey"],
+               markersize=7, markeredgewidth=1.6, lw=0,
+               label=r"unweighted Mondrian comparator"),
     ]
     ax.legend(handles=legend_handles, loc="upper right",
               framealpha=0.9, fontsize=8.0)
@@ -656,84 +635,52 @@ def fig4_per_symbol() -> None:
 
 
 def fig5_pareto() -> None:
-    """Realised coverage vs half-width across methods at four served τ.
+    """Realised coverage vs half-width at the four served τ.
 
-    M6 from m6_pooled_oos.csv (forecaster=lwc, stratification=pooled).
-    Soothsayer-v0 from incumbent_oracle_unified_summary.csv (the legacy
-    deployed hybrid). GARCH-t from m6_lwc_robustness_garch_t_baseline.csv
-    (the practitioner-standard parametric baseline; Phase 7.3).
-    Pyth + Chainlink from incumbent_oracle_unified_summary.csv at the
-    consumer-supplied wrap multiplier."""
-    inc = pd.read_csv(TABLES / "incumbent_oracle_unified_summary.csv")
+    Restricted to the two methods that emit a calibrated coverage band
+    (caption + §9.6 stance): the deployed architecture from
+    m6_pooled_oos.csv (forecaster=lwc, pooled) and GARCH(1,1)-t from
+    m6_lwc_robustness_garch_t_baseline.csv. Incumbent oracle surfaces
+    (Pyth, Chainlink Streams, RedStone, Kamino Scope) do not emit one,
+    so a coverage-vs-sharpness comparison against them is not
+    well-defined and is deliberately NOT plotted (revision_critique A1)."""
     pooled = pd.read_csv(TABLES / "m6_pooled_oos.csv")
 
-    # Prefer GARCH-t (Phase 7.3, practitioner standard) if available;
-    # fall back to GARCH-Gaussian for backward compatibility.
-    garch_t_path = TABLES / "m6_lwc_robustness_garch_t_baseline.csv"
-    if garch_t_path.exists():
-        garch = pd.read_csv(garch_t_path)
-        # The Phase 7.3 runner emits a `method` column literal "GARCH(1,1)";
-        # the t-vs-N split is on `garch_dist` if present.
-        if "garch_dist" in garch.columns:
-            garch = garch[garch["garch_dist"] == "t"]
-        else:
-            garch = garch[garch["method"] == "GARCH(1,1)"]
-        garch_label = r"GARCH(1,1)-$t$ baseline"
-    else:
-        garch = pd.read_csv(TABLES / "m6_lwc_robustness_garch_baseline.csv")
-        garch = garch[garch["method"] == "GARCH(1,1)"]
-        garch_label = r"GARCH(1,1)-Gaussian baseline"
+    garch = pd.read_csv(TABLES / "m6_lwc_robustness_garch_t_baseline.csv")
+    if "garch_dist" in garch.columns:
+        garch = garch[garch["garch_dist"] == "t"]
+    garch = garch.sort_values("tau")
 
     fig, ax = plt.subplots(figsize=(6.0, 4.2))
 
-    # ---- M6 (this paper) — LWC pooled OOS at four anchors.
+    # ---- This paper — deployed architecture, pooled OOS at four anchors.
     m6 = pooled[(pooled["forecaster"] == "lwc")
                 & (pooled["stratification"] == "pooled")].sort_values("tau")
     ax.plot(m6["realised"], m6["half_width_bps"],
             color=OI["blue"], marker="*", markersize=11,
-            lw=1.6, label=r"M6 (this paper)", zorder=5)
+            lw=1.6, label=r"this paper (deployed architecture)", zorder=5)
     for _, row in m6.iterrows():
         ax.annotate(rf"$\tau\!=\!{row['tau']:.2f}$",
                     (row["realised"], row["half_width_bps"]),
                     xytext=(8, 4), textcoords="offset points",
                     fontsize=7.5, color=OI["blue"])
 
-    # ---- Soothsayer-v0 (legacy hybrid Oracle).
-    v0 = inc[inc["oracle"] == "soothsayer_v1_deployed"].sort_values("tau")
-    ax.plot(v0["realized_at_tau_band"], v0["halfwidth_bps_at_tau"],
-            color=OI["orange"], marker="o", markersize=6,
-            lw=1.2, label=r"Soothsayer-v0 (legacy hybrid)", zorder=4)
-
-    # ---- GARCH baseline.
+    # ---- GARCH(1,1)-t baseline.
     ax.plot(garch["realised"], garch["half_width_bps"],
             color=OI["vermilion"], marker="s", markersize=5,
-            lw=1.0, label=garch_label, zorder=4)
-
-    # ---- Pyth (consumer wrap at smallest k achieving claimed coverage).
-    pyth = inc[inc["oracle"] == "pyth_smallest_k"].sort_values("tau")
-    ax.plot(pyth["realized_at_tau_band"], pyth["halfwidth_bps_at_tau"],
-            color=OI["green"], marker="D", markersize=5,
-            lw=0.8, label=r"Pyth $\pm k\!\cdot\!\mathrm{conf}$ ($n=265$)", zorder=3)
-
-    # ---- Chainlink Streams (manual mid ± k% wrap).
-    cl = inc[inc["oracle"] == "chainlink_streams_smallest_k_pct"].sort_values("tau")
-    ax.plot(cl["realized_at_tau_band"], cl["halfwidth_bps_at_tau"],
-            color=OI["purple"], marker="X", markersize=5,
-            lw=0.8, label=r"Chainlink Streams mid$\,\pm\,k\%$ ($n=87$)", zorder=3)
+            lw=1.0, label=r"GARCH(1,1)-$t$ baseline", zorder=4)
 
     # ---- Vertical lines at four claimed τ.
     for tau in TAUS:
         ax.axvline(tau, lw=0.4, ls=":", color=OI["grey"], alpha=0.5)
-        ax.text(tau, 700, rf"$\tau\!=\!{tau:.2f}$", rotation=90, va="bottom",
+        ax.text(tau, 105, rf"$\tau\!=\!{tau:.2f}$", rotation=90, va="bottom",
                 ha="right", fontsize=7, color=OI["grey"])
 
     ax.set_yscale("log")
     ax.set_xlim(0.6, 1.02)
-    ax.set_ylim(50, 1500)
+    ax.set_ylim(100, 900)
     ax.set_xlabel(r"realised coverage")
     ax.set_ylabel(r"mean half-width (bps, log)")
-    ax.set_title(r"Coverage vs sharpness across methods at four served $\tau$",
-                 fontsize=10, fontweight="bold")
     ax.legend(loc="lower right", framealpha=0.9, fontsize=8.0)
 
     plt.savefig(FIG_DIR / "fig5_pareto.pdf")
@@ -798,9 +745,9 @@ def fig6_path_coverage() -> None:
     ax.plot([0.6, 1.0], [0.6, 1.0], lw=0.6, ls="--",
             color=OI["grey"], label=r"$45^\circ$")
     ax.plot(pp["tau"], pp["endpoint_cov"], color=OI["blue"], marker="o",
-            markersize=8, lw=1.6, label=r"M6 endpoint coverage")
+            markersize=8, lw=1.6, label=r"endpoint coverage")
     ax.plot(pp["tau"], pp["path_cov"], color=OI["vermilion"], marker="s",
-            markersize=7, lw=1.4, label=r"M6 path coverage")
+            markersize=7, lw=1.4, label=r"path coverage")
     ax.fill_between(pp["tau"], pp["path_cov"], pp["endpoint_cov"],
                     color=OI["vermilion"], alpha=0.12, zorder=0)
     for _, row in pp.iterrows():
@@ -813,11 +760,8 @@ def fig6_path_coverage() -> None:
     ax.set_ylim(0.30, 1.05)
     ax.set_xlabel(r"claimed coverage $\tau$")
     ax.set_ylabel(r"realised coverage on perp reference")
-    n_pooled = int(pp["n"].iloc[0])
-    ax.set_title(
-        rf"M6 endpoint vs path coverage across $\tau$ ($n={n_pooled}$ symbol-weekends, 2025-12 $\to$ 2026-04)",
-        fontsize=9.5, fontweight="bold",
-    )
+    # No in-artwork title — the §6.5 caption carries sample size and dates
+    # (revision_critique A5: keep section refs and codenames out of artwork).
     ax.legend(loc="lower right", framealpha=0.9, fontsize=9.0)
 
     plt.tight_layout()
@@ -1007,7 +951,7 @@ def fig7b_oos_ablation() -> None:
     ax_hw.set_ylim(0.4, n_rows + 0.6)
 
     fig.suptitle(
-        r"§7.2 OOS per-symbol ablation at $\tau = 0.95$ — "
+        r"OOS per-symbol ablation at $\tau = 0.95$ — "
         "10 symbols × 4 split anchors {2021, 2022, 2023, 2024}",
         fontsize=10.5, y=0.985,
     )
