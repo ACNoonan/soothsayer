@@ -2,6 +2,19 @@
 
 Adversarial read of the full arXiv version (build of 2026-05-25, N=5 forward-tape refresh applied 2026-06-08). Benchmark for narrative/figure quality: Cong et al. (exemplars/Tokenized-Stocks-Cong). Items ranked by severity. Each has a checkbox; strike when done.
 
+> **Execution status (2026-06-10, commits cd1727f…3b5f265):** Sessions 1–6 executed.
+> DONE: A1–A5 (figures regenerated, de-codenamed; plus a bonus find — pdflatex was
+> silently dropping ✓/✗/Δ/σ/τ/≈/≤/⌈⌉ glyphs in every shipped PDF; template now declares
+> them and build.py fails loudly on drops), A6 (repo verified PUBLIC), ADD-1 (fig9 BoJ
+> anatomy — which exposed the §6.3.5 table as stale K=26-era numbers; k_w corrected
+> 8→9), ADD-2 (fig10 k_w distribution), B1–B5 (abstract/intro rewrite, dedup), most of
+> D (rejection counts, HOOD 238, p=0 rows, Christoffersen ordering note, tokenised
+> sweep, §12 figure table), AFT carve gets fig9 (17pp).
+> REMAINING: B6 full sentence-splitting sweep (only worst cases done), B7 overnight
+> emphasis (§3.1 already says primary/generalisation — judged acceptable), B8 §3.2
+> tighten, fig3 cut-to-appendix decision, optional ADD-3 earnings-widening figure,
+> "as of" phrasing for §1 market stats, §5.2 "~245"→246 HOOD nit.
+
 ---
 
 ## A. Defects a hostile reviewer can quote against the paper
