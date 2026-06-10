@@ -1145,6 +1145,68 @@ def fig9_boj_anatomy() -> None:
     print(f"  wrote {out_path}")
 
 
+# ================================================================== Fig 10
+
+
+def fig10_kw_distribution() -> None:
+    """Joint-tail k_w distribution at tau=0.95 (revision_critique ADD-2).
+
+    The C4 contribution -- the empirical distribution of the per-weekend
+    joint breach count k_w against the Binom(10, 0.05) independence
+    strawman and the fitted t-copula envelope -- previously existed only
+    as a table (paper1_a3_joint_baseline_kw_distribution.csv). One panel,
+    log-y; k* = 3 (the reserve-guidance threshold) and the 2024-08-05
+    BoJ weekend (k_w = 9) annotated."""
+    df = pd.read_csv(TABLES / "paper1_a3_joint_baseline_kw_distribution.csv")
+    df = df[np.isclose(df["target"], 0.95)].sort_values("k")
+    k = df["k"].to_numpy()
+    n_weekends = 173
+    floor = 1.0 / n_weekends
+
+    fig, ax = plt.subplots(figsize=(6.0, 3.9))
+
+    ax.bar(k, df["P_emp"], width=0.62, color=OI["blue"], alpha=0.85,
+           zorder=3, label=rf"empirical ($n = {n_weekends}$ weekends)")
+    ax.plot(k, df["P_binom"], color=OI["vermilion"], marker="s",
+            markersize=4.5, lw=1.1, zorder=4,
+            label=r"$\mathrm{Binom}(10, 1{-}\tau)$ independence")
+    ax.plot(k, df["P_t_copula"], color=OI["grey"], marker="D",
+            markersize=4, lw=1.1, ls="--", zorder=4,
+            label=r"$t$-copula ($\hat\nu = 6.04$, empirical $\hat R$)")
+
+    # Empirical resolution floor (one weekend in 173).
+    ax.axhline(floor, color=OI["grey"], lw=0.6, ls=":", alpha=0.8, zorder=1)
+    ax.text(10.45, floor, r"$1/173$", fontsize=7, color=OI["grey"],
+            ha="right", va="bottom")
+
+    # k* = 3 reserve-guidance threshold.
+    ax.axvline(2.5, color=OI["black"], lw=0.8, ls="--", alpha=0.6, zorder=2)
+    ax.text(2.62, 0.55, r"$k^\ast = 3$", fontsize=8.5, ha="left",
+            va="top", color=OI["black"])
+
+    # BoJ weekend annotation at its tau=0.95 breach count.
+    boj_k = 9
+    boj_p = float(df.loc[df["k"] == boj_k, "P_emp"].iloc[0])
+    ax.annotate("2024-08-05\nBoJ unwind", xy=(boj_k, max(boj_p, floor)),
+                xytext=(6.1, 0.035), fontsize=7.5, color=OI["vermilion"],
+                ha="center",
+                arrowprops=dict(arrowstyle="->", lw=0.7,
+                                color=OI["vermilion"]))
+
+    ax.set_yscale("log")
+    ax.set_ylim(2.0e-4, 1.0)
+    ax.set_xticks(k)
+    ax.set_xlabel(r"$k_w$ — symbols breaching their $\tau = 0.95$ band on the same weekend")
+    ax.set_ylabel(r"$P(k_w = k)$ (log)")
+    ax.legend(loc="upper right", framealpha=0.95, fontsize=8.0)
+
+    plt.tight_layout()
+    out_path = FIG_DIR / "fig10_kw_distribution.pdf"
+    fig.savefig(out_path)
+    plt.close(fig)
+    print(f"  wrote {out_path}")
+
+
 # =================================================================== Fig 7
 
 
@@ -1181,6 +1243,7 @@ def main() -> None:
     fig7_simulation_summary()
     fig7b_oos_ablation()
     fig9_boj_anatomy()
+    fig10_kw_distribution()
     print("done.")
 
 
