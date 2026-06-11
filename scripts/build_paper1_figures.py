@@ -1147,6 +1147,114 @@ def fig9_boj_anatomy() -> None:
     print(f"  wrote {out_path}")
 
 
+# ================================================================== Fig 11
+
+
+def fig11_earnings_event_study() -> None:
+    """Calendar-conditioned widening as a superposed-epoch event study
+    (revision_critique ADD-3; design chosen 2026-06-10).
+
+    All earnings nights on the overnight panel aligned at t = 0; for
+    each event, the served tau=0.95 half-width (deployed overnight
+    artefact schedules) at night offsets t-5..t+5 within the same
+    symbol, normalised by that event's own pre-event baseline (median
+    width over t-5..t-2). The spike at t = 0 is the deterministic
+    calendar-conditioned widening (earnings_night quantile ~7.7x the
+    normal-night quantile at matched sigma-hat); the FLAT SHOULDER at
+    t >= +1 is the sigma-hat de-contamination evidence — without the
+    §4.3.1 exclusion, the earnings residual would inflate sigma-hat
+    (and hence width) for ~HL nights after the event. Realised |move|,
+    in the same per-event baseline units, is overlaid."""
+    TAU = "0.95"
+    OFFSETS = list(range(-5, 6))
+
+    art = pd.read_parquet(DATA_PROCESSED / "overnight_artefact_v1.parquet")
+    side = json.loads(
+        (DATA_PROCESSED / "overnight_artefact_v1.json").read_text())
+    qt, cbump = side["regime_quantile_table"], side["c_bump_schedule"]
+
+    panel = pd.read_parquet(DATA_PROCESSED / "overnight_panel.parquet")
+    panel["fri_ts"] = pd.to_datetime(panel["fri_ts"])
+    art["fri_ts"] = pd.to_datetime(art["fri_ts"])
+    art = art.merge(
+        panel[["symbol", "fri_ts", "mon_open"]],
+        on=["symbol", "fri_ts"], how="left",
+    )
+    art["hw_bps"] = (
+        float(cbump[TAU])
+        * art["regime_pub"].map({r: float(qt[r][TAU]) for r in qt})
+        * art["sigma_hat_sym_pre_fri"] * 1.0e4
+    )
+    art["abs_move_bps"] = (
+        (art["mon_open"] / art["fri_close"] - 1.0).abs() * 1.0e4
+    )
+
+    # Per-symbol night sequences, positional indexing for offsets.
+    width_rel = {k: [] for k in OFFSETS}
+    move_rel = {k: [] for k in OFFSETS}
+    n_events = 0
+    for sym, grp in art.groupby("symbol"):
+        grp = grp.sort_values("fri_ts").reset_index(drop=True)
+        ev_idx = grp.index[grp["regime_pub"] == "earnings_night"]
+        for i in ev_idx:
+            base_idx = [i + k for k in range(-5, -1)
+                        if 0 <= i + k < len(grp)
+                        and grp.loc[i + k, "regime_pub"] != "earnings_night"]
+            if len(base_idx) < 2:
+                continue
+            baseline = float(np.median(grp.loc[base_idx, "hw_bps"]))
+            if not np.isfinite(baseline) or baseline <= 0:
+                continue
+            n_events += 1
+            for k in OFFSETS:
+                j = i + k
+                if 0 <= j < len(grp):
+                    width_rel[k].append(float(grp.loc[j, "hw_bps"]) / baseline)
+                    mv = float(grp.loc[j, "abs_move_bps"])
+                    if np.isfinite(mv):
+                        move_rel[k].append(mv / baseline)
+
+    med = np.array([np.median(width_rel[k]) for k in OFFSETS])
+    q25 = np.array([np.percentile(width_rel[k], 25) for k in OFFSETS])
+    q75 = np.array([np.percentile(width_rel[k], 75) for k in OFFSETS])
+    mv_med = np.array([np.median(move_rel[k]) for k in OFFSETS])
+
+    fig, ax = plt.subplots(figsize=(6.0, 3.9))
+    x = np.array(OFFSETS)
+
+    ax.axhline(1.0, color=OI["grey"], lw=0.6, ls=":", alpha=0.8, zorder=1)
+    ax.fill_between(x, q25, q75, color=OI["blue"], alpha=0.18, zorder=2,
+                    label="served half-width, IQR")
+    ax.plot(x, med, color=OI["blue"], marker="o", markersize=5, lw=1.6,
+            zorder=4, label=r"served half-width, median ($\tau = 0.95$)")
+    ax.plot(x, mv_med, color=OI["vermilion"], marker="D", markersize=4,
+            lw=0, zorder=5, label=r"realised $|$close$\to$open$|$ move, median")
+
+    ax.annotate("deterministic pre-widening:\nrelease is publicly dated",
+                xy=(0, med[5]), xytext=(-4.6, med[5] * 0.82),
+                fontsize=7.5, color=OI["blue"],
+                arrowprops=dict(arrowstyle="->", lw=0.7, color=OI["blue"]))
+    ax.annotate("flat shoulder = earnings residual\nexcluded from $\\hat\\sigma_s$ (§4.3.1)",
+                xy=(2.5, med[7] if med[7] > 0 else 1.0),
+                xytext=(1.2, med[5] * 0.45),
+                fontsize=7.5, color=OI["grey"],
+                arrowprops=dict(arrowstyle="->", lw=0.7, color=OI["grey"]))
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{k:+d}" if k else "0" for k in OFFSETS])
+    ax.set_xlabel("trading nights relative to the earnings release (t = 0 is the release gap)")
+    ax.set_ylabel("multiple of the event's own\npre-event baseline width")
+    ax.legend(loc="upper left", framealpha=0.95, fontsize=7.5)
+
+    plt.tight_layout()
+    out_path = FIG_DIR / "fig11_earnings_event_study.pdf"
+    fig.savefig(out_path)
+    plt.close(fig)
+    print(f"  wrote {out_path}  (n_events = {n_events}; "
+          f"spike = {med[5]:.2f}x; shoulders t-1 = {med[4]:.2f}x, "
+          f"t+1 = {med[6]:.2f}x; move at t=0 = {mv_med[5]:.2f}x)")
+
+
 # ================================================================== Fig 10
 
 
@@ -1245,6 +1353,7 @@ def main() -> None:
     fig7b_oos_ablation()
     fig9_boj_anatomy()
     fig10_kw_distribution()
+    fig11_earnings_event_study()
     print("done.")
 
 

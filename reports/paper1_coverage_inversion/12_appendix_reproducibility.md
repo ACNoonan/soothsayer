@@ -150,7 +150,7 @@ The $\delta$ schedule is retained as a 4-zero vector in the artefact JSON for sh
 | Cross-verification | `scripts/verify_rust_oracle.py` | 180-case Python ↔ Rust parity probe (90 M5 + 90 M6 LWC) |
 | Robustness battery | `scripts/run_v1b_*.py`, `scripts/run_*.py` | per-symbol diagnostics, vol-tertile, GARCH-N + GARCH-$t$, split sensitivity, LOSO, per-class, path-fitted |
 | Phase 7 / 8 runners | `scripts/run_portfolio_clustering.py`, `scripts/run_subperiod_robustness.py`, `scripts/run_v1b_garch_baseline.py --dist t`, `scripts/run_per_symbol_kupiec_all_methods.py`, `scripts/run_kw_threshold_stability.py` | joint-tail clustering, sub-period stability, GARCH-$t$ baseline, 4-method per-symbol grid, $k_w$ threshold stability |
-| Figures | `scripts/build_paper1_figures.py` | produces Figs. 0–2, 4–7b, 9, 10 (Fig. 8 comes from `build_overnight_artefact.py`; the simulation figure from `run_simulation_study.py`) |
+| Figures | `scripts/build_paper1_figures.py` | produces Figs. 0–2, 4–7b, 9–11 (Fig. 8 comes from `build_overnight_artefact.py`; the simulation figure from `run_simulation_study.py`) |
 
 ## A.4 Compute environment
 
@@ -224,6 +224,7 @@ cd reports/paper1_coverage_inversion/build && uv run python build.py --pdf
 | Fig. 8 (overnight calibration) | `scripts/build_overnight_artefact.py` | overnight panel + artefact (§5.2.1, §6.8) |
 | Fig. 9 (BoJ band anatomy) | `build_paper1_figures.py::fig9_boj_anatomy` | `data/processed/{lwc_artefact_v1.parquet, lwc_artefact_v1.json, v1b_panel.parquet}` |
 | Fig. 10 ($k_w$ distribution) | `build_paper1_figures.py::fig10_kw_distribution` | `reports/tables/paper1_a3_joint_baseline_kw_distribution.csv` |
+| Fig. 11 (earnings event study) | `build_paper1_figures.py::fig11_earnings_event_study` | `data/processed/{overnight_artefact_v1.parquet, overnight_artefact_v1.json, overnight_panel.parquet}` |
 | Simulation figure | `scripts/run_simulation_study.py` | `reports/tables/sim_per_symbol_kupiec.csv` |
 
 ## A.7 Determinism and randomness
