@@ -10,10 +10,13 @@ Adversarial read of the full arXiv version (build of 2026-05-25, N=5 forward-tap
 > 8→9), ADD-2 (fig10 k_w distribution), B1–B5 (abstract/intro rewrite, dedup), most of
 > D (rejection counts, HOOD 238, p=0 rows, Christoffersen ordering note, tokenised
 > sweep, §12 figure table), AFT carve gets fig9 (17pp).
-> REMAINING: B6 full sentence-splitting sweep (only worst cases done), B7 overnight
-> emphasis (§3.1 already says primary/generalisation — judged acceptable), B8 §3.2
-> tighten, fig3 cut-to-appendix decision, optional ADD-3 earnings-widening figure,
-> "as of" phrasing for §1 market stats, §5.2 "~245"→246 HOOD nit.
+> **Update 2026-06-11 (commits 311db15, 21ae916):** fig3 CUT (redundant with §6.3.3
+> tables; builder function retained unwired) and ADD-3 DONE — fig11 earnings event
+> study in §4.3.1 (228 events: 7.10× spike at t=0, 0.96×/0.95× flat shoulders =
+> σ̂ de-contamination made visible, realised t=0 move 1.78× baseline band width).
+> Full paper 60pp / AFT 18pp.
+> REMAINING: B6 full sentence-splitting sweep (only worst cases done), B8 §3.2
+> tighten, "as of" phrasing for §1 market stats, §5.2 "~245"→246 HOOD nit.
 
 ---
 
