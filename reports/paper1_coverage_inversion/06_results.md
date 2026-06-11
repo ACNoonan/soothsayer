@@ -95,8 +95,6 @@ A nested temporal split renders the headline held-out at the *time* level. TRAIN
 
 Pooled OOS calibration at $\tau = 0.95$ holds across each of the four years that span SVB / banking-stress 2023, the 2024 rate-cut transition, the 2025 tokenisation-launch year, and 2026-YTD (realised range $0.931$–$0.971$). The 2025 cell rejects Kupiec at $\alpha = 0.05$ ($p = 0.017$, over-coverage); 2024 sits just above the threshold ($p = 0.057$); 2023 and 2026-YTD pass cleanly. Across the full 16-cell (sub-period × $\tau$) grid the architecture carries 3 Kupiec rejections — all toward over-coverage (one 2024 cell at $\tau = 0.99$ and the 2025 cells at $\tau \in \{0.95, 0.99\}$; §9.3 frames the asymmetry); Christoffersen lag-1 independence is not rejected in any of the 16 cells.
 
-![Walk-forward and split-date stability of the deployed schedule. **(a)** Six-split expanding-window walk-forward at four $\tau$ anchors: realised coverage on each test fold (markers) tracks nominal (dotted lines) at every anchor; bars are 95% binomial CIs. **(b)** Split-date sensitivity at four OOS-anchors {2021, 2022, 2023, 2024}: realised $\tau = 0.95$ coverage holds at $\{0.954, 0.952, 0.950, 0.950\}$ across anchors; Christoffersen passes every cell at $\alpha = 0.05$.\label{fig:stability}](figures/fig3_stability.pdf)
-
 This validates the oracle's coverage contract at $\tau = 0.95$. We do not address the welfare-optimal operating $\tau$ for a particular lending policy in this paper.
 
 ### 6.3.4 Joint-tail empirical distribution and reserve-guidance threshold

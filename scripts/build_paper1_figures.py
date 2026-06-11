@@ -7,7 +7,9 @@ Outputs PDFs into `reports/paper1_coverage_inversion/figures/`:
   fig2_calibration.pdf       Calibration curve: deployed architecture vs
                              GARCH(1,1)-t anchor markers (caption-matching
                              design; only methods that emit a calibrated band)
-  fig3_stability.pdf         Walk-forward + split-date sensitivity
+  fig3_stability.pdf         (NOT in the manuscript — cut 2026-06-10 as
+                             redundant with the §6.3.3 stability tables,
+                             revision_critique C; function retained)
   fig4_per_symbol.pdf        Per-symbol violation rate vs nominal at τ=0.95,
                              deployed (blue) vs unweighted-Mondrian comparator
                              (grey) — the §6.4.1 contrast in one panel
@@ -1236,7 +1238,6 @@ def main() -> None:
     fig0_weekend_returns()
     fig1_pipeline()
     fig2_calibration()
-    fig3_stability()
     fig4_per_symbol()
     fig5_pareto()
     fig6_path_coverage()

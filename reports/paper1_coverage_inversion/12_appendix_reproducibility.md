@@ -150,7 +150,7 @@ The $\delta$ schedule is retained as a 4-zero vector in the artefact JSON for sh
 | Cross-verification | `scripts/verify_rust_oracle.py` | 180-case Python ↔ Rust parity probe (90 M5 + 90 M6 LWC) |
 | Robustness battery | `scripts/run_v1b_*.py`, `scripts/run_*.py` | per-symbol diagnostics, vol-tertile, GARCH-N + GARCH-$t$, split sensitivity, LOSO, per-class, path-fitted |
 | Phase 7 / 8 runners | `scripts/run_portfolio_clustering.py`, `scripts/run_subperiod_robustness.py`, `scripts/run_v1b_garch_baseline.py --dist t`, `scripts/run_per_symbol_kupiec_all_methods.py`, `scripts/run_kw_threshold_stability.py` | joint-tail clustering, sub-period stability, GARCH-$t$ baseline, 4-method per-symbol grid, $k_w$ threshold stability |
-| Figures | `scripts/build_paper1_figures.py` | produces Figs. 0–7b, 9, 10 (Fig. 8 comes from `build_overnight_artefact.py`; the simulation figure from `run_simulation_study.py`) |
+| Figures | `scripts/build_paper1_figures.py` | produces Figs. 0–2, 4–7b, 9, 10 (Fig. 8 comes from `build_overnight_artefact.py`; the simulation figure from `run_simulation_study.py`) |
 
 ## A.4 Compute environment
 
@@ -217,7 +217,6 @@ cd reports/paper1_coverage_inversion/build && uv run python build.py --pdf
 | Fig. 0 (weekend returns) | `build_paper1_figures.py::fig0_weekend_returns` | `data/processed/v1b_panel.parquet` |
 | Fig. 1 (pipeline) | `build_paper1_figures.py::fig1_pipeline` | none — diagrammatic |
 | Fig. 2 (calibration) | `build_paper1_figures.py::fig2_calibration` | `data/processed/{v1b_panel.parquet, lwc_artefact_v1.json}`, `reports/tables/m6_lwc_robustness_garch_t_baseline.csv` |
-| Fig. 3 (stability) | `build_paper1_figures.py::fig3_stability` | `reports/tables/{v1b_lwc_delta_sweep.csv, m6_lwc_robustness_split_sensitivity.csv}` |
 | Fig. 4 (per-symbol) | `build_paper1_figures.py::fig4_per_symbol` | `reports/tables/{m6_lwc_robustness_per_symbol.csv, m6_per_symbol_kupiec_4methods.csv}` |
 | Fig. 5 (Pareto) | `build_paper1_figures.py::fig5_pareto` | `reports/tables/{m6_pooled_oos.csv, m6_lwc_robustness_garch_t_baseline.csv}` |
 | Fig. 6 (path) | `build_paper1_figures.py::fig6_path_coverage` | `reports/tables/path_coverage_perp_per_row.csv` + bands recomputed from the artefact schedules |
