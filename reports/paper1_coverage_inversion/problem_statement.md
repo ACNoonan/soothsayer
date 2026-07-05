@@ -14,7 +14,7 @@ A *base forecaster* $f$ emits, at each $(s, t, q)$ with claimed quantile $q \in 
 
 ## 3.2 The classical oracle problem
 
-A conventional point-plus-band oracle publishes, at each $t_\mathrm{pub}$, a triple $(\hat P_t, L_t, U_t)$ with an *implicit* or *undisclosed* coverage level. The consumer has no contract on the realised rate at which $P_t \in [L_t, U_t]$. When band widths are derived from publisher dispersion (Pyth) or a fixed Gaussian heuristic (Chainlink staleness fallback), the mapping to a realised probability-of-coverage statement is neither asserted nor auditable.
+A conventional point-plus-band oracle publishes, at each $t_\mathrm{pub}$, a triple $(\hat P_t, L_t, U_t)$ whose coverage level is *implicit* or *undisclosed*, so the consumer holds no contract on the realised rate at which $P_t \in [L_t, U_t]$. The §1.1 archetypes confirm this concretely: whether a band is derived from publisher dispersion or a fixed staleness heuristic, the mapping to a realised probability-of-coverage statement is neither asserted nor auditable.
 
 ## 3.3 The coverage-inversion primitive
 

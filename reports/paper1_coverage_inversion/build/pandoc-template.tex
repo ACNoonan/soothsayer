@@ -53,6 +53,12 @@
 \usepackage{amssymb}
 \usepackage{natbib}
 \usepackage{longtable}
+% Pandoc emits \def\LTcaptype{none} for caption-less longtables; longtable then
+% steps a counter named 'none'. Without this, every multi-column table throws
+% "No counter 'none' defined" -- recoverable, so a PDF still builds, but pdflatex
+% exits non-zero and the tables mis-render. Defining the dummy counter makes the
+% compile exit 0 (arXiv's processor expects a clean exit).
+\newcounter{none}
 \usepackage{array}
 \usepackage{multirow}
 \usepackage{calc}
@@ -76,7 +82,7 @@
 }
 
 % Suppress \today; arXiv recommends fixed dates over \date{\today}
-\date{May 2026}
+\date{June 2026}
 
 \begin{document}
 
