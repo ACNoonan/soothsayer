@@ -143,7 +143,7 @@ Cross-section: 9 of 10 symbols sold off in concert (mean weekend return $-963$ b
 
 The σ̂-standardisation held at the per-symbol level — high-vol symbols (MSTR, TSLA) got wide bands, low-vol symbols (SPY, QQQ, GLD) narrow ones, and breach magnitudes scale with the cross-sectional shock divided by σ̂. What broke is *cross-sectional common-mode*: when nearly every symbol moves the same direction at the same time by 4–27 standard-deviation-scale weekend returns, no per-symbol band — however well calibrated — can absorb the joint event. A consumer monitoring $k_w$ in real time would have seen $k_w = 10$ at $\tau = 0.85$ by the Monday-open print, well in excess of the deployment-time-fitted $k^\ast = 5$ (or the empirical 99th percentile of $7$); the empirical $k_w$ distribution is the right operational signal precisely because it captures the cross-sectional common-mode that per-symbol coverage cannot.
 
-**Joint-baseline framing of the BoJ probability.** Under a Student-$t$ copula with $\hat\nu = 6.04$ and empirical correlation $\hat R$ (mean off-diagonal $0.36$), $P(k_w = 10)$ at $\tau = 0.85$ is $0.21\%$ — i.e., the 2024-08-05 BoJ unwind is a $\sim 1\text{-in-}475\text{-weekends}$ event under a properly specified joint baseline. The independence baseline puts the same event at $\sim 1\text{-in-}10{,}000\text{-weekends}$; the residual structure §8 documents is exactly the gap between these two figures. The residual has a *name* (cluster topology, §8), a *parametric envelope* (t-copula at $\nu \approx 6$ with empirical $\hat R$), and a *structural mechanism* (equity vs safe-haven cluster topology) — not "a residual the architecture cannot characterise."
+**Joint-baseline framing of the BoJ probability.** Under a Student-$t$ copula with $\hat\nu = 6.04$ and empirical correlation $\hat R$ (mean off-diagonal $0.36$), $P(k_w = 10)$ at $\tau = 0.85$ is $0.21\%$ — i.e., the 2024-08-05 BoJ unwind is a $\sim 1\text{-in-}475\text{-weekends}$ event under a properly specified joint baseline. The independence baseline ($\mathrm{Binom}(10, 0.15)$) puts the same all-ten-breach event at $0.15^{10} \approx 5.8\times10^{-9}$, i.e. $\sim 1\text{-in-}1.7\times10^{8}\text{-weekends}$; the residual structure §8 documents is exactly the gap between these two figures. The residual has a *name* (cluster topology, §8), a *parametric envelope* (t-copula at $\nu \approx 6$ with empirical $\hat R$), and a *structural mechanism* (equity vs safe-haven cluster topology) — not "a residual the architecture cannot characterise."
 
 ### B.9.1 Case study — the M6 served bands against hypothetical consumer configurations
 
@@ -151,20 +151,22 @@ A per-method coverage grid on the same weekend makes the §8 claim concrete: no 
 
 The comparators are **hypothetical consumer configurations, not incumbent products**: "Pyth+k%" wraps a Pyth-style point price in a fixed symmetric k% buffer; "VIX-scaled" and "Const-buffer" are this project's v1-era calibrated baselines (pre-2023 train, centred on Friday close), whose half-widths are retained for comparability. Coverage = Monday 09:30 ET open inside the band. Regime classification for 2024-08-02 = `high_vol` for all 10 symbols. Realised moves: max $|$Mon−Fri$|$/Fri = 2,737 bps (MSTR); mean $|$move$|$ = 992 bps; 7 of 10 symbols exceed 500 bps.
 
-| Symbol | Realised (bps) | Pyth+2% | Pyth+5% | Pyth+10% | Pyth+20% | VIX-scaled τ=0.68 | VIX-scaled τ=0.85 | VIX-scaled τ=0.95 | VIX-scaled τ=0.99 | Const-buffer τ=0.68 | Const-buffer τ=0.85 | Const-buffer τ=0.95 | Const-buffer τ=0.99 | M6 τ=0.68 | M6 τ=0.85 | M6 τ=0.95 | M6 τ=0.99 |
-|---|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **AAPL** | -945 | ✗ / 200 bps | ✗ / 500 bps | ✓ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✗ / 329 bps | ✗ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✗ / 272 bps | ✗ / 694 bps | ✗ / 114 bps | ✗ / 201 bps | ✗ / 345 bps | ✗ / 668 bps |
-| **GLD** | -212 | ✗ / 200 bps | ✓ / 500 bps | ✓ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✓ / 329 bps | ✓ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✓ / 272 bps | ✓ / 694 bps | ✗ / 62 bps | ✗ / 108 bps | ✗ / 185 bps | ✓ / 359 bps |
-| **GOOGL** | -670 | ✗ / 200 bps | ✗ / 500 bps | ✓ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✗ / 329 bps | ✓ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✗ / 272 bps | ✓ / 694 bps | ✗ / 111 bps | ✗ / 194 bps | ✗ / 334 bps | ✓ / 647 bps |
-| **HOOD** | -1779 | ✗ / 200 bps | ✗ / 500 bps | ✗ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✗ / 329 bps | ✗ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✗ / 272 bps | ✗ / 694 bps | ✗ / 204 bps | ✗ / 357 bps | ✗ / 614 bps | ✗ / 1190 bps |
-| **MSTR** | -2737 | ✗ / 200 bps | ✗ / 500 bps | ✗ / 1000 bps | ✗ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✗ / 329 bps | ✗ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✗ / 272 bps | ✗ / 694 bps | ✗ / 378 bps | ✗ / 663 bps | ✗ / 1139 bps | ✓ / 2208 bps |
-| **NVDA** | -1418 | ✗ / 200 bps | ✗ / 500 bps | ✗ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✗ / 329 bps | ✗ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✗ / 272 bps | ✗ / 694 bps | ✗ / 189 bps | ✗ / 332 bps | ✗ / 571 bps | ✗ / 1106 bps |
-| **QQQ** | -536 | ✗ / 200 bps | ✗ / 500 bps | ✓ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✗ / 329 bps | ✓ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✗ / 272 bps | ✓ / 694 bps | ✗ / 69 bps | ✗ / 120 bps | ✗ / 207 bps | ✗ / 402 bps |
-| **SPY** | -399 | ✗ / 200 bps | ✓ / 500 bps | ✓ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✗ / 329 bps | ✓ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✗ / 272 bps | ✓ / 694 bps | ✗ / 49 bps | ✗ / 85 bps | ✗ / 146 bps | ✗ / 283 bps |
-| **TLT** | +143 | ✓ / 200 bps | ✓ / 500 bps | ✓ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✓ / 173 bps | ✓ / 329 bps | ✓ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✓ / 272 bps | ✓ / 694 bps | ✗ / 75 bps | ✗ / 131 bps | ✓ / 225 bps | ✓ / 435 bps |
-| **TSLA** | -1081 | ✗ / 200 bps | ✗ / 500 bps | ✗ / 1000 bps | ✓ / 2000 bps | ✗ / 103 bps | ✗ / 173 bps | ✗ / 329 bps | ✗ / 700 bps | ✗ / 75 bps | ✗ / 139 bps | ✗ / 272 bps | ✗ / 694 bps | ✗ / 285 bps | ✗ / 499 bps | ✗ / 859 bps | ✓ / 1664 bps |
+The per-symbol deployed-band (M6) view — coverage ✓/✗ and half-width (bps) at each served $\tau$; the full grid including every comparator column is in `case_study_boj_m6.md`:
 
-Aggregate coverage on this weekend (✓ count / total):
+| Symbol | Realised (bps) | M6 τ=0.68 | M6 τ=0.85 | M6 τ=0.95 | M6 τ=0.99 |
+|---|---:|---|---|---|---|
+| **AAPL** | −945 | ✗ / 114 | ✗ / 201 | ✗ / 345 | ✗ / 668 |
+| **GLD** | −212 | ✗ / 62 | ✗ / 108 | ✗ / 185 | ✓ / 359 |
+| **GOOGL** | −670 | ✗ / 111 | ✗ / 194 | ✗ / 334 | ✓ / 647 |
+| **HOOD** | −1779 | ✗ / 204 | ✗ / 357 | ✗ / 614 | ✗ / 1190 |
+| **MSTR** | −2737 | ✗ / 378 | ✗ / 663 | ✗ / 1139 | ✓ / 2208 |
+| **NVDA** | −1418 | ✗ / 189 | ✗ / 332 | ✗ / 571 | ✗ / 1106 |
+| **QQQ** | −536 | ✗ / 69 | ✗ / 120 | ✗ / 207 | ✗ / 402 |
+| **SPY** | −399 | ✗ / 49 | ✗ / 85 | ✗ / 146 | ✗ / 283 |
+| **TLT** | +143 | ✗ / 75 | ✗ / 131 | ✓ / 225 | ✓ / 435 |
+| **TSLA** | −1081 | ✗ / 285 | ✗ / 499 | ✗ / 859 | ✓ / 1664 |
+
+Aggregate coverage on this weekend across all methods (✓ count / total):
 
 | Method | Covered | Mean half-width (bps) |
 |---|---|---:|

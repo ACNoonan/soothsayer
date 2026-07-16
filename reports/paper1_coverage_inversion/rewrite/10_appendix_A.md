@@ -44,7 +44,7 @@ Output: sigma_hat_table  σ̂_s(t)         per-(symbol, fri_ts) parquet column
         k ← ⌈τ · (|S_r| + 1)⌉                   # finite-sample CP rank
         q_r(τ) ← sort(S_r)[k]                    # the trained standardised quantile
 6.  for each τ ∈ T:
-        c(τ) ← argmin_{c ∈ C} {c : (1/|D_oos|) · Σ_{i ∈ D_oos} 1{score_i ≤ q_{r_i}(τ) · c} ≥ τ}
+        c(τ) ← smallest c ∈ C with mean over D_oos of 1{score_i ≤ q_{r_i}(τ)·c} ≥ τ
 7.  δ(τ) ← walk-forward sweep selects 0 at every anchor under M6 (per-symbol σ̂ tightens
             cross-split realised-coverage variance enough that no shift is required)
 8.  return (σ̂_s(t), q_r(τ), c(τ), δ(τ))
@@ -60,9 +60,9 @@ Input:  symbol s, as-of date t, target coverage τ ∈ [0.68, 0.99]
 Output: PricePoint{ τ, δ(τ), p̂, lower, upper, r, c, q_eff, q_r, σ̂ }
 
 1.  c_eff ← interpolate c on the τ-grid at τ
-2.  q_eff ← c_eff · q_r(τ)                    # standardised quantile (σ̂ applied in the half-width)
+2.  q_eff ← c_eff · q_r(τ)                    # standardised quantile (σ̂ applied below)
 3.  p̂ ← p_Fri · (1 + r_F)                    # factor-adjusted point (band centre)
-4.  half ← q_eff · σ̂_s(t) · p_Fri            # price-unit half-width: standardised quantile × per-symbol σ̂ × Friday close
+4.  half ← q_eff · σ̂_s(t) · p_Fri            # price-unit half-width (σ̂ × Friday close)
 5.  lower ← p̂ − half;   upper ← p̂ + half
 6.  return PricePoint(τ, δ(τ) = 0, p̂, lower, upper, r,
                      diagnostics{c_eff, q_eff, q_r(τ), σ̂_s(t)})
@@ -144,8 +144,10 @@ The $\delta$ schedule is retained as a 4-zero vector in the artefact JSON for sh
 
 **Layout.**
 
+\footnotesize
+
 | Layer | Path | Purpose |
-|---|---|---|
+|:-----------|:--------------------|:-----------|
 | Panel build | `src/soothsayer/backtest/panel.py` | weekend-pair assembly, regime tag, factor join |
 | Calibration helpers | `src/soothsayer/backtest/calibration.py` | `compute_score`, `train_quantile_table`, `fit_c_bump_schedule`, `serve_bands`, `fit_split_conformal_forecaster` |
 | Metrics | `src/soothsayer/backtest/metrics.py` | Kupiec, Christoffersen, Berkowitz, DQ, CRPS, PIT |
@@ -158,6 +160,8 @@ The $\delta$ schedule is retained as a 4-zero vector in the artefact JSON for sh
 | Cross-verification | `scripts/verify_rust_oracle.py` | 180-case Python ↔ Rust parity probe (90 M5 + 90 M6 LWC) |
 | Robustness battery | `scripts/run_v1b_*.py`, `scripts/run_*.py` | per-symbol diagnostics, vol-tertile, GARCH-N + GARCH-$t$, split sensitivity, LOSO, per-class, path-fitted |
 | Paper-strengthening runners | `scripts/run_portfolio_clustering.py`, `scripts/run_subperiod_robustness.py`, `scripts/run_v1b_garch_baseline.py --dist t`, `scripts/run_per_symbol_kupiec_all_methods.py`, `scripts/run_kw_threshold_stability.py` | joint-tail clustering (§8 / B.8), sub-period stability (B.6), GARCH-$t$ baseline (B.12), 4-method per-symbol grid (§6.2), $k_w$ threshold stability (B.8) |
+
+\normalsize
 | Forward tape | `scripts/collect_forward_tape.py`, `scripts/run_forward_tape_evaluation.py` | weekly held-out evaluation against the frozen artefact (A.9) |
 | Figures | `scripts/build_paper1_figures.py` (appendix figures), `scripts/build_fig_h{1,2,3,4,5}.py`, `scripts/build_fig_s{1,2}.py` (main-text figures) | per-figure provenance in A.6 |
 
@@ -191,7 +195,7 @@ uv run python scripts/smoke_oracle.py --forecaster lwc   # cross-regime API demo
 
 # 3. Verify Python ↔ Rust serving parity (A.8); build and exercise the Rust serving CLI.
 PYTHONUNBUFFERED=1 uv run python scripts/verify_rust_oracle.py
-uv run python scripts/build_mondrian_artefact.py    # M5 reference path (Appendix D ablation rung)
+uv run python scripts/build_mondrian_artefact.py    # M5 reference (App D rung)
 cargo build --release -p soothsayer-publisher
 ./target/release/soothsayer fair-value --symbol SPY --as-of 2026-04-24 --target 0.85
 ./scripts/deploy_devnet.sh                          # devnet publish path (Appendix E)
@@ -202,7 +206,7 @@ uv run python scripts/proto_excursion_inflation.py
 
 # 4b. Off-hours generalisation — overnight panel + calibration battery (§6.4, B.15).
 uv run python scripts/build_overnight_panel.py      # overnight close→open panel (§5.2)
-uv run python scripts/build_overnight_artefact.py   # overnight artefact + Kupiec/Christoffersen/block-bootstrap
+uv run python scripts/build_overnight_artefact.py   # overnight artefact + battery
 
 # 5. §6 / §7 / Appendix B / Appendix D robustness battery.
 uv run python scripts/run_v1b_per_symbol_diagnostics.py
@@ -213,13 +217,13 @@ uv run python scripts/run_v1b_split_sensitivity.py
 uv run python scripts/run_v1b_loso.py
 uv run python scripts/run_v1b_per_class.py
 uv run python scripts/run_v1b_path_fitted_conformal.py
-uv run python scripts/run_v1b_tokenised_tracking_baseline.py    # §6.3 tokenised-tracking baseline (Appendix D)
+uv run python scripts/run_v1b_tokenised_tracking_baseline.py    # tokenised baseline (§6.2, App D)
 
 # 6. Joint-tail / stability runners (§8, B.6, B.8).
-uv run python scripts/run_portfolio_clustering.py               # joint-tail empirical distribution
+uv run python scripts/run_portfolio_clustering.py               # joint-tail distribution
 uv run python scripts/run_subperiod_robustness.py               # calendar sub-period stability
-uv run python scripts/run_per_symbol_kupiec_all_methods.py      # 4-method per-symbol grid (§6.2)
-uv run python scripts/run_kw_threshold_stability.py             # reserve-guidance threshold stability
+uv run python scripts/run_per_symbol_kupiec_all_methods.py      # 4-method grid (§6.2)
+uv run python scripts/run_kw_threshold_stability.py             # reserve threshold stability
 
 # 7. Build the paper figures (A.6).
 uv run python scripts/build_paper1_figures.py

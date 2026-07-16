@@ -59,6 +59,16 @@
 \usepackage{amssymb}
 \usepackage{natbib}
 \usepackage{longtable}
+% --- Overflow control for wide tables and code blocks ---------------------
+% Fenced code (``` -> verbatim) does not wrap and can overflow the text block.
+% Core-LaTeX only (basictex has no fvextra): render verbatim at \footnotesize
+% so more characters fit per line; genuinely long lines are broken at source.
+\makeatletter
+\g@addto@macro\@verbatim{\footnotesize}
+\makeatother
+% Long \texttt file paths in narrow table columns: the two code-index tables
+% are set at \footnotesize (at source) and their paths break at hyphens; no
+% extra package needed (basictex ships neither fvextra nor hyphenat).
 % Pandoc emits \def\LTcaptype{none} for caption-less longtables; longtable then
 % steps a counter named 'none'. Without this, every multi-column table throws
 % "No counter 'none' defined" -- recoverable, so a PDF still builds, but pdflatex

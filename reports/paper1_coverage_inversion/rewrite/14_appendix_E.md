@@ -12,6 +12,8 @@ Latency is a non-claim of the design (§3.5): serving is a five-line lookup agai
 
 ## E.2 The Rust crate stack
 
+\footnotesize
+
 | Crate | Purpose | Lines | Tests |
 |---|---|---:|---:|
 | `soothsayer-oracle` | Library: loads the Mondrian artefact, exposes `Oracle::fair_value` with byte-exact parity to Python | ~330 | 4/4 unit + parity harness |
@@ -19,6 +21,8 @@ Latency is a non-claim of the design (§3.5): serving is a five-line lookup agai
 | `soothsayer-consumer` | `no_std`, minimal-dep SDK: decodes the on-chain `PriceUpdate` PDA into a typed `PriceBand` | ~330 | 5/5 unit |
 | `soothsayer-demo-kamino` | Reference Kamino-style consumer integration | ~400 | included in integration tests |
 | `soothsayer-oracle-program` (Anchor) | On-chain program: `initialize`, `publish`, `set_paused`, `rotate_signer_set` | ~400 | scaffolded |
+
+\normalsize
 
 The consumer SDK is `no_std` so it can be vendored into a Solana program account-decoder without the Rust standard library.
 
@@ -34,7 +38,10 @@ The `PriceUpdate` account layout (128 bytes data + 8-byte Anchor discriminator) 
 PriceUpdate:
   version              u8         schema version, currently 1
   regime_code          u8         0=normal, 1=long_weekend, 2=high_vol
-  forecaster_code      u8         0=F1_emp_regime (legacy Soothsayer-v0), 1=F0_stale (legacy Soothsayer-v0), 2=mondrian (M5; live on-chain), 3=lwc (M6; live in the Rust serving stack, on-chain slot reserved pending the next publisher release)
+  forecaster_code      u8         0=F1_emp_regime, 1=F0_stale (both legacy v0);
+                                   2=mondrian (M5; live on-chain);
+                                   3=lwc (M6; live in Rust, on-chain slot
+                                   reserved pending next publisher release)
   exponent             i8
   target_coverage_bps  u16        publisher-set target coverage, integer bp
   claimed_served_bps   u16        served quantile, integer bp
