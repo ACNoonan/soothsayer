@@ -18,3 +18,5 @@ paper.out
 arxiv_submission.tar.gz
 # Regenerable AFT main-text build (reproduce with: build.py --aft)
 aft_paper.*
+# Regenerable v2 build (reproduce with: build.py --v2 --pdf)
+paper_v2.*

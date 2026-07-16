@@ -57,6 +57,31 @@ SECTION_ORDER = [
     "12_appendix_reproducibility.md",
 ]
 
+# v2 structural rewrite (2026-07, SPINE.md/DISPOSITION.md): sections live in
+# rewrite/, appendices are per-letter files. `--v2` builds these under the
+# paper_v2 stem; the v1 SECTION_ORDER build remains untouched.
+V2_DIR_NAME = "rewrite"
+SECTION_ORDER_V2 = [
+    "00_abstract.md",
+    "01_blind_window.md",
+    "02_related_work.md",
+    "03_primitive.md",
+    "04_architecture.md",
+    "05_data.md",
+    "06_contract_holds.md",
+    "07_load_bearing.md",
+    "08_where_it_fails.md",
+    "09_conclusion.md",
+]
+APPENDIX_ORDER_V2 = [
+    "10_appendix_A.md",
+    "11_appendix_B.md",
+    "12_appendix_C.md",
+    "13_appendix_D.md",
+    "14_appendix_E.md",
+    "15_appendix_F.md",
+]
+
 # Map references.md "### [key] Author. Year. Title." entries → BibTeX @misc.
 # We use @misc uniformly because the corpus mixes blog posts, academic papers,
 # regulatory letters, and technical specifications — @misc renders cleanly for
@@ -201,8 +226,14 @@ def clean_headings(body: str) -> str:
         hashes, text = m.group(1), m.group(2)
         # Strip "§N — " prefix
         text = re.sub(r"^§\d+[A-Z]?\s*[—–-]\s*", "", text)
-        # Strip "N.M" or "N.M.K" prefix on subheadings
+        # Strip "Appendix X — " prefix (LaTeX \appendix letters the sections)
+        text = re.sub(r"^Appendix [A-F]\s*[—–-]\s*", "", text)
+        # Strip "N.M" or "N.M.K" numeric prefix on subheadings
         text = re.sub(r"^\d+(\.\d+)+\s+", "", text)
+        # Strip bare "N " prefix on top-level headings (e.g. "# 8 Where it fails")
+        text = re.sub(r"^\d+\s+", "", text)
+        # Strip "X.N" / "X.N.M" letter-prefixed appendix subheadings
+        text = re.sub(r"^[A-F](\.\d+)+\s+", "", text)
         # Strip "(draft...)" suffix
         text = re.sub(r"\s*\(draft[^)]*\)\s*$", "", text)
         # Mark abstract as unnumbered
@@ -225,15 +256,46 @@ def fix_typographic_numbers(body: str) -> str:
     return re.sub(r"(\d+)\{,\}(\d+)", r"\1,\2", body)
 
 
-def concat_sections(defined_keys: set[str], aft: bool = False) -> str:
+def concat_sections(defined_keys: set[str], aft: bool = False,
+                    v2: bool = False) -> str:
     """Concatenate the body sections in canonical order, transforming citations.
 
     `aft=True` builds the AFT main text: each section prefers its condensed
     override in `aft/<file>` when present (else the full version), and the
     reproducibility section is dropped (it belongs in the appendix, which is not
     part of the 20-page main text). See reports/active/aft_carve_plan.md.
+
+    `v2=True` builds the structural rewrite from rewrite/: main sections, then
+    a raw `\\appendix` marker, then the per-letter appendix files, so LaTeX
+    letters the appendices itself.
     """
+
+    def render(path: Path) -> str:
+        body = path.read_text()
+        body = re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL)  # working notes
+        body = clean_headings(body)
+        body = transform_inline_citations(body, defined_keys)
+        body = fix_typographic_numbers(body)
+        return body
+
     parts: list[str] = []
+    if v2:
+        base = PAPER_DIR / V2_DIR_NAME
+        for fname in SECTION_ORDER_V2:
+            path = base / fname
+            if not path.exists():
+                print(f"WARN: missing section {fname}", file=sys.stderr)
+                continue
+            parts.append(render(path))
+        parts.append("\\appendix")
+        for fname in APPENDIX_ORDER_V2:
+            path = base / fname
+            if not path.exists():
+                print(f"WARN: missing appendix {fname}", file=sys.stderr)
+                continue
+            parts.append(render(path))
+        return "\n\n".join(parts)
+
     for fname in SECTION_ORDER:
         if aft and fname == "12_appendix_reproducibility.md":
             continue
@@ -243,11 +305,7 @@ def concat_sections(defined_keys: set[str], aft: bool = False) -> str:
         if not path.exists():
             print(f"WARN: missing section {fname}", file=sys.stderr)
             continue
-        body = path.read_text()
-        body = clean_headings(body)
-        body = transform_inline_citations(body, defined_keys)
-        body = fix_typographic_numbers(body)
-        parts.append(body)
+        parts.append(render(path))
     return "\n\n".join(parts)
 
 
@@ -378,11 +436,15 @@ def main() -> None:
                     help="also assemble the source-only arXiv tarball (implies --pdf, for the .bbl)")
     ap.add_argument("--aft", action="store_true",
                     help="build the AFT 20-page main text (aft/ section overrides, no appendix) → aft_paper.pdf")
+    ap.add_argument("--v2", action="store_true",
+                    help="build the 2026-07 structural rewrite from rewrite/ → paper_v2.pdf")
     ap.add_argument("--check", action="store_true",
                     help="parse-only; verify citation closure and exit")
     args = ap.parse_args()
 
-    stem = "aft_paper" if args.aft else "paper"
+    if args.v2 and args.aft:
+        ap.error("--v2 and --aft are mutually exclusive")
+    stem = "paper_v2" if args.v2 else ("aft_paper" if args.aft else "paper")
     refs_md = PAPER_DIR / "references.md"
     bib_path = BUILD_DIR / "references.bib"
     md_concat = BUILD_DIR / f"{stem}.md"
@@ -396,8 +458,9 @@ def main() -> None:
     print(f"Writing {bib_path.name} ...")
     write_bibtex(entries, bib_path)
 
-    print(f"Concatenating sections ({'AFT main text' if args.aft else 'full'}) ...")
-    body = concat_sections(defined_keys, aft=args.aft)
+    label = "v2 rewrite" if args.v2 else ("AFT main text" if args.aft else "full")
+    print(f"Concatenating sections ({label}) ...")
+    body = concat_sections(defined_keys, aft=args.aft, v2=args.v2)
     # Combining-accent sequences (sigma/p + U+0302) cannot be declared via
     # \DeclareUnicodeCharacter — normalise them to math macros before
     # pandoc. Any *other* stray undeclared glyph is caught loudly by the
@@ -444,7 +507,7 @@ def main() -> None:
         pdf = tex_path.with_suffix(".pdf")
         if pdf.exists():
             print(f"\n✓ Built {pdf} ({pdf.stat().st_size:,} bytes)")
-            if not args.aft:  # named copy + arXiv tarball are for the full/arXiv build only
+            if not args.aft and not args.v2:  # named copy is for the v1 arXiv build only
                 named = BUILD_DIR / NAMED_PDF
                 shutil.copyfile(pdf, named)
                 print(f"✓ Copied → {named.name}")

@@ -12,6 +12,12 @@
 \documentclass[11pt]{article}
 
 \usepackage{arxiv}
+% Short running title: arxiv.sty defaults \shorttitle to the full two-line
+% title, which collides with the "A Preprint" running head on pages 2+.
+\renewcommand{\shorttitle}{Coverage-Inversion}
+% Distinguish figure/table captions from body text: smaller font, bold label,
+% indented margins (arxiv.sty's defaults render captions at body size/width).
+\usepackage[font=small,labelfont=bf,margin=1.5em]{caption}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -82,7 +88,7 @@
 }
 
 % Suppress \today; arXiv recommends fixed dates over \date{\today}
-\date{June 2026}
+\date{July 2026}
 
 \begin{document}
 
