@@ -25,6 +25,8 @@ The per-symbol mappings are static:
 
 The MSTR pivot at 2020-08-01 marks MicroStrategy's first Bitcoin treasury purchase — a structural break that turned a software equity into a leveraged BTC-treasury vehicle, so the factor is reconciled to the asset's actual post-break driver (selection evidence in Appendix D).
 
+The factor return $r^{\text{factor}}_t(s)$ is measured over the closed window itself — from the factor's Friday 16:00 ET close to its contemporaneous print at serve time (the latest Globex/BTC quote when the band is read) — so it spans the window rather than being fixed at publish; it is the only input the point estimator requires post-publish (§5.3).
+
 ## 5.5 The regime labeler $\rho$
 
 On the weekend panel, $\rho$ is a strict priority cascade: **`high_vol`** — VIX at Friday close in the top quartile of its trailing 252-trading-day window; else **`long_weekend`** — `gap_days` $\ge 4$; else **`normal`**. Shares on the 5,996-row panel: normal 3,934 (65.6%), high_vol 1,432 (23.9%), long_weekend 630 (10.5%).
@@ -48,4 +50,4 @@ All inputs are read from scryer parquet — `yahoo/equities_daily/v1`, `yahoo/ea
 
 ## 5.8 Forward tape
 
-The deployed artefact is frozen and content-addressed (SHA-256, freeze date 2026-05-04) and is evaluated on a forward tape appended weekly and never used to re-select any component. As of 2026-07-10 the tape covers 11 post-freeze weekends (110 rows): pooled Kupiec passes at all four anchors and 10/10 symbols pass per-symbol Kupiec at $\tau = 0.95$ (`reports/m6_forward_tape_11weekends.md`).
+The deployed artefact is frozen and content-addressed (SHA-256, freeze date 2026-05-04) and is evaluated on a forward tape appended weekly and never used to re-select any component. As of 2026-07-10 the tape covers 11 post-freeze weekends (110 rows): pooled Kupiec passes at all four anchors and 10/10 symbols pass per-symbol Kupiec at $\tau = 0.95$ (`reports/m6_forward_tape_11weekends.md`). At $N = 11$ the per-symbol tape is not yet powered, however: two symbols (HOOD and MSTR) each realise a 18.2% violation rate (2 of 11) at $\tau = 0.95$, and Kupiec accepts at that $n$ only because the per-symbol test has no power to reject — the per-symbol forward claim rests on accumulation, not on the current pass.

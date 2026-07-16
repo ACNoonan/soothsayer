@@ -34,7 +34,7 @@ The `PriceUpdate` account layout (128 bytes data + 8-byte Anchor discriminator) 
 PriceUpdate:
   version              u8         schema version, currently 1
   regime_code          u8         0=normal, 1=long_weekend, 2=high_vol
-  forecaster_code      u8         0=F1_emp_regime (legacy Soothsayer-v0), 1=F0_stale (legacy Soothsayer-v0), 2=mondrian (M5; live on-chain), 3=lwc (M6 / deployed; on-chain slot reserved pending Rust parity port)
+  forecaster_code      u8         0=F1_emp_regime (legacy Soothsayer-v0), 1=F0_stale (legacy Soothsayer-v0), 2=mondrian (M5; live on-chain), 3=lwc (M6; live in the Rust serving stack, on-chain slot reserved pending the next publisher release)
   exponent             i8
   target_coverage_bps  u16        publisher-set target coverage, integer bp
   claimed_served_bps   u16        served quantile, integer bp

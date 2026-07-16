@@ -60,10 +60,11 @@ Input:  symbol s, as-of date t, target coverage τ ∈ [0.68, 0.99]
 Output: PricePoint{ τ, δ(τ), p̂, lower, upper, r, c, q_eff, q_r, σ̂ }
 
 1.  c_eff ← interpolate c on the τ-grid at τ
-2.  q_eff ← c_eff · q_r(τ) · σ̂_s(t)         # standardised quantile rescaled by per-symbol σ̂
-3.  p̂ ← p_Fri · (1 + r_F)                    # factor-adjusted point
-4.  lower ← p̂ · (1 − q_eff);   upper ← p̂ · (1 + q_eff)
-5.  return PricePoint(τ, δ(τ) = 0, p̂, lower, upper, r,
+2.  q_eff ← c_eff · q_r(τ)                    # standardised quantile (σ̂ applied in the half-width)
+3.  p̂ ← p_Fri · (1 + r_F)                    # factor-adjusted point (band centre)
+4.  half ← q_eff · σ̂_s(t) · p_Fri            # price-unit half-width: standardised quantile × per-symbol σ̂ × Friday close
+5.  lower ← p̂ − half;   upper ← p̂ + half
+6.  return PricePoint(τ, δ(τ) = 0, p̂, lower, upper, r,
                      diagnostics{c_eff, q_eff, q_r(τ), σ̂_s(t)})
 ```
 
@@ -139,7 +140,7 @@ The $\delta$ schedule is retained as a 4-zero vector in the artefact JSON for sh
 
 **Panel row schema.** Each row is a single $(s, t)$ prediction window carrying: `fri_close`, `mon_open`, `gap_days`, `fri_vol_20d` (rolling 20-trading-day std of daily log-returns at the closing print), `factor_ret` (closed-window return of the per-symbol conditioning factor), `vol_idx_fri_close`, `earnings_next_week` (Yahoo `earnings_dates` flag; session-timed per gap on the overnight panel), and `is_long_weekend` (`gap_days` $\ge 4$). §5.2 carries the panel counts; §5.5 the regime shares.
 
-**Repository.** Code at `https://github.com/ACNoonan/soothsayer`. Tag the experimental snapshot at submission time; this appendix's snapshot reference (results produced from the `main` branch as of 2026-05-05) **must be refreshed at submission** to the tagged commit covering the corrected overnight battery (2026-06-25) and the $N = 11$ forward tape (2026-07-14). License: see repository LICENSE file.
+**Repository.** Code at `https://github.com/ACNoonan/soothsayer`. Results were produced from the `main` branch as of 2026-05-05; the camera-ready snapshot is tagged to the commit covering the corrected overnight battery (2026-06-25) and the $N = 11$ forward tape (2026-07-14). License: see repository LICENSE file.
 
 **Layout.**
 
@@ -238,18 +239,18 @@ cd reports/paper1_coverage_inversion/build && uv run python build.py --pdf
 
 ## A.6 Per-figure data provenance
 
-Rebuilt for the H1–H5 / S1–S2 figure plan (SPINE.md §3). H1–H3 are new builds (2026-07-17, parallel session); H4/H5/S1/S2 and the appendix figures carry their original provenance.
+Rebuilt for the H1–H5 / S1–S2 figure plan. H1–H3 are new builds; H4, H5, S1, and S2 are redesigns of earlier exhibits (fig11, fig10, fig4, and fig8 respectively); the remaining appendix figures carry their original provenance.
 
 | Figure (placement) | Script | Source CSVs / parquet | Status |
 |---|---|---|---|
-| H1a — week timeline (§1); H1b — gap distributions (§1.1) | `scripts/build_fig_h1.py` (emits both) | `data/processed/{v1b_panel.parquet, overnight_panel.parquet}` (supersedes fig0) | built 2026-07-17; split 2026-07-18 |
-| H2 — anatomy of a read (§3) | `scripts/build_fig_h2.py` | `data/processed/{lwc_artefact_v1.parquet, lwc_artefact_v1.json}` (exemplar read; otherwise diagrammatic) | built 2026-07-17, parallel session |
-| H3 — promised-vs-delivered coverage (§6.2) | `scripts/build_fig_h3.py` | `reports/tables/{m6_pooled_oos.csv, m6_lwc_robustness_garch_t_baseline.csv}` (supersedes fig2 + fig5) | redesigned 2026-07-18 |
-| H4 — earnings event-time band, absolute bps (§6.5) | `scripts/build_fig_h4.py` | `data/processed/{overnight_panel.parquet, overnight_artefact_v1.json}` (supersedes fig11, which remains an appendix exhibit) | redesigned 2026-07-18 |
-| H5 — joint-tail $k_w$ counts, linear scale (§8) | `scripts/build_fig_h5.py` | `reports/tables/paper1_a3_joint_baseline_kw_distribution.csv` (supersedes fig10, which remains the appendix exhibit with the $t$-copula overlay) | redesigned 2026-07-18 |
+| H1a — week timeline (§1); H1b — gap distributions (§1.1) | `scripts/build_fig_h1.py` (emits both) | `data/processed/{v1b_panel.parquet, overnight_panel.parquet}` (supersedes fig0) | new build |
+| H2 — anatomy of a read (§3) | `scripts/build_fig_h2.py` | `data/processed/{lwc_artefact_v1.parquet, lwc_artefact_v1.json}` (exemplar read; otherwise diagrammatic) | new build |
+| H3 — promised-vs-delivered coverage (§6.2) | `scripts/build_fig_h3.py` | `reports/tables/{m6_pooled_oos.csv, m6_lwc_robustness_garch_t_baseline.csv}` (supersedes fig2 + fig5) | redesigned |
+| H4 — earnings event-time band, absolute bps (§6.5) | `scripts/build_fig_h4.py` | `data/processed/{overnight_panel.parquet, overnight_artefact_v1.json}` (supersedes fig11, which remains an appendix exhibit) | redesigned |
+| H5 — joint-tail $k_w$ counts, linear scale (§8) | `scripts/build_fig_h5.py` | `reports/tables/paper1_a3_joint_baseline_kw_distribution.csv` (supersedes fig10, which remains the appendix exhibit with the $t$-copula overlay) | redesigned |
 | Fig. 1 — serving pipeline (§4) | `build_paper1_figures.py::fig1_pipeline` | none — diagrammatic | existing |
-| S1 — per-symbol promise audit (§6.2) | `scripts/build_fig_s1.py` | `reports/tables/{m6_lwc_robustness_per_symbol.csv, m6_per_symbol_kupiec_4methods.csv}` (supersedes fig4) | redesigned 2026-07-18 |
-| S2 — overnight promise audit (§6.4) | `scripts/build_fig_s2.py` | overnight panel + deployed artefact schedules (§5.2, B.15; supersedes fig8) | redesigned 2026-07-18 |
+| S1 — per-symbol promise audit (§6.2) | `scripts/build_fig_s1.py` | `reports/tables/{m6_lwc_robustness_per_symbol.csv, m6_per_symbol_kupiec_4methods.csv}` (supersedes fig4) | redesigned |
+| S2 — overnight promise audit (§6.4) | `scripts/build_fig_s2.py` | overnight panel + deployed artefact schedules (§5.2, B.15; supersedes fig8) | redesigned |
 | fig6 — path coverage (B.14) | `build_paper1_figures.py::fig6_path_coverage` | `reports/tables/path_coverage_perp_per_row.csv` + bands recomputed from the artefact schedules | existing |
 | fig7b — per-symbol ablation (Appendix D) | `build_paper1_figures.py::fig7b_oos_ablation` | recomputed per split anchor; emits `reports/tables/paper1_fig7b_per_symbol_ablation.csv` | existing |
 | fig9 — BoJ band anatomy (B.9) | `build_paper1_figures.py::fig9_boj_anatomy` | `data/processed/{lwc_artefact_v1.parquet, lwc_artefact_v1.json, v1b_panel.parquet}` | existing |
@@ -261,7 +262,7 @@ Former fig0, fig2, and fig5 are superseded (fig0 upgraded into H1; fig2 + fig5 m
 
 The M6 fit and serve paths are deterministic given the panel: no random initialisation, no Monte Carlo, no bootstrap inside the fit. The 4-split powered walk-forward (B.6, Appendix D) uses fixed split fractions {0.4, 0.5, 0.6, 0.7} (the 0.2 / 0.3 fractions are excluded as under-powered for the 4-scalar $c(\tau)$ fit; Appendix D); the four split-date sensitivity anchors (B.6) are fixed at {2021-01-01, 2022-01-01, 2023-01-01, 2024-01-01}; LOSO (§6.1) iterates the ten symbols in lexicographic order. The block-bootstrap CIs reported in §8, B.8, and Appendix D use NumPy's default RNG with seed 0 over 1,000 weekend-block resamples. The simulation study (Appendix C) uses NumPy's default RNG with seed 0 over 100 replications per DGP.
 
-The GARCH(1,1) baselines (B.12) are fit per-symbol via `arch_model(..., dist={"normal", "t"}).fit(disp="off")`; the optimisation is deterministic up to BFGS tolerance (default `tol=1e-8`). Under GARCH-$t$, NVDA hits the variance-undefined boundary at $\hat\nu = 2.50$ and falls back to Gaussian; the fallback is recorded in the `dist_used` column of the output CSV and is deterministic across reruns.
+The GARCH(1,1) baselines (B.12) are fit per-symbol via `arch_model(..., dist={"normal", "t"}).fit(disp="off")`; the optimisation is deterministic up to BFGS tolerance (default `tol=1e-8`). Under GARCH-$t$, NVDA's $t$-MLE hits the optimizer lower bound $\hat\nu = 2.50$ (adjacent to the $\nu \le 2$ variance-undefined region) and falls back to Gaussian; the fallback is recorded in the `dist_used` column of the output CSV and is deterministic across reruns.
 
 ## A.8 Independent verification (Python ↔ Rust ↔ on-chain)
 
@@ -271,7 +272,7 @@ The deployed serving stack has three independent implementations of both forecas
 2. **Rust serving crate.** `crates/soothsayer-oracle/src/oracle.rs::Oracle::fair_value` exposes both forecasters via `Oracle::load_with_forecaster(&path, Forecaster::{Mondrian, Lwc})`. The 16 LWC scalars and 20 Mondrian scalars are hard-coded in `config.rs`; the unit test `lwc_constants_match_sidecar` enforces ≤ 2 ULP agreement with `lwc_artefact_v1.json` on every refit.
 3. **On-chain publisher.** `programs/soothsayer-oracle-program/`. The Rust crate is consumed by an Anchor program that emits `PriceUpdate` PDAs whose Borsh layout is preserved across the M5 → M6 migration. The wire `forecaster_code` byte distinguishes paths: code 2 = `FORECASTER_MONDRIAN` (M5; live on-chain); code 3 = `FORECASTER_LWC` (M6; live in the Rust publisher as of the Appendix E parity milestone, on-chain enablement gated on the next publisher release). The `soothsayer-consumer` no_std crate decodes the PDA into a typed `Forecaster::{Mondrian, Lwc}` view; consumers branching on `forecaster_code` need only add code-2 and code-3 cases.
 
-`scripts/verify_rust_oracle.py` runs a dual-forecaster probe across 30 (symbol, fri_ts) cases × 3 target-coverage anchors per forecaster (90 cases per side, 180 total) and asserts byte-exact agreement on `(point, lower, upper, sharpness_bps, half_width_bps, claimed_served)` between Python and Rust on every case. **Submission status:** **180/180 pass** (90/90 M5 + 90/90 M6). The Anchor integration test (`programs/soothsayer-oracle-program/tests/`) extends the parity check to path 3 by decoding the on-chain PDA after a publish call.
+`scripts/verify_rust_oracle.py` runs a dual-forecaster probe across 30 (symbol, fri_ts) cases × 3 target-coverage anchors per forecaster (90 cases per side, 180 total) and asserts byte-exact agreement on `(point, lower, upper, sharpness_bps, half_width_bps, claimed_served)` between Python and Rust on every case. **Submission status:** **180/180 pass** (90/90 M5 + 90/90 M6) for the Python↔Rust parity. The Anchor program (`programs/soothsayer-oracle-program/tests/`) carries a scaffolded integration test that decodes the on-chain PDA after a publish call on the live M5 path; extending it to the M6 path is gated on the on-chain M6 enablement above.
 
 A reviewer reproducing the paper end-to-end thus has three independent implementations of each forecaster that must agree on every (symbol, fri_ts, target_coverage) read.
 
@@ -295,6 +296,6 @@ uv run python scripts/run_forward_tape_evaluation.py
 | 0.95 | 110 | 0.9636 | 312.2 | 0.4912 | 0.3640 |
 | 0.99 | 110 | 1.0000 | 515.6 | 0.1370 | — (no violations) |
 
-Pooled Kupiec passes at all four anchors with no under-coverage; pooled Christoffersen passes at the three anchors with observed violations. Per-symbol Kupiec at $\tau = 0.95$ passes 10/10 on the forward tape (low-power at $n = 11$ per symbol, but directionally consistent with the in-sample 10/10; the M5 in-sample baseline was 2/10). $N = 11$ clears the harness's own preliminary banner ($N \ge 4$) and remains just under the $N \ge 13$ threshold for cumulative pooled Christoffersen power. The submission's held-out backbone is §6.1's leave-one-symbol-out CV plus the nested temporal holdout, per-symbol Kupiec, split-date sensitivity, and four-year calendar sub-period stability (B.6); the forward-tape harness becomes load-bearing as $N$ accumulates.
+Pooled Kupiec passes at all four anchors with no under-coverage; pooled Christoffersen passes at the three anchors with observed violations. Per-symbol Kupiec at $\tau = 0.95$ passes 10/10 on the forward tape, but at $n = 11$ per symbol the test is powerless: two symbols (HOOD and MSTR) each realise a 18.2% violation rate (2 of 11), which Kupiec cannot reject at that $n$ (the M5 in-sample baseline was 2/10). $N = 11$ clears the harness's own preliminary banner ($N \ge 4$) and remains just under the $N \ge 13$ threshold for cumulative pooled Christoffersen power. The submission's held-out backbone is §6.1's leave-one-symbol-out CV plus the nested temporal holdout, per-symbol Kupiec, split-date sensitivity, and four-year calendar sub-period stability (B.6); the forward-tape harness becomes load-bearing as $N$ accumulates.
 
 A sibling script (`scripts/run_forward_tape_variant_comparison.py`) carries an alternative-σ̂ check on the same forward slice — never used to re-select, only to flag if a different σ̂ rule looks dramatically cleaner on held-out data (§7, Appendix D).
