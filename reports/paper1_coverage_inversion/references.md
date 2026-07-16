@@ -299,6 +299,16 @@ Buckets:
 - **Venue:** International Economic Review 39(4), 841–862
 - **URL / DOI:** https://doi.org/10.2307/2527341
 - **Contribution:** Defines conditional-coverage evaluation for interval forecasts, decomposing into an unconditional-coverage test (Kupiec) and an independence test on the hit sequence; joint conditional-coverage LR test.
+
+### [kraken-xstocks-25b] Kraken. 2026. xStocks remain largest provider of tokenized equities, surpass $25 billion in total transaction volume.
+- **Venue:** Kraken Blog, 2026-02-19 (issuer/distributor primary source)
+- **URL / DOI:** https://blog.kraken.com/product/xstocks/25-billion-in-total-transaction-volume
+- **Contribution:** Primary-source figures for the §1 adoption-asymmetry facts: >$25B total transaction volume, ~$225M aggregate AUM, >80,000 unique onchain holders, >$3.5B onchain activity. Issuer-published — verify against a third-party aggregator (RWA.xyz) at submission.
+
+### [engle-manganelli-2004] Engle, R. F., Manganelli, S. 2004. CAViaR: Conditional autoregressive value at risk by regression quantiles.
+- **Venue:** Journal of Business & Economic Statistics 22(4), 367–381
+- **URL / DOI:** https://doi.org/10.1198/073500104000000370
+- **Contribution:** Introduces the dynamic quantile (DQ) backtest — a regression test that band violations are unpredictable from lagged available information; the strictest member of the standard VaR backtesting family. Used for the §6 master grid and the §8 failure analysis.
 - **Why we cite it:** The independence and conditional-coverage $p$-values we report in §6 are precisely those of Christoffersen (1998). Required reference.
 - **Bucket:** calibration-conformal
 

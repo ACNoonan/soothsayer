@@ -1,0 +1,64 @@
+# §6 — The contract holds
+
+<!-- Rewrite against SPINE.md §6 row (five beats, one table, promotion paragraph LOCKED)
+     + DISPOSITION.md Slices D/E + §0 rules 1,3,4,5,6. Sources: 06_results.md (corrected
+     2026-07-16), 07_ablation.md §7.6, 04_methodology.md §4.3.1,
+     reports/active/overnight_calibration_firstread.md (2026-06-25). -->
+
+## 6.1 Held out on two orthogonal axes
+
+The $\tau = 0.95$ headline is held out on two orthogonal axes — symbol and time — and passes on both. On the symbol axis, leave-one-symbol-out cross-validation fits each held-out symbol's buffer $c(\tau)$ on the other nine symbols' out-of-sample slice, so the fit never sees the held-out symbol's data: realised coverage is $\mathbf{0.9497 \pm 0.0128}$ across the ten held-out symbols, and all ten pass Kupiec. Heavy-tail tickers (MSTR, HOOD, TSLA) and low-vol tickers (SPY, GLD) alike land in a uniform $0.93$–$0.97$ band when held out — the per-symbol $\hat\sigma_s$ carries each held-out symbol's own scale. On the time axis, a nested temporal holdout — TRAIN pre-2023 for the per-regime quantiles, TUNE 2023 for $c(\tau)$, EVAL 2024-01-05 → 2026-04-24 untouched by either fit — realises $\mathbf{0.9504}$ (Kupiec $p = 0.947$, per-symbol Kupiec 10/10); $c(0.95)$ fit on TUNE alone matches the full-OOS fit at three decimals, so the headline is not sensitive to fitting on the evaluation slice.
+
+The number is stable in every direction we varied it. Across TUNE anchors $\{2021, 2022, 2023\}$, realised coverage at $\tau = 0.95$ stays in $[0.9474, 0.9524]$; across four OOS-split anchors $\{2021, 2022, 2023, 2024\}$ it stays in $[0.9503, 0.9539]$ with every (split × $\tau$) cell passing both tests; across calendar sub-periods $\{2023, 2024, 2025, 2026\text{-YTD}\}$ the 16-cell grid carries 3 Kupiec rejections — all toward over-coverage, the contract-favourable side — and 0 Christoffersen rejections.
+
+**Protocol.** The panel is 5,996 weekend windows — ten symbols × 639 weekends, 2014-01-17 → 2026-04-24, with the σ̂ warm-up leaving 5,916 evaluable rows — split into a pre-2023 train slice (4,186 rows) and a 2023+ out-of-sample slice (1,730 rows × 173 weekends) on which everything below is evaluated. Coverage is tested per anchor with Kupiec and with Christoffersen (an independence-of-violations test: breaches should not cluster in time). Pooled OOS at $\tau = 0.95$: realised $0.950$ at mean half-width $370.6$ bps, Kupiec $p = 0.956$, Christoffersen $p = 0.603$ — both tests pass at every served anchor.
+
+## 6.2 The master grid
+
+The per-symbol question is whether every ticker's individual cell is calibrated, not just the pool. We evaluate a single 40-cell (symbol × $\tau$) grid under three backtests — Kupiec, Christoffersen, and Engle–Manganelli DQ — against four baselines: a train-fit constant buffer, GARCH(1,1)-Gaussian, GARCH(1,1)-$t$ (the practitioner default), and an unweighted Mondrian comparator (the same per-regime quantile architecture without per-symbol σ̂ standardisation). Pass counts at $\alpha = 0.05$:
+
+| $\tau$ | metric | constant buffer | GARCH-N | GARCH-$t$$^\dagger$ | unweighted Mondrian | **this paper** |
+|---:|---|---:|---:|---:|---:|---:|
+| 0.68 | Kupiec | 4/10 | 5/10 | 6/10 | 1/10 | **10/10** |
+|      | Christoffersen | 7/10 | 7/10 | 8/10 | 9/10 | **9/10** |
+|      | DQ | 2/10 | 6/10 | 7/10 | 1/10 | **10/10** |
+| 0.85 | Kupiec | 2/10 | 8/10 | 7/10 | 1/10 | **10/10** |
+|      | Christoffersen | 7/10 | 7/10 | 9/10 | 8/10 | **10/10** |
+|      | DQ | 2/10 | 8/10 | 7/10 | 2/10 | **10/10** |
+| **0.95** | **Kupiec** | **4/10** | **6/10** | **8/10** | **2/10** | **10/10** |
+|      | Christoffersen | 7/10 | 7/10 | 10/10 | 8/10 | **10/10** |
+|      | **DQ** | **4/10** | **6/10** | **8/10** | **5/10** | **10/10** |
+| 0.99 | Kupiec | 7/10 | 4/10 | 10/10 | 8/10 | **10/10** |
+|      | Christoffersen | 5/10 | 10/10 | 10/10 | 4/10 | 9/10 |
+|      | DQ | 3/10 | 2/10 | 9/10 | 1/10 | 9/10 |
+| **40-cell totals** | **Kupiec** | **17/40** | **23/40** | **31/40$^\dagger$** | **12/40** | **40/40** |
+|      | **Christoffersen** | **26/40** | **31/40** | **37/40** | **29/40** | **38/40** |
+|      | **DQ** | **11/40** | **22/40** | **31/40$^\dagger$** | **9/40** | **39/40** |
+
+$^\dagger$ NVDA's $t$-MLE pushes $\hat\nu$ to the variance-undefined boundary ($2.50$); those four cells fall back to GARCH-Gaussian — the practitioner-equivalent of attempting GARCH-$t$ and finding it ill-defined.
+
+The deployed architecture leads every baseline on every test — 40/40 Kupiec, 38/40 Christoffersen, 39/40 DQ — with GARCH-$t$ second on all three (31/40, 37/40, 31/40); at the $\tau = 0.95$ anchor it is the only method on the grid that passes 10/10 on all three tests, with per-symbol violation rates in $[3.5\%, 6.9\%]$ (Fig. S1).
+
+The GARCH-$t$ contrast is instructive because it is the strongest of the four. Pooled at $\tau = 0.95$, GARCH-$t$ realises $0.928$ against its claimed $0.95$ (Kupiec $p < 0.001$); the deployed band realises $0.950$ ($p = 0.956$). Student-$t$ innovations repair the $\tau = 0.99$ tail, but at the fitted $\hat\nu \approx 3$ the standardised-$t$ 95th percentile ($\sim 1.83$) sits *below* the Gaussian $1.96$, so the bands tighten exactly where Gaussian was already under-covering — t-innovations fix the wrong end of the distribution. One concession the comparison owes the reader: widened post hoc to matched 95% realised coverage, GARCH-$t$'s half-width is $\approx 378$ bps, statistically tied with the deployed $370.6$ bps. At $\tau = 0.95$ the advantage is not width — it is that the deployed band's coverage is stated in advance and holds, while GARCH-$t$'s matched width is only known after observing the outcomes. At $\tau = 0.99$ the deployed band dominates on coverage and matched-coverage width simultaneously.
+
+![**H3.** Delivered minus promised coverage at the four served anchors, deployed vs GARCH(1,1)-$t$, on the 1,730-row 2023+ OOS slice; the shaded region is the exact binomial 95% acceptance band around each promise. Widened post hoc to matched 95% delivered coverage, GARCH-$t$'s half-width is ≈378 bps against the deployed 370.6 — statistically tied. The comparison is restricted to methods that emit a calibrated coverage band — incumbent oracle surfaces (Pyth, Chainlink Data Streams, RedStone, Kamino Scope) do not, so a coverage-vs-sharpness comparison against them is not well-defined (§1.2).](figures/fig_h3_calibration_pareto.pdf)
+
+![**S1.** Per-symbol violation rate at $\tau = 0.95$ on the 173-weekend OOS slice — deployed (blue) vs the unweighted-Mondrian comparator (grey ×) — against the binomial 95% acceptance band around the nominal 5%. Deployed: 10 of 10 inside. Comparator: 8 of 10 outside, split between under-coverage on heavy-tail names (MSTR 15.6%, HOOD 13.9%, TSLA 11.6%) and over-coverage on defensive names — pooled parity through compensating per-symbol biases.](figures/fig_s1_per_symbol.pdf)
+
+## 6.3 The tokenized-tracking head-to-head
+
+The remaining objection is "why not just track the 24/7 token price?" We construct a proxy for the continuous-tracking archetype — a constructed baseline, not any vendor's product — following Cong et al.'s published passthrough ($\lambda = 0.903$): the live tokenized-perp price as the point, an empirical-quantile residual band around it, evaluated at its most-informed closed-window snapshot. At matched coverage ($0.949$ vs $0.943$, both passing Kupiec on $n = 117$ weekend-symbol observations), the deployed band is **45% narrower** in half-width (358 vs 656 bps) and scores **46% lower** on Winkler (a proper scoring rule for interval forecasts, charging width plus a penalty for misses). The result is not unanimous: the proxy ties or modestly beats the deployed band on SPY and TSLA — the two deepest tokenized-perp markets — while the deployed band wins the other seven of nine symbols, by $1.36$–$3.32\times$ on Winkler across the thinner long tail. Construction detail and the small-$n$ power caveat are in Appendix D; these numbers do not enter the master grid — different panel.
+
+## 6.4 Overnight generalization
+
+If calibration is a property of the method rather than of the weekend, the same architecture should calibrate on the ~17-hour overnight gap. One change — the gap selector admits consecutive-trading-day pairs instead of Friday→Monday pairs — rebuilds the panel as **22,624 overnight rows across 2,412 weeknights** on the same ten tickers, ≈3.8× the weekend panel; every downstream component is reused unchanged. Pooled OOS (6,450 rows × 645 nights) **passes Kupiec and Christoffersen at every served anchor**, with the OOS-fit $c(\tau)$ collapsing to ≈1.0 — the overnight bands need essentially no post-hoc widening to calibrate. Because consecutive nights are temporally adjacent, we check the i.i.d. strain directly: a moving-block bootstrap on the violation series (block lengths $L \in \{1, 5, 10\}$, 2,000 reps) places the nominal violation rate inside the 95% CI at every $\tau$ and every block length, so consecutive-night autocorrelation does not invalidate the coverage claim.
+
+![**S2.** Promised (tick) vs delivered (dot) overnight coverage: pooled ($n = 6{,}450$ held-out symbol-nights) and earnings nights only ($n = 60$), OOS 2023+. Pooled delivered coverage is 68.0/85.1/95.1/99.2 against 68/85/95/99 promised, with Kupiec unrejected at all four anchors; earnings nights land above the promise at every anchor — the safe side — and the 99% row's 100.0% is 0 misses in 60 nights where exact calibration would expect 0.6.](figures/fig_s2_overnight.pdf)
+
+## 6.5 Earnings nights
+
+`earnings_night` is the one regime the architecture conditions on *a priori*: an earnings release has a publicly known date and session, so the band widens deterministically ahead of the event — calendar-conditioned coverage (§4.3.1 carries the mechanism). The event study (Fig. H4) shows the served $\tau = 0.95$ half-width widening $\approx 7\times$ exactly at the release gap, against a median realised close→open move at $t = 0$ of $1.78\times$ the *entire baseline band width* — an unwidened band would routinely breach. The fitted earnings-night quantile runs ≈$8\times$ the normal-night quantile (standardised $p_{99} \approx 9.7$ vs $\approx 2.0$ on other nights), and the resulting band is calibrated against that tail, not merely wide: on the OOS slice `earnings_night` realises $0.767 / 0.967 / 0.983 / 1.000$ at $\tau \in \{0.68, 0.85, 0.95, 0.99\}$ on $n = 60$ nights — over-coverage at the upper anchors, which is the contract-favourable direction on a small cell, though over-wide is still a cost the consumer pays. The $1.000$ cell is not evidence of extreme conservatism: at $n = 60$, exact calibration at $\tau = 0.99$ expects only $0.6$ misses, so zero misses is statistically indistinguishable from exact; the cell tightens as the panel accumulates.
+
+![**H4.** Served $\tau = 0.95$ band half-width (blue step: median across 228 releases, in bps of the previous close) around the earnings-release night, with realised $|$close→open$|$ moves (dot: median; whiskers: p10–p90): ≈225 bps on ordinary nights, 1,620 bps ($7.2\times$) on the release night — published before the close, from the public earnings calendar. On the $n = 60$ held-out earnings nights, 98.3% of opens landed inside the band (promised 95%). The flat post-event shoulders reflect the σ̂ de-contamination of §4.3.1: earnings residuals are excluded from the EWMA scale pool, so subsequent normal nights do not inherit inflated widths.](figures/fig_h4_earnings.pdf)
+
+The in-sample machinery check, tertile decompositions, full DQ/Berkowitz diagnostics, path coverage, per-asset-class decomposition, and the simulation study are in Appendices B–C; the joint tail belongs to §8. Where the contract fails is §8's subject.
