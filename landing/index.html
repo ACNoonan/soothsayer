@@ -271,7 +271,7 @@
   }
 
   /* METHODOLOGY (code-ish inspection panel) */
-  .method-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: stretch; }
+  .method-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
   @media (max-width: 980px) { .method-wrap { grid-template-columns: 1fr; } }
 
   .method-list { display: flex; flex-direction: column; }
@@ -290,7 +290,6 @@
   .signal-stack {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 16px;
     height: 100%;
   }
@@ -921,7 +920,7 @@
           <span class="eyebrow"><span class="bar"></span>Market admission</span>
           <h2>Incumbents understand the risk.</h2>
         </div>
-        <p>The weekend gap is no longer a hypothetical edge case. Providers themselves are warning that 24/7 tokenized markets can drift away from any defensible reference when the traditional venue is shut and the oracle stack does not adapt.</p>
+        <p>This isn't a hypothetical edge case. The providers themselves are warning that tokenized markets drift from any defensible reference once the venue shuts and the oracle stack can't adapt.</p>
       </div>
 
       <div class="press-grid">
@@ -1011,7 +1010,7 @@
           <span class="eyebrow p"><span class="bar"></span>How you use it</span>
           <h2>Ask for a coverage level. <span class="emp">Get a band and a receipt you can check.</span></h2>
         </div>
-        <p>One read gives you a price band — not a naked point — plus the receipt that lets anyone re-derive the coverage claim from public data. No proprietary feeds. Full method in the paper and <code>reports/methodology_history.md</code>; the point of this page is that you don't have to take our word for any of it.</p>
+        <p>One read gives you a band — not a naked point — and a receipt anyone can re-derive from public data. No proprietary feeds, and nothing you have to take on trust.</p>
       </div>
 
       <div class="method-wrap">
@@ -1042,7 +1041,7 @@
           </div>
         </div>
 
-        <div class="signal-stack" aria-label="Sample served-band PricePoint view">
+        <div class="signal-stack" aria-label="Sample served-band PricePoint views">
           <div class="signal-card">
             <div class="sc-head">
               <div class="ticker">TSLAx<span class="sub">xStock · Sat 14:32 UTC · τ = 0.85 default</span></div>
@@ -1071,10 +1070,62 @@
               <div class="axis"><span>Fri 16:00 ET</span><span>Sat</span><span>Mon 09:30 ET</span></div>
             </div>
 
-            <div class="inputs" style="margin-top: 26px;">
+            <div class="inputs">
               <span class="i">target_coverage 0.85</span>
               <span class="i">claimed_served 0.850</span>
               <span class="i">re-derivable</span>
+            </div>
+          </div>
+
+          <div class="signal-card compact green">
+            <div class="sc-head">
+              <div class="ticker">SPYx<span class="sub">xStock · Sun 03:10 UTC · τ = 0.85</span></div>
+              <div class="regime">Regime · normal</div>
+            </div>
+            <div>
+              <div class="big">
+                <span class="fv">$604.11</span>
+                <span class="delta">point · half-width ±1.42%</span>
+              </div>
+              <div class="ci-row" style="margin-top: 10px;">
+                <span><span class="k">band</span> &nbsp;$595.54 — $612.68</span>
+                <span><span class="k">claimed_served</span> &nbsp;0.850</span>
+              </div>
+            </div>
+            <div class="chart" aria-hidden="true">
+              <span class="ci-label">SPYx served band</span>
+              <svg viewBox="0 0 420 108" preserveAspectRatio="none">
+                <path class="band-fill" d="M0,58 C44,57 85,56 124,54 C165,52 203,49 242,46 C280,43 321,38 360,34 C384,32 404,30 420,29 L420,57 C405,58 385,59 360,61 C321,64 281,68 242,71 C202,74 164,77 124,79 C84,81 43,82 0,83 Z"></path>
+                <path class="mid-line" d="M0,71 C44,69 84,66 124,63 C164,60 202,56 242,52 C281,48 321,43 360,38 C385,35 404,33 420,31"></path>
+                <circle class="point-dot" cx="420" cy="31" r="5"></circle>
+              </svg>
+              <div class="axis"><span>Fri close</span><span>Weekend</span><span>Mon open</span></div>
+            </div>
+          </div>
+
+          <div class="signal-card compact amber">
+            <div class="sc-head">
+              <div class="ticker">MSTRx<span class="sub">xStock · Sun 18:40 UTC · τ = 0.85</span></div>
+              <div class="regime">Regime · high vol</div>
+            </div>
+            <div>
+              <div class="big">
+                <span class="fv">$412.66</span>
+                <span class="delta">point · half-width ±3.94%</span>
+              </div>
+              <div class="ci-row" style="margin-top: 10px;">
+                <span><span class="k">band</span> &nbsp;$396.39 — $428.93</span>
+                <span><span class="k">forecaster</span> &nbsp;lwc</span>
+              </div>
+            </div>
+            <div class="chart" aria-hidden="true">
+              <span class="ci-label">MSTRx served band</span>
+              <svg viewBox="0 0 420 108" preserveAspectRatio="none">
+                <path class="band-fill" d="M0,74 C38,76 80,72 124,66 C164,61 202,56 242,50 C281,43 320,36 360,27 C384,22 404,18 420,16 L420,64 C404,66 384,69 360,74 C320,81 281,88 242,93 C202,97 163,100 124,102 C80,104 39,103 0,101 Z"></path>
+                <path class="mid-line" d="M0,88 C38,87 80,82 124,75 C163,69 202,63 242,56 C281,49 320,41 360,32 C384,27 404,22 420,19"></path>
+                <circle class="point-dot" cx="420" cy="19" r="5"></circle>
+              </svg>
+              <div class="axis"><span>Fri close</span><span>BTC leads</span><span>Mon open</span></div>
             </div>
           </div>
         </div>
