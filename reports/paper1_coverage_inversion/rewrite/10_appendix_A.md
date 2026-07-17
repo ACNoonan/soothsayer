@@ -21,51 +21,51 @@ Input:  panel D = {(s, t, p_Fri, mon_open, r_F, r) : i = 1, ..., N}
         EWMA half-life HL = 8 weekends
         warm-up minimum past_obs_min = 8
 
-Output: sigma_hat_table  σ̂_s(t)         per-(symbol, fri_ts) parquet column
+Output: sigma_hat_table  sigma_hat_s(t)         per-(symbol, fri_ts) parquet column
         quantile_table   q_r(τ)         dim 3 × 4 = 12 scalars
         c_bump_schedule  c(τ)           dim 4 scalars
         delta_shift_schedule  δ(τ)      dim 4 scalars (identically zero under M6)
 
 1.  for each row i ∈ D:
-        p̂_i ← p_Fri,i · (1 + r_F,i)             # factor-adjusted point
-        rrel_i ← (mon_open_i − p̂_i) / p_Fri,i   # signed relative residual
+        p_hat_i ← p_Fri,i · (1 + r_F,i)             # factor-adjusted point
+        rrel_i ← (mon_open_i − p_hat_i) / p_Fri,i   # signed relative residual
 2.  for each (symbol s, weekend t) ∈ D:
         prior ← {rrel_{i'} : symbol(i') = s, t' < t}    # strictly pre-Friday
         if |prior| < past_obs_min:
             mark row as warmup_drop and skip
         else:
-            σ̂_s(t) ← EWMA(prior, half_life = HL)        # weekend half-life decay
+            sigma_hat_s(t) ← EWMA(prior, half_life = HL)        # weekend half-life decay
 3.  D_train ← {i ∈ D : t_i < d_split, not warmup_drop}
     D_oos   ← {i ∈ D : t_i ≥ d_split, not warmup_drop}
 4.  for each row i in D_train ∪ D_oos:
-        score_i ← |mon_open_i − p̂_i| / (p_Fri,i · σ̂_{s_i}(t_i))   # standardised
+        score_i ← |mon_open_i − p_hat_i| / (p_Fri,i · sigma_hat_{s_i}(t_i))  # std.
 5.  for each (regime r, target τ) ∈ {normal, long_weekend, high_vol} × T:
         S_r ← {score_i : i ∈ D_train, r_i = r}
         k ← ⌈τ · (|S_r| + 1)⌉                   # finite-sample CP rank
-        q_r(τ) ← sort(S_r)[k]                    # the trained standardised quantile
+        q_r(τ) ← sort(S_r)[k]              # trained standardised quantile
 6.  for each τ ∈ T:
-        c(τ) ← smallest c ∈ C with mean over D_oos of 1{score_i ≤ q_{r_i}(τ)·c} ≥ τ
-7.  δ(τ) ← walk-forward sweep selects 0 at every anchor under M6 (per-symbol σ̂ tightens
-            cross-split realised-coverage variance enough that no shift is required)
-8.  return (σ̂_s(t), q_r(τ), c(τ), δ(τ))
+        c(τ) ← smallest c∈C with mean_{D_oos} 1{score_i ≤ q_{r_i}(τ)·c} ≥ τ
+7.  δ(τ) ← 0 at every anchor under M6 (walk-forward sweep; per-symbol sigma_hat
+            tightens cross-split coverage variance, so no shift is needed)
+8.  return (sigma_hat_s(t), q_r(τ), c(τ), δ(τ))
 ```
 
 **Algorithm 2 — M6 serve** (runtime band; `Oracle.fair_value_lwc` in `src/soothsayer/oracle.py`).
 
 ```
 Input:  symbol s, as-of date t, target coverage τ ∈ [0.68, 0.99]
-        lookup row (p_Fri, regime r, σ̂_s(t)) from per-Friday parquet at (s, t)
+        lookup row (p_Fri, regime r, sigma_hat_s(t)) from per-Friday parquet at (s, t)
         deployment scalars (q_r(τ), c(τ), δ(τ) ≡ 0) from Algorithm 1
 
-Output: PricePoint{ τ, δ(τ), p̂, lower, upper, r, c, q_eff, q_r, σ̂ }
+Output: PricePoint{ τ, δ(τ), p_hat, lower, upper, r, c, q_eff, q_r, sigma_hat }
 
 1.  c_eff ← interpolate c on the τ-grid at τ
-2.  q_eff ← c_eff · q_r(τ)                    # standardised quantile (σ̂ applied below)
-3.  p̂ ← p_Fri · (1 + r_F)                    # factor-adjusted point (band centre)
-4.  half ← q_eff · σ̂_s(t) · p_Fri            # price-unit half-width (σ̂ × Friday close)
-5.  lower ← p̂ − half;   upper ← p̂ + half
-6.  return PricePoint(τ, δ(τ) = 0, p̂, lower, upper, r,
-                     diagnostics{c_eff, q_eff, q_r(τ), σ̂_s(t)})
+2.  q_eff ← c_eff · q_r(τ)              # standardised quantile (sigma_hat below)
+3.  p_hat ← p_Fri · (1 + r_F)              # factor-adjusted point (centre)
+4.  half ← q_eff · sigma_hat_s(t) · p_Fri      # price-unit half-width
+5.  lower ← p_hat − half;   upper ← p_hat + half
+6.  return PricePoint(τ, δ(τ) = 0, p_hat, lower, upper, r,
+                     diagnostics{c_eff, q_eff, q_r(τ), sigma_hat_s(t)})
 ```
 
 **Algorithm 3 — Per-symbol σ̂ EWMA construction** (`scripts/build_lwc_artefact.py` step 2; soft constants `SIGMA_HAT_HL_WEEKENDS = 8`, `SIGMA_HAT_MIN = 8`).
@@ -73,19 +73,19 @@ Output: PricePoint{ τ, δ(τ), p̂, lower, upper, r, c, q_eff, q_r, σ̂ }
 ```
 Input:  panel D, EWMA half-life HL = 8 weekends, past_obs_min = 8
 
-Output: per-(symbol, fri_ts) σ̂_s(t) column on the artefact parquet
+Output: per-(symbol, fri_ts) sigma_hat_s(t) column on the artefact parquet
 
 1.  λ ← 0.5 ** (1.0 / HL)        # ≈ 0.917 per past Friday
 2.  for each symbol s in D:
         rows_s ← rows of D with symbol = s, sorted by fri_ts
         for each row i in rows_s:
-            prior ← {rrel_{j} : j ∈ rows_s, fri_ts(j) < fri_ts(i)}     # strictly pre-Friday
+            prior ← {rrel_j : j∈rows_s, fri_ts(j) < fri_ts(i)}  # pre-Fri
             if |prior| < past_obs_min:
-                σ̂_s(fri_ts(i)) ← undefined  (row marked warmup_drop)
+                sigma_hat_s(fri_ts(i)) ← undefined  (row marked warmup_drop)
             else:
                 weights ← [λ ** (|prior| − k − 1) for k in 0..|prior|]
-                σ̂_s(fri_ts(i)) ← weighted_std(prior, weights)
-3.  return σ̂ column
+                sigma_hat_s(fri_ts(i)) ← weighted_std(prior, weights)
+3.  return sigma_hat column
 ```
 
 The σ̂ rule itself was selected from a five-variant ladder under the pre-registered three-gate criterion of §7 (full procedure and tables in Appendix D); alternative variants remain buildable for archival reproduction via `scripts/build_lwc_artefact.py --variant {baseline_k26, ewma_hl6, ewma_hl12, blend_k26_ewma_hl8}`.
@@ -185,45 +185,45 @@ This is the single consolidated command listing; §4.8, §5.7, and Appendix E re
 uv sync
 
 # 1. Build the weekend panel from scryer parquet (one-time, ~3 min;
-#    end-to-end calibration backtest runs under fifteen minutes cold, under one minute warm).
+#    end-to-end backtest: under 15 min cold, under 1 min warm).
 uv run python scripts/run_calibration.py
 
-# 2. Fit M6 and write the deployment artefact (Algorithm 1) + sidecar; freeze; smoke-test.
-uv run python scripts/build_lwc_artefact.py         # per-Friday artefact + JSON sidecar
-uv run python scripts/freeze_lwc_artefact.py        # content-addressed freeze for forward-tape
+# 2. Fit M6, write the artefact (Algorithm 1) + sidecar; freeze; smoke-test.
+uv run python scripts/build_lwc_artefact.py    # artefact + JSON sidecar
+uv run python scripts/freeze_lwc_artefact.py   # content-addressed freeze
 uv run python scripts/smoke_oracle.py --forecaster lwc   # cross-regime API demo
 
-# 3. Verify Python ↔ Rust serving parity (A.8); build and exercise the Rust serving CLI.
+# 3. Verify Python <-> Rust parity (A.8); build the Rust serving CLI.
 PYTHONUNBUFFERED=1 uv run python scripts/verify_rust_oracle.py
 uv run python scripts/build_mondrian_artefact.py    # M5 reference (App D rung)
 cargo build --release -p soothsayer-publisher
-./target/release/soothsayer fair-value --symbol SPY --as-of 2026-04-24 --target 0.85
-./scripts/deploy_devnet.sh                          # devnet publish path (Appendix E)
+soothsayer fair-value --symbol SPY --as-of 2026-04-24 --target 0.85
+./scripts/deploy_devnet.sh                     # devnet publish (App E)
 
 # 4. Path-coverage diagnostic (B.14) + excursion-inflation λ.
 uv run python scripts/run_path_coverage.py
 uv run python scripts/proto_excursion_inflation.py
 
-# 4b. Off-hours generalisation — overnight panel + calibration battery (§6.4, B.15).
-uv run python scripts/build_overnight_panel.py      # overnight close→open panel (§5.2)
+# 4b. Off-hours: overnight panel + calibration battery (§6.4, B.15).
+uv run python scripts/build_overnight_panel.py   # overnight panel (§5.2)
 uv run python scripts/build_overnight_artefact.py   # overnight artefact + battery
 
 # 5. §6 / §7 / Appendix B / Appendix D robustness battery.
 uv run python scripts/run_v1b_per_symbol_diagnostics.py
 uv run python scripts/run_v1b_vol_tertile.py
-uv run python scripts/run_v1b_garch_baseline.py                 # GARCH-Gaussian baseline
-uv run python scripts/run_v1b_garch_baseline.py --dist t        # GARCH-t baseline (B.12)
+uv run python scripts/run_v1b_garch_baseline.py          # GARCH-Gaussian
+uv run python scripts/run_v1b_garch_baseline.py --dist t # GARCH-t (B.12)
 uv run python scripts/run_v1b_split_sensitivity.py
 uv run python scripts/run_v1b_loso.py
 uv run python scripts/run_v1b_per_class.py
 uv run python scripts/run_v1b_path_fitted_conformal.py
-uv run python scripts/run_v1b_tokenised_tracking_baseline.py    # tokenised baseline (§6.2, App D)
+uv run python scripts/run_v1b_tokenised_tracking_baseline.py  # §6.2, App D
 
 # 6. Joint-tail / stability runners (§8, B.6, B.8).
-uv run python scripts/run_portfolio_clustering.py               # joint-tail distribution
-uv run python scripts/run_subperiod_robustness.py               # calendar sub-period stability
-uv run python scripts/run_per_symbol_kupiec_all_methods.py      # 4-method grid (§6.2)
-uv run python scripts/run_kw_threshold_stability.py             # reserve threshold stability
+uv run python scripts/run_portfolio_clustering.py     # joint-tail dist.
+uv run python scripts/run_subperiod_robustness.py     # sub-period stability
+uv run python scripts/run_per_symbol_kupiec_all_methods.py  # 4-method grid
+uv run python scripts/run_kw_threshold_stability.py   # reserve threshold
 
 # 7. Build the paper figures (A.6).
 uv run python scripts/build_paper1_figures.py
@@ -245,20 +245,26 @@ cd reports/paper1_coverage_inversion/build && uv run python build.py --pdf
 
 Rebuilt for the H1–H5 / S1–S2 figure plan. H1–H3 are new builds; H4, H5, S1, and S2 are redesigns of earlier exhibits (fig11, fig10, fig4, and fig8 respectively); the remaining appendix figures carry their original provenance.
 
-| Figure (placement) | Script | Source CSVs / parquet | Status |
-|---|---|---|---|
-| H1a — week timeline (§1); H1b — gap distributions (§1.1) | `scripts/build_fig_h1.py` (emits both) | `data/processed/{v1b_panel.parquet, overnight_panel.parquet}` (supersedes fig0) | new build |
-| H2 — anatomy of a read (§3) | `scripts/build_fig_h2.py` | `data/processed/{lwc_artefact_v1.parquet, lwc_artefact_v1.json}` (exemplar read; otherwise diagrammatic) | new build |
-| H3 — promised-vs-delivered coverage (§6.2) | `scripts/build_fig_h3.py` | `reports/tables/{m6_pooled_oos.csv, m6_lwc_robustness_garch_t_baseline.csv}` (supersedes fig2 + fig5) | redesigned |
-| H4 — earnings event-time band, absolute bps (§6.5) | `scripts/build_fig_h4.py` | `data/processed/{overnight_panel.parquet, overnight_artefact_v1.json}` (supersedes fig11, which remains an appendix exhibit) | redesigned |
-| H5 — joint-tail $k_w$ counts, linear scale (§8) | `scripts/build_fig_h5.py` | `reports/tables/paper1_a3_joint_baseline_kw_distribution.csv` (supersedes fig10, which remains the appendix exhibit with the $t$-copula overlay) | redesigned |
-| Fig. 1 — serving pipeline (§4) | `build_paper1_figures.py::fig1_pipeline` | none — diagrammatic | existing |
-| S1 — per-symbol promise audit (§6.2) | `scripts/build_fig_s1.py` | `reports/tables/{m6_lwc_robustness_per_symbol.csv, m6_per_symbol_kupiec_4methods.csv}` (supersedes fig4) | redesigned |
-| S2 — overnight promise audit (§6.4) | `scripts/build_fig_s2.py` | overnight panel + deployed artefact schedules (§5.2, B.15; supersedes fig8) | redesigned |
-| fig6 — path coverage (B.14) | `build_paper1_figures.py::fig6_path_coverage` | `reports/tables/path_coverage_perp_per_row.csv` + bands recomputed from the artefact schedules | existing |
-| fig7b — per-symbol ablation (Appendix D) | `build_paper1_figures.py::fig7b_oos_ablation` | recomputed per split anchor; emits `reports/tables/paper1_fig7b_per_symbol_ablation.csv` | existing |
-| fig9 — BoJ band anatomy (B.9) | `build_paper1_figures.py::fig9_boj_anatomy` | `data/processed/{lwc_artefact_v1.parquet, lwc_artefact_v1.json, v1b_panel.parquet}` | existing |
-| simulation figure (Appendix C) | `scripts/run_simulation_study.py` | `reports/tables/sim_per_symbol_kupiec.csv` | existing |
+Status (new build / redesign of a prior exhibit / existing) is given in the paragraph above; the table below records each figure's builder and data source. Paths under `data/processed/` and `reports/tables/` are shown without their directory prefix; the `figN_*()` builders are functions in `scripts/build_paper1_figures.py`.
+
+\footnotesize
+
+| Figure (placement) | Script | Source data (parquet / CSV) |
+|:-------------------|:------------------|:------------------------|
+| H1a week timeline (§1); H1b gap distributions (§1.1) | `build_fig_h1.py` | `v1b_panel`, `overnight_panel` |
+| H2 anatomy of a read (§3) | `build_fig_h2.py` | `lwc_artefact_v1` (exemplar; else diagrammatic) |
+| H3 promised-vs-delivered coverage (§6.2) | `build_fig_h3.py` | `m6_pooled_oos`, `m6_lwc_robustness_garch_t_baseline` |
+| H4 earnings event-time band (§6.5) | `build_fig_h4.py` | `overnight_panel`, `overnight_artefact_v1` |
+| H5 joint-tail $k_w$ counts (§8) | `build_fig_h5.py` | `paper1_a3_joint_baseline_kw_distribution` |
+| Fig. 1 serving pipeline (§4) | `fig1_pipeline()` | diagrammatic |
+| S1 per-symbol promise audit (§6.2) | `build_fig_s1.py` | `m6_lwc_robustness_per_symbol`, `m6_per_symbol_kupiec_4methods` |
+| S2 overnight promise audit (§6.4) | `build_fig_s2.py` | overnight panel + artefact (§5.2, B.15) |
+| fig6 path coverage (B.14) | `fig6_path_coverage()` | `path_coverage_perp_per_row` + artefact bands |
+| fig7b per-symbol ablation (App D) | `fig7b_oos_ablation()` | `paper1_fig7b_per_symbol_ablation` (per split anchor) |
+| fig9 BoJ band anatomy (B.9) | `fig9_boj_anatomy()` | `lwc_artefact_v1`, `v1b_panel` |
+| simulation figure (App C) | `run_simulation_study.py` | `sim_per_symbol_kupiec` |
+
+\normalsize
 
 Former fig0, fig2, and fig5 are superseded (fig0 upgraded into H1; fig2 + fig5 merged into H3) and are no longer emitted into the build.
 
