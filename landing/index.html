@@ -213,46 +213,47 @@
   }
 
   /* GAP TIMELINE */
-  .gap-card {
+  /* WEEK MAP — stylized Figure H1a: one wall-clock week coloured by market state */
+  .weekmap {
     border: 1px solid var(--rule-strong);
     background: linear-gradient(180deg, rgba(244,243,238,0.02), rgba(244,243,238,0));
-    padding: 40px;
+    padding: 36px 40px;
   }
-  .gap-card .week-head {
-    display: grid; grid-template-columns: 160px 1fr; gap: 16px;
-    padding-bottom: 14px;
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--ink-faint);
+  .wm-head {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 22px;
   }
-  .gap-card .days { display: grid; grid-template-columns: repeat(7, 1fr); }
-  .gap-card .days span { padding: 4px 0; border-left: 1px solid var(--rule); padding-left: 10px; }
-  .gap-card .days span:first-child { border-left: 1px solid var(--rule-strong); }
-  .gap-card .row {
-    display: grid; grid-template-columns: 160px 1fr; gap: 16px;
-    align-items: center;
-    padding: 14px 0;
-  }
-  .gap-card .name { font-size: 15px; font-weight: 500; letter-spacing: -0.005em; }
-  .gap-card .name .sub { display: block; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); font-weight: 400; margin-top: 3px; letter-spacing: 0.04em; }
-  .gap-card .name.g { color: var(--green); }
-  .gap-card .name.g .sub { color: var(--green); opacity: 0.7; }
+  .wm-key { display: inline-flex; gap: 20px; flex-wrap: wrap; text-transform: none; letter-spacing: 0.04em; }
+  .wm-key i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; }
+  .wm-key .k-open { background: var(--green); }
+  .wm-key .k-night { background: rgba(244,180,90,0.45); }
+  .wm-key .k-wknd { background: rgba(242,106,90,0.55); }
 
-  .track { position: relative; height: 28px; background: rgba(244,243,238,0.03); border-radius: 2px; overflow: hidden; }
-  .track .fill { position: absolute; top: 0; bottom: 0; opacity: 0.85; }
-  .track .fill.white { background: #F4F3EE; }
-  .track .fill.grey { background: #BFC2C9; }
-  .track .fill.green { background: var(--green); }
-  .track .fill.stale { background: repeating-linear-gradient(45deg, rgba(244,243,238,0.14), rgba(244,243,238,0.14) 5px, transparent 5px, transparent 10px); }
-  .track.g-track { background: rgba(20,241,149,0.06); border: 1px solid rgba(20,241,149,0.25); }
-
-  .gap-card .gap-note {
-    margin-top: 18px;
-    padding-top: 18px;
-    border-top: 1px solid var(--rule);
-    display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;
-    font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; color: var(--ink-faint);
+  .wm-track {
+    position: relative; height: 58px; border-radius: 3px; overflow: hidden;
+    /* base = weeknight off-hours */
+    background: repeating-linear-gradient(45deg, rgba(244,180,90,0.15), rgba(244,180,90,0.15) 6px, rgba(244,180,90,0.05) 6px, rgba(244,180,90,0.05) 12px);
+    box-shadow: inset 0 0 0 1px var(--rule);
   }
-  .gap-card .gap-note .hi { color: var(--green); }
+  .wm-track .seg { position: absolute; top: 0; bottom: 0; }
+  .wm-track .seg.open { background: var(--green); box-shadow: inset 0 0 0 1px rgba(20,241,149,0.45); }
+  .wm-track .seg.wknd {
+    background: repeating-linear-gradient(45deg, rgba(242,106,90,0.32), rgba(242,106,90,0.32) 6px, rgba(242,106,90,0.12) 6px, rgba(242,106,90,0.12) 12px);
+    box-shadow: inset 1px 0 0 rgba(242,106,90,0.6);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .wm-bracket { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--red); font-weight: 500; }
+  .wm-days { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--ink-faint); }
+  .wm-days span { border-left: 1px solid var(--rule); padding: 4px 0 0 8px; }
+  .wm-days span:first-child { border-left: 1px solid var(--rule-strong); }
+  .wm-caption {
+    margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--rule);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
+    font-size: 13.5px; color: var(--ink-dim); font-weight: 300; line-height: 1.55;
+  }
+  .wm-caption b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 720px) { .wm-caption { grid-template-columns: 1fr; gap: 14px; } }
 
   /* PRODUCT / WHAT WE BUILD */
   .prod-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
@@ -780,9 +781,9 @@
           <div class="n">&gt;$25B traded against ~$225M held as collateral. Kamino disables borrowing on 4 of 8 xStock reserves; 0 of 102 liquidations fell on a weekend.</div>
         </div>
         <div class="cell">
-          <div class="k">The proof · coverage @ τ=0.95</div>
-          <div class="v">0.9497</div>
-          <div class="n">Held out by symbol (leave-one-symbol-out) on the 12-year panel — ±0.0128, all 10 tickers pass Kupiec; 40/40 on the symbol×τ grid vs GARCH-t's 31/40.</div>
+          <div class="k">The blind window</div>
+          <div class="v">81<span class="unit">%</span></div>
+          <div class="n">of the week the reference market is closed — only 32.5 of 168 hours trade. The Friday-close→Monday-open span alone runs 65.5 straight hours with no reference print.</div>
         </div>
       </div>
     </div>
@@ -802,47 +803,37 @@
           <span class="eyebrow"><span class="bar"></span>The gap</span>
           <h2>Every weekend, the incumbents <span class="em">stop thinking.</span></h2>
         </div>
-        <p>Weekends are the cleanest proof of the gap. Chainlink's consumed fields either freeze at Friday close or route to an opaque tokenized mark, Pyth + Blue Ocean extend into 24/5 but still hand back the weekend, and continuous off-hours marks remain difficult to audit. And the market has noticed: participants trade these tokens roughly 100× more than they hold them as collateral (&gt;$25B traded vs ~$225M held), and of 102 liquidations on a $4B Solana lending market over nine months, not one fell on a weekend. The assets are live — the confidence to lever them while the market is closed is not.</p>
+        <p>Incumbent feeds either freeze at Friday's close, route to an opaque tokenized mark, or extend into 24/5 and still hand back the weekend — none of it auditable. And the market has noticed: these tokens trade roughly 100× more than they're held as collateral (&gt;$25B vs ~$225M), and of 102 liquidations on a $4B Solana lending market over nine months, not one fell on a weekend.</p>
       </div>
 
-      <div class="gap-card">
-        <div class="week-head">
-          <span>Provider</span>
-          <div class="days">
-            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-          </div>
+      <figure class="weekmap">
+        <figcaption class="wm-head">
+          <span>One week · Mon 00:00 → Sun 24:00 ET · a US-listed equity</span>
+          <span class="wm-key">
+            <span><i class="k-open"></i>market open</span>
+            <span><i class="k-night"></i>weeknight off-hours</span>
+            <span><i class="k-wknd"></i>weekend blind window</span>
+          </span>
+        </figcaption>
+
+        <div class="wm-track" aria-hidden="true">
+          <span class="seg open" style="left:5.66%;  width:3.87%;"></span>
+          <span class="seg open" style="left:19.94%; width:3.87%;"></span>
+          <span class="seg open" style="left:34.23%; width:3.87%;"></span>
+          <span class="seg open" style="left:48.51%; width:3.87%;"></span>
+          <span class="seg open" style="left:62.80%; width:3.87%;"></span>
+          <span class="seg wknd" style="left:66.67%; width:33.33%;"><span class="wm-bracket">65.5 h</span></span>
         </div>
 
-        <div class="row">
-          <div class="name">Chainlink<span class="sub">LTP frozen / tokenized mark live</span></div>
-          <div class="track">
-            <div class="fill grey" style="left: 0%; width: 68.5%;"></div>
-            <div class="fill stale" style="left: 68.5%; width: 28.5%;"></div>
-            <div class="fill grey" style="left: 97%; width: 3%;"></div>
-          </div>
+        <div class="wm-days">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
         </div>
 
-        <div class="row">
-          <div class="name">Pyth + Blue Ocean<span class="sub">24/5 overnight ATS</span></div>
-          <div class="track">
-            <div class="fill white" style="left: 0%; width: 68.5%;"></div>
-            <div class="fill stale" style="left: 68.5%; width: 28.5%;"></div>
-            <div class="fill white" style="left: 97%; width: 3%;"></div>
-          </div>
+        <div class="wm-caption">
+          <span><b>19%</b> of the week the reference market is open — 32.5 of 168 hours. That green sliver is the only time every incumbent oracle has a real price to serve.</span>
+          <span><b>81%</b> is off-hours — capped by the 65.5-hour Friday-close→Monday-open window — where feeds go stale, synthetic, or opaque. Soothsayer serves a checkable band across all of it.</span>
         </div>
-
-        <div class="row">
-          <div class="name g">Soothsayer<span class="sub">fair value + calibrated band</span></div>
-          <div class="track g-track">
-            <div class="fill green" style="left: 0; width: 100%;"></div>
-          </div>
-        </div>
-
-        <div class="gap-note">
-          <span><span class="hi">● THE 48-HOUR GAP</span> &nbsp;— Fri 8pm → Sun 8pm ET</span>
-          <span>— Chainlink weekend: frozen LTP, placeholder-derived v11 mid</span>
-        </div>
-      </div>
+      </figure>
     </div>
   </section>
 
