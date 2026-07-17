@@ -255,21 +255,6 @@
   .wm-caption b { color: var(--ink); font-weight: 600; }
   @media (max-width: 720px) { .wm-caption { grid-template-columns: 1fr; gap: 14px; } }
 
-  /* PRODUCT / WHAT WE BUILD */
-  .prod-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-  .prod { padding: 36px 32px 40px; border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 14px; }
-  .prod:last-child { border-right: none; }
-  .prod .num { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: 0.12em; }
-  .prod h3 { font-size: 22px; font-weight: 500; letter-spacing: -0.015em; margin: 0; line-height: 1.2; }
-  .prod p { font-size: 15px; color: var(--ink-dim); line-height: 1.5; font-weight: 300; margin: 0; }
-  .prod .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-  .prod .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--ink-dim); padding: 4px 8px; border: 1px solid var(--rule-strong); text-transform: uppercase; }
-  @media (max-width: 900px) {
-    .prod-grid { grid-template-columns: 1fr; }
-    .prod { border-right: none; border-bottom: 1px solid var(--rule); }
-    .prod:last-child { border-bottom: none; }
-  }
-
   /* METHODOLOGY (code-ish inspection panel) */
   .method-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: stretch; }
   .method-list { justify-content: space-between; }
@@ -737,7 +722,6 @@
     </a>
     <div class="links">
       <a href="#gap">The Gap</a>
-      <a href="#product">Research</a>
       <a href="#method">Methodology</a>
       <a href="#compare">Compare</a>
       <a class="cta" href="#contact" data-open-contact>Contact →</a>
@@ -953,54 +937,6 @@
           <span class="mark">“</span>Without these capabilities, tokenized products are exposed to potential mispricings, unfair liquidations, regulatory gaps, and other critical risks.<span class="mark">”</span>
         </blockquote>
         <div class="attrib">Chainlink · v10/v11 launch · blog.chain.link</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- WHAT WE BUILD -->
-  <section class="band" id="product">
-    <div class="wrap">
-      <div class="head-row">
-        <div>
-          <span class="eyebrow g"><span class="bar"></span>What we build</span>
-          <h2><span class="em">Primitive, measurement &amp; decisions.</span></h2>
-        </div>
-        <p>Soothsayer is one stack with three outputs: the calibrated band and receipt, the public measurement layer built from those receipts, and the decision support that turns uncertainty into protocol-relevant evidence.</p>
-      </div>
-
-      <div class="prod-grid">
-        <div class="prod">
-          <span class="num">01 · PRIMITIVE · PAPER 1</span>
-          <h3>Publish a calibrated band and its receipt.</h3>
-          <p>Paper 1 formalizes the coverage-inversion primitive: a public Solana fair-value band with target coverage, claimed-served quantile, and replayable audit receipts instead of a black-box point estimate.</p>
-          <div class="tag-row">
-            <span class="tag">12 years</span>
-            <span class="tag">6,390 panel rows</span>
-            <span class="tag">Reproducible</span>
-          </div>
-        </div>
-
-        <div class="prod">
-          <span class="num">02 · POLICY · PAPER 3</span>
-          <h3>Map calibrated uncertainty into protocol action.</h3>
-          <p>Paper 3 turns the primitive into protocol-facing policy: reserve-buffer scoring, closed-market decision rules, and evidence for how lending systems should respond when uncertainty is explicit rather than hidden.</p>
-          <div class="tag-row">
-            <span class="tag">Open dataset</span>
-            <span class="tag">Mechanism design</span>
-            <span class="tag">Solana grant</span>
-          </div>
-        </div>
-
-        <div class="prod">
-          <span class="num">03 · DECISION SUPPORT · PAPER 3</span>
-          <h3>Show how downstream users act on the signal.</h3>
-          <p>Paper 3 asks how protocols, liquidators, and risk teams should use the same band and receipt: which reserve buffers, triggers, and policy defaults look defensible when markets are closed.</p>
-          <div class="tag-row">
-            <span class="tag">Expected loss</span>
-            <span class="tag">Protocol policy</span>
-            <span class="tag">Deployable</span>
-          </div>
-        </div>
       </div>
     </div>
   </section>
