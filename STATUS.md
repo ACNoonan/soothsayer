@@ -1,6 +1,6 @@
 # STATUS — soothsayer
 
-**As of 2026-05-04.** Single-page operational state for any agent (or human) picking up work in this repo. Read this first. Then read whichever pointer below matches your task. Anything in `reports/methodology_history.md` past §0 is *history* — useful when investigating *why*, not *what*.
+**As of 2026-07-17.** Single-page operational state for any agent (or human) picking up work in this repo. Read this first. Then read whichever pointer below matches your task. Anything in `reports/methodology_history.md` past §0 is *history* — useful when investigating *why*, not *what*.
 
 > **Maintenance rule.** Update this file when any of {deployed methodology, served τ range, active workstream, headline metrics, deployment artefact path, wire format} changes. Changes that don't move any of those don't belong here. Long rationale belongs in `reports/methodology_history.md`; this file links to that, not the other way around.
 
@@ -8,13 +8,13 @@
 
 ## Today
 
-**Deployed methodology:** M6 — Locally-Weighted Conformal (LWC) + per-symbol σ̂ EWMA HL=8 + Mondrian-by-`regime_pub` + δ-shifted c(τ) bump. Python serving path is live; Rust parity port is gated (Phase 7 below).
+**Deployed methodology:** M6 — Locally-Weighted Conformal (LWC) + per-symbol σ̂ EWMA HL=8 + Mondrian-by-`regime_pub` + δ-shifted c(τ) bump. Python serving path is live; **Rust parity is complete (180/180 Python↔Rust cases across both M5 and M6 paths)**. The Anchor on-chain program serves the M5 reference path on devnet; M6 on-chain enablement is pending the next publisher release.
 
-**Headline at τ=0.95** (OOS 2023+, 1,730 rows × 173 weekends × 10 tickers): realised **0.950**, half-width **370.6 bps**, Kupiec p=0.956, Christoffersen p=0.603, **per-symbol Kupiec 10/10**, LOSO realised-coverage std **0.0134** (5.7× tighter than M5). Coverage holds Kupiec at every served τ ∈ {0.68, 0.85, 0.95, 0.99}.
+**Headline at τ=0.95** (OOS 2023+, 1,730 rows × 173 weekends × 10 tickers): realised **0.950**, half-width **370.6 bps**, Kupiec p=0.956, Christoffersen p=0.603, **per-symbol Kupiec 10/10**, held-out LOSO coverage **0.9497 ± 0.0128** (cross-symbol SD). Coverage holds Kupiec at every served τ ∈ {0.68, 0.85, 0.95, 0.99}.
 
 **Served τ range:** [0.68, 0.99]. Default deployment τ = 0.85. Paper 1 headline τ = 0.95.
 
-**Wire format:** `PriceUpdate` Borsh layout preserved across v1 → M5 → M6. `forecaster_code = 2` = M5 Mondrian (legacy reference path). `forecaster_code = 3` = M6 LWC (reserved; activates when the Rust port lands).
+**Wire format:** `PriceUpdate` Borsh layout preserved across v1 → M5 → M6. `forecaster_code = 2` = M5 Mondrian (live on-chain, devnet). `forecaster_code = 3` = M6 LWC (live in the Rust serving stack at 180/180 parity; on-chain enablement gated on the next publisher release).
 
 **Deployment artefacts** (under `data/processed/`):
 
@@ -30,18 +30,18 @@
 
 ---
 
-## Active workstreams (2026-05-04)
+## Active workstreams (2026-07-17)
 
 | Workstream | Driving doc | Status |
 |---|---|---|
-| **M6 Phase 7 — Rust parity port** | `reports/active/m6_refactor.md` | Gated; not yet started. Activates `forecaster_code = 3` on chain. |
-| **Paper 1 revision against M6** | `research/coverage-inversion/` | In flight. Per-symbol Kupiec 10/10 + LOSO 5.7× tighter + 4-DGP simulation are the new headline pieces. |
-| **Paper 3 — Kamino 2025-11 cluster** | `research/liquidation-policy/` | In flight. Three-claim structure (Geometric / Structural / Empirical). |
+| **Paper 1 (coverage-inversion) → arXiv** | `research/coverage-inversion/` | v2 structural rewrite complete: 4-reviewer adversarial pass addressed (incl. the matched-history tokenized-tracking reframe), figures redesigned, 63-page PDF builds via `build/build.py --v2`. Near human-review / arXiv submission; **seeking a q-fin.RM endorsement** (`arxiv-endorsement/`, gitignored). |
+| **M6 Rust parity** | `reports/active/m6_refactor.md` | ✅ Complete — 180/180 Python↔Rust. On-chain M6 enablement (`forecaster_code = 3`) gated on the next publisher release. |
+| **Paper 3 — liquidation policy** | `research/liquidation-policy/` | In flight. Three-claim structure (Geometric / Structural / Empirical). |
 | **Paper 4 — forward data capture** | `research/oracle-conditioned-amm/scryer_pipeline_plan.md` | Owned by scryer (item 51). Soothsayer consumers wait until parquet rows land. |
-| **Devnet publish path** | `crates/soothsayer-publisher`, `programs/` | Router v0 deployed devnet 2026-04-29 at `AZE8HixpkLpqmuuZbCku5NbjWqoQLWhPRTHp8aMY9xNU`. |
-| **Forward-tape harness** | `scripts/run_forward_tape_harness.sh` | Live on launchd, fires weekly Tuesday (`launchd/com.adamnoonan.soothsayer.forward-tape.plist`). |
-| **Phase 7 paper-strengthening tests** | `reports/active/phase_7_results.md` | ✅ Complete 2026-05-04. Portfolio clustering, sub-period robustness, GARCH-t baseline. |
-| **Phase 8 compounders** | `reports/active/phase_8.md` | ✅ Complete 2026-05-04. Worst-weekend characterisation, per-symbol GARCH-t, k_w threshold stability. |
+| **Devnet publish path** | `crates/soothsayer-publisher`, `programs/` | Router v0 deployed devnet 2026-04-29 at `AZE8HixpkLpqmuuZbCku5NbjWqoQLWhPRTHp8aMY9xNU`. Publish→read-back not yet wired end-to-end (`initialize` runner is a TODO; see `docs/devnet-quickstart.md`). |
+| **Forward-tape harness** | `scripts/run_forward_tape_harness.sh` | Live on launchd, fires weekly Tuesday. **N=11 forward weekends** (2026-05-01 → 2026-07-10): pooled Kupiec passes all four anchors, per-symbol 10/10 at τ=0.95. |
+| **AMM design-partner onboarding** | `docs/INTEGRATION.md` | Stubs scaffolded (integration guide + devnet quickstart + README section); content gated on the Paper 1 release. ROADMAP Phase 2. |
+| **Repo public-share prep** | this file | ✅ Papers moved to `research/`; committed secrets removed; third-party papers + internal drafts untracked. |
 
 Backlog of candidate workstreams sits in `reports/active/validation_backlog.md`. Treat that as scratch — anything that *sticks* gets folded into `reports/methodology_history.md`.
 
