@@ -706,7 +706,7 @@
       </h1>
 
       <p class="lede">
-        The promise of tokenized equities is real 24/7, permissionless markets. The missing infrastructure is a defensible closed-market reference with explicit uncertainty. Soothsayer publishes calibration-transparent fair-value bands, audit receipts, and downstream risk evidence grounded in market microstructure, protocol research, and 12 years of public data.
+        The promise of tokenized equities is real 24/7 markets. The missing infrastructure is a defensible closed-market price. Don't trust the price — verify the band: on 13.8% of the weekends in our 12-year panel, at least one of ten tickers gapped more than 500 bps before Monday's open. Soothsayer returns the band that empirically delivers a target coverage τ, with an audit receipt any third party can re-derive from public data — 0.950 realised at τ=0.95 on a held-out 2023+ slice.
       </p>
 
       <div class="actions">
@@ -733,7 +733,7 @@
         <div class="cell">
           <div class="k">OOS coverage @ τ=0.95</div>
           <div class="v">95.0<span class="unit">%</span></div>
-          <div class="n">Realised on a 2023+ held-out slice; Kupiec p<sub>uc</sub>=1.000, Christoffersen p<sub>ind</sub>=0.485.</div>
+          <div class="n">Realised on a 2023+ held-out slice (1,730 rows) under the deployed M6 LWC oracle; Kupiec p<sub>uc</sub>=0.956, Christoffersen p<sub>ind</sub>=0.603.</div>
         </div>
       </div>
     </div>
@@ -843,7 +843,7 @@
           <p>Paper 1 formalizes the coverage-inversion primitive: a public Solana fair-value band with target coverage, claimed-served quantile, and replayable audit receipts instead of a black-box point estimate.</p>
           <div class="tag-row">
             <span class="tag">12 years</span>
-            <span class="tag">5,986 panel rows</span>
+            <span class="tag">6,390 panel rows</span>
             <span class="tag">Reproducible</span>
           </div>
         </div>
@@ -889,10 +889,10 @@
           <div class="m-item">
             <span class="n">01</span>
             <div class="body">
-              <div class="h">Raw forecaster stack</div>
-              <div class="p">F1_emp_regime: Friday close × per-symbol factor return (ES / GC / ZN / BTC), conditional sigma from a log-log regression on the per-symbol vol index (VIX / GVZ / MOVE), empirical quantiles on standardised residuals — no Gaussian assumption, no parametric vol model. F0_stale: Friday close held forward + 20-day Gaussian, the high-volatility hybrid fallback.</div>
+              <div class="h">Factor-switchboard point + per-symbol σ̂</div>
+              <div class="p">Layer 1 — point estimate P_hat = Friday close × per-symbol factor return (ES=F for equities, BTC-USD for MSTR, GC=F for GLD, ZN=F for TLT). Layer 2 — a strictly pre-Friday EWMA (half-life 8 weekends) estimator of the per-symbol relative-residual std, σ̂_sym(t), standardising each symbol's score before the conformal step. No Gaussian assumption, no parametric vol model; ≥ 8 past weekend observations required per symbol.</div>
             </div>
-            <span class="ref">F1 · F0</span>
+            <span class="ref">point_futures_adjusted · σ̂ EWMA</span>
           </div>
           <div class="m-item">
             <span class="n">02</span>
@@ -900,13 +900,13 @@
               <div class="h">Empirical calibration surface</div>
               <div class="p">For every (symbol, regime, forecaster, claimed-quantile) cell we measure realised coverage on rolling history and persist the table. At serve time, a request (s, r, τ) returns the band at q_served = S⁻¹(s, r, τ_buffered) — the claimed quantile that has historically delivered τ on this bucket.</div>
             </div>
-            <span class="ref">v1b_bounds.parquet</span>
+            <span class="ref">lwc_artefact_v1.parquet</span>
           </div>
           <div class="m-item">
             <span class="n">03</span>
             <div class="body">
-              <div class="h">Mondrian conformal-by-regime + δ-shifted c(τ)</div>
-              <div class="p">The deployed v2 / M5 architecture is Mondrian split-conformal by regime: a per-regime conformal quantile q_r(τ) trained on pre-2023 weekends, served after a multiplicative OOS-fit bump c(τ) and a walk-forward-fit shift δ(τ). C_BUMP_SCHEDULE = {0.68→1.498, 0.85→1.455, 0.95→1.300, 0.99→1.076}; DELTA_SHIFT_SCHEDULE = {0.68→0.05, 0.85→0.02, 0.95→0.00, 0.99→0.00}, linearly interpolated. The v1 hybrid forecaster Oracle is preserved as historical evidence in Paper 1 §7.1–§7.5.</div>
+              <div class="h">LWC per-regime conformal + δ-shifted c(τ)</div>
+              <div class="p">The deployed M6 architecture is Locally-Weighted Conformal (LWC): per-symbol σ̂ standardisation feeding a per-regime conformal quantile q_r(τ) trained on pre-2023 weekends, served after a multiplicative OOS-fit bump c(τ) and a walk-forward-fit shift δ(τ). C_BUMP_SCHEDULE = {0.68→1.000, 0.85→1.000, 0.95→1.079, 0.99→1.003}; DELTA_SHIFT_SCHEDULE = {0.68→0.00, 0.85→0.00, 0.95→0.00, 0.99→0.00} — per-symbol standardisation tightens cross-split variance enough that the M5 overshoot margin is no longer load-bearing. The prior M5 Mondrian-by-regime deployment remains the named reference baseline for the §7 ablation.</div>
             </div>
             <span class="ref">REGIME_QUANTILE_TABLE</span>
           </div>
@@ -922,7 +922,7 @@
             <span class="n">05</span>
             <div class="body">
               <div class="h">OOS Kupiec + Christoffersen — full PASS</div>
-              <div class="p">Held-out 2023+ slice (1,720 rows × 172 weekends). τ=0.95 → realised 0.950, p_uc=1.000, p_ind=0.485. τ=0.85 → realised 0.855, p_uc=0.541, p_ind=0.185. τ=0.68 → realised 0.678, p_uc=0.893, p_ind=0.647. Full surface in <code>reports/v1b_calibration.md</code>; ablation with bootstrap CIs in <code>reports/v1b_ablation.md</code>.</div>
+              <div class="p">Held-out 2023+ slice (1,730 rows × 173 weekends). τ=0.95 → realised 0.950, p_uc=0.956, p_ind=0.603. τ=0.85 → realised 0.855, p_uc=0.565, p_ind=0.403. τ=0.68 → realised 0.693, p_uc=0.264, p_ind=0.244. Per-symbol Kupiec at τ=0.95 passes 10/10 symbols under M6 (2/10 under M5); leave-one-symbol-out coverage 0.9497 ± 0.0128. Full surface in <code>reports/m6_validation.md</code>; σ̂ promotion evidence in <code>reports/m6_sigma_ewma.md</code>.</div>
             </div>
             <span class="ref">paper §6.4</span>
           </div>
@@ -942,8 +942,8 @@
               </div>
               <div class="ci-row" style="margin-top: 10px;">
                 <span><span class="k">band</span> &nbsp;$235.52 — $246.62</span>
-                <span><span class="k">claimed_served</span> &nbsp;0.895</span>
-                <span><span class="k">buffer</span> &nbsp;0.045</span>
+                <span><span class="k">claimed_served</span> &nbsp;0.850</span>
+                <span><span class="k">buffer</span> &nbsp;0.000</span>
               </div>
             </div>
 
@@ -976,7 +976,7 @@
               </div>
               <div class="ci-row" style="margin-top: 10px;">
                 <span><span class="k">band</span> &nbsp;$595.54 — $612.68</span>
-                <span><span class="k">claimed_served</span> &nbsp;0.891</span>
+                <span><span class="k">claimed_served</span> &nbsp;0.850</span>
               </div>
             </div>
             <div class="chart" aria-hidden="true">
@@ -1002,7 +1002,7 @@
               </div>
               <div class="ci-row" style="margin-top: 10px;">
                 <span><span class="k">band</span> &nbsp;$396.39 — $428.93</span>
-                <span><span class="k">forecaster</span> &nbsp;F0_stale</span>
+                <span><span class="k">forecaster</span> &nbsp;lwc</span>
               </div>
             </div>
             <div class="chart" aria-hidden="true">

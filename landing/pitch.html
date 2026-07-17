@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Soothsayer — Colosseum Pitch</title>
-<meta name="description" content="Soothsayer pitch deck — Colosseum 2026. Oracle-aware spot AMM for tokenized RWAs on Solana, on a calibrated fair-value band you can audit." />
+<title>Soothsayer — a verifiable price oracle for closed-market hours</title>
+<meta name="description" content="Soothsayer pitch deck. A calibrated fair-value band for tokenized RWAs on Solana whose realised coverage you can re-derive from public data, and the oracle-aware spot AMM it makes possible." />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://soothsayer-landing.vercel.app/pitch.html" />
-<meta property="og:title" content="Soothsayer — pitch deck (Colosseum 2026)" />
+<meta property="og:title" content="Soothsayer — pitch deck" />
 <meta property="og:description" content="Twelve slides on Soothsayer Research and the oracle-aware spot AMM for tokenized RWAs on Solana." />
 <meta property="og:image" content="https://soothsayer-landing.vercel.app/og-image.png" />
 <meta property="og:image:width" content="1280" />
@@ -484,8 +484,8 @@
 <section data-label="01 — Cover">
   <div class="slide cover">
     <div class="top-row">
-      <span class="cover-tag">Colosseum · Solana Frontier · 2026</span>
-      <span class="cover-tag">v0.2 · May 2026</span>
+      <span class="cover-tag">Tokenized RWAs · Solana · 2026</span>
+      <span class="cover-tag">Updated July 2026</span>
     </div>
 
     <div>
@@ -499,7 +499,7 @@
     </div>
 
     <div class="cover-foot">
-      <span>Colosseum hackathon · 12 slides</span>
+      <span>12 slides</span>
       <span>Adam Noonan — 2× exited founder</span>
     </div>
   </div>
@@ -581,7 +581,7 @@
   <div class="slide">
     <div class="head-row">
       <h1 class="headline">Why now.</h1>
-      <div class="meta">Market · April 2026</div>
+      <div class="meta">Market · 2026</div>
     </div>
 
     <div class="metric-row" style="gap: 72px; margin-top: 20px;">
@@ -795,18 +795,18 @@
       <div class="bullet">
         <div class="num">01 · The moat</div>
         <div class="h">Soothsayer Research — the only auditable fair-value band on Solana.</div>
-        <div class="p">Papers 1 and 3 ship the calibrated band: a fair-value interval whose realized coverage is empirically verifiable on 12 years of public data. OOS Kupiec + Christoffersen pass at τ ∈ {0.68, 0.85, 0.95}. Anyone can fork an AMM. Only Soothsayer ships an auditable fair-value receipt under it.</div>
+        <div class="p">Papers 1 and 3 ship the calibrated band: a fair-value interval whose realised coverage is re-derivable from 12 years of public weekend data. Under the deployed M6 LWC forecaster, Kupiec + Christoffersen pass at all four anchors τ ∈ {0.68, 0.85, 0.95, 0.99} on a held-out 2023+ slice (1,730 rows × 173 weekends); per-symbol Kupiec at τ=0.95 passes 10/10. Anyone can fork an AMM. Only Soothsayer ships a fair-value receipt you can check under it.</div>
       </div>
       <div class="bullet">
         <div class="num">02 · The lead product</div>
         <div class="h">Oracle-aware spot AMM — liquidity that knows its uncertainty.</div>
-        <div class="p">A spot AMM for tokenized RWAs that consumes the band on-chain. Execution decisions reference fair value and its calibrated bounds, not just the on-chain mid — so LPs survive Monday opens, halts, and oracle drift. Devnet MVP this hackathon; mainnet on a single xStock pair after.</div>
+        <div class="p">A spot AMM for tokenized RWAs that consumes the band on-chain. Execution decisions reference fair value and its calibrated bounds, not just the on-chain mid — so LPs survive Monday opens, halts, and oracle drift. Planned as a devnet MVP first; mainnet on a single xStock pair after. Not yet built — the band, not the AMM, is what ships today.</div>
       </div>
       <div class="bullet">
         <div class="num">03 · The future stack</div>
         <div class="h">Perp, options, and settlement — same receipt.</div>
         <div class="p">Every downstream primitive needs uncertainty as an input. With the band on-chain and the AMM live, perp mark/liquidation logic, calibrated options vol, and licensed band feeds to third-party venues all reuse the same calibration contract.</div>
-        <div class="citation">Stack frame: docs/product-stack.md · L0 oracle (live) → L1 AMM (this hackathon) → L2 perp / L3 options / L4 settlement.</div>
+        <div class="citation">Stack frame: docs/product-stack.md · L0 oracle (live) → L1 AMM (next) → L2 perp / L3 options / L4 settlement.</div>
       </div>
     </div>
 
@@ -828,7 +828,7 @@
       <div class="bullet" style="border-top-color: var(--rule-strong);">
         <div class="num">01 · FEED</div>
         <div class="h">Calibrated band, on-chain.</div>
-        <div class="p">Soothsayer Research publishes <span class="mono" style="color: var(--ink);">point</span>, <span class="mono" style="color: var(--ink);">lower</span>, <span class="mono" style="color: var(--ink);">upper</span>, plus regime + forecaster receipt. Rust at byte-parity with the Python reference (75/75); router on devnet since 2026-04-29.</div>
+        <div class="p">Soothsayer Research publishes <span class="mono" style="color: var(--ink);">point</span>, <span class="mono" style="color: var(--ink);">lower</span>, <span class="mono" style="color: var(--ink);">upper</span>, plus regime + forecaster receipt. Rust at byte-parity with the Python reference — serving parity complete (180/180 across both forecaster paths). The M5 router is live on devnet since 2026-04-29; M6 on-chain enablement is still pending.</div>
         <div class="citation">Layer 0 of the product stack.</div>
       </div>
       <div class="bullet" style="border-top: 1px solid var(--green); background: rgba(20,241,149,0.04); padding: 22px 24px 24px;">
@@ -932,7 +932,7 @@
         </div>
         <div class="row with">
           <div class="k">Oracle-aware</div>
-          <div class="v">Regime label switches the served forecaster (F1 → F0 in high_vol). Band widens; AMM's band-conditioned execution adapts in step.</div>
+          <div class="v">Regime label flips to high_vol; the per-regime conformal quantile widens the band. AMM's band-conditioned execution adapts in step.</div>
         </div>
       </div>
 
@@ -1124,7 +1124,7 @@
       </div>
       <div class="risk">
         <div class="num">03</div>
-        <div class="txt"><b>8-day AMM execution risk.</b> Colosseum target is a devnet MVP on a single xStock pair, not a mainnet-ready protocol. Investors expecting production-grade audited code at submission will see a working demo with disclosed gaps.</div>
+        <div class="txt"><b>AMM execution risk.</b> The near-term AMM target is a devnet MVP on a single xStock pair, not a mainnet-ready protocol — and it is not built yet. Anyone expecting production-grade audited code today will find the band and its receipts shipping, and the AMM still on the roadmap with disclosed gaps.</div>
       </div>
       <div class="risk">
         <div class="num">04</div>
@@ -1157,19 +1157,19 @@
     <div class="roadmap">
       <div class="phase">
         <div class="ph-lbl">Phase 0 ✅</div>
-        <div class="ph-when">complete · 2026-04-25</div>
+        <div class="ph-when">complete · M6 validation closed</div>
         <div class="ph-h">Band validation</div>
-        <div class="ph-p">12-year decade-scale backtest, 5,986 panel rows across 10 tickers. Full PASS — Kupiec + Christoffersen, OOS 2023+, at τ ∈ {0.68, 0.85, 0.95}. Rust port at byte-for-byte parity with Python (75/75 tests).</div>
+        <div class="ph-p">12-year backtest — 639 weekends × 10 tickers (5,916 evaluable rows). Under the deployed M6 LWC forecaster: Kupiec + Christoffersen pass OOS 2023+ at all four anchors τ ∈ {0.68, 0.85, 0.95, 0.99}; τ=0.95 realised 0.950; per-symbol Kupiec passes 10/10; LOSO coverage 0.9497 ± 0.0128. Rust serving parity complete (180/180).</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 1</div>
-        <div class="ph-when">now · 8 days · Colosseum</div>
-        <div class="ph-h">Devnet AMM MVP + video</div>
-        <div class="ph-p">Oracle-aware AMM on a single xStock pair, devnet. Video submission for Colosseum. Paper 1 §4/§5/§7/§8 → arXiv (q-fin.RM, ACM AFT) in parallel.</div>
+        <div class="ph-when">now · in progress</div>
+        <div class="ph-h">Paper 1 to arXiv · forward-tape monitoring · devnet AMM MVP</div>
+        <div class="ph-p">Paper 1 (coverage-inversion, <span class="mono">research/coverage-inversion/</span>) is through a four-reviewer adversarial pass and near arXiv submission (q-fin.RM, ACM AFT). Forward-tape harness live on launchd — N=11 held-out weekends, pooled Kupiec passing at all four anchors. Oracle-aware AMM on a single xStock pair (devnet) is the next build.</div>
       </div>
       <div class="phase">
         <div class="ph-lbl">Phase 2</div>
-        <div class="ph-when">post-Colosseum · ~6 weeks</div>
+        <div class="ph-when">next</div>
         <div class="ph-h">Mainnet · papers live · design partners</div>
         <div class="ph-p">Mainnet AMM on first pair · public comparator dashboard (Soothsayer vs Chainlink vs Pyth) · Paper 1 + Paper 3 on arXiv + SSRN · first design-partner conversations (Solana DEX teams, Backed, Ondo, Kamino BD).</div>
       </div>
@@ -1207,7 +1207,7 @@
           <div style="color: var(--ink-dim); margin-top: 12px;">Conformal-prediction calibration discipline (held-out, ablation, bootstrap CIs). Rust + Anchor in the language Solana runs in. Protocol-design fluency — LVR-aware AMMs, oracle-conditioned pricing, intent execution.</div>
         </div>
         <div style="font-size: 24px; color: var(--ink-faint); font-weight: 300; line-height: 1.4; margin-top: 24px;">
-          The overlap of these three pillars is vanishingly small in the Colosseum submission pool.
+          The overlap of these three pillars is vanishingly rare in Solana RWA infrastructure.
         </div>
       </div>
     </div>

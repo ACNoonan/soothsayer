@@ -357,7 +357,7 @@
     </p>
 
     <div class="hero-chart">
-      <div class="meta">Claimed coverage vs realised coverage · 1,720 OOS weekend × symbol observations · 2023+</div>
+      <div class="meta">Claimed coverage vs realised coverage · 1,730 OOS weekend × symbol observations · 2023+</div>
       <div class="legend-row">
         <div class="item"><span class="swatch" style="background: #14F195;"></span><span class="label">Soothsayer<span class="quiet"> — sweep across consumer τ</span></span></div>
         <div class="item"><span class="swatch" style="background: #F26A5A;"></span><span class="label">Pyth + naive ±1.96·conf<span class="quiet"> — read as a 95% CI</span></span></div>
@@ -371,7 +371,7 @@
       <div class="cell win">
         <div class="name">Soothsayer at τ = 0.95</div>
         <div class="stat">95.0<span class="unit">%</span></div>
-        <div class="desc">Held-out 2023+ · Kupiec p<sub>uc</sub>=1.000 · Christoffersen p<sub>ind</sub>=0.485 · 1,720 obs.</div>
+        <div class="desc">Held-out 2023+ · Kupiec p<sub>uc</sub>=0.956 · Christoffersen p<sub>ind</sub>=0.603 · 1,730 obs.</div>
       </div>
       <div class="cell lose">
         <div class="name">Pyth + naive ±1.96·conf</div>
@@ -472,7 +472,7 @@
       <a class="verify-cell" href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">
         <div class="name">Source repository</div>
         <div class="title">Reproduce on 12 years of public data.</div>
-        <div class="desc"><code>uv run python scripts/run_calibration.py</code> rebuilds the calibration surface from yfinance + FRED. Rust ⇄ Python parity verified at 75/75 cases.</div>
+        <div class="desc"><code>uv run python scripts/build_lwc_artefact.py</code> rebuilds the M6 LWC calibration surface from 12 years of public data (via scryer parquet). Rust ⇄ Python parity verified at 180/180 cases.</div>
         <div class="arrow">→ open</div>
       </a>
     </div>
@@ -745,9 +745,9 @@ let sortDir = 'desc';
 
   document.getElementById('receiptsSummary').innerHTML = `
     <div class="cell win">
-      <div class="name">Soothsayer · 1,720-obs OOS at τ=0.95</div>
+      <div class="name">Soothsayer · 1,730-obs OOS at τ=0.95</div>
       <div class="stat">${(sooth_inside_rate*100).toFixed(1)}%</div>
-      <div class="desc">contained Monday open across this 265-obs Pyth-eligible subset (full panel: 95.0% — Kupiec p=1.000).</div>
+      <div class="desc">contained Monday open across this 265-obs Pyth-eligible subset (full panel: 95.0% — Kupiec p=0.956).</div>
     </div>
     <div class="cell lose">
       <div class="name">Pyth + ±1.96·conf · same 265 obs</div>

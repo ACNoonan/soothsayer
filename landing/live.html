@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Soothsayer — live on devnet</title>
-<meta name="description" content="Live, on-chain state of the Soothsayer router and Chainlink Streams relay programs on Solana devnet. Calibration receipts read directly from the deployed PDAs every 30 seconds." />
+<meta name="description" content="On-chain state of the Soothsayer router and Chainlink Streams relay programs on Solana devnet, read directly from the deployed PDAs every 30 seconds. Publish→read-back is not yet wired end-to-end; on-chain serving runs the M5 reference path." />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,7 +193,7 @@
     <span class="eyebrow"><span class="bar"></span> live · solana devnet</span>
     <h1>The deployed thing.</h1>
     <p class="lede">
-      Soothsayer's calibration-transparent oracle stack is live on Solana devnet. This page reads the on-chain state directly from the deployed router and relay programs every 30&nbsp;seconds — no cached snapshots, no off-chain compositing.
+      Soothsayer's router and Chainlink Streams relay programs are deployed on Solana devnet. This page reads their on-chain state directly from the deployed PDAs every 30&nbsp;seconds — no cached snapshots, no off-chain compositing. Honest scoping: the end-to-end publish→read-back loop is not yet wired (the account-initialize runner is still a TODO — see <code>docs/devnet-quickstart.md</code>), so the PDAs below read as not-found until a publisher populates them. On-chain serving runs the M5 reference path; enabling the deployed off-chain forecaster on-chain (M6 LWC + σ̂ EWMA HL=8) is pending the next publisher release.
     </p>
     <div class="status-row">
       <span class="status-pill" id="rpc-pill"><span class="led"></span><span id="rpc-label">connecting…</span></span>
@@ -310,7 +310,7 @@
 
 <footer>
   <div class="wrap" style="display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-    <span>soothsayer · 2026-04-29 · devnet integration</span>
+    <span>soothsayer · 2026-07-17 · devnet integration</span>
     <span><a href="https://github.com/ACNoonan/soothsayer">github.com/ACNoonan/soothsayer</a></span>
   </div>
 </footer>

@@ -216,10 +216,10 @@
 
 <header class="dash-hero">
   <div class="wrap">
-    <span class="eyebrow g"><span class="bar"></span>Calibration receipts · OOS 2023+ · Last refit 2026-04-25</span>
+    <span class="eyebrow g"><span class="bar"></span>Calibration receipts · OOS 2023+ · M6 LWC · Last refit 2026-05-04</span>
     <h1>Realised coverage, at <span class="em">every τ</span> a consumer can ask for.</h1>
     <p class="lede">
-      The empirical evidence behind the Oracle's calibration claim, computed on a held-out 2023+ slice (1,720 weekend × symbol observations, 172 weekends, 10 tickers). All numbers re-derivable from the public repo via <a href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">scripts/run_calibration.py</a>; methodology evolution at <a href="https://github.com/ACNoonan/soothsayer/blob/main/reports/methodology_history.md" target="_blank" rel="noopener">reports/methodology_history.md</a>.
+      The empirical evidence behind the Oracle's calibration claim, computed on a held-out 2023+ slice (1,730 weekend × symbol observations, 173 weekends, 10 tickers) under the deployed M6 LWC (σ̂ EWMA HL=8) Oracle. All numbers re-derivable from the public repo via <a href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener">scripts/build_lwc_artefact.py</a>; methodology evolution at <a href="https://github.com/ACNoonan/soothsayer/blob/main/reports/methodology_history.md" target="_blank" rel="noopener">reports/methodology_history.md</a>.
     </p>
     <div class="stat-strip" id="hero-strip"></div>
   </div>
@@ -233,10 +233,10 @@
         <span class="eyebrow"><span class="bar"></span>1 · the calibration claim</span>
         <h2>What the consumer asks for is what they <span class="em">empirically get.</span></h2>
       </div>
-      <p>For every consumer target τ from 0.50 to 0.99 in 0.01 increments, we serve the deployed v2 / M5 Oracle on the OOS panel and compute realised coverage. A perfectly calibrated band lies on the diagonal. The four anchor points (0.68, 0.85, 0.95, 0.99) are where the deployed schedules <code>C_BUMP_SCHEDULE</code> and <code>DELTA_SHIFT_SCHEDULE</code> are tuned; everything else is linear-interpolation off-grid.</p>
+      <p>For every consumer target τ from 0.50 to 0.99 in 0.01 increments, we serve the deployed M6 LWC Oracle on the OOS panel and compute realised coverage. A perfectly calibrated band lies on the diagonal. The four anchor points (0.68, 0.85, 0.95, 0.99) are where the deployed schedules <code>C_BUMP_SCHEDULE</code> and <code>DELTA_SHIFT_SCHEDULE</code> are tuned; everything else is linear-interpolation off-grid.</p>
     </div>
     <div class="card">
-      <div class="meta">D5 — Inter-anchor τ validation · 50 levels × 1,720 obs = 86,000 served bands · Kupiec passes at 47/50</div>
+      <div class="meta">D5 — Inter-anchor τ validation · 50 levels × 1,730 obs = 86,500 served bands · Kupiec passes at 47/50</div>
       <div class="chart-wrap tall"><canvas id="calCurve"></canvas></div>
     </div>
   </div>
@@ -260,7 +260,7 @@
       <div class="cmp-cell">
         <div class="name">Soothsayer at τ = 0.95</div>
         <div class="stat g">95.0%</div>
-        <div class="meta" style="margin-top: 6px;">354 bps half-width · Kupiec p=0.956 · n=1,730</div>
+        <div class="meta" style="margin-top: 6px;">370.6 bps half-width · Kupiec p=0.956 · n=1,730</div>
       </div>
       <div class="cmp-cell">
         <div class="name">Pyth + naive ±1.96·conf</div>
@@ -284,10 +284,10 @@
         <span class="eyebrow"><span class="bar"></span>3 · per-symbol receipts</span>
         <h2>Every ticker, every weekend, <span class="em">on the record.</span></h2>
       </div>
-      <p>Per-symbol calibration evidence on the full panel (5,986 weekends, 12 years). The leave-one-out validation (D7) refits the calibration surface on the other 9 symbols and serves the held-out one through the pooled-fallback path — the production code path for tickers with sparse history. The mechanism transfers.</p>
+      <p>Per-symbol calibration evidence on the full panel (639 weekends × 10 tickers, 12 years). The leave-one-symbol-out validation refits the calibration surface on the other 9 symbols and serves the held-out one — held-out LOSO coverage is 0.9497 ± 0.0128 at τ=0.95, and every held-out symbol passes Kupiec under M6. The mechanism transfers.</p>
     </div>
     <div class="card">
-      <div class="meta">F1_emp_regime per-symbol · OOS τ = 0.95 (deployed) · sortable by any column</div>
+      <div class="meta">M6 LWC per-symbol · OOS τ = 0.95 · sortable by any column</div>
       <div id="symbolTable"></div>
     </div>
   </div>
@@ -345,12 +345,12 @@
       <a class="cmp-cell" href="https://github.com/ACNoonan/soothsayer/tree/main/research/coverage-inversion" target="_blank" rel="noopener" style="text-decoration: none;">
         <div class="name">Paper 1 drafts →</div>
         <div class="stat">arXiv</div>
-        <div class="meta" style="margin-top: 6px;">Coverage inversion as an oracle primitive — §1, §2, §3, §6, §9, references. In flight.</div>
+        <div class="meta" style="margin-top: 6px;">Coverage inversion as an oracle primitive — full v2 structural rewrite + four-reviewer adversarial pass; near arXiv submission.</div>
       </a>
       <a class="cmp-cell" href="https://github.com/ACNoonan/soothsayer" target="_blank" rel="noopener" style="text-decoration: none;">
         <div class="name">Source repository →</div>
         <div class="stat">github</div>
-        <div class="meta" style="margin-top: 6px;">Reproduce: <code class="mono">scripts/run_calibration.py</code> + 12 yrs of public data.</div>
+        <div class="meta" style="margin-top: 6px;">Reproduce: <code class="mono">scripts/build_lwc_artefact.py</code> + 12 yrs of public data.</div>
       </a>
     </div>
   </div>
