@@ -271,7 +271,8 @@
   }
 
   /* METHODOLOGY (code-ish inspection panel) */
-  .method-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; }
+  .method-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: stretch; }
+  .method-list { justify-content: space-between; }
   @media (max-width: 980px) { .method-wrap { grid-template-columns: 1fr; } }
 
   .method-list { display: flex; flex-direction: column; }
@@ -1042,7 +1043,7 @@
         </div>
 
         <div class="signal-stack" aria-label="Sample served-band PricePoint views">
-          <div class="signal-card">
+          <div class="signal-card compact">
             <div class="sc-head">
               <div class="ticker">TSLAx<span class="sub">xStock · Sat 14:32 UTC · τ = 0.85 default</span></div>
               <div class="regime">Regime · normal</div>
@@ -1051,12 +1052,11 @@
             <div>
               <div class="big">
                 <span class="fv">$241.07</span>
-                <span class="delta">point · half-width ±2.30% (≈ 230 bps)</span>
+                <span class="delta">point · half-width ±2.30%</span>
               </div>
               <div class="ci-row" style="margin-top: 10px;">
                 <span><span class="k">band</span> &nbsp;$235.52 — $246.62</span>
                 <span><span class="k">claimed_served</span> &nbsp;0.850</span>
-                <span><span class="k">buffer</span> &nbsp;0.000</span>
               </div>
             </div>
 
@@ -1068,12 +1068,6 @@
                 <circle class="point-dot" cx="420" cy="36" r="5"></circle>
               </svg>
               <div class="axis"><span>Fri 16:00 ET</span><span>Sat</span><span>Mon 09:30 ET</span></div>
-            </div>
-
-            <div class="inputs">
-              <span class="i">target_coverage 0.85</span>
-              <span class="i">claimed_served 0.850</span>
-              <span class="i">re-derivable</span>
             </div>
           </div>
 
