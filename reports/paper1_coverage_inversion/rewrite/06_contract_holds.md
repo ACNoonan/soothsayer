@@ -1,7 +1,7 @@
 # §6 — The contract holds
 
-<!-- Rewrite against SPINE.md §6 row (five beats, one table, promotion paragraph LOCKED)
-     + DISPOSITION.md Slices D/E + §0 rules 1,3,4,5,6. Sources: 06_results.md (corrected
+<!-- Rewrite against internal/paper1_process/SPINE.md §6 row (five beats, one table, promotion paragraph LOCKED)
+     + internal/paper1_process/DISPOSITION.md Slices D/E + §0 rules 1,3,4,5,6. Sources: 06_results.md (corrected
      2026-07-16), 07_ablation.md §7.6, 04_methodology.md §4.3.1,
      reports/active/overnight_calibration_firstread.md (2026-06-25). -->
 

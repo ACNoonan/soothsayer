@@ -51,3 +51,9 @@ reports/tables/
 # scraped emails, PDFs). Lives in repo for convenience; never committed.
 arxiv-endorsement/
 .vercel
+
+# Third-party reference papers (copyright — kept locally, not redistributed)
+reports/paper1_coverage_inversion/exemplars/
+
+# Internal working docs / editorial scaffolding — kept locally, not public
+internal/

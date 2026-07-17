@@ -1,6 +1,6 @@
 # Appendix B — Full validation battery
 
-<!-- Assembled 2026-07-16 per DISPOSITION.md Appendix B rows (Slices C/D/E/G/H).
+<!-- Assembled 2026-07-16 per internal/paper1_process/DISPOSITION.md Appendix B rows (Slices C/D/E/G/H).
      Sources: 06_results.md (corrected 2026-07-16), 05_data_and_regimes.md §5.5,
      09_limitations.md §9.2/§9.3/§9.5.1, 12_appendix_reproducibility.md A.9,
      case_study_boj_m6.md (M6 re-run; the v1-era case study is cited nowhere).

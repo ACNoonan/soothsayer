@@ -1,9 +1,9 @@
 # Appendix C — Simulation study
 
-<!-- Assembled 2026-07-16 per DISPOSITION.md Appendix C rows: 06_results.md §6.7 whole
+<!-- Assembled 2026-07-16 per internal/paper1_process/DISPOSITION.md Appendix C rows: 06_results.md §6.7 whole
      + 09_limitations.md §9.8 symbol-admission floor. The corroborative-not-predictive
      chronology disclosure is retained verbatim as an integrity disclosure — the one
-     place chronology is allowed (SPINE voice rule 1 exemption). -->
+     place chronology is allowed (internal/paper1_process/SPINE.md voice rule 1 exemption). -->
 
 This appendix carries the synthetic-DGP corroboration of the per-symbol fix cited from §4.4, §6.2, and §7. Under known ground truth, it isolates the failure mechanism the σ̂ standardisation closes and the one it does not.
 

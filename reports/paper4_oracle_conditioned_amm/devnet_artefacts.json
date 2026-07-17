@@ -1,5 +1,5 @@
 {
-  "rpc_url": "https://devnet.helius-rpc.com/?api-key=c17300b7-e709-476c-9863-c2e7c0e0e520",
+  "rpc_url": "https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}",
   "wallet": "1vwLaJaLyqbAn8BxqKWs7CLHyozqy2Q9LmTqXLqtANA",
   "band_amm_program": "7vjG4nuVcpotSBDHPQeonrzuvxbwgDddKzibeLASaqw8",
   "oracle_program": "AgXLLTmUJEVh9EsJnznU1yJaUeE9Ufe7ZotupmDqa7f6",

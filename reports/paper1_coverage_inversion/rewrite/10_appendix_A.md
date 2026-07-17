@@ -1,6 +1,6 @@
 # Appendix A — Reproducibility
 
-<!-- Assembled 2026-07-16 per DISPOSITION.md Appendix A rows. Base: 12_appendix_reproducibility.md
+<!-- Assembled 2026-07-16 per internal/paper1_process/DISPOSITION.md Appendix A rows. Base: 12_appendix_reproducibility.md
      (excluding old A.9 → Appendix B) + command blocks from 04_methodology.md / 05_data_and_regimes.md /
      08_serving_layer.md consolidated into A.5 + forward-tape ops from 06_results.md §6.6 and
      reports/m6_forward_tape_11weekends.md. A.6 rebuilt for the H1–H5 / S1–S2 figure set. -->
