@@ -30,6 +30,11 @@ from pathlib import Path
 
 BUILD_DIR = Path(__file__).resolve().parent
 PAPER_DIR = BUILD_DIR.parent
+REPO_ROOT = PAPER_DIR.parent.parent  # research/coverage-inversion → repo root
+
+# The Vercel landing site serves a snapshot of the v2 PDF at this path so the
+# "Read the paper" links open the current build. Refreshed on every --v2 build.
+LANDING_PDF = REPO_ROOT / "landing" / "coverage-inversion.pdf"
 
 # Human-readable copy of the final PDF kept alongside paper.pdf so the file
 # name matches the paper title when shared outside the repo. Refreshed on
@@ -511,6 +516,9 @@ def main() -> None:
                 named = BUILD_DIR / NAMED_PDF
                 shutil.copyfile(pdf, named)
                 print(f"✓ Copied → {named.name}")
+            if args.v2 and LANDING_PDF.parent.is_dir():  # refresh the landing snapshot
+                shutil.copyfile(pdf, LANDING_PDF)
+                print(f"✓ Copied → landing/{LANDING_PDF.name}")
         if args.arxiv:
             make_arxiv_package(tex_path)
 
