@@ -453,6 +453,8 @@
   .uc .tag-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-bottom: 6px; }
   .uc .ob.without .tag-k { color: var(--red); }
   .uc .ob.with .tag-k { color: var(--green); }
+  .uc .uc-stat { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; letter-spacing: 0.01em; color: var(--ink-faint); }
+  .uc .uc-stat b { color: var(--ink); font-weight: 600; letter-spacing: 0.02em; }
 
   /* QUOTE */
   .quote-band {
@@ -845,7 +847,7 @@
           <span class="eyebrow"><span class="bar"></span>What current providers tell you</span>
           <h2><span class="em">Auditable risk.</span> Tighter reserves. Free and open.</h2>
         </div>
-        <p>The table shows what each surface actually publishes once the reference market closes — measured on the tape and from primary docs. Soothsayer is the only row that serves a calibrated band with a receipt you can re-derive from public data: risk becomes auditable, reserves can track real uncertainty instead of a fixed clamp, and the whole stack is open source and free to read.</p>
+        <p>What each surface actually publishes once the reference market closes — measured on the tape and from primary docs. Only Soothsayer serves a calibrated band with a receipt you can re-derive from public data.</p>
       </div>
 
       <table class="hm">
@@ -1009,7 +1011,7 @@
       <div class="head-row">
         <div>
           <span class="eyebrow p"><span class="bar"></span>How you use it</span>
-          <h2>Ask for a coverage level. <span class="emp">Get a band and a receipt you can check.</span></h2>
+          <h2>Ask for a coverage level. <span class="emp">Get a band and a receipt.</span></h2>
         </div>
         <p>One read gives you a band — not a naked point — and a receipt anyone can re-derive from public data. No proprietary feeds, and nothing you have to take on trust.</p>
       </div>
@@ -1133,32 +1135,35 @@
       <div class="head-row">
         <div>
           <span class="eyebrow"><span class="bar"></span>What it protects against</span>
-          <h2>Three expensive failure modes in <span class="em">closed-market lending.</span></h2>
+          <h2>When the market closes, <span class="em">the risk compounds.</span></h2>
         </div>
-        <p>Protocols still need a number to act on when the reference venue is closed. These are the three places a stale or opaque number turns directly into loss.</p>
+        <p>Price uncertainty compounds with every hour the reference market is shut — and it's shut 81% of the week, from a single overnight to a 65-hour weekend. These are the three places that widening gap turns into loss.</p>
       </div>
 
       <div class="uc-grid">
 
         <div class="uc">
           <span class="uc-num">01 · LIQUIDATION</span>
-          <h3>Weekend flash crash on a thin book.</h3>
-          <div class="ob without"><span class="tag-k">Without</span>Borrower liquidated on a thin-book print that reverts Monday.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>The receipt shows the print outside the empirically calibrated range, giving the protocol a defensible basis to pause or tighten policy with an audit trail.</div>
+          <h3>A weekend flash crash that reverts by Monday.</h3>
+          <div class="uc-stat"><b>732 bps</b> — p99 single-name weekend gap · 5,996 windows, 12-yr panel</div>
+          <div class="ob without"><span class="tag-k">Without</span>A transient 700+ bps print on a thin weekend book liquidates a healthy borrower, then reverts by Monday. The borrower still eats the liquidation penalty; the protocol booked a loss on a price that never held.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>The receipt shows the print landing <b>outside the empirically calibrated band</b>, giving the protocol an audit-logged basis to pause liquidations or tighten policy — a rule, not a judgment call.</div>
         </div>
 
         <div class="uc">
           <span class="uc-num">02 · GAP RISK</span>
-          <h3>Adverse Monday open.</h3>
-          <div class="ob without"><span class="tag-k">Without</span>Stale hold says Friday close is fine. Monday opens –8%. Bad debt.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>Factor-adjusted point and band widen with the weekend signal set, giving risk teams and policy engines evidence to tighten buffers before the open.</div>
+          <h3>An overnight earnings gap the clamp can't hold.</h3>
+          <div class="uc-stat"><b>5–10%</b> — routine earnings-night gap · a ±500 bps clamp caps at 5%</div>
+          <div class="ob without"><span class="tag-k">Without</span>A name reports after Tuesday's close and gaps 8% by Wednesday's open. A fixed ±500 bps clamp still marks the position healthy; the ~300 bps beyond the clamp is bad debt the protocol only sees at the bell.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>The band <b>widens ahead of the scheduled print</b> — session-timed to the after-hours report — and the point moves with the overnight signal set, so risk engines price the gap before it opens, not after.</div>
         </div>
 
         <div class="uc">
           <span class="uc-num">03 · ORACLE OUTAGE</span>
-          <h3>Primary oracle goes stale.</h3>
-          <div class="ob without"><span class="tag-k">Without</span>Freeze the protocol and lose revenue, or trust stale and take bad debt.</div>
-          <div class="ob with"><span class="tag-k">With Soothsayer</span>An independent calibration-aware cross-check and fallback reference, with uncertainty surfaced instead of implied.</div>
+          <h3>The primary feed goes stale mid-window.</h3>
+          <div class="uc-stat"><b>65.5 h</b> — Fri close → Mon open with no reference print</div>
+          <div class="ob without"><span class="tag-k">Without</span>Two bad options: freeze the market and forgo fees on flow that trades $25B+, or keep serving the frozen number and absorb the gap as bad debt. Today that's the only choice for 65.5 straight hours.</div>
+          <div class="ob with"><span class="tag-k">With Soothsayer</span>An <b>independent, calibration-aware cross-check and fallback</b> that keeps serving through the outage — with uncertainty surfaced as a band, not silently implied by a frozen point.</div>
         </div>
 
       </div>
