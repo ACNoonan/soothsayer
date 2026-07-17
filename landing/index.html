@@ -52,6 +52,7 @@
 
   /* Mono utilities */
   .mono { font-family: var(--mono); }
+  code { font-family: var(--mono); font-size: 0.88em; color: var(--ink); background: rgba(244,243,238,0.05); padding: 1px 5px; border-radius: 3px; }
   .eyebrow {
     font-family: var(--mono);
     font-size: 12px;
@@ -288,6 +289,7 @@
   .signal-stack {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 16px;
     height: 100%;
   }
@@ -400,6 +402,33 @@
   .mx .note { color: var(--ink-dim); font-weight: 300; font-size: 13px; }
   @media (max-width: 780px) {
     .mx th:nth-child(3), .mx td:nth-child(3) { display: none; }
+  }
+
+  /* PROVIDER OFF-HOURS HEATMAP */
+  .hm { width: 100%; border-collapse: separate; border-spacing: 3px; }
+  .hm th, .hm td { padding: 0; }
+  .hm thead th {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; text-align: center; padding: 0 6px 10px; vertical-align: bottom;
+  }
+  .hm thead th.prov-h { text-align: left; width: 26%; }
+  .hm thead th.claim-h { color: var(--ink-dim); }
+  .hm td.prov { font-weight: 500; font-size: 14.5px; letter-spacing: -0.005em; padding: 0 14px 0 2px; }
+  .hm td.prov small { display: block; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); font-weight: 400; margin-top: 2px; }
+  .hm .cell { text-align: center; padding: 13px 8px; border-radius: 2px; }
+  .hm .cell .lbl { display: block; font-family: var(--mono); font-size: 10.5px; line-height: 1.28; font-weight: 500; }
+  .hm .g { background: rgba(20,241,149,0.12);  color: var(--green); box-shadow: inset 0 0 0 1px rgba(20,241,149,0.22); }
+  .hm .w { background: rgba(244,180,90,0.11);  color: var(--warn);  box-shadow: inset 0 0 0 1px rgba(244,180,90,0.20); }
+  .hm .b { background: rgba(242,106,90,0.13);  color: var(--red);   box-shadow: inset 0 0 0 1px rgba(242,106,90,0.24); }
+  .hm .o { background: rgba(244,243,238,0.025); color: var(--ink-faint); box-shadow: inset 0 0 0 1px var(--rule); }
+  .hm tr.sooth td.prov { color: var(--green); }
+  .hm tr.sooth .cell { box-shadow: inset 0 0 0 1.5px rgba(20,241,149,0.5); }
+  .hm-legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 22px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+  .hm-legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .hm-legend i { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+  @media (max-width: 820px) {
+    .hm { display: block; overflow-x: auto; white-space: nowrap; }
+    .hm .cell .lbl { font-size: 9.5px; }
   }
 
   /* USE CASES */
@@ -537,6 +566,26 @@
     max-width: 640px; font-size: 18px; color: var(--ink-dim); line-height: 1.5; font-weight: 300;
   }
   .cta-band .actions { margin-top: 44px; display: inline-flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .support-list {
+    list-style: none; padding: 0;
+    margin: 56px auto 0; max-width: 760px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px 40px;
+    text-align: left;
+    border-top: 1px solid var(--rule); padding-top: 40px;
+  }
+  @media (max-width: 720px) { .support-list { grid-template-columns: 1fr; } }
+  .support-list li {
+    font-size: 14.5px; line-height: 1.55; color: var(--ink-dim); font-weight: 300;
+    padding-left: 18px; position: relative;
+  }
+  .support-list li::before {
+    content: ""; position: absolute; left: 0; top: 9px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--green); opacity: 0.6;
+  }
+  .support-list li b { color: var(--ink); font-weight: 600; }
+  .support-list li a { color: var(--green); border-bottom: 1px solid rgba(20,241,149,0.3); }
+  .support-list li a:hover { border-bottom-color: var(--green); }
+  .support-list li code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
 
   /* CONTACT MODAL */
   .contact-modal {
@@ -699,7 +748,7 @@
   <section class="hero">
     <div class="grid-bg"></div>
     <div class="wrap">
-      <span class="status-pill"><span class="led"></span>Phase 1 · Devnet + Research Program</span>
+      <span class="status-pill"><span class="led"></span>M6 deployed · Paper 1 → arXiv · Open source</span>
 
       <h1>
         Real-world assets<br /><span class="em">don't sleep on the weekend.</span>
@@ -710,8 +759,8 @@
       </p>
 
       <div class="actions">
-        <a class="btn primary" href="#method">See the methodology <span class="arrow">→</span></a>
-        <a class="btn ghost" href="pitch.html">Read the pitch <span class="arrow">→</span></a>
+        <a class="btn primary" href="#contact" data-open-contact>Partner with us <span class="arrow">→</span></a>
+        <a class="btn ghost" href="dashboard.html">See the evidence <span class="arrow">→</span></a>
       </div>
 
       <div class="statbar">
@@ -797,6 +846,83 @@
     </div>
   </section>
 
+  <!-- COMPETITIVE MATRIX -->
+  <section class="band" id="compare">
+    <div class="wrap">
+      <div class="head-row">
+        <div>
+          <span class="eyebrow"><span class="bar"></span>Why the incumbents don't fix this</span>
+          <h2>Every oracle serves <span class="em">something</span> off-hours. None of it is a number you can check.</h2>
+        </div>
+        <p>What each surface actually publishes once the reference market closes — from the tape and the primary docs. The columns degrade; the last one is empty across the board. No incumbent publishes a coverage claim you can verify against public data.</p>
+      </div>
+
+      <table class="hm">
+        <thead>
+          <tr>
+            <th class="prov-h">Provider</th>
+            <th>Weekday overnight</th>
+            <th>Weekend</th>
+            <th>Halts</th>
+            <th class="claim-h">Verifiable<br />coverage claim?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="prov">Chainlink Data Streams<small>v8 · v11</small></td>
+            <td class="cell b"><span class="lbl">stale-hold</span></td>
+            <td class="cell b"><span class="lbl">stale-hold /<br />synthetic marks</span></td>
+            <td class="cell b"><span class="lbl">stale-hold</span></td>
+            <td class="cell b"><span class="lbl">No</span></td>
+          </tr>
+          <tr>
+            <td class="prov">Pyth<small>core aggregate</small></td>
+            <td class="cell w"><span class="lbl">dispersion → 0<br />at the close</span></td>
+            <td class="cell w"><span class="lbl">dispersion → 0</span></td>
+            <td class="cell w"><span class="lbl">status Unknown</span></td>
+            <td class="cell b"><span class="lbl">No</span></td>
+          </tr>
+          <tr>
+            <td class="prov">Pyth Pro · Blue Ocean<small>paid, executable</small></td>
+            <td class="cell g"><span class="lbl">real book<br />Sun–Thu 20–04 ET</span></td>
+            <td class="cell o"><span class="lbl">not covered</span></td>
+            <td class="cell o"><span class="lbl">not covered</span></td>
+            <td class="cell b"><span class="lbl">No</span></td>
+          </tr>
+          <tr>
+            <td class="prov">RedStone Live<small>off-chain</small></td>
+            <td class="cell w"><span class="lbl">24/7 scalar,<br />undisclosed method</span></td>
+            <td class="cell w"><span class="lbl">24/7 scalar,<br />undisclosed</span></td>
+            <td class="cell o"><span class="lbl">—</span></td>
+            <td class="cell b"><span class="lbl">No</span></td>
+          </tr>
+          <tr>
+            <td class="prov">Kamino Scope<small>routes Chainlink</small></td>
+            <td class="cell w"><span class="lbl">±500 bps clamp<br />on Fri close</span></td>
+            <td class="cell w"><span class="lbl">±500 bps clamp</span></td>
+            <td class="cell w"><span class="lbl">clamp</span></td>
+            <td class="cell b"><span class="lbl">No</span></td>
+          </tr>
+          <tr class="sooth">
+            <td class="prov">Soothsayer</td>
+            <td class="cell g"><span class="lbl">calibrated band<br />+ receipt</span></td>
+            <td class="cell g"><span class="lbl">calibrated band<br />+ receipt</span></td>
+            <td class="cell g"><span class="lbl">regime-conditioned<br />band</span></td>
+            <td class="cell g"><span class="lbl">Yes —<br />re-derivable</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="hm-legend">
+        <span><i style="background: rgba(20,241,149,0.5)"></i>serves a real, priced signal</span>
+        <span><i style="background: rgba(244,180,90,0.5)"></i>degraded — no width, collapses, clamped, or undisclosed</span>
+        <span><i style="background: rgba(242,106,90,0.55)"></i>stale, synthetic, or unknown</span>
+        <span><i style="background: rgba(244,243,238,0.15)"></i>not covered</span>
+      </div>
+
+    </div>
+  </section>
+
   <section class="press-band" id="market-admission">
     <div class="wrap">
       <div class="head">
@@ -821,6 +947,19 @@
           </blockquote>
           <div class="attrib">CoinDesk weekend-gap coverage · <a href="https://www.coindesk.com/business/2025/11/23/on-chain-stocks-could-misprice-over-weekends-triggering-arbitrage-risks-redstone" target="_blank" rel="noopener">On-chain stocks mispricing risk</a></div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE / PROOF -->
+  <section class="quote-band">
+    <div class="wrap inner">
+      <span class="eyebrow"><span class="bar"></span>Incumbent admission</span>
+      <div>
+        <blockquote>
+          <span class="mark">“</span>Without these capabilities, tokenized products are exposed to potential mispricings, unfair liquidations, regulatory gaps, and other critical risks.<span class="mark">”</span>
+        </blockquote>
+        <div class="attrib">Chainlink · v10/v11 launch · blog.chain.link</div>
       </div>
     </div>
   </section>
@@ -873,15 +1012,15 @@
     </div>
   </section>
 
-  <!-- METHODOLOGY -->
+  <!-- HOW YOU USE IT -->
   <section class="band" id="method">
     <div class="wrap">
       <div class="head-row">
         <div>
-          <span class="eyebrow p"><span class="bar"></span>Methodology</span>
-          <h2>Five pieces, <span class="emp">one auditable contract.</span></h2>
+          <span class="eyebrow p"><span class="bar"></span>How you use it</span>
+          <h2>Ask for a coverage level. <span class="emp">Get a band and a receipt you can check.</span></h2>
         </div>
-        <p>The product is the served band, not the raw forecaster. These five pieces make up the full contract a consumer receives. Each is reproducible from the repo against public data: 12 years of yfinance + per-symbol vol indices, no proprietary feeds. Full evolution log in <code>reports/methodology_history.md</code>.</p>
+        <p>One read gives you a price band — not a naked point — plus the receipt that lets anyone re-derive the coverage claim from public data. No proprietary feeds. Full method in the paper and <code>reports/methodology_history.md</code>; the point of this page is that you don't have to take our word for any of it.</p>
       </div>
 
       <div class="method-wrap">
@@ -889,46 +1028,30 @@
           <div class="m-item">
             <span class="n">01</span>
             <div class="body">
-              <div class="h">Factor-switchboard point + per-symbol σ̂</div>
-              <div class="p">Layer 1 — point estimate P_hat = Friday close × per-symbol factor return (ES=F for equities, BTC-USD for MSTR, GC=F for GLD, ZN=F for TLT). Layer 2 — a strictly pre-Friday EWMA (half-life 8 weekends) estimator of the per-symbol relative-residual std, σ̂_sym(t), standardising each symbol's score before the conformal step. No Gaussian assumption, no parametric vol model; ≥ 8 past weekend observations required per symbol.</div>
+              <div class="h">Request your coverage level</div>
+              <div class="p">Ask for a band at a target coverage τ — 0.85 by default, up to 0.99. The oracle returns the price interval that has <em>historically delivered exactly that coverage</em> for this symbol and regime, not a fixed-width guess.</div>
             </div>
-            <span class="ref">point_futures_adjusted · σ̂ EWMA</span>
+            <span class="ref">τ ∈ [0.68, 0.99]</span>
           </div>
           <div class="m-item">
             <span class="n">02</span>
             <div class="body">
-              <div class="h">Empirical calibration surface</div>
-              <div class="p">For every (symbol, regime, forecaster, claimed-quantile) cell we measure realised coverage on rolling history and persist the table. At serve time, a request (s, r, τ) returns the band at q_served = S⁻¹(s, r, τ_buffered) — the claimed quantile that has historically delivered τ on this bucket.</div>
+              <div class="h">Read the band and receipt on-chain</div>
+              <div class="p">Every read carries its own receipt — target_coverage, claimed_served, forecaster, regime — right on the <code>PricePoint</code>. Decode it in your program with the <code>no_std</code> <code>soothsayer-consumer</code> crate. Rust ↔ Python parity is 180/180.</div>
             </div>
-            <span class="ref">lwc_artefact_v1.parquet</span>
+            <span class="ref">PricePoint · soothsayer-consumer</span>
           </div>
           <div class="m-item">
             <span class="n">03</span>
             <div class="body">
-              <div class="h">LWC per-regime conformal + δ-shifted c(τ)</div>
-              <div class="p">The deployed M6 architecture is Locally-Weighted Conformal (LWC): per-symbol σ̂ standardisation feeding a per-regime conformal quantile q_r(τ) trained on pre-2023 weekends, served after a multiplicative OOS-fit bump c(τ) and a walk-forward-fit shift δ(τ). C_BUMP_SCHEDULE = {0.68→1.000, 0.85→1.000, 0.95→1.079, 0.99→1.003}; DELTA_SHIFT_SCHEDULE = {0.68→0.00, 0.85→0.00, 0.95→0.00, 0.99→0.00} — per-symbol standardisation tightens cross-split variance enough that the M5 overshoot margin is no longer load-bearing. The prior M5 Mondrian-by-regime deployment remains the named reference baseline for the §7 ablation.</div>
+              <div class="h">Verify it yourself</div>
+              <div class="p">Replay the claimed coverage against the public calibration surface and check it delivers what it says. Held out by symbol: <b>0.9497 ± 0.0128</b> at τ=0.95, per-symbol Kupiec <b>10/10</b>, across 173 weekends and 11 forward-tape weekends since the freeze. Don't trust the price — verify the band.</div>
             </div>
-            <span class="ref">REGIME_QUANTILE_TABLE</span>
-          </div>
-          <div class="m-item">
-            <span class="n">04</span>
-            <div class="body">
-              <div class="h">Audit receipt on every read</div>
-              <div class="p">target_coverage, calibration_buffer_applied, claimed_coverage_served, forecaster_used, regime — exposed on every PricePoint. The trust primitive, in the data structure itself: any consumer can replay the inversion against the persisted surface.</div>
-            </div>
-            <span class="ref">PricePoint</span>
-          </div>
-          <div class="m-item">
-            <span class="n">05</span>
-            <div class="body">
-              <div class="h">OOS Kupiec + Christoffersen — full PASS</div>
-              <div class="p">Held-out 2023+ slice (1,730 rows × 173 weekends). τ=0.95 → realised 0.950, p_uc=0.956, p_ind=0.603. τ=0.85 → realised 0.855, p_uc=0.565, p_ind=0.403. τ=0.68 → realised 0.693, p_uc=0.264, p_ind=0.244. Per-symbol Kupiec at τ=0.95 passes 10/10 symbols under M6 (2/10 under M5); leave-one-symbol-out coverage 0.9497 ± 0.0128. Full surface in <code>reports/m6_validation.md</code>; σ̂ promotion evidence in <code>reports/m6_sigma_ewma.md</code>.</div>
-            </div>
-            <span class="ref">paper §6.4</span>
+            <span class="ref">reports/m6_validation.md</span>
           </div>
         </div>
 
-        <div class="signal-stack" aria-label="Sample served-band PricePoint views">
+        <div class="signal-stack" aria-label="Sample served-band PricePoint view">
           <div class="signal-card">
             <div class="sc-head">
               <div class="ticker">TSLAx<span class="sub">xStock · Sat 14:32 UTC · τ = 0.85 default</span></div>
@@ -958,134 +1081,13 @@
             </div>
 
             <div class="inputs" style="margin-top: 26px;">
-              <span class="i">Friday close</span>
-              <span class="i">ES=F return</span>
-              <span class="i">VIX</span>
-            </div>
-          </div>
-
-          <div class="signal-card compact green">
-            <div class="sc-head">
-              <div class="ticker">SPYx<span class="sub">xStock · Sun 03:10 UTC · τ = 0.85</span></div>
-              <div class="regime">Regime · normal</div>
-            </div>
-            <div>
-              <div class="big">
-                <span class="fv">$604.11</span>
-                <span class="delta">point · half-width ±1.42%</span>
-              </div>
-              <div class="ci-row" style="margin-top: 10px;">
-                <span><span class="k">band</span> &nbsp;$595.54 — $612.68</span>
-                <span><span class="k">claimed_served</span> &nbsp;0.850</span>
-              </div>
-            </div>
-            <div class="chart" aria-hidden="true">
-              <span class="ci-label">SPYx served band</span>
-              <svg viewBox="0 0 420 108" preserveAspectRatio="none">
-                <path class="band-fill" d="M0,58 C44,57 85,56 124,54 C165,52 203,49 242,46 C280,43 321,38 360,34 C384,32 404,30 420,29 L420,57 C405,58 385,59 360,61 C321,64 281,68 242,71 C202,74 164,77 124,79 C84,81 43,82 0,83 Z"></path>
-                <path class="mid-line" d="M0,71 C44,69 84,66 124,63 C164,60 202,56 242,52 C281,48 321,43 360,38 C385,35 404,33 420,31"></path>
-                <circle class="point-dot" cx="420" cy="31" r="5"></circle>
-              </svg>
-              <div class="axis"><span>Fri close</span><span>Weekend</span><span>Mon open</span></div>
-            </div>
-          </div>
-
-          <div class="signal-card compact amber">
-            <div class="sc-head">
-              <div class="ticker">MSTRx<span class="sub">xStock · Sun 18:40 UTC · τ = 0.85</span></div>
-              <div class="regime">Regime · high vol</div>
-            </div>
-            <div>
-              <div class="big">
-                <span class="fv">$412.66</span>
-                <span class="delta">point · half-width ±3.94%</span>
-              </div>
-              <div class="ci-row" style="margin-top: 10px;">
-                <span><span class="k">band</span> &nbsp;$396.39 — $428.93</span>
-                <span><span class="k">forecaster</span> &nbsp;lwc</span>
-              </div>
-            </div>
-            <div class="chart" aria-hidden="true">
-              <span class="ci-label">MSTRx served band</span>
-              <svg viewBox="0 0 420 108" preserveAspectRatio="none">
-                <path class="band-fill" d="M0,74 C38,76 80,72 124,66 C164,61 202,56 242,50 C281,43 320,36 360,27 C384,22 404,18 420,16 L420,64 C404,66 384,69 360,74 C320,81 281,88 242,93 C202,97 163,100 124,102 C80,104 39,103 0,101 Z"></path>
-                <path class="mid-line" d="M0,88 C38,87 80,82 124,75 C163,69 202,63 242,56 C281,49 320,41 360,32 C384,27 404,22 420,19"></path>
-                <circle class="point-dot" cx="420" cy="19" r="5"></circle>
-              </svg>
-              <div class="axis"><span>Fri close</span><span>BTC leads</span><span>Mon open</span></div>
+              <span class="i">target_coverage 0.85</span>
+              <span class="i">claimed_served 0.850</span>
+              <span class="i">re-derivable</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- QUOTE / PROOF -->
-  <section class="quote-band">
-    <div class="wrap inner">
-      <span class="eyebrow"><span class="bar"></span>Incumbent admission</span>
-      <div>
-        <blockquote>
-          <span class="mark">“</span>Without these capabilities, tokenized products are exposed to potential mispricings, unfair liquidations, regulatory gaps, and other critical risks.<span class="mark">”</span>
-        </blockquote>
-        <div class="attrib">Chainlink · v10/v11 launch · blog.chain.link</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- COMPETITIVE MATRIX -->
-  <section class="band" id="compare">
-    <div class="wrap">
-      <div class="head-row">
-        <div>
-          <span class="eyebrow"><span class="bar"></span>Compare</span>
-          <h2>The gap is not just coverage. <span class="em">It is what gets priced, how, and with what evidence.</span></h2>
-        </div>
-        <p>Closed-market risk is not just about who publishes a number. It is about whether the closed-market reference, uncertainty band, and calibration evidence are legible enough for downstream protocols and researchers to evaluate.</p>
-      </div>
-
-      <table class="mx">
-        <thead>
-          <tr>
-            <th style="width: 24%;">Provider</th>
-            <th style="width: 18%;">Closed-market handling</th>
-            <th style="width: 22%;">Methodology</th>
-            <th style="width: 20%;">Confidence interval</th>
-            <th style="width: 16%;">Open source</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="prov">Chainlink Data Streams</td>
-            <td><span class="mid">~ field-dependent</span></td>
-            <td><span class="note">Frozen LTP or opaque tokenized mark</span></td>
-            <td><span class="no">— none verifiable</span></td>
-            <td><span class="no">— closed</span></td>
-          </tr>
-          <tr>
-            <td class="prov">Pyth + Blue Ocean</td>
-            <td><span class="no">— overnight only</span></td>
-            <td><span class="note">Weighted median</span></td>
-            <td><span class="mid">10.2% at claimed 95%</span></td>
-            <td><span class="mid">~ partial</span></td>
-          </tr>
-          <tr>
-            <td class="prov">RedStone Live</td>
-            <td><span class="mid">~ 24/7 marketed</span></td>
-            <td><span class="no">— underlier only · undisclosed</span></td>
-            <td><span class="no">— none</span></td>
-            <td><span class="no">— closed</span></td>
-          </tr>
-          <tr class="sooth">
-            <td class="prov">Soothsayer</td>
-            <td><span class="yes">✓ weekend + CI</span></td>
-            <td><span class="yes">✓ published math</span></td>
-            <td><span class="yes">✓ aggregate-feed receipts</span></td>
-            <td><span class="yes">✓ Apache-2.0</span></td>
-          </tr>
-        </tbody>
-      </table>
-
     </div>
   </section>
 
@@ -1131,15 +1133,21 @@
   <section class="cta-band" id="contact">
     <div class="glow"></div>
     <div class="wrap inner">
-      <span class="eyebrow g"><span class="bar"></span>Design partners</span>
-      <h2>Build with <span class="em">calibration-transparent</span> closed-market risk infrastructure.</h2>
-      <p>Looking for a small number of lending, perp, and RWA teams that want defensible closed-market references, explicit uncertainty, and public evidence around liquidation and weekend risk.</p>
+      <span class="eyebrow g"><span class="bar"></span>Partner · support the project</span>
+      <h2>Price the closed window <span class="em">against a band you can verify.</span></h2>
+      <p>We're looking for a small number of lending, perp, and AMM teams to design against a calibration-transparent closed-market reference — you bring the integration surface, we bring the band and the receipt. Everything is open source and reproducible from public data.</p>
 
       <div class="actions">
-        <a class="btn primary" href="#contact" data-open-contact>Request access <span class="arrow">→</span></a>
-        <a class="btn ghost" href="pitch.html">Read the pitch</a>
-        <a class="btn ghost" href="#method">See the methodology</a>
+        <a class="btn primary" href="#contact" data-open-contact>Partner with us <span class="arrow">→</span></a>
+        <a class="btn ghost" href="dashboard.html">See the evidence</a>
       </div>
+
+      <ul class="support-list">
+        <li><b>Integrate</b> — read the band on-chain via the <code>soothsayer-consumer</code> decoder. <a href="https://github.com/ACNoonan/soothsayer/blob/main/docs/INTEGRATION.md">Integration guide →</a></li>
+        <li><b>Fund the work</b> — it's self-funded and grant-seeking; a runway keeps the forward tape and the mainnet path moving.</li>
+        <li><b>Contribute</b> — the oracle, the Rust/Anchor stack, and the research are open source. <a href="https://github.com/ACNoonan/soothsayer">Star / fork the repo →</a></li>
+        <li><b>Cite or endorse</b> — Paper 1 (coverage-inversion) is near arXiv submission and seeking a q-fin.RM endorsement.</li>
+      </ul>
     </div>
   </section>
 
