@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from soothsayer.backtest import calibration as cal
-from soothsayer.config import DATA_PROCESSED, REPORTS
+from soothsayer.config import DATA_PROCESSED, REPORTS, RESEARCH
 from soothsayer.oracle import Oracle
 
 
@@ -244,7 +244,7 @@ def main() -> None:
     )
     md_lines.append("")
 
-    out_md = REPORTS / "paper1_coverage_inversion" / f"case_study_high_vol_{CASE_FRI.isoformat().replace('-','')}.md"
+    out_md = RESEARCH / "coverage-inversion" / f"case_study_high_vol_{CASE_FRI.isoformat().replace('-','')}.md"
     out_md.write_text("\n".join(md_lines))
     print(f"Wrote {out_md}")
 

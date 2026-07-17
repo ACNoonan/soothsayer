@@ -20,7 +20,7 @@ Data sources (same as fig4_per_symbol in build_paper1_figures.py):
 
 Outputs are NEW files — fig4_per_symbol is left untouched:
 
-  reports/paper1_coverage_inversion/figures/fig_s1_per_symbol.{pdf,png}
+  research/coverage-inversion/figures/fig_s1_per_symbol.{pdf,png}
 
 Run:
   uv run python -u scripts/build_fig_s1.py
@@ -34,9 +34,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import binom
 
-from soothsayer.config import REPORTS
+from soothsayer.config import REPORTS, RESEARCH
 
-FIG_DIR = REPORTS / "paper1_coverage_inversion" / "figures"
+FIG_DIR = RESEARCH / "coverage-inversion" / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 TABLES = REPORTS / "tables"
 

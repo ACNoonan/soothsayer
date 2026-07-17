@@ -27,8 +27,8 @@ OOS weekends. Independence ghost uses the EXACT Binom(10, 0.05) pmf
 is Monte-Carlo and matches to sampling noise).
 
 Outputs:
-  reports/paper1_coverage_inversion/figures/fig_h5_joint_tail.pdf
-  reports/paper1_coverage_inversion/figures/fig_h5_joint_tail.png
+  research/coverage-inversion/figures/fig_h5_joint_tail.pdf
+  research/coverage-inversion/figures/fig_h5_joint_tail.png
 
 Run:
   uv run python -u scripts/build_fig_h5.py
@@ -43,9 +43,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from soothsayer.config import REPORTS
+from soothsayer.config import REPORTS, RESEARCH
 
-FIG_DIR = REPORTS / "paper1_coverage_inversion" / "figures"
+FIG_DIR = RESEARCH / "coverage-inversion" / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 TABLES = REPORTS / "tables"
 

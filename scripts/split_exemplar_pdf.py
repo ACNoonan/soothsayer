@@ -14,8 +14,8 @@ import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PDF = REPO / "reports/paper1_coverage_inversion/exemplars/Tokenized-Stocks-Cong.pdf"
-OUT = REPO / "reports/paper1_coverage_inversion/exemplars/Tokenized-Stocks-Cong"
+PDF = REPO / "research/coverage-inversion/exemplars/Tokenized-Stocks-Cong.pdf"
+OUT = REPO / "research/coverage-inversion/exemplars/Tokenized-Stocks-Cong"
 
 # Each entry: (file_id, display_label, slug, start_page).
 # End page is implicit: (next entry's start_page - 1), or TOTAL_PAGES for the last.

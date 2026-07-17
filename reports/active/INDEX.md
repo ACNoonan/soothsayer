@@ -17,6 +17,6 @@ These are scratch/working docs for *active* methodology + paper workstreams. Whe
 
 ## Rules for this folder
 
-1. **Don't put anything in `reports/active/` that isn't actively driving work.** Methodology log entries, paper sections, frozen evidence reports go in their normal homes (`reports/methodology_history.md`, `reports/paper1_coverage_inversion/`, etc.).
+1. **Don't put anything in `reports/active/` that isn't actively driving work.** Methodology log entries, paper sections, frozen evidence reports go in their normal homes (`reports/methodology_history.md`, `research/coverage-inversion/`, etc.).
 2. **Delete files on completion.** The last step of any workstream is to fold the result into a methodology log entry and `git rm` the working doc. The folder should shrink over time, not grow.
 3. **Cross-link, don't duplicate.** If a working doc cites a finding that also lives in a paper section or methodology entry, link to that — don't re-paste.

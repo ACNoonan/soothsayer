@@ -37,7 +37,7 @@ Outputs:
   reports/tables/path_coverage_onchain.csv     small post-launch sample
   reports/v1b_path_coverage.md                 paper-ready summary
 
-The output is consumed by §6.x of `reports/paper1_coverage_inversion/`.
+The output is consumed by §6.x of `research/coverage-inversion/`.
 """
 
 from __future__ import annotations

@@ -59,4 +59,4 @@ This doc holds two slide drafts that should land in the deck and the landing pag
 ## Cross-references
 
 - Conversation source: 2026-04-25 Claude session on user-facing explanations and "why doesn't this exist."
-- Underlying claims grounded in: `reports/v1b_decision.md`, `reports/v1b_calibration.md`, `reports/v1b_ablation.md`, `reports/v1b_conformal_comparison.md`, `reports/paper1_coverage_inversion/01_introduction.md`.
+- Underlying claims grounded in: `reports/v1b_decision.md`, `reports/v1b_calibration.md`, `reports/v1b_ablation.md`, `reports/v1b_conformal_comparison.md`, `research/coverage-inversion/01_introduction.md`.

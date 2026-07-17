@@ -417,7 +417,7 @@ Across the full 16-cell (subperiod × τ) grid per forecaster: M5 has 5 / 16 Kup
 - [x] Three runners ship with reproducible outputs.
 - [x] `reports/m6_validation.md` updated with §14 (clustering), §15 (sub-period robustness), §16 (GARCH-t).
 - [x] Phase 7 results consolidated at `reports/active/phase_7_results.md` (project root, one-shot summary).
-- [ ] Paper 1 §6.3.1, §6.4.2, §9.2 revision edits committed against the relevant files in `reports/paper1_coverage_inversion/` — pending the next paper-revision sweep.
+- [ ] Paper 1 §6.3.1, §6.4.2, §9.2 revision edits committed against the relevant files in `research/coverage-inversion/` — pending the next paper-revision sweep.
 - [x] No change to deployed M6 artefact, smoke, or tests.
 
 ---

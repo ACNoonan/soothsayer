@@ -236,7 +236,7 @@ uv run python scripts/build_fig_s1.py
 uv run python scripts/build_fig_s2.py
 
 # 8. Compile this paper.
-cd reports/paper1_coverage_inversion/build && uv run python build.py --pdf
+cd research/coverage-inversion/build && uv run python build.py --pdf
 ```
 
 `run_calibration.py` materialises `data/processed/v1b_bounds.parquet`, the per-symbol and pooled calibration surfaces, and refreshes the OOS-evaluation tables; the two overnight scripts materialise the overnight panel and its calibration battery. Forward-tape harness commands are in A.9.

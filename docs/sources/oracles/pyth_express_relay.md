@@ -141,4 +141,4 @@ PER is the load-bearing mechanism for Paper 3's OEV-recapture analysis. The down
 - [`pyth-kamino-success`] Pyth Network. *Kamino: How Kamino Swap achieves CEX-like execution with Pyth*. https://www.pyth.network/success-stories/kamino. Cited via search results 2026-04-29.
 - [`pyth-deep-page-404`] Pyth Network. *How Express Relay Works* (deep page). https://docs.pyth.network/express-relay/protocols/how-express-relay-works → 404 on 2026-04-29; link rot logged.
 - [`data-sources-per-planning`] Soothsayer internal. [`docs/data-sources.md`](../../data-sources.md) §9 line 261, §11 line 314. The `pyth_express_relay/auction_tape/v1` planned-tape ledger.
-- [`paper3-references-companion`] Soothsayer internal. [`reports/paper3_liquidation_policy/references.md`](../../../reports/paper3_liquidation_policy/references.md). The Paper-3 references list — PER work is the empirical-OEV component.
+- [`paper3-references-companion`] Soothsayer internal. [`research/liquidation-policy/references.md`](../../../research/liquidation-policy/references.md). The Paper-3 references list — PER work is the empirical-OEV component.

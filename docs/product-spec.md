@@ -232,7 +232,7 @@ The mapping consumes:
 ### Source of truth
 
 Paper 3 plan (scope, claims, evaluation protocol):
-[`reports/paper3_liquidation_policy/plan.md`](../reports/paper3_liquidation_policy/plan.md).
+[`research/liquidation-policy/plan.md`](../research/liquidation-policy/plan.md).
 Demo implementation of the ladder against a Kamino-fork consumer:
 `crates/soothsayer-demo-kamino/src/lib.rs`.
 

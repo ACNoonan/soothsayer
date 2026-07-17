@@ -59,13 +59,17 @@ crates/
 
 programs/                    Anchor programs for router / publish paths
 
-reports/
+research/                    paper writeups (moved out of reports/ 2026-07)
+  coverage-inversion/        Paper 1 — calibration-transparent oracle
+  liquidation-policy/        Paper 3 — liquidation policy under calibrated uncertainty
+  oracle-conditioned-amm/    Paper 4 — oracle-conditioned AMM
+
+reports/                     generated analysis outputs + logs
   INDEX.md                   classifies every report as current / paper-evidence / historical / operational
   methodology_history.md     compact methodology ledger
-  active/                    in-flight working docs (M6 refactor, Phase 7/8 results, validation backlog)
-  paper1_coverage_inversion/
-  paper3_liquidation_policy/
-  paper4_oracle_conditioned_amm/
+  active/                    in-flight working docs (paper-cited provenance kept here; drafts in internal/)
+  tables/, figures/          persisted CSVs / charts (gitignored)
+  archived/                  superseded analysis (v1b, old forward-tape snapshots)
 
 docs/
   ROADMAP.md

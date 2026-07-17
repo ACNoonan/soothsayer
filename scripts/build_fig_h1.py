@@ -41,9 +41,9 @@ import pandas as pd
 from matplotlib.patches import Patch
 from scipy.stats import gaussian_kde
 
-from soothsayer.config import DATA_PROCESSED, REPORTS
+from soothsayer.config import DATA_PROCESSED, REPORTS, RESEARCH
 
-FIG_DIR = REPORTS / "paper1_coverage_inversion" / "figures"
+FIG_DIR = RESEARCH / "coverage-inversion" / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Okabe-Ito palette (colorblind-safe) — matches build_paper1_figures.py.

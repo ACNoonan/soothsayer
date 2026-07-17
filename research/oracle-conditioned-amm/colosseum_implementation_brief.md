@@ -2,8 +2,8 @@
 
 **Status:** research brief, drafted 2026-05-02; positioning aligned to Soothsayer Stack 2026-05-03 (W8 / `docs/product-stack.md` rewrite). Input to the 8-day hackathon scope (deadline 2026-05-10).
 **Audience:** Adam, scoping the devnet MVP + pitch deck.
-**Read first:** `docs/product-stack.md` (strategic anchor), `reports/paper4_oracle_conditioned_amm/plan.md` (academic plan), `reports/paper4_oracle_conditioned_amm/market-research.md`, `docs/product-spec.md`.
-**Companion:** the implementation plan that flows from this brief should be drafted into `reports/paper4_oracle_conditioned_amm/colosseum_plan.md` (not yet written).
+**Read first:** `docs/product-stack.md` (strategic anchor), `research/oracle-conditioned-amm/plan.md` (academic plan), `research/oracle-conditioned-amm/market-research.md`, `docs/product-spec.md`.
+**Companion:** the implementation plan that flows from this brief should be drafted into `research/oracle-conditioned-amm/colosseum_plan.md` (not yet written).
 
 ---
 
@@ -39,7 +39,7 @@ The pitch lead is *closed-market RWA LVR*, not the academic bound. LVR literatur
 
 ### 1.1 What Paper 4 currently asserts
 
-From `reports/paper4_oracle_conditioned_amm/plan.md`:
+From `research/oracle-conditioned-amm/plan.md`:
 
 - **Thesis (§1):** *"A BAM Plugin AMM that conditions execution on a calibration-transparent oracle band exposes a derivable LVR-recovery lower bound for tokenized-RWA pools during closed-market windows, where both the oracle's calibration claim and the Plugin's compliance with that bound are independently verifiable from public data."* (`plan.md:17`)
 - **Three theoretical claims (§4):** C1 the bound exists; C2 it is non-trivial; C3 it is auditable. (`plan.md:62-68`)
@@ -58,7 +58,7 @@ Paper 4 itself has zero empirical evidence yet — it is plan + market research 
 |---|---|---|
 | Calibration receipt is real | OOS Kupiec + Christoffersen pass at τ ∈ {0.68, 0.85, 0.95} on 5,986 weekends × 10 tickers × 12 years | `reports/v1b_calibration.md`, `reports/v1b_decision.md` |
 | The band as a serving primitive ships | Devnet `soothsayer-router` deployed 2026-04-29; on-chain `PriceUpdate` PDA layout locked | `docs/product-stack.md` row 0; `programs/soothsayer-oracle-program/src/state.rs:75-119` |
-| LVR is a real, large LP cost | a16z, Milionis et al., Anthony Lee Zhang summary; size estimate $400M–$2B/yr Solana CLMM/DLMM fees with same-order LVR leakage | `reports/paper4_oracle_conditioned_amm/market-research.md:43-61` (compiled cite block) |
+| LVR is a real, large LP cost | a16z, Milionis et al., Anthony Lee Zhang summary; size estimate $400M–$2B/yr Solana CLMM/DLMM fees with same-order LVR leakage | `research/oracle-conditioned-amm/market-research.md:43-61` (compiled cite block) |
 | xStocks demand is real and concentrating on Solana | $1.3B Q1 2026 tokenized volume (+164% QoQ); ~94% all-time tokenized-equity settlement on Solana; Raydium ~90% xStock-DEX share | `market-research.md:178-199` |
 
 What is *not* yet evidence: a concrete LP-economics number for any band-conditioned mechanism on a real xStock pool. The hackathon counterfactual gap (§3.5).
@@ -306,9 +306,9 @@ The hackathon ships **L1.0 + L2.0 + L5.0** of the Soothsayer Stack architecture.
 ## Cross-references
 
 - `docs/product-stack.md` — **strategic anchor**; the Soothsayer Stack architecture this hackathon ships L1.0 + L2.0 + L5.0 of.
-- `reports/paper4_oracle_conditioned_amm/plan.md` — Paper 4 academic plan; B2 mechanism is the production target this hackathon MVP is the minimal implementation of.
-- `reports/paper4_oracle_conditioned_amm/market-research.md` — Layer-1 market sizing + LVR cite block; pitch-deck-grade.
-- `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md` — pipelines that, when they ship, unlock L1.1/L1.2/L3 in the post-hackathon roadmap.
+- `research/oracle-conditioned-amm/plan.md` — Paper 4 academic plan; B2 mechanism is the production target this hackathon MVP is the minimal implementation of.
+- `research/oracle-conditioned-amm/market-research.md` — Layer-1 market sizing + LVR cite block; pitch-deck-grade.
+- `research/oracle-conditioned-amm/scryer_pipeline_plan.md` — pipelines that, when they ship, unlock L1.1/L1.2/L3 in the post-hackathon roadmap.
 - `reports/methodology_history.md` — W8 (2026-05-03) AMM-track parking decision; M6b2 lending-track shipping cadence.
 - `docs/product-spec.md` — the band itself (Layer 0); the consumer-facing projections section §"Consumer-facing projections" lists the surfaces this AMM is the AMM-shaped instance of.
 - `programs/soothsayer-oracle-program/src/state.rs:75-119` — the `PriceUpdate` PDA layout the BandAMM reads.

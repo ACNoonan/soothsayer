@@ -35,9 +35,9 @@
 | Workstream | Driving doc | Status |
 |---|---|---|
 | **M6 Phase 7 — Rust parity port** | `reports/active/m6_refactor.md` | Gated; not yet started. Activates `forecaster_code = 3` on chain. |
-| **Paper 1 revision against M6** | `reports/paper1_coverage_inversion/` | In flight. Per-symbol Kupiec 10/10 + LOSO 5.7× tighter + 4-DGP simulation are the new headline pieces. |
-| **Paper 3 — Kamino 2025-11 cluster** | `reports/paper3_liquidation_policy/` | In flight. Three-claim structure (Geometric / Structural / Empirical). |
-| **Paper 4 — forward data capture** | `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md` | Owned by scryer (item 51). Soothsayer consumers wait until parquet rows land. |
+| **Paper 1 revision against M6** | `research/coverage-inversion/` | In flight. Per-symbol Kupiec 10/10 + LOSO 5.7× tighter + 4-DGP simulation are the new headline pieces. |
+| **Paper 3 — Kamino 2025-11 cluster** | `research/liquidation-policy/` | In flight. Three-claim structure (Geometric / Structural / Empirical). |
+| **Paper 4 — forward data capture** | `research/oracle-conditioned-amm/scryer_pipeline_plan.md` | Owned by scryer (item 51). Soothsayer consumers wait until parquet rows land. |
 | **Devnet publish path** | `crates/soothsayer-publisher`, `programs/` | Router v0 deployed devnet 2026-04-29 at `AZE8HixpkLpqmuuZbCku5NbjWqoQLWhPRTHp8aMY9xNU`. |
 | **Forward-tape harness** | `scripts/run_forward_tape_harness.sh` | Live on launchd, fires weekly Tuesday (`launchd/com.adamnoonan.soothsayer.forward-tape.plist`). |
 | **Phase 7 paper-strengthening tests** | `reports/active/phase_7_results.md` | ✅ Complete 2026-05-04. Portfolio clustering, sub-period robustness, GARCH-t baseline. |
@@ -52,9 +52,9 @@ Backlog of candidate workstreams sits in `reports/active/validation_backlog.md`.
 | Task | First file | Then |
 |---|---|---|
 | Understand current deployed methodology | `reports/methodology_history.md` §0 | latest dated entry under §1 |
-| Paper 1 revision | `reports/paper1_coverage_inversion/{section}.md` | `reports/m6_validation.md` for the evidence pack |
-| Paper 3 (liquidation policy) | `reports/paper3_liquidation_policy/plan.md` | `docs/protocol_semantics_kamino_xstocks.md` for the verified Kamino semantics |
-| Paper 4 (oracle-conditioned AMM) | `reports/paper4_oracle_conditioned_amm/plan.md` | `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md` |
+| Paper 1 revision | `research/coverage-inversion/{section}.md` | `reports/m6_validation.md` for the evidence pack |
+| Paper 3 (liquidation policy) | `research/liquidation-policy/plan.md` | `docs/protocol_semantics_kamino_xstocks.md` for the verified Kamino semantics |
+| Paper 4 (oracle-conditioned AMM) | `research/oracle-conditioned-amm/plan.md` | `research/oracle-conditioned-amm/scryer_pipeline_plan.md` |
 | M6 Phase 7 (Rust port) | `reports/active/m6_refactor.md` §7 | `crates/soothsayer-oracle/` (M5 path is the parity reference) |
 | Forward-tape monitoring | `scripts/run_forward_tape_harness.sh` | `launchd/com.adamnoonan.soothsayer.forward-tape.plist` + `reports/m6_forward_tape_*.md` |
 | Adding a new robustness test on M6 | `reports/active/phase_7_results.md` (template) | `src/soothsayer/backtest/calibration.py` dispatcher |

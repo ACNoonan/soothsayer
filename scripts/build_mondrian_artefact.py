@@ -24,7 +24,7 @@ the JSON sidecar is the audit trail and the parity-check input.
 
 References:
   - reports/methodology_history.md (2026-05-02 M5 entry)
-  - reports/paper1_coverage_inversion/07_ablation.md §7.7
+  - research/coverage-inversion/07_ablation.md §7.7
   - reports/tables/v1b_mondrian_calibration.csv (M5_mondrian_deployable rows)
   - reports/tables/v1b_mondrian_delta_sweep.csv (delta selection)
 """

@@ -258,7 +258,7 @@ def main() -> None:
         "- `crates/soothsayer-oracle/src/config.rs`: `MAX_SERVED_TARGET: f64 = 0.999;` (Rust mirror).",
         "- `src/soothsayer/oracle.py`: `BUFFER_BY_TARGET[0.99]` updated to the recommended value above.",
         "- Re-run `scripts/verify_rust_oracle.py` to confirm Python ↔ Rust parity.",
-        "- `reports/paper1_coverage_inversion/09_limitations.md` §9.1: update from 'documented limitation' to 'resolved at extended grid; the ceiling lives at the new tail of the grid (now 0.999) but is no longer load-bearing for any τ ≤ 0.99 use case.'",
+        "- `research/coverage-inversion/09_limitations.md` §9.1: update from 'documented limitation' to 'resolved at extended grid; the ceiling lives at the new tail of the grid (now 0.999) but is no longer load-bearing for any τ ≤ 0.99 use case.'",
         "",
         "## Cost",
         "",

@@ -1,6 +1,6 @@
 # Paper 4 Phase A — scryer data asks
 
-**Status:** compacted 2026-05-02. This file is now the short handoff. The reconciled operational plan is `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md`; use that as the source of truth.
+**Status:** compacted 2026-05-02. This file is now the short handoff. The reconciled operational plan is `research/oracle-conditioned-amm/scryer_pipeline_plan.md`; use that as the source of truth.
 
 ## Why This Exists
 

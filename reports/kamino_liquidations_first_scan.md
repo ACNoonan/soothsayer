@@ -34,7 +34,7 @@ This is a **material finding** for Paper 3 and for any future event-driven exten
   - **MarginFi is now the load-bearing source of liquidation events** for any serious event-panel build, not Kamino.
   - The retrospective 3.56× dominance anchor was derived from underlier proxies (the 12-year Soothsayer panel), not from on-chain Solana liquidations. The on-chain replay still needs to be built; this scan suggests the historical window has to extend further back AND/OR widen across markets.
 
-**For Paper 3** (`reports/paper3_liquidation_policy/plan.md`): the policy-comparison empirical work was scoped around xStocks-on-Kamino. With zero events in a 30-day window, the paper either:
+**For Paper 3** (`research/liquidation-policy/plan.md`): the policy-comparison empirical work was scoped around xStocks-on-Kamino. With zero events in a 30-day window, the paper either:
 
   - Extends the empirical horizon to xStocks history since launch (2025-07-14, ~287 days back), OR
   - Extends the protocol surface to MarginFi / Drift / Save / Loopscale, OR

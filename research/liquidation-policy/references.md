@@ -1,6 +1,6 @@
 # References — Paper 3 (Optimal Liquidation Policy Defaults Under Calibrated Oracle Uncertainty)
 
-Working bibliography. Verified entries follow the `[tag]` convention used in Paper 1's `references.md` (`../paper1_coverage_inversion/references.md`). Cross-references inherited from Paper 1 are listed by tag only and not re-stated below; see Paper 1 for the full entry.
+Working bibliography. Verified entries follow the `[tag]` convention used in Paper 1's `references.md` (`../coverage-inversion/references.md`). Cross-references inherited from Paper 1 are listed by tag only and not re-stated below; see Paper 1 for the full entry.
 
 Buckets (per `plan.md` §16.3):
 - **calibration-coverage** — Kupiec / Christoffersen / conformal upgrades for the policy's input
@@ -96,7 +96,7 @@ Buckets (per `plan.md` §16.3):
 
 ## Cross-references inherited from Paper 1
 
-The following Paper 1 entries will be cited in Paper 3 without restatement here. See `../paper1_coverage_inversion/references.md` for full bibliographic entries.
+The following Paper 1 entries will be cited in Paper 3 without restatement here. See `../coverage-inversion/references.md` for full bibliographic entries.
 
 - `[kupiec-1995]`, `[christoffersen-1998]` — coverage tests Paper 3 inherits as the calibrated-input contract.
 - `[bcbs-backtest-1996]` — Basel traffic-light framework for the institutional vocabulary.

@@ -8,7 +8,7 @@ Band formula mirrors scripts/build_paper1_figures.py::fig9_boj_anatomy:
 centred on the factor-adjusted point from the artefact parquet row
 (delta_shift_schedule is identically zero in the deployed sidecar).
 
-Writes reports/paper1_coverage_inversion/case_study_boj_m6.md.
+Writes research/coverage-inversion/case_study_boj_m6.md.
 Sanity-checks the resulting breach counts against paper section 6.3.5
 (k_w = 10 / 9 / 5 at tau = 0.85 / 0.95 / 0.99) and fails if they differ.
 
@@ -216,7 +216,7 @@ lines.append("*One weekend is one observation. The aggregate OOS calibration evi
 lines.append("")
 
 out = "\n".join(lines)
-out_path = ROOT / "reports" / "paper1_coverage_inversion" / "case_study_boj_m6.md"
+out_path = ROOT / "research" / "coverage-inversion" / "case_study_boj_m6.md"
 
 # sanity vs §6.3.5: expected k_w breaches 10/9/5 at 0.85/0.95/0.99
 mismatch = False

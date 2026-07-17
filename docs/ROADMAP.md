@@ -22,7 +22,7 @@ Mainnet and B2B work remain gated on Paper 3 evidence, devnet stability, and at 
 ### Paper 3 before publication-quality claims
 
 - **Closed:** Kamino-xStocks action semantics verified end-to-end in `docs/protocol_semantics_kamino_xstocks.md`.
-- **Closed:** reserve-buffer geometry in `reports/paper3_liquidation_policy/protocol_semantics.md`.
+- **Closed:** reserve-buffer geometry in `research/liquidation-policy/protocol_semantics.md`.
 - **Now active:** use `kamino/liquidations/v1` (102 events, 2025-08 to 2026-04) for the xStock empirical claim; analyze the 2025-11 cluster.
 - **Still needed:** path-aware weekend truth, protocol-specific cost priors, dynamic-bonus / `D_repaid` fit, broader baselines, class-disaggregated reserve-buffer evaluation.
 
@@ -36,7 +36,7 @@ Paper 4 is later, but its forward-only data cannot wait. Scryer item 51 owns the
 - `dlmm_pool_state.v1`
 - `dex_xstock_swaps.v1` backfill + forward poll
 
-See `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md`.
+See `research/oracle-conditioned-amm/scryer_pipeline_plan.md`.
 
 ## Phase Sequencer
 
@@ -57,7 +57,7 @@ Current state:
 
 - Held-out 2023+ passes Kupiec + Christoffersen at `τ ∈ {0.68, 0.85, 0.95}`.
 - `τ=0.99` is out of v1 scope as a finite-sample tail ceiling.
-- Draft sections live in `reports/paper1_coverage_inversion/`.
+- Draft sections live in `research/coverage-inversion/`.
 
 Immediate work:
 
@@ -113,8 +113,8 @@ Need at least two before mainnet push:
 - Methodology state: `reports/methodology_history.md`
 - Product spec: `docs/product-spec.md`
 - Data read pattern: `docs/scryer_consumer_guide.md`
-- Paper 1: `reports/paper1_coverage_inversion/`
-- Paper 3: `reports/paper3_liquidation_policy/plan.md`
-- Paper 4: `reports/paper4_oracle_conditioned_amm/plan.md`
-- Paper 4 data clock: `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md`
+- Paper 1: `research/coverage-inversion/`
+- Paper 3: `research/liquidation-policy/plan.md`
+- Paper 4: `research/oracle-conditioned-amm/plan.md`
+- Paper 4 data clock: `research/oracle-conditioned-amm/scryer_pipeline_plan.md`
 - Future methodology: `docs/v2.md`

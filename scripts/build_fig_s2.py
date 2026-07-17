@@ -41,9 +41,9 @@ import pandas as pd
 from matplotlib.lines import Line2D
 
 from soothsayer.backtest.calibration import compute_score_lwc
-from soothsayer.config import DATA_PROCESSED, REPORTS
+from soothsayer.config import DATA_PROCESSED, REPORTS, RESEARCH
 
-FIG_DIR = REPORTS / "paper1_coverage_inversion" / "figures"
+FIG_DIR = RESEARCH / "coverage-inversion" / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 SPLIT_DATE = date(2023, 1, 1)

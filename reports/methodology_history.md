@@ -72,7 +72,7 @@ If docs and disk disagree, verify the live root and then update the doc; do not 
 
 ### Paper 1 status
 
-Paper 1 validates the calibration-transparent oracle primitive, not welfare-optimal protocol policy. Draft sections exist under `reports/paper1_coverage_inversion/`. Remaining operational work:
+Paper 1 validates the calibration-transparent oracle primitive, not welfare-optimal protocol policy. Draft sections exist under `research/coverage-inversion/`. Remaining operational work:
 
 - Finish method/data/serving sections and coherence pass.
 - Keep comparator wording clean: flat `±300bps` is a stylized continuity baseline, not the literal Kamino incumbent.
@@ -128,7 +128,7 @@ Scryer item 51 is already locked for Phase A capture:
 - `dlmm_pool_state.v1`
 - `dex_xstock_swaps.v1` promotion/backfill/forward-poll
 
-Soothsayer-side future work after rows exist: pool-state reconstructor, path-aware truth labeller, bundle-attribution labels, counterfactual replay engine. See `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md`.
+Soothsayer-side future work after rows exist: pool-state reconstructor, path-aware truth labeller, bundle-attribution labels, counterfactual replay engine. See `research/oracle-conditioned-amm/scryer_pipeline_plan.md`.
 
 ---
 
@@ -268,8 +268,8 @@ All non-AR models go negative on OOS — they overfit on TRAIN, predict worse th
 
 **Paper / docs cascade.**
 
-- `reports/paper1_coverage_inversion/10_future_work.md` — V3.4 entry on M6 family should now read: "M6b2 (per-class Mondrian) is the deployable v3 winner; M6a (common-mode partial-out) is the documented upper bound, deployable only when forward signal accumulates beyond Friday-close state." Defer the §10 update until Phase A ships.
-- `reports/paper4_oracle_conditioned_amm/` — narrative needs an honest "AMM-track band has Friday-close cadence today; Sunday-republish cadence is the deployment ceiling" line rather than overclaiming the M6c gain.
+- `research/coverage-inversion/10_future_work.md` — V3.4 entry on M6 family should now read: "M6b2 (per-class Mondrian) is the deployable v3 winner; M6a (common-mode partial-out) is the documented upper bound, deployable only when forward signal accumulates beyond Friday-close state." Defer the §10 update until Phase A ships.
+- `research/oracle-conditioned-amm/` — narrative needs an honest "AMM-track band has Friday-close cadence today; Sunday-republish cadence is the deployment ceiling" line rather than overclaiming the M6c gain.
 
 **Open work.**
 
@@ -318,9 +318,9 @@ OOS realised one-sided coverage validates: at τ_one=0.95 the auxiliary q_low_on
 
 **Paper / docs cascade.**
 
-- Paper 1 (`reports/paper1_coverage_inversion/`): §0 abstract rewritten; §1 introduction headline numbers updated (354 bps at τ=0.95, 0.990 realised at τ=0.99); §4 methodology rewritten around Mondrian; §5 split-section description updated; §6 results regenerated at M5 numbers (per-regime, pooled, walk-forward, density tests); §7 ablation re-framed (§7.1–§7.5 retained as v1-historical, §7.5 taxonomy updated to mark each component as inherited / cosmetic / removed under M5; §7.6 stress test retained; §7.7 Mondrian ablation retained as the architecture-justification ablation); §8 serving-layer prose updated (90/90 parity, wire-format invariance disclosure); §9 limitations updated (§9.1 tail ceiling closed, §9.4 OOS-tuning provenance restated for c(τ)+δ(τ), §9.5 Berkowitz / DQ disclosure restated, §9.6 hybrid policy retired, §9.7 90/90 parity); §10 future work re-sequenced as v3 items; §11 conclusion restated under M5; §2.3 + references.md updated with Mondrian split-conformal citations.
-- Paper 3 (`reports/paper3_liquidation_policy/protocol_semantics.md`): worked example numerics regenerated for SPY 2026-04-24 at M5 widths; per-reserve flip-threshold table updated to per-regime widths.
-- Paper 4 (`reports/paper4_oracle_conditioned_amm/`): `devnet_artefacts.json` updated with M5-derived SPY/QQQ bands and `forecaster_code = 2`; `colosseum_implementation_brief.md` narrative updated for M5 widths.
+- Paper 1 (`research/coverage-inversion/`): §0 abstract rewritten; §1 introduction headline numbers updated (354 bps at τ=0.95, 0.990 realised at τ=0.99); §4 methodology rewritten around Mondrian; §5 split-section description updated; §6 results regenerated at M5 numbers (per-regime, pooled, walk-forward, density tests); §7 ablation re-framed (§7.1–§7.5 retained as v1-historical, §7.5 taxonomy updated to mark each component as inherited / cosmetic / removed under M5; §7.6 stress test retained; §7.7 Mondrian ablation retained as the architecture-justification ablation); §8 serving-layer prose updated (90/90 parity, wire-format invariance disclosure); §9 limitations updated (§9.1 tail ceiling closed, §9.4 OOS-tuning provenance restated for c(τ)+δ(τ), §9.5 Berkowitz / DQ disclosure restated, §9.6 hybrid policy retired, §9.7 90/90 parity); §10 future work re-sequenced as v3 items; §11 conclusion restated under M5; §2.3 + references.md updated with Mondrian split-conformal citations.
+- Paper 3 (`research/liquidation-policy/protocol_semantics.md`): worked example numerics regenerated for SPY 2026-04-24 at M5 widths; per-reserve flip-threshold table updated to per-regime widths.
+- Paper 4 (`research/oracle-conditioned-amm/`): `devnet_artefacts.json` updated with M5-derived SPY/QQQ bands and `forecaster_code = 2`; `colosseum_implementation_brief.md` narrative updated for M5 widths.
 - Top-level docs: `README.md` evidence snapshot regenerated; `CLAUDE.md` Current State replaces v1 constants with M5; `docs/product-spec.md` hybrid-forecaster section replaced with M5 description; `docs/v1.5-deployment-spec.md` marked superseded; `reports/bear_case.md` gates 2.A and 3.E updated to "PARTIAL — v2 / M5 closes". Landing page (`landing/{index,dashboard}.html`) headline numbers and methodology blocks updated.
 
 **Empirical headline (unchanged from 2026-05-02 validation).** OOS 2023+ slice (1,730 rows × 173 weekends): at τ=0.95, realised 0.950 with Kupiec p=0.956, Christoffersen p=0.912, mean half-width 354.5 bps — 20% narrower than the v1 Oracle's 443.5 bps at indistinguishable Kupiec calibration (block-bootstrap CIs exclude zero on width, straddle zero on coverage). At τ=0.99, M5 hits realised 0.990 with Kupiec p=0.942 (closes the v1 finite-sample tail ceiling at 0.972 at the cost of a 22% wider band). 6-split walk-forward passes Kupiec at every anchor (per-anchor p=0.43, 0.37, 0.36, 0.32). Berkowitz LR=173.1 and DQ at τ=0.95 (stat=32.1, p=5.7e-6) both reject — same per-anchor-only calibration profile as v1.
@@ -358,7 +358,7 @@ Tables: `reports/tables/v1b_constant_buffer_*.csv` (the §7.6 baseline that prom
 
 **Decision.** Land F0_VIX as a §7.1 rung between A0 and A1, plumb F0_VIX bounds into `v1b_bounds.parquet`, and serve B1 / B2 challenger cells in §7.4 (zero-buffer + deployed-buffer) on the OOS 2023+ slice. Equity-only — GLD/TLT use GVZ/MOVE in F1 and require per-class unit conversions for an analogous standalone baseline; that's a v2 candidate. Add a corresponding v2 architectural workstream (V2.4) for intra-weekend forward-signal updating from the Sunday 18:00 ET ES Globex reopen, distinct from the F\_tok V2.1 workstream. Add scryer wishlist item 52 for per-symbol implied vol from OPRA / Cboe.
 
-**Evidence.** `reports/paper1_coverage_inversion/07_ablation.md` (rung, serving cells, taxonomy); `reports/tables/v1b_ablation.csv`, `reports/tables/v1b_serving_ablation.csv`, `reports/tables/v1b_serving_ablation_bootstrap.csv`. Headline: F0_VIX raw is 49.3% sharper than A0 on equity-matched rows (n=4,719) but undercovers by 7.86pp; through the deployed serving stack (B2: 0.020 buffer) it realises 0.876 against τ=0.95 (Kupiec rejects p≈0); the bootstrap delta against C4 is +6.7pp coverage [+4.3, +9.1] at +88% width. Mechanism: index-level VIX systematically misprices single-stock weekend tails, particularly for high-beta names (NVDA / TSLA / MSTR).
+**Evidence.** `research/coverage-inversion/07_ablation.md` (rung, serving cells, taxonomy); `reports/tables/v1b_ablation.csv`, `reports/tables/v1b_serving_ablation.csv`, `reports/tables/v1b_serving_ablation_bootstrap.csv`. Headline: F0_VIX raw is 49.3% sharper than A0 on equity-matched rows (n=4,719) but undercovers by 7.86pp; through the deployed serving stack (B2: 0.020 buffer) it realises 0.876 against τ=0.95 (Kupiec rejects p≈0); the bootstrap delta against C4 is +6.7pp coverage [+4.3, +9.1] at +88% width. Mechanism: index-level VIX systematically misprices single-stock weekend tails, particularly for high-beta names (NVDA / TSLA / MSTR).
 
 **Impact.** §7 is now closed against the canonical reviewer-asked baseline. The F0_VIX rung is disclosed-not-deployed; F1's per-symbol vol-indexing + log-log regression + empirical-quantile inversion is the load-bearing path from the natural baseline to a calibrated served band on freely-available data. No methodology-constants change.
 
@@ -376,7 +376,7 @@ Tables: `reports/tables/v1b_constant_buffer_*.csv` (the §7.6 baseline that prom
 
 **Decision.** Paper 3 is Geometric / Structural / Empirical. Kamino-xStocks supplies the xStock empirical panel; MarginFi remains the cleaner general-lending deployment-substrate argument. The earlier "MarginFi-first" phrasing is superseded.
 
-**Evidence.** `docs/protocol_semantics_kamino_xstocks.md`, `reports/paper3_liquidation_policy/protocol_semantics.md`, `reports/paper3_liquidation_policy/plan.md`, `docs/sources/lending/marginfi.md`, and scryer datasets `kamino/liquidations/v1`, `marginfi/reserves/v1`.
+**Evidence.** `docs/protocol_semantics_kamino_xstocks.md`, `research/liquidation-policy/protocol_semantics.md`, `research/liquidation-policy/plan.md`, `docs/sources/lending/marginfi.md`, and scryer datasets `kamino/liquidations/v1`, `marginfi/reserves/v1`.
 
 **Open work.** Analyze the Kamino 2025-11 cluster; land/consume `marginfi/liquidations/v1` as propagation evidence; update Paper 1 caveats for delegated oracle routing and Wayback halt sparsity.
 
@@ -384,7 +384,7 @@ Tables: `reports/tables/v1b_constant_buffer_*.csv` (the §7.6 baseline that prom
 
 **Decision.** Start clock-dependent scryer capture now for AMM/product-stack evidence: Jito bundle tape, validator-client labels, CLMM/DLMM pool state, and xStock swap backfill/forward poll.
 
-**Evidence.** `reports/paper4_oracle_conditioned_amm/plan.md`, `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md`, `docs/product-stack.md`, and scryer wishlist item 51.
+**Evidence.** `research/oracle-conditioned-amm/plan.md`, `research/oracle-conditioned-amm/scryer_pipeline_plan.md`, `docs/product-stack.md`, and scryer wishlist item 51.
 
 **Open work.** Scryer fetchers 51a-51e; operator triggers for 49a-49d; later Soothsayer consumers once parquet rows exist.
 
@@ -467,8 +467,8 @@ Tables: `reports/tables/v1b_constant_buffer_*.csv` (the §7.6 baseline that prom
 - `docs/scryer_consumer_guide.md` — sanctioned data read pattern.
 - `docs/methodology_scope.md` — RWA class filter.
 - `docs/v2.md` — future methodology upgrades.
-- `reports/paper1_coverage_inversion/` — Paper 1 draft.
-- `reports/paper3_liquidation_policy/` — Paper 3 plan and protocol semantics.
-- `reports/paper4_oracle_conditioned_amm/` — Paper 4 plan and scryer pipeline ask.
+- `research/coverage-inversion/` — Paper 1 draft.
+- `research/liquidation-policy/` — Paper 3 plan and protocol semantics.
+- `research/oracle-conditioned-amm/` — Paper 4 plan and scryer pipeline ask.
 - `reports/v1b_*.md` — frozen evidence snapshots for the v1b methodology.
 - `src/soothsayer/oracle.py` and `crates/soothsayer-oracle/` — current serving implementation.

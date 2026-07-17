@@ -17,8 +17,8 @@ patches/annotations, Okabe-Ito palette, serif/CM mathtext). One accent
 hue (Okabe-Ito vermilion) is reserved for the receipt fields.
 
 Outputs:
-  reports/paper1_coverage_inversion/figures/fig_h2_anatomy_of_a_read.pdf
-  reports/paper1_coverage_inversion/figures/fig_h2_anatomy_of_a_read.png
+  research/coverage-inversion/figures/fig_h2_anatomy_of_a_read.pdf
+  research/coverage-inversion/figures/fig_h2_anatomy_of_a_read.png
 
 Run:
   uv run python -u scripts/build_fig_h2.py
@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 
 REPO = Path(__file__).resolve().parents[1]
-FIG_DIR = REPO / "reports" / "paper1_coverage_inversion" / "figures"
+FIG_DIR = REPO / "research" / "coverage-inversion" / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Okabe-Ito palette (colorblind-safe) — mirrors build_paper1_figures.py.

@@ -2,7 +2,7 @@
 
 **Status:** active. Surfaces a methodological finding in the §6.x path-coverage
 table published in [`reports/v1b_path_coverage.md`](../v1b_path_coverage.md) and
-cited in [`reports/paper1_coverage_inversion/06_results.md`](../paper1_coverage_inversion/06_results.md)
+cited in [`research/coverage-inversion/06_results.md`](../../research/coverage-inversion/06_results.md)
 §6.4. Bundled with WS1 Phase 2 (B+C).
 **Date:** 2026-05-11.
 **Source data:** `cex_stock_perp/ohlcv/v1` (Kraken Futures `PF_<sym>XUSD`,

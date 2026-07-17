@@ -40,7 +40,7 @@ from build_lwc_artefact import _fit_c_bump, _train_quantile  # noqa: E402
 from run_paper1_b5_kw_block_bootstrap import block_bootstrap  # noqa: E402
 from soothsayer.backtest.calibration import compute_score_lwc  # noqa: E402
 from soothsayer.backtest.metrics import conditional_coverage_from_bounds  # noqa: E402
-from soothsayer.config import DATA_PROCESSED, REPORTS  # noqa: E402
+from soothsayer.config import DATA_PROCESSED, REPORTS, RESEARCH  # noqa: E402
 
 SPLIT_DATE = date(2023, 1, 1)
 TARGETS = (0.68, 0.85, 0.95, 0.99)
@@ -118,7 +118,7 @@ def _save_figure(cc: pd.DataFrame, per_regime: dict[str, pd.DataFrame]) -> None:
     ax.set_ylabel("realised OOS coverage")
     ax.set_xticks(taus); ax.set_xlim(0.63, 1.01); ax.set_ylim(0.54, 1.02)
     ax.legend(loc="lower right", frameon=False)
-    out = REPORTS / "paper1_coverage_inversion" / "figures" / "fig8_overnight_calibration.pdf"
+    out = RESEARCH / "coverage-inversion" / "figures" / "fig8_overnight_calibration.pdf"
     fig.savefig(out); plt.close(fig)
     print(f"wrote {out}", flush=True)
 

@@ -304,7 +304,7 @@ This becomes scryer-handoff item #2 in the prompt below.
 
 **Coarse-grained interim (Soothsayer-side, unblocked).** A Soothsayer-only variant using `yahoo/equities_daily` next-daily-close as the post-resume proxy is implementable today. Less precise than the intraday version (a halt at 14:30 ET resumes by 16:00 ET, but daily close is also at 16:00 ET — the proxy collapses for late-day halts). Could be a "v0 coarse" report while the scryer dataset is being built.
 
-**Cross-link.** This is the empirical complement to `reports/paper3_liquidation_policy/protocol_semantics.md`.
+**Cross-link.** This is the empirical complement to `research/liquidation-policy/protocol_semantics.md`.
 
 **Result:** _pending_ (scryer dataset, then Soothsayer analysis runner)
 

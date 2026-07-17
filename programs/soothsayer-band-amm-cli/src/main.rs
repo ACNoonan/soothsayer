@@ -76,7 +76,7 @@ struct Cli {
     wallet: String,
 
     /// Path to the JSON artefact ledger written and updated by every
-    /// subcommand. Defaults to `reports/paper4_oracle_conditioned_amm/devnet_artefacts.json`.
+    /// subcommand. Defaults to `research/oracle-conditioned-amm/devnet_artefacts.json`.
     #[arg(long, global = true)]
     artefact: Option<PathBuf>,
 
@@ -324,7 +324,7 @@ fn expand_tilde(p: &str) -> PathBuf {
 }
 
 fn default_artefact_path() -> PathBuf {
-    PathBuf::from("reports/paper4_oracle_conditioned_amm/devnet_artefacts.json")
+    PathBuf::from("research/oracle-conditioned-amm/devnet_artefacts.json")
 }
 
 fn pad_symbol(s: &str) -> [u8; 16] {

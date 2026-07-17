@@ -1,6 +1,6 @@
 # Soothsayer Stack — strategic architecture for the band-AMM and the products it underwrites
 
-**Status:** living doc; aligned with `reports/methodology_history.md` §0 product progression and `reports/paper4_oracle_conditioned_amm/`.
+**Status:** living doc; aligned with `reports/methodology_history.md` §0 product progression and `research/oracle-conditioned-amm/`.
 **Audience:** internal — strategic clarity on what the firm builds, in what sequence, and the moat at each layer.
 
 ## 1. Objective
@@ -148,7 +148,7 @@ Both tracks publish under `forecaster_code = 2` (`mondrian`); the `profile_code`
 
 ## 8. Pipeline reuse across layers
 
-The scryer pipelines required to validate Layer 1 are the same pipelines required to evaluate Layers 2–4 as products *and* the same pipelines that unlock the band-AMM internal layers L3 (auction) and L4 (active). Standing them up now is therefore both a paper deliverable and a product-decision deliverable. The full priority order lives in `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md`; the headline list:
+The scryer pipelines required to validate Layer 1 are the same pipelines required to evaluate Layers 2–4 as products *and* the same pipelines that unlock the band-AMM internal layers L3 (auction) and L4 (active). Standing them up now is therefore both a paper deliverable and a product-decision deliverable. The full priority order lives in `research/oracle-conditioned-amm/scryer_pipeline_plan.md`; the headline list:
 
 1. **Per-slot CLMM/DLMM pool state** (Orca, Raydium, Meteora) — feeds Layer 1 directly; needed by Layers 2/3 as the hedging-venue depth ground truth; needed by L2.1 (DLMM bin design) as comparable.
 2. **Jito bundle parser with RWA-pool attribution** — feeds Layer 1's E3 bundle-conditional analysis; needed by Layers 2/3 to model adversarial flow at halt boundaries; **load-bearing for L3 (auction layer)**.
@@ -227,8 +227,8 @@ The current `soothsayer` repo is public and stays public through the 2026-05-10 
 ## 10. See also
 
 - `reports/methodology_history.md` §0 — current product progression (v0 router live, v1 event stream gated on Paper 3, v2 decision SDK 2027); W8 dated entry for the AMM-track parking decision.
-- `reports/paper4_oracle_conditioned_amm/plan.md` — Paper 4 academic plan; B2 mechanism is the production target Layer 1 builds toward.
-- `reports/paper4_oracle_conditioned_amm/colosseum_implementation_brief.md` — hackathon shipping doc; aligned with §3 Layer 1 + §4 L1.0/L2.0/L5.0.
-- `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md` — the data pipeline priority order this doc references.
+- `research/oracle-conditioned-amm/plan.md` — Paper 4 academic plan; B2 mechanism is the production target Layer 1 builds toward.
+- `research/oracle-conditioned-amm/colosseum_implementation_brief.md` — hackathon shipping doc; aligned with §3 Layer 1 + §4 L1.0/L2.0/L5.0.
+- `research/oracle-conditioned-amm/scryer_pipeline_plan.md` — the data pipeline priority order this doc references.
 - `docs/methodology_scope.md` — which RWA classes the underlying methodology applies to (the same scope filter that gates Layer 1).
 - `docs/product-spec.md` — Option C product specification from the oracle layer's perspective (Layer 0 detail).

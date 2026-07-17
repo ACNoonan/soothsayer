@@ -207,7 +207,7 @@ uv run python scripts/run_kw_threshold_stability.py             # §6.3.4 reserv
 uv run python scripts/build_paper1_figures.py
 
 # 8. Compile this paper.
-cd reports/paper1_coverage_inversion/build && uv run python build.py --pdf
+cd research/coverage-inversion/build && uv run python build.py --pdf
 ```
 
 ## A.6 Per-figure data provenance

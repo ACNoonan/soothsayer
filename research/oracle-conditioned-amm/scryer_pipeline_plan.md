@@ -2,7 +2,7 @@
 
 **Status:** planning document (internal). Drafted 2026-05-01; reconciled 2026-05-01 against scryer phase 77 (schemas + methodology row + wishlist item 51 already locked).
 **Owner:** Adam (data-engineering hand-off lives in scryer; this doc is the consumer-side spec for what soothsayer needs from scryer to back Paper 4 and the product decisions in `docs/product-stack.md`).
-**Read first:** `reports/paper4_oracle_conditioned_amm/plan.md` §10 (existing artefact reuse), §16 (product-stack relationship), `docs/product-stack.md` (pipeline-reuse argument), and the live scryer wishlist at `../scryer/wishlist.md` item 51.
+**Read first:** `research/oracle-conditioned-amm/plan.md` §10 (existing artefact reuse), §16 (product-stack relationship), `docs/product-stack.md` (pipeline-reuse argument), and the live scryer wishlist at `../scryer/wishlist.md` item 51.
 
 ## 1) One-line scope
 
@@ -144,9 +144,9 @@ Open questions that *remain*:
 
 ## 7) See also
 
-- `reports/paper4_oracle_conditioned_amm/plan.md` — the paper plan; §10 lists the consumer-side artefacts these pipelines feed.
+- `research/oracle-conditioned-amm/plan.md` — the paper plan; §10 lists the consumer-side artefacts these pipelines feed.
 - `docs/product-stack.md` — the four-layer product picture this plan's pipelines simultaneously inform.
 - `../scryer/wishlist.md` item 51 — the canonical fetcher work order; this doc is the consumer-side mirror.
 - `../scryer/methodology_log.md` "Paper-4 Phase-A capture spec — slot-resolution xStock AMM panel — 2026-05-01" — the locked methodology row.
 - `../scryer/docs/schemas.md` — schema specs for `clmm_pool_state.v1`, `dlmm_pool_state.v1`, `jito_bundle_tape.v1`, `validator_client.v1`, `dex_xstock_swaps.v1`.
-- `reports/paper3_liquidation_policy/plan.md` §11 — Paper 3 reuses item 47 + the Jito bundle pipeline.
+- `research/liquidation-policy/plan.md` §11 — Paper 3 reuses item 47 + the Jito bundle pipeline.

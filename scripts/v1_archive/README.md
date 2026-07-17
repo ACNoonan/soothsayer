@@ -4,7 +4,7 @@ These scripts powered the v1 calibration-surface oracle (F1_emp_regime + per-tar
 buffer schedule + per-(symbol, regime, forecaster, claimed) calibration surface).
 They are retained for historical reproduction of the evidence cited in
 `reports/v1b_calibration.md`, `reports/v1b_ablation.md`, the early sections of
-`reports/paper1_coverage_inversion/`, and `reports/methodology_history.md`
+`research/coverage-inversion/`, and `reports/methodology_history.md`
 entries dated before the M5 deployment.
 
 **Do not run from this archive.** The v1 calibration-surface APIs

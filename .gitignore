@@ -53,7 +53,7 @@ arxiv-endorsement/
 .vercel
 
 # Third-party reference papers (copyright — kept locally, not redistributed)
-reports/paper1_coverage_inversion/exemplars/
+research/coverage-inversion/exemplars/
 
 # Internal working docs / editorial scaffolding — kept locally, not public
 internal/

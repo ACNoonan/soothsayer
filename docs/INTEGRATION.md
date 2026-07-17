@@ -3,7 +3,7 @@
 > **Status: scaffold — integration content lands with the Paper 1 release; devnet-only, pre-partner.**
 > This is a structural skeleton. Sections carry orientation + `TODO` markers, not
 > finished prose. The authoritative wire-format source is
-> [`reports/paper1_coverage_inversion/rewrite/14_appendix_E.md`](../reports/paper1_coverage_inversion/rewrite/14_appendix_E.md)
+> [`research/coverage-inversion/rewrite/14_appendix_E.md`](../research/coverage-inversion/rewrite/14_appendix_E.md)
 > (Appendix E — "The serving layer"). Where a detail here would duplicate the
 > paper or the code, this doc points instead of copying.
 

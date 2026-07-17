@@ -169,7 +169,7 @@ If any of the §6 pre-deploy checklist items fail and can't be fixed in <4h, hol
 
 ## 11) See also
 
-- `reports/paper4_oracle_conditioned_amm/colosseum_implementation_brief.md` — the mechanism + scope this plan tests.
+- `research/oracle-conditioned-amm/colosseum_implementation_brief.md` — the mechanism + scope this plan tests.
 - `crates/soothsayer-consumer/src/lib.rs:97-150,264-323` — invariants the BandAMM inherits and must not regress.
 - `programs/soothsayer-oracle-program/src/state.rs:75-119` — the `PriceUpdate` shape every receipt test reconciles against.
 - `reports/v1b_calibration.md` — the empirical evidence the AMM's on-chain receipt is the AMM-layer analogue of.

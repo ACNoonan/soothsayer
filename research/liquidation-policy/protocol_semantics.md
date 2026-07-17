@@ -215,4 +215,4 @@ What this analysis sharpens for the §15 abstract / introduction:
 - [`docs/sources/oracles/scope.md`](../../docs/sources/oracles/scope.md) — Sunday stale-hold finding and single-PDA exposure.
 - [`docs/sources/oracles/pyth_regular.md`](../../docs/sources/oracles/pyth_regular.md) — publisher-dispersion-vs-coverage-SLA reconciliation that informs the Pyth-conf-haircut comparator.
 - [`docs/sources/lending/marginfi.md`](../../docs/sources/lending/marginfi.md) — the wider-than-Kamino consumer reference; `P ± conf` haircut rule.
-- [`reports/paper3_liquidation_policy/plan.md`](plan.md) — main Paper 3 plan; this file fills §6's band-to-action gap.
+- [`research/liquidation-policy/plan.md`](plan.md) — main Paper 3 plan; this file fills §6's band-to-action gap.

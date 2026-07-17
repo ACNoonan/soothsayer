@@ -201,8 +201,8 @@ The bull case requires either (a) the Scope-mediated Chainlink path to publicly 
 ## See also
 
 - `docs/product_stack.md` — the layered framing this memo serves.
-- `reports/paper4_oracle_conditioned_amm/plan.md` §16 — links back to product stack.
-- `reports/paper4_oracle_conditioned_amm/scryer_pipeline_plan.md` — the data pipelines whose value is reinforced by every layer's demand evidence.
+- `research/oracle-conditioned-amm/plan.md` §16 — links back to product stack.
+- `research/oracle-conditioned-amm/scryer_pipeline_plan.md` — the data pipelines whose value is reinforced by every layer's demand evidence.
 - Blockworks Research: "Equity Perpetuals Landscape Report" (Dec 2025) — single most useful external doc for Layer 2.
 - FalconX: "The Transformational Potential of Hyperliquid's HIP-3" — the upside scenario for what your competitor would do.
 - Volcano Exchange: "Liquidity: The Broken Promise of Tokenized Assets" (Jan 2026) — best public articulation of the failure modes Soothsayer's band addresses.

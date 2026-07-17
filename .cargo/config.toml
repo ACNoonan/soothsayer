@@ -1,0 +1,7 @@
+# Opt out of the machine-global shared target dir (~/.cargo/config.toml):
+# Anchor and scripts/deploy_devnet.sh expect ./target/deploy and ./target/idl
+# relative to the repo root. Keypairs in target/deploy must not be swept by
+# the automated cargo-target GC — clean this dir manually, never rm target/deploy
+# without backing up its keypairs.
+[build]
+target-dir = "target"

@@ -36,13 +36,13 @@ From the repo root:
 
 ```bash
 # Parse-only: verify references.md ↔ body citation closure
-uv run python reports/paper1_coverage_inversion/build/build.py --check
+uv run python research/coverage-inversion/build/build.py --check
 
 # Produce paper.tex + references.bib (no PDF)
-uv run python reports/paper1_coverage_inversion/build/build.py
+uv run python research/coverage-inversion/build/build.py
 
 # Produce paper.tex + references.bib + paper.pdf
-uv run python reports/paper1_coverage_inversion/build/build.py --pdf
+uv run python research/coverage-inversion/build/build.py --pdf
 ```
 
 The `--check` mode is fast (no pandoc invocation) and reports unresolved citations + orphans. Run before committing changes to section markdown to catch broken `[refkey]` references early.
@@ -62,7 +62,7 @@ The `--check` mode is fast (no pandoc invocation) and reports unresolved citatio
 Once `paper.pdf` builds locally, package for arXiv:
 
 ```bash
-cd reports/paper1_coverage_inversion/build
+cd research/coverage-inversion/build
 tar czf soothsayer-paper1.tar.gz \
     paper.tex \
     references.bib \

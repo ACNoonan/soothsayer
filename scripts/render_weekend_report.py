@@ -384,7 +384,7 @@ def render_markdown(data: dict) -> str:
         "- Coverage on a single weekend is too small a sample to support a welfare claim. "
         "The quantity that matters across weeks is the *false-liquidation rate* and "
         "*missed-risk rate* under the same reserve parameters — that aggregation is in scope "
-        "for Paper 3 (`reports/paper3_liquidation_policy/plan.md`) once enough forward weekends "
+        "for Paper 3 (`research/liquidation-policy/plan.md`) once enough forward weekends "
         "have accumulated.\n"
     )
 

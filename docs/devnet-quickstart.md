@@ -127,7 +127,7 @@ cargo run --release -p soothsayer-band-amm-cli --bin soothsayer-band-amm -- seed
 
 TODO: verify `seed-all` runs end-to-end against a freshly deployed program and record
 the resulting artefact-ledger path
-(`reports/paper4_oracle_conditioned_amm/devnet_artefacts.json` per the CLI default).
+(`research/oracle-conditioned-amm/devnet_artefacts.json` per the CLI default).
 
 ---
 

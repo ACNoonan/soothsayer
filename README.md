@@ -21,7 +21,7 @@ The product shape is different from every other oracle on Solana: **Soothsayer p
 
 The headline new evidence under M6: **per-symbol Kupiec at τ=0.95 passes for 10/10 symbols** (vs 2/10 under the prior M5 deployment), and held-out-symbol (LOSO) realised-coverage std collapses 5.7× (0.0759 → 0.0134). Full receipt: [`reports/m6_validation.md`](reports/m6_validation.md). σ̂ promotion evidence: [`reports/m6_sigma_ewma.md`](reports/m6_sigma_ewma.md). Living methodology log: [`reports/methodology_history.md`](reports/methodology_history.md).
 
-> **Status (2026-05-04):** Phase 0 validation complete; **full PASS**. M6 (LWC + σ̂ EWMA HL=8) is the deployed forecaster as of 2026-05-04 — Phases 1–6 of the M6 promotion are closed (Python serving + full robustness battery + 4-DGP simulation study + sample-size sweep + EWMA σ̂ promotion + forward-tape harness on launchd). Phase 7 (Rust parity port for M6) is gated. Phase 1 product work continues in parallel: devnet deploy, Paper 1 revision against M6, and Paper 3's reserve-buffer / liquidation-policy track. Paper drafts: [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) and [`reports/paper3_liquidation_policy/`](reports/paper3_liquidation_policy/). See [`STATUS.md`](STATUS.md) for the agent-facing current-state page, [`reports/active/m6_refactor.md`](reports/active/m6_refactor.md) (in-flight working doc), [`docs/product-spec.md`](docs/product-spec.md), and [`reports/methodology_history.md`](reports/methodology_history.md).
+> **Status (2026-05-04):** Phase 0 validation complete; **full PASS**. M6 (LWC + σ̂ EWMA HL=8) is the deployed forecaster as of 2026-05-04 — Phases 1–6 of the M6 promotion are closed (Python serving + full robustness battery + 4-DGP simulation study + sample-size sweep + EWMA σ̂ promotion + forward-tape harness on launchd). Phase 7 (Rust parity port for M6) is gated. Phase 1 product work continues in parallel: devnet deploy, Paper 1 revision against M6, and Paper 3's reserve-buffer / liquidation-policy track. Paper drafts: [`research/coverage-inversion/`](research/coverage-inversion/) and [`research/liquidation-policy/`](research/liquidation-policy/). See [`STATUS.md`](STATUS.md) for the agent-facing current-state page, [`reports/active/m6_refactor.md`](reports/active/m6_refactor.md) (in-flight working doc), [`docs/product-spec.md`](docs/product-spec.md), and [`reports/methodology_history.md`](reports/methodology_history.md).
 
 ## Why this exists
 
@@ -53,7 +53,7 @@ fv.sharpness_bps               # band half-width in bps
 fv.diagnostics                 # sigma_hat_sym_pre_fri, q_regime_lwc, c_bump — full auditable receipt
 ```
 
-Those fields are the product. They let a consumer say: *"I asked for 85% realised coverage, you served exactly that via the deployed schedule, the regime classifier pulled `normal`, the per-regime LWC quantile was 1.219 standardised units, my pre-Friday EWMA-HL=8 σ̂ for SPY was 0.008, the OOS-fit c-bump was 1.000 — and I can audit that decision against the published 20-scalar deployment artefact and 12 years of public weekend data."* The deployment artefact and serving code are documented in [`src/soothsayer/oracle.py`](src/soothsayer/oracle.py), [`scripts/build_lwc_artefact.py`](scripts/build_lwc_artefact.py), and [`reports/paper1_coverage_inversion/`](reports/paper1_coverage_inversion/) §4. The M5 path (`Oracle.fair_value`, `forecaster_code = 2`) remains in place as the named reference baseline for the §7 ablation.
+Those fields are the product. They let a consumer say: *"I asked for 85% realised coverage, you served exactly that via the deployed schedule, the regime classifier pulled `normal`, the per-regime LWC quantile was 1.219 standardised units, my pre-Friday EWMA-HL=8 σ̂ for SPY was 0.008, the OOS-fit c-bump was 1.000 — and I can audit that decision against the published 20-scalar deployment artefact and 12 years of public weekend data."* The deployment artefact and serving code are documented in [`src/soothsayer/oracle.py`](src/soothsayer/oracle.py), [`scripts/build_lwc_artefact.py`](scripts/build_lwc_artefact.py), and [`research/coverage-inversion/`](research/coverage-inversion/) §4. The M5 path (`Oracle.fair_value`, `forecaster_code = 2`) remains in place as the named reference baseline for the §7 ablation.
 
 The deployment default is **τ = 0.85**, chosen on protocol-policy grounds in the current Paper 3 work. Any τ ∈ (0, 1) is valid; **τ = 0.95** is the headline oracle-validation target in Paper 1.
 
@@ -86,7 +86,7 @@ with weekend half-life 8 (decay $\lambda = 0.5^{1/8} \approx 0.917$), strictly p
 
 Twenty deployment scalars total (12 regime quantiles + 4 c-bumps + 4 δ-shifts), audit-trailed in the artefact sidecar. Serving-time computation is a five-line lookup. Linear interpolation off-anchor; no surface inversion, no per-symbol fallback, no scalar buffer override.
 
-The architecture is the product of (a) a multi-step ablation against the v1 hybrid forecaster Oracle and the constant-buffer width-at-coverage stress test (preserved as historical evidence in `reports/paper1_coverage_inversion/` §7.1–§7.6); (b) the M5 Mondrian conformal-by-regime ablation (§7.7) that established the simpler M5 baseline; (c) the M6 LWC promotion (`reports/m6_validation.md`) that re-ran the full robustness battery and closed the per-symbol Kupiec bimodality reported in §6.4.1; and (d) the σ̂ EWMA HL=8 promotion (`reports/m6_sigma_ewma.md`) that picked up an additional 3.83% pooled-width tightening at τ=0.95 while clearing the 2021/2022 split-date Christoffersen rejections that the K=26 trailing window left open. The full decision trail lives in [`reports/methodology_history.md`](reports/methodology_history.md).
+The architecture is the product of (a) a multi-step ablation against the v1 hybrid forecaster Oracle and the constant-buffer width-at-coverage stress test (preserved as historical evidence in `research/coverage-inversion/` §7.1–§7.6); (b) the M5 Mondrian conformal-by-regime ablation (§7.7) that established the simpler M5 baseline; (c) the M6 LWC promotion (`reports/m6_validation.md`) that re-ran the full robustness battery and closed the per-symbol Kupiec bimodality reported in §6.4.1; and (d) the σ̂ EWMA HL=8 promotion (`reports/m6_sigma_ewma.md`) that picked up an additional 3.83% pooled-width tightening at τ=0.95 while clearing the 2021/2022 split-date Christoffersen rejections that the K=26 trailing window left open. The full decision trail lives in [`reports/methodology_history.md`](reports/methodology_history.md).
 
 ## Evidence snapshot
 
@@ -184,9 +184,12 @@ reports/
   m6_forward_tape_*.md      forward-tape evaluator outputs (auto-rolling N-weekends report)
   v1b_calibration.md, v1b_ablation.md, v1b_buffer_tune.md, v1b_decision.md
                             historical v1b receipts (M5 baseline)
-  paper1_coverage_inversion/   Paper 1 drafts (revising against M6)
-  paper3_liquidation_policy/   Paper 3 plan + working bibliography (band → action)
   figures/, tables/         persisted charts and tables
+
+research/                   paper writeups (moved out of reports/ 2026-07)
+  coverage-inversion/          Paper 1 — calibration-transparent oracle
+  liquidation-policy/          Paper 3 plan + working bibliography (band → action)
+  oracle-conditioned-amm/      Paper 4 — oracle-conditioned AMM
 
 notebooks/                  V1-V4 historical notebooks (superseded by v1b — see reports/)
 data/
@@ -240,7 +243,7 @@ Consuming the on-chain band (devnet, pre-partner scaffold):
 - **Devnet quickstart:** [`docs/devnet-quickstart.md`](docs/devnet-quickstart.md) — deploy → publish → read back.
 - **Decoder SDK:** [`crates/soothsayer-consumer`](crates/soothsayer-consumer) — `no_std`, decodes a `PriceUpdate` account into a typed `PriceBand`.
 - **Reference integration:** [`crates/soothsayer-demo-kamino`](crates/soothsayer-demo-kamino) — Kamino-style lending logic driven off the band's lower bound.
-- **Wire format:** [`reports/paper1_coverage_inversion/rewrite/14_appendix_E.md`](reports/paper1_coverage_inversion/rewrite/14_appendix_E.md) §E.4 — authoritative `PriceUpdate` layout.
+- **Wire format:** [`research/coverage-inversion/rewrite/14_appendix_E.md`](research/coverage-inversion/rewrite/14_appendix_E.md) §E.4 — authoritative `PriceUpdate` layout.
 
 ## Contributing
 

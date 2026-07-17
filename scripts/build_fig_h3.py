@@ -33,9 +33,9 @@ import pandas as pd
 from matplotlib.patches import Rectangle
 from scipy.stats import binom
 
-from soothsayer.config import REPORTS
+from soothsayer.config import REPORTS, RESEARCH
 
-FIG_DIR = REPORTS / "paper1_coverage_inversion" / "figures"
+FIG_DIR = RESEARCH / "coverage-inversion" / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 TABLES = REPORTS / "tables"
 

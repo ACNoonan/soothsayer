@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_RAW = REPO_ROOT / "data" / "raw"
 DATA_PROCESSED = REPO_ROOT / "data" / "processed"
 REPORTS = REPO_ROOT / "reports"
+RESEARCH = REPO_ROOT / "research"  # paper writeups (moved out of reports/ 2026-07)
 
 load_dotenv(REPO_ROOT / ".env", override=False)
 

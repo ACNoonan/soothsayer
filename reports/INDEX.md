@@ -36,9 +36,9 @@ For the current deployed state, read [`STATUS.md`](../STATUS.md) (root). For the
 
 | Subdirectory | Paper |
 |---|---|
-| [`paper1_coverage_inversion/`](paper1_coverage_inversion/) | Paper 1 — calibration-transparent oracle. **In revision against M6.** |
-| [`paper3_liquidation_policy/`](paper3_liquidation_policy/) | Paper 3 — liquidation policy under calibrated uncertainty. Three-claim structure (Geometric / Structural / Empirical). |
-| [`paper4_oracle_conditioned_amm/`](paper4_oracle_conditioned_amm/) | Paper 4 — oracle-conditioned AMM. Forward data capture in flight (scryer item 51); Soothsayer consumers pending parquet rows. |
+| [`research/coverage-inversion/`](../research/coverage-inversion/) | Paper 1 — calibration-transparent oracle. **In revision against M6.** |
+| [`research/liquidation-policy/`](../research/liquidation-policy/) | Paper 3 — liquidation policy under calibrated uncertainty. Three-claim structure (Geometric / Structural / Empirical). |
+| [`research/oracle-conditioned-amm/`](../research/oracle-conditioned-amm/) | Paper 4 — oracle-conditioned AMM. Forward data capture in flight (scryer item 51); Soothsayer consumers pending parquet rows. |
 
 ## Paper-evidence (frozen)
 
