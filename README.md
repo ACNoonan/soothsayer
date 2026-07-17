@@ -232,6 +232,16 @@ crates/                     Rust — production parity port of oracle.py.
 
 `docs/ROADMAP.md` is the detailed sequencer. `reports/methodology_history.md` is the methodology source of truth.
 
+## For integrators
+
+Consuming the on-chain band (devnet, pre-partner scaffold):
+
+- **Integration guide:** [`docs/INTEGRATION.md`](docs/INTEGRATION.md) — how a protocol reads a `PriceBand` and its receipt.
+- **Devnet quickstart:** [`docs/devnet-quickstart.md`](docs/devnet-quickstart.md) — deploy → publish → read back.
+- **Decoder SDK:** [`crates/soothsayer-consumer`](crates/soothsayer-consumer) — `no_std`, decodes a `PriceUpdate` account into a typed `PriceBand`.
+- **Reference integration:** [`crates/soothsayer-demo-kamino`](crates/soothsayer-demo-kamino) — Kamino-style lending logic driven off the band's lower bound.
+- **Wire format:** [`reports/paper1_coverage_inversion/rewrite/14_appendix_E.md`](reports/paper1_coverage_inversion/rewrite/14_appendix_E.md) §E.4 — authoritative `PriceUpdate` layout.
+
 ## Contributing
 
 Methodology critiques, new RWA-class factor proposals, and integration-partner conversations are especially welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
