@@ -765,24 +765,24 @@
 
       <div class="statbar">
         <div class="cell">
-          <div class="k">Weekend void</div>
-          <div class="v">$3.5<span class="unit">B</span></div>
-          <div class="n">of tokenized equities on Solana with no principled price, every weekend (Q1 2026 snapshot).</div>
-        </div>
-        <div class="cell">
-          <div class="k">xStocks volume</div>
+          <div class="k">The market</div>
           <div class="v">$25<span class="unit">B+</span></div>
-          <div class="n">Cumulative through Q1 2026 — ~95–99% of tokenized-equity trading lives on Solana.</div>
+          <div class="n">of tokenized US equities cleared through xStocks; ~95%+ settles on Solana. Tokenized RWAs on-chain now sit near $29B outstanding.</div>
         </div>
         <div class="cell">
-          <div class="k">Universal weekend gap</div>
-          <div class="v">48<span class="unit">hrs</span></div>
-          <div class="n">Fri 8pm → Sun 8pm ET, where incumbent feeds are either stale or methodologically opaque.</div>
+          <div class="k">The problem · 1 weekend in 7</div>
+          <div class="v">13.8<span class="unit">%</span></div>
+          <div class="n">of weekends, at least one of ten tickers gapped &gt;500 bps before Monday's open — 12-year panel, 5,996 weekend windows, p99 gap 732 bps.</div>
         </div>
         <div class="cell">
-          <div class="k">OOS coverage @ τ=0.95</div>
-          <div class="v">95.0<span class="unit">%</span></div>
-          <div class="n">Realised on a 2023+ held-out slice (1,730 rows) under the deployed M6 LWC oracle; Kupiec p<sub>uc</sub>=0.956, Christoffersen p<sub>ind</sub>=0.603.</div>
+          <div class="k">Traded vs. collateralized</div>
+          <div class="v">~100<span class="unit">×</span></div>
+          <div class="n">&gt;$25B traded against ~$225M held as collateral. Kamino disables borrowing on 4 of 8 xStock reserves; 0 of 102 liquidations fell on a weekend.</div>
+        </div>
+        <div class="cell">
+          <div class="k">The proof · coverage @ τ=0.95</div>
+          <div class="v">0.9497</div>
+          <div class="n">Held out by symbol (leave-one-symbol-out) on the 12-year panel — ±0.0128, all 10 tickers pass Kupiec; 40/40 on the symbol×τ grid vs GARCH-t's 31/40.</div>
         </div>
       </div>
     </div>
@@ -802,7 +802,7 @@
           <span class="eyebrow"><span class="bar"></span>The gap</span>
           <h2>Every weekend, the incumbents <span class="em">stop thinking.</span></h2>
         </div>
-        <p>Weekends are the cleanest proof of the gap. Chainlink's consumed fields either freeze at Friday close or route to an opaque tokenized mark, Pyth + Blue Ocean extend into 24/5 but still hand back the weekend, and continuous off-hours marks remain difficult to audit. The market has activity, but not yet shared closed-market pricing infrastructure.</p>
+        <p>Weekends are the cleanest proof of the gap. Chainlink's consumed fields either freeze at Friday close or route to an opaque tokenized mark, Pyth + Blue Ocean extend into 24/5 but still hand back the weekend, and continuous off-hours marks remain difficult to audit. And the market has noticed: participants trade these tokens roughly 100× more than they hold them as collateral (&gt;$25B traded vs ~$225M held), and of 102 liquidations on a $4B Solana lending market over nine months, not one fell on a weekend. The assets are live — the confidence to lever them while the market is closed is not.</p>
       </div>
 
       <div class="gap-card">
