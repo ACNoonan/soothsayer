@@ -62,6 +62,24 @@ If W15 ships, §3 and §8 need a paragraph distinguishing the two contracts, bec
 
 Both are calibration-transparent. Only the first is a pre-commitment. That distinction should be stated by us rather than discovered by a referee, and it is a genuinely interesting design axis to have characterised — the paper currently presents frozen-vs-adaptive as a dichotomy (§7, §9), and this is the point where it turns out to be a spectrum.
 
-## Status
+## Status — implemented 2026-07-25, not promoted
 
-**Not implemented.** W15 is not promoted; no wire or archive change has been made. This document is the decision record that has to be actioned before it can be.
+The state machine and checkpoint format are built and tested; nothing is promoted and the deployed artefact is untouched.
+
+- `src/soothsayer/adaptive_state.py` — `replay()` is the single definition of the update, run identically by publisher and auditor, so the two cannot drift apart by construction. `Checkpoint` carries a canonical serialisation whose SHA-256 covers γ, the clip bounds and the period as well as the numbers, so a provider cannot silently change the rule.
+- `scripts/build_overnight_adaptive_checkpoint.py` — splits the artefact in two: frozen per-regime quantiles, SHA-stamped exactly as the two-sided artefact is (`a16a27b0e675c915…`), and a hashed state snapshot (`852a69320fbeb119…`, 2,404 periods through 2026-04-23). Self-verifies on build.
+- `tests/test_adaptive_state.py` — 12 tests over the four audit properties.
+
+Learned multipliers at the checkpoint:
+
+| cell | τ=0.68 | τ=0.85 | τ=0.95 | τ=0.99 |
+|---|---:|---:|---:|---:|
+| `earnings_night` | 0.882 | **0.705** | **0.839** | 0.951 |
+| `high_vol` | 1.142 | 1.019 | 1.003 | 0.982 |
+| `normal` | 0.932 | 0.972 | 1.007 | 0.985 |
+
+`earnings_night` learns *down*, which is the W14 drift diagnosis being repaired rather than a tuning artefact.
+
+**The two properties that mattered are tested, not asserted.** Replaying from a checkpoint equals replaying from inception to 10 decimal places — that is what bounds audit cost to one checkpoint interval. And a tampered state that has been **re-sealed** with a fresh hash still fails `verify_checkpoint`, because recomputation from public prices does not care what hash the provider published. That is the pre-commitment property restored.
+
+**Still to do before promotion:** the receipt field and the `m_regime` archive column (items 1 and 2 above) are specified but not wired into `oracle.py` or `emit_band_archive.py`; and the checkpoint cadence is a decision, not yet a policy — the build currently emits a single checkpoint at the panel end rather than on a schedule.
