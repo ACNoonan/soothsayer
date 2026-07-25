@@ -217,6 +217,20 @@ Buckets:
 - **Why we cite it:** Establishes the on-chain extractive-MEV environment in which oracle reads are consumed; our receipts-based design is motivated by the need to make oracle misuse accountable under adversarial ordering.
 - **Bucket:** oracles
 
+### [acon2-2023] Park, S., Bastani, O., Kim, T. 2023. ACon²: Adaptive Conformal Consensus for Provable Blockchain Oracles.
+- **Venue:** USENIX Security Symposium 2023; arXiv:2211.09330v3 [cs.CR]
+- **URL / DOI:** https://arxiv.org/abs/2211.09330
+- **Contribution:** Applies online conformal prediction to the blockchain oracle problem. Rather than aggregating multiple oracle contracts to a point value, ACon² derives a *consensus set* via online uncertainty-quantification learning, and proves a correctness guarantee that holds under both distribution shift and Byzantine adversaries. Evaluated on two price datasets (Ethereum DEX/CEX feeds — INV/ETH across SushiSwap, UniswapV2, Coinbase, versus median and TWAP baselines) with a Solidity implementation demonstrating on-chain practicality.
+- **Why we cite it:** The closest prior work in form — a conformal, interval-valued oracle — and therefore the citation that most sharply defines what our contribution is *not*. ACon²'s interval width measures disagreement among concurrently-reporting live sources under possible corruption: the uncertainty is adversarial and reducible by adding honest reporters. Ours measures the irreducible structural uncertainty of a single reference market that is closed, where no quorum can observe the reopen price. It also serves no consumer-chosen $\tau$ and emits no re-derivable receipt. §2.1 uses it as the concrete demonstration that the integrity/calibration distinction is real rather than rhetorical.
+- **Bucket:** oracles
+
+### [sok-rwa-2026] Luo, J., Xiong, X., Li, Z., Kang, H., Liu, X., Knottenbelt, W. J., Tinn, K. 2026. SoK of RWA Tokenization: A Systematization of Concepts, Architectures, and Legal Interoperability.
+- **Venue:** arXiv:2604.06608v2 [q-fin.GN], 14 April 2026 (McGill / Imperial College London / MBZUAI)
+- **URL / DOI:** https://arxiv.org/abs/2604.06608
+- **Contribution:** Systematises the real-world-asset tokenisation stack — concepts, architectures, and legal-interoperability constraints — including asynchronous liquidation modules for default management and structured tranching for risk redistribution.
+- **Why we cite it:** The current systematisation of the tokenised-asset architecture our oracle serves, replacing ad-hoc industry citations for the structural claims of §2.1. Cited specifically for what it does *not* address: pricing enters its architecture as a system input, not as a quantity carrying its own calibration statement — the gap this paper fills.
+- **Bucket:** oracles
+
 ---
 
 ## Bucket: price-discovery
@@ -300,7 +314,7 @@ Buckets:
 - **URL / DOI:** https://doi.org/10.2307/2527341
 - **Contribution:** Defines conditional-coverage evaluation for interval forecasts, decomposing into an unconditional-coverage test (Kupiec) and an independence test on the hit sequence; joint conditional-coverage LR test.
 
-### [kraken-xstocks-25b] Kraken. 2026. xStocks remain largest provider of tokenized equities, surpass $25 billion in total transaction volume.
+### [kraken-xstocks-25b] Kraken. 2026. xStocks remain largest provider of tokenized equities, surpass \$25 billion in total transaction volume.
 - **Venue:** Kraken Blog, 2026-02-19 (issuer/distributor primary source)
 - **URL / DOI:** https://blog.kraken.com/product/xstocks/25-billion-in-total-transaction-volume
 - **Contribution:** Primary-source figures for the §1 adoption-asymmetry facts: >$25B total transaction volume, ~$225M aggregate AUM, >80,000 unique onchain holders, >$3.5B onchain activity. Issuer-published — verify against a third-party aggregator (RWA.xyz) at submission.
@@ -382,6 +396,83 @@ Buckets:
 - **Why we cite it:** This is the modern parent literature for what our coverage-inversion primitive does at high $\tau$: a forecaster can be calibrated on average and still miscalibrated in the tail, which is precisely the failure mode our $\tau = 0.99$ ceiling (§9.1) describes. Allen et al. supply the formal framework that says this distinction matters and is measurable. Our weekend prediction-window setting is the financial-microstructure instantiation of their framework.
 - **Bucket:** calibration-conformal
 
+### [gibbs-conditional-2025] Gibbs, I., Cherian, J. J., Candès, E. J. 2025. Conformal prediction with conditional guarantees.
+- **Venue:** Journal of the Royal Statistical Society Series B 87(4), 1100–1123; arXiv:2305.12616v4 [stat.ME]
+- **URL / DOI:** https://academic.oup.com/jrsssb/article/87/4/1100/8058684; https://arxiv.org/abs/2305.12616
+- **Contribution:** Unifies marginal, group/Mondrian, and localised conditional coverage under a single distribution-free framework, characterising the achievable conditional guarantees for a chosen class of covariate shifts and connecting the construction to quantile regression over an RKHS.
+- **Why we cite it:** §2.3 previously cited only Vovk's original Mondrian formulation for the group-conditional construction. This is the modern treatment that subsumes it, and a reviewer familiar with the conformal literature would expect it. We cite it to place the deployed discrete-partition taxonomy within that framework and to state plainly why we chose the discrete case: each category must be computable on-chain from published state (§8), which is an implementation constraint rather than a claim of statistical optimality.
+- **Bucket:** calibration-conformal
+
+### [gibbs-aci-2021] Gibbs, I., Candès, E. J. 2021. Adaptive conformal inference under distribution shift.
+- **Venue:** NeurIPS 2021; arXiv:2106.00170v3 [stat.ME]
+- **URL / DOI:** https://arxiv.org/abs/2106.00170
+- **Contribution:** Recasts distribution shift as an online learning problem over a single miscoverage parameter updated from realised coverage error, yielding long-run coverage guarantees without exchangeability.
+- **Why we cite it:** The canonical online-conformal baseline family. §7's comparator set is parametric (GARCH-$t$, GARCH-Gaussian) or internal-ablation (unweighted Mondrian, constant buffer) and contains no adaptive-conformal method; §2.3 cites ACI as the reference point, and §10 records benchmarking against it as outstanding work.
+- **Bucket:** calibration-conformal
+
+### [gibbs-dtaci-2022] Gibbs, I., Candès, E. J. 2022. Conformal inference for online prediction with arbitrary distribution shifts (DtACI).
+- **Venue:** arXiv:2208.08401v3 [stat.ME] (Journal of Machine Learning Research)
+- **URL / DOI:** https://arxiv.org/abs/2208.08401
+- **Contribution:** Extends ACI by adaptively tuning the learning rate through an expert-aggregation scheme, removing the practical need to hand-select a step size for the shift regime at hand.
+- **Why we cite it:** The strengthened member of the online-conformal family, and one of the three baselines Schmitt benchmarks RWC against. Cited in §2.3 alongside ACI and conformal PID as the comparator set a conformal-literate reader will expect.
+- **Bucket:** calibration-conformal
+
+### [zaffran-agaci-2022] Zaffran, M., Dieuleveut, A., Féron, O., Goude, Y., Josse, J. 2022. Adaptive conformal predictions for time series.
+- **Venue:** ICML 2022; arXiv:2202.07282v1 [stat.ML]
+- **URL / DOI:** https://arxiv.org/abs/2202.07282
+- **Contribution:** Analyses ACI's sensitivity to its learning rate in time-series settings and proposes AgACI, an aggregation over several ACI instances with different rates, evaluated on electricity price forecasting.
+- **Why we cite it:** Completes the online-conformal family in §2.3 and is the closest analogue to our setting in structure — a sequential, regime-dependent, heavy-tailed forecasting problem where the calibration target drifts.
+- **Bucket:** calibration-conformal
+
+### [angelopoulos-pid-2023] Angelopoulos, A. N., Candès, E. J., Tibshirani, R. J. 2023. Conformal PID control for time series prediction.
+- **Venue:** NeurIPS 2023; arXiv:2307.16895v1 [cs.LG]
+- **URL / DOI:** https://arxiv.org/abs/2307.16895
+- **Contribution:** Frames prediction-set construction as a control problem, with ACI recovered as the proportional-only special case; adding integral and derivative terms yields more stable coverage under systematic drift.
+- **Why we cite it:** The third of Schmitt's benchmarks and the most general member of the online-conformal family. §2.3 cites it to define the comparator frontier honestly, and §10 records it as outstanding benchmarking work rather than implying it was tested.
+- **Bucket:** calibration-conformal
+
+### [schmitt-rwc-2026] Schmitt, M. 2026. Taming tail risk: regime-weighted conformal calibration for nonstationary Value-at-Risk.
+- **Venue:** arXiv:2602.03903v2 [q-fin.RM], submitted 3 February 2026, revised 13 July 2026 (University of Oxford)
+- **URL / DOI:** https://arxiv.org/abs/2602.03903
+- **Contribution:** Regime-weighted conformal calibration (RWC) wraps any quantile forecaster and calibrates an additive safety buffer from past forecast errors, weighted by exponential time decay and a regime-similarity kernel over simple market features (time-weighted calibration, TWC, is the kernel-free special case). The theoretical contribution is a coverage-gap bound for *arbitrary data-driven weights*, obtained by conditioning on the regime path and exploiting total-variation smoothness of the score distribution across regimes and time, rather than by assuming weighted exchangeability with respect to the algorithm's own weights. Evaluated on the CRSP value-weighted index and sixteen CRSP-derived equity portfolios (1990–2024) against ACI, DtACI and conformal PID at the Basel-relevant 99% and 97.5% levels.
+- **Why we cite it:** The nearest methodological neighbour to the deployed architecture — regime-dependent conformal calibration of a one-sided tail forecast, backtested in the Basel framework. §2.3 distinguishes it on three axes: it weights the calibration sample continuously rather than partitioning it; it evaluates index- and portfolio-level series where the cross-sectional heterogeneity driving our §7.2 result is aggregated away; and it recalibrates a risk manager's internal VaR rather than serving a consumer-requested $\tau$ with an on-chain receipt. Its guarantee technique is also the most promising replacement for our §4.3 within-bin exchangeability argument, which is currently supported empirically (§A.9) rather than theoretically.
+- **Bucket:** calibration-conformal
+
+### [zhong-proxy-2026] Zhong, T. 2026. Proxy-reliance control in conformal recalibration of one-sided Value-at-Risk.
+- **Venue:** arXiv:2603.22569v1 [q-fin.RM], 23 March 2026 (University of Southern California)
+- **URL / DOI:** https://arxiv.org/abs/2603.22569
+- **Contribution:** Introduces a proxy-reliance exponent $\rho \in [0,1]$ applied to a composite volatility proxy in the nonconformity score, $u_s^{(\rho)} = (Y_s - \hat q_{\alpha,s})/v_s^{\rho}$, with adjustment $\hat q^{\text{adj}}_{\alpha,t} = \hat q_{\alpha,t} + c_{\rho,t} v_t^{\rho}$. This interpolates continuously between an approximately constant additive shift ($\rho = 0$) and a fully proxy-scaled correction ($\rho = 1$), making the degree of proxy reliance an explicit design choice. Theoretically, larger $\rho$ increases responsiveness but amplifies stressed-state fragility when the proxy underreacts; empirically (six US ETFs, daily, 2015–2025, Kupiec / Christoffersen / DQ) intermediate $\rho$ can outperform full proxy-scaling on stressed left-tail control. Notably it does *not* claim finite-sample distribution-free coverage, describing its propositions as structural properties under stylised local assumptions.
+- **Why we cite it:** It names an axis this paper fixed without ablating. In Zhong's parameterisation our σ̂-standardised conformity score sits at $\rho = 1$ and the §7.1 constant-buffer comparator at $\rho \approx 0$ — so §7 ablates the endpoints of the axis and not its interior. We cite it in §2.3 for the parameterisation and in §10 as the motivation for a $\rho$-sweep. It is *not* a competing construction: it uses a single pooled quantile with no regime partition, and shares no empirical domain with this paper.
+- **Bucket:** calibration-conformal
+
+### [cuonzo-tail-2026] Cuonzo, S., Deliu, N. 2026. Conformal prediction intervals with tail-specific guarantees.
+- **Venue:** arXiv:2606.18199v1 [math.ST], 16 June 2026 (Sapienza University of Rome; MRC Biostatistics Unit, Cambridge)
+- **URL / DOI:** https://arxiv.org/abs/2606.18199
+- **Contribution:** Constructs one-sided lower and upper conformal intervals attaining *tail-specific* validity alongside global marginal validity — finite-sample under exchangeability, asymptotic without it.
+- **Why we cite it:** Our served band is a one-sided-per-anchor object and §9 discloses that pooled DQ rejects because the bands are per-anchor rather than full-distribution calibrated. This is the closest formal treatment of what a tail-specific guarantee would buy, and the natural reference for the §10 continuous-CDF upgrade.
+- **Bucket:** calibration-conformal
+
+### [wang-qrf-var-2026] Wang, D.-Y., Liang, G., Zhang, K., Zhu, Q. 2026. Reliable real-time Value-at-Risk estimation via quantile regression forest with conformal calibration.
+- **Venue:** arXiv:2602.01912v1 [stat.ML], 2 February 2026 (Renmin University of China; City University of Hong Kong)
+- **URL / DOI:** https://arxiv.org/abs/2602.01912
+- **Contribution:** Couples a quantile-regression-forest VaR forecaster with a conformal calibration layer for real-time estimation.
+- **Why we cite it:** Evidence that conformal-wrapped VaR is an active 2026 construction rather than an isolated result, and an instance of the wrap-any-black-box pattern our architecture also follows (our point estimator is deliberately unremarkable; the contribution is the calibration and serving layer).
+- **Bucket:** calibration-conformal
+
+### [tcp-2025] Aich, A., Aich, A. B., Jain, D. C. 2025. Temporal Conformal Prediction (TCP): a distribution-free statistical and machine learning framework for adaptive risk forecasting.
+- **Venue:** arXiv:2507.05470v6 [stat.ML] (v6 dated 22 January 2026)
+- **URL / DOI:** https://arxiv.org/abs/2507.05470
+- **Contribution:** A time-series conformal layer for adaptive risk forecasting, evaluated on both calibration–sharpness (empirical coverage and average interval width) and left-tail risk diagnostics via the Kupiec and Christoffersen backtests.
+- **Why we cite it:** Independent adoption of exactly the evaluation design this paper uses — coverage plus width plus the Kupiec/Christoffersen pair — which supports §6.1's protocol as the convention in this literature rather than a bespoke choice.
+- **Bucket:** calibration-conformal
+
+### [socio-conformal-2026] Rafe, A., Das, S. 2026. Socio-conformal calibration in complex survey data: marginal validity is not enough for subgroup reliability.
+- **Venue:** arXiv:2605.05562v1 [stat.ME], 7 May 2026 (Texas State University)
+- **URL / DOI:** https://arxiv.org/abs/2605.05562
+- **Contribution:** Demonstrates on the Pew American Trends Panel that standard split-conformal can attain nominal *marginal* coverage while carrying roughly 13-percentage-point weighted subgroup coverage gaps, produced by compensation between over- and under-covered groups. Reports two negative results: group-specific (Mondrian) thresholds worsened the fairness–efficiency trade-off in their setting, and a regularised comparator shrinking group thresholds toward the global quantile improved it only marginally.
+- **Why we cite it:** Independent replication, in an unrelated domain, of the precise mechanism §7.2 identifies — pooled coverage landing at nominal through compensating per-subgroup biases. Their negative result is the load-bearing one for us: partitioning alone does not recover subgroup calibration, which is why the deployed architecture standardises the conformity score by a per-symbol $\hat\sigma_s(t)$ before fitting the per-regime quantile instead of adding a per-(symbol, regime) Mondrian rung. It reframes §7.2 from a local ablation into the resolution of a cross-domain failure mode whose obvious fix does not work.
+- **Bucket:** calibration-conformal
+
 ---
 
 ## Bucket: model-risk-management
@@ -436,6 +527,9 @@ Buckets:
 
 ## Verification summary
 
-- **Verified:** 40 references (all above entries).
+- **Verified:** 53 references (all above entries).
 - **VERIFICATION FAILED:** 0.
+- **2026-07-24 batch (13 entries):** added from the related-work sweep recorded in `reports/active/related_work_sweep_202607.md`. Each was verified by retrieving the PDF from arXiv and extracting its title, author list, and `arXiv:NNNN.NNNNNvN [primary-category]` stamp from page 1 — author lists and categories below are transcribed from those extractions, not from search-result summaries. PDFs held under `exemplars/related-work-sweep-202607/` (gitignored; not redistributed).
+- **Retrieved but not cited:** Zhong, T. 2026, *Reliability-Aware ETF Tail-Risk Monitoring* (arXiv:2604.08765v3 [q-fin.RM]) — adjacent to `zhong-proxy-2026` but a monitoring-systems framing with no bearing on our construction. Zhu, Z., Kiyani, S., Pappas, G., Hassani, H. 2026, *Conformal Risk-Averse Decision Making with Action Conditional Guarantee* (arXiv:2606.05551v2 [stat.ML]) — routed to Paper 3 (liquidation policy), whose action-conditional structure it closely matches.
+- **Wanted, not obtained:** the cross-index overnight→morning-gap forecasting paper (ScienceDirect S2214845026000918) is paywalled; relevant to §6.8 and left uncited pending access rather than cited from its abstract.
 - **Intentionally omitted candidates:** (a) Shapiro & Wolfers 2005 "What explains Monday returns" — could not resolve a specific paper under this exact title; weekend-effect claims are covered by French (1980) and Barclay–Hendershott (2003, 2004) without it. (b) Jovanovic–Wattenhofer oracle-latency 2022 — no reliably attributable paper under that author pair and year; functional replacement covered by the Chainlink 2.0 whitepaper and the Eskandari et al. SoK.
