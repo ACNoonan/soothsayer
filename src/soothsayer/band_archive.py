@@ -48,7 +48,12 @@ PROVENANCE_PRE_OPEN = "published_pre_open"
 # Receipt codes mirroring crates/soothsayer-consumer (FORECASTER_LWC,
 # PROFILE_LENDING).
 FORECASTER_CODE_LWC = 3
+# Reserved on the wire alongside the receipt label in oracle.py. A row under
+# this code is NOT reproducible from the frozen artefact alone — it needs the
+# m_regime and checkpoint_sha256 columns too.
+FORECASTER_CODE_LWC_ADAPTIVE = 5
 PROFILE_CODE_LENDING = 1
+PROFILE_CODE_OVERNIGHT = 3
 
 BANDS_COLUMNS = [
     "weekend_date", "mon_date", "symbol", "tau",
@@ -80,23 +85,39 @@ COMMITMENTS_COLUMNS = [
 DEDUP_KEY = ["weekend_date", "symbol", "tau", "artefact_sha256"]
 SORT_KEY = ["weekend_date", "symbol", "tau"]
 
+# Adaptive rows dedup on the CHECKPOINT hash, not the artefact hash: the
+# frozen quantiles are stable across a whole chain, so artefact_sha256 alone
+# would collapse every checkpoint's rows onto the first one emitted.
+ADAPTIVE_DEDUP_KEY = ["period_date", "symbol", "tau", "checkpoint_sha256"]
+ADAPTIVE_SORT_KEY = ["period_date", "symbol", "tau"]
 
-def append_dedup(path: Path, new: pd.DataFrame, columns: list[str]) -> tuple[int, int]:
+
+def append_dedup(path: Path, new: pd.DataFrame, columns: list[str],
+                 dedup_key: list[str] | None = None,
+                 sort_key: list[str] | None = None) -> tuple[int, int]:
     """Append `new` rows to the CSV at `path`, skipping rows whose
-    DEDUP_KEY already exists. Atomic write, stable sort, %.10g floats.
-    Returns (n_appended, n_total)."""
+    `dedup_key` already exists. Atomic write, stable sort, %.10g floats.
+    Returns (n_appended, n_total).
+
+    `dedup_key` / `sort_key` default to the frozen weekend schema; the
+    adaptive profile passes ADAPTIVE_DEDUP_KEY / ADAPTIVE_SORT_KEY."""
+    dedup_key = dedup_key or DEDUP_KEY
+    sort_key = sort_key or SORT_KEY
     new = new[columns]
     if path.exists():
-        existing = pd.read_csv(path, dtype={"weekend_date": str, "mon_date": str})
-        seen = set(map(tuple, existing[DEDUP_KEY].astype(str).to_numpy()))
+        date_cols = {c: str for c in
+                     ("weekend_date", "mon_date", "period_date",
+                      "next_open_date") if c in columns}
+        existing = pd.read_csv(path, dtype=date_cols)
+        seen = set(map(tuple, existing[dedup_key].astype(str).to_numpy()))
         mask = [tuple(map(str, k)) not in seen
-                for k in new[DEDUP_KEY].astype(str).to_numpy()]
+                for k in new[dedup_key].astype(str).to_numpy()]
         appended = new[mask]
         combined = pd.concat([existing[columns], appended], ignore_index=True)
     else:
         appended, combined = new, new
 
-    combined = combined.sort_values(SORT_KEY).reset_index(drop=True)
+    combined = combined.sort_values(sort_key).reset_index(drop=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".csv.tmp")
     combined.to_csv(tmp, index=False, float_format="%.10g")
