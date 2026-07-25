@@ -33,6 +33,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE_DIR = REPO_ROOT / "data" / "band_archive"
 BANDS_PATH = ARCHIVE_DIR / "bands_v1.csv"
 COMMITMENTS_PATH = ARCHIVE_DIR / "commitments_v1.csv"
+# Adaptive (overnight, W15) profile gets its OWN append-only archive rather
+# than a new column on bands_v1. Three reasons: bands_v1 is parsed by the
+# `soothsayer-verify` crate against a fixed schema; STATUS pins its rows as
+# never-edited; and the two profiles have genuinely different verification
+# procedures — a frozen row is checked against one artefact hash, an
+# adaptive row against an artefact hash *and* a checkpoint hash. Mixing them
+# in one file would force every consumer to branch on profile.
+ADAPTIVE_BANDS_PATH = ARCHIVE_DIR / "bands_adaptive_v1.csv"
 
 PROVENANCE_RETRO = "retro_frozen"
 PROVENANCE_PRE_OPEN = "published_pre_open"
@@ -45,6 +53,18 @@ PROFILE_CODE_LENDING = 1
 BANDS_COLUMNS = [
     "weekend_date", "mon_date", "symbol", "tau",
     "lower", "upper", "point", "half_width_bps", "regime_code",
+    "forecaster_code", "profile_code", "artefact_sha256",
+    "provenance", "computed_ts",
+]
+
+# Adaptive-profile rows carry the two extra fields needed to reproduce the
+# band: the per-cell multiplier in force (`m_regime`) and the checkpoint it
+# came from. Without both, an archive row cannot be re-derived from its own
+# columns, which is the property that makes it an audit record at all.
+ADAPTIVE_BANDS_COLUMNS = [
+    "period_date", "next_open_date", "symbol", "tau",
+    "lower", "upper", "point", "half_width_bps", "regime_code",
+    "m_regime", "checkpoint_sha256", "checkpoint_through",
     "forecaster_code", "profile_code", "artefact_sha256",
     "provenance", "computed_ts",
 ]

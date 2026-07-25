@@ -37,6 +37,14 @@ from soothsayer.config import DATA_PROCESSED
 PANEL = DATA_PROCESSED / "overnight_panel.parquet"
 ARTEFACT_JSON = DATA_PROCESSED / "overnight_adaptive_artefact_v1.json"
 CHECKPOINT_JSON = DATA_PROCESSED / "overnight_adaptive_checkpoint_v1.json"
+CHAIN_JSON = DATA_PROCESSED / "overnight_adaptive_checkpoint_chain_v1.json"
+# Cadence policy: quarterly. Chosen because it bounds an auditor's replay to
+# ~63 overnight periods (one quarter of weeknights) while keeping the number
+# of published hashes small enough to eyeball. Each checkpoint is verifiable
+# by replaying from its predecessor, so the chain is tamper-evident end to
+# end and an auditor picks their own depth: one interval for a spot check,
+# the whole chain for a full audit.
+CHECKPOINT_CADENCE = "quarterly"
 SPLIT_DATE = date(2023, 1, 1)
 SIGMA_EXCL = "earnings_next_week"      # de-contaminated σ̂ — see W12 correction
 
@@ -97,7 +105,35 @@ def main() -> None:
     ARTEFACT_JSON.write_text(json.dumps(artefact, indent=2) + "\n")
     print(f"\nFrozen quantiles sha256 {sha[:16]}…  -> {ARTEFACT_JSON.name}")
 
-    # --- live part: replay m over the whole panel
+    # --- live part: a quarterly chain, plus the latest for serving
+    periods = sorted(set(w["fri_ts"]))
+    q_ends: list[date] = []
+    for p_ in periods:
+        qtr = (p_.month - 1) // 3
+        nxt_i = periods.index(p_) + 1
+        if nxt_i >= len(periods):
+            continue
+        n = periods[nxt_i]
+        if (n.year, (n.month - 1) // 3) != (p_.year, qtr):
+            q_ends.append(p_)
+    chain, prev_state, prev_sha, prev_end = [], None, None, None
+    for q_end in q_ends:
+        # Each link replays only its own quarter, seeded from the previous
+        # checkpoint's state — the same resume path an auditor uses, so the
+        # chain is built by exactly the procedure that verifies it.
+        seg = (w[w["fri_ts"] <= q_end] if prev_end is None
+               else w[(w["fri_ts"] > prev_end) & (w["fri_ts"] <= q_end)])
+        c = replay(seg, qt, DEFAULT_TAUS, profile="overnight",
+                   artefact_sha256=sha, through_period=q_end,
+                   start_state=prev_state)
+        d = c.to_dict(); d["prev_checkpoint_sha256"] = prev_sha
+        chain.append(d)
+        prev_state, prev_sha, prev_end = c.m, c.checkpoint_sha256, q_end
+    CHAIN_JSON.write_text(json.dumps(
+        {"_cadence": CHECKPOINT_CADENCE, "_artefact_sha256": sha,
+         "_n_checkpoints": len(chain), "checkpoints": chain}, indent=2) + "\n")
+    print(f"Chain: {len(chain)} quarterly checkpoints -> {CHAIN_JSON.name}")
+
     through = max(w["fri_ts"])
     ck = replay(w, qt, DEFAULT_TAUS, profile="overnight",
                 artefact_sha256=sha, through_period=through)

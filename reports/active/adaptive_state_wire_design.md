@@ -82,4 +82,14 @@ Learned multipliers at the checkpoint:
 
 **The two properties that mattered are tested, not asserted.** Replaying from a checkpoint equals replaying from inception to 10 decimal places — that is what bounds audit cost to one checkpoint interval. And a tampered state that has been **re-sealed** with a fresh hash still fails `verify_checkpoint`, because recomputation from public prices does not care what hash the provider published. That is the pre-commitment property restored.
 
-**Still to do before promotion:** the receipt field and the `m_regime` archive column (items 1 and 2 above) are specified but not wired into `oracle.py` or `emit_band_archive.py`; and the checkpoint cadence is a decision, not yet a policy — the build currently emits a single checkpoint at the panel end rather than on a schedule.
+**All three items are now implemented.**
+
+**(1) Receipt.** `Oracle.fair_value_overnight_adaptive()` carries `m_regime`, `artefact_sha256`, `checkpoint_sha256`, `checkpoint_through`, `adaptive_gamma` and `contract: "checkpointed_adaptive"` as **receipt fields**, not metadata — a receipt without them cannot reconstruct the band. The method refuses any τ not in the checkpoint's audited anchors rather than interpolating a multiplier the checkpoint does not authorise, and `_load_overnight_adaptive_constants()` refuses to serve at all if the checkpoint fails its own hash or references a different artefact than the sidecar.
+
+**(2) Archive.** `ADAPTIVE_BANDS_COLUMNS` / `ADAPTIVE_BANDS_PATH` in `band_archive.py`, as a **separate** append-only file rather than a column added to `bands_v1.csv`. Three reasons: `bands_v1` is parsed by the `soothsayer-verify` crate against a fixed schema, STATUS pins its rows as never-edited, and the two profiles have genuinely different verification procedures — a frozen row checks against one hash, an adaptive row against an artefact hash *and* a checkpoint hash. Mixing them would force every consumer to branch on profile.
+
+**(3) Cadence — quarterly.** Bounds an auditor's replay to ~63 overnight periods while keeping the published hash count small enough to eyeball. `overnight_adaptive_checkpoint_chain_v1.json` carries **49 linked checkpoints** (2014-03-31 → 2026-03-31), each referencing its predecessor's hash, verified linked end to end. Each link is built by replaying only its own quarter seeded from the previous state — *the same resume path an auditor uses*, so the chain is constructed by exactly the procedure that verifies it.
+
+An auditor picks their own depth: one interval for a spot check, the whole chain for a full audit, and the chain is tamper-evident throughout because breaking any link breaks every hash after it.
+
+**Remaining before promotion:** emit adaptive rows into `bands_adaptive_v1.csv` from the weekly harness (the schema exists, the emitter does not), and Rust parity for the adaptive serving path. Neither is a design question.

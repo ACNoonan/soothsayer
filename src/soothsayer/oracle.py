@@ -92,6 +92,12 @@ LWC_SIDECAR_PATH = DATA_PROCESSED / "lwc_artefact_v1.json"
 # artefact parquet for row lookup (identical point / σ̂ / regime columns) and
 # carries its own quantile table + c(τ) in this sidecar.
 LWC_ONESIDED_SIDECAR_PATH = DATA_PROCESSED / "lwc_onesided_artefact_v1.json"
+# Overnight adaptive profile (W15). Two files by design: the quantiles are
+# frozen and hashed like every other artefact; only the per-cell level lives
+# in the checkpoint, which is itself hashed and replayable from public data.
+OVERNIGHT_ADAPTIVE_ARTEFACT_PATH = DATA_PROCESSED / "overnight_artefact_v1.parquet"
+OVERNIGHT_ADAPTIVE_SIDECAR_PATH = DATA_PROCESSED / "overnight_adaptive_artefact_v1.json"
+OVERNIGHT_ADAPTIVE_CHECKPOINT_PATH = DATA_PROCESSED / "overnight_adaptive_checkpoint_v1.json"
 
 Profile = Literal["lending", "amm"]
 DEFAULT_PROFILE: Profile = "lending"
@@ -113,6 +119,12 @@ LWC_FORECASTER = "lwc"
 # lower bound only, so it is not a drop-in for a `PriceUpdate` consumer
 # expecting a symmetric (point, half_width).
 LWC_ONESIDED_FORECASTER = "lwc_onesided"
+
+# Overnight adaptive receipt label. Reserves FORECASTER_LWC_ADAPTIVE = 5.
+# A band under this label is NOT reproducible from the frozen artefact
+# alone — `diagnostics.m_regime` and `diagnostics.checkpoint_sha256` are
+# required, which is why they are receipt fields rather than metadata.
+LWC_ADAPTIVE_FORECASTER = "lwc_overnight_adaptive"
 
 
 # Per-(regime, τ) trained quantile from the pre-2023 calibration set
@@ -377,6 +389,55 @@ def lwc_onesided_regime_quantile_for(regime: str, tau: float) -> float:
             "`python scripts/build_lwc_onesided_artefact.py` first."
         )
     return _interp_schedule(tau, row)
+
+
+OVERNIGHT_ADAPTIVE_QUANTILE_TABLE: dict[str, dict[float, float]] = {}
+OVERNIGHT_ADAPTIVE_METADATA: dict = {}
+_OVERNIGHT_CHECKPOINT = None
+
+
+def _load_overnight_adaptive_constants(
+    sidecar: Path = OVERNIGHT_ADAPTIVE_SIDECAR_PATH,
+    checkpoint: Path = OVERNIGHT_ADAPTIVE_CHECKPOINT_PATH,
+) -> None:
+    """Load the frozen overnight quantiles and the adaptive checkpoint.
+
+    Both or neither: serving an adaptive band from frozen quantiles without
+    the checkpoint would silently serve m = 1 everywhere, which is a
+    different (and un-validated) method wearing the same receipt label."""
+    global OVERNIGHT_ADAPTIVE_QUANTILE_TABLE, OVERNIGHT_ADAPTIVE_METADATA
+    global _OVERNIGHT_CHECKPOINT
+    if not (Path(sidecar).exists() and Path(checkpoint).exists()):
+        OVERNIGHT_ADAPTIVE_QUANTILE_TABLE = {}
+        OVERNIGHT_ADAPTIVE_METADATA = {}
+        _OVERNIGHT_CHECKPOINT = None
+        return
+    from soothsayer.adaptive_state import Checkpoint
+
+    blob = json.loads(Path(sidecar).read_text())
+    OVERNIGHT_ADAPTIVE_QUANTILE_TABLE = {
+        cell: {float(t): float(v) for t, v in row.items()}
+        for cell, row in blob.get("regime_quantile_table", {}).items()
+    }
+    OVERNIGHT_ADAPTIVE_METADATA = {
+        k: v for k, v in blob.items() if k.startswith("_")
+    }
+    ck = Checkpoint.from_dict(json.loads(Path(checkpoint).read_text()))
+    if not ck.verify_self():
+        raise RuntimeError(
+            f"{Path(checkpoint).name} fails its own hash — refusing to serve "
+            "adaptive bands from a checkpoint that does not match its state."
+        )
+    expected = OVERNIGHT_ADAPTIVE_METADATA.get("_artefact_sha256")
+    if expected and ck.artefact_sha256 != expected:
+        raise RuntimeError(
+            f"checkpoint references artefact {ck.artefact_sha256[:16]}… but "
+            f"the sidecar is {expected[:16]}… — mismatched pair."
+        )
+    _OVERNIGHT_CHECKPOINT = ck
+
+
+_load_overnight_adaptive_constants()
 
 
 _load_lwc_onesided_constants()
@@ -853,5 +914,91 @@ class Oracle:
                 "sigma_hat_sym_pre_fri": sigma_hat,
                 "side": "downside_only",
                 "two_sided_equivalent_coverage": (1.0 + tau) / 2.0,
+            },
+        )
+
+    def fair_value_overnight_adaptive(
+        self,
+        symbol: str,
+        as_of: date | str,
+        target_coverage: float = DEFAULT_TARGET_COVERAGE,
+        artefact_path: Path | str = OVERNIGHT_ADAPTIVE_ARTEFACT_PATH,
+    ) -> PricePoint:
+        """Serve an overnight band under the checkpointed-adaptive profile.
+
+            half = m[tau][r] · q_r(tau) · sigma_hat_sym(t) · prev_close
+
+        `q_r` is frozen and hashed; `m` comes from the published checkpoint.
+        The receipt therefore carries BOTH hashes and the multiplier in
+        force, because the band is not reproducible from the frozen artefact
+        alone — that is the whole difference between this profile and the
+        weekend one, and hiding it in metadata would make the receipt wrong.
+
+        Serving is still O(1): the consumer reads `m_regime` off the receipt.
+        Auditing `m` costs a replay back to `checkpoint_through`, not to
+        inception (`soothsayer.adaptive_state.verify_checkpoint`).
+
+        **Not deployed.** W15 cleared the W17 gate; promotion is blocked on
+        the archive/cadence work in reports/active/adaptive_state_wire_design.md."""
+        if not OVERNIGHT_ADAPTIVE_QUANTILE_TABLE or _OVERNIGHT_CHECKPOINT is None:
+            raise RuntimeError(
+                "Overnight adaptive artefact/checkpoint not loaded. Run "
+                "`python scripts/build_overnight_adaptive_checkpoint.py` first."
+            )
+        from soothsayer.adaptive_state import multiplier_for
+
+        if isinstance(as_of, str):
+            as_of = pd.to_datetime(as_of).date()
+        art = pd.read_parquet(artefact_path)
+        art["fri_ts"] = pd.to_datetime(art["fri_ts"]).dt.date
+        rows = art[(art["symbol"] == symbol) & (art["fri_ts"] == as_of)]
+        if rows.empty:
+            raise ValueError(
+                f"No overnight artefact row for symbol={symbol} as_of={as_of}."
+            )
+        row = rows.iloc[0]
+        regime = str(row["regime_pub"])
+        prev_close = float(row["fri_close"])
+        point = float(row["point"])
+        sigma_hat = float(row["sigma_hat_sym_pre_fri"])
+
+        tau = max(min(target_coverage, MAX_SERVED_TARGET), MIN_SERVED_TARGET)
+        anchors = sorted(_OVERNIGHT_CHECKPOINT.m)
+        served = min(anchors, key=lambda a: abs(a - tau))
+        if abs(served - tau) > 1e-9:
+            raise ValueError(
+                f"adaptive profile serves only the audited anchors {anchors}; "
+                f"tau={tau} would require interpolating the multiplier, which "
+                "the checkpoint does not authorise."
+            )
+        q_regime = _interp_schedule(
+            served, OVERNIGHT_ADAPTIVE_QUANTILE_TABLE.get(
+                regime, OVERNIGHT_ADAPTIVE_QUANTILE_TABLE.get("high_vol", {})))
+        m_regime = multiplier_for(_OVERNIGHT_CHECKPOINT, regime, served)
+        half = m_regime * q_regime * sigma_hat * prev_close
+
+        return PricePoint(
+            symbol=symbol,
+            as_of=as_of,
+            target_coverage=float(target_coverage),
+            calibration_buffer_applied=0.0,
+            claimed_coverage_served=float(served),
+            point=point,
+            lower=point - half,
+            upper=point + half,
+            regime=regime,
+            forecaster_used=LWC_ADAPTIVE_FORECASTER,
+            sharpness_bps=half / prev_close * 1e4 if prev_close else 0.0,
+            profile=self._profile,
+            diagnostics={
+                "fri_close": prev_close,
+                "q_regime_frozen": q_regime,
+                "m_regime": m_regime,
+                "sigma_hat_sym_pre_fri": sigma_hat,
+                "artefact_sha256": _OVERNIGHT_CHECKPOINT.artefact_sha256,
+                "checkpoint_sha256": _OVERNIGHT_CHECKPOINT.checkpoint_sha256,
+                "checkpoint_through": str(_OVERNIGHT_CHECKPOINT.through_period),
+                "adaptive_gamma": _OVERNIGHT_CHECKPOINT.gamma,
+                "contract": "checkpointed_adaptive",
             },
         )
