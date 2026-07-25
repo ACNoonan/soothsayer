@@ -484,6 +484,28 @@ The deployed σ̂-standardised score sits at $\rho = 1$; the §7 constant-buffer
 
 ---
 
+## W16 — W13 + W14 + W15 evaluated together
+
+**Opened and closed 2026-07-25.** `reports/active/w16_combined_cell_changes.md`.
+
+All three modify the per-cell quantile and could not be promoted independently. **They interfere.** W15's adaptation undoes W14's τ=0.95 fix on the weekend panel — it chases period-to-period noise in a 130-row cell, which is the noise shrinkage exists to suppress (triple_witching 0.923 → 0.908, per-regime 4/4 → 3/4, +6 bps width). Overnight, W14 adds nothing and W15 alone is best.
+
+**Recommendation: weekend `W13+W14`, overnight `W15`.** Panel-specific but not arbitrary — shrinkage repairs estimation noise, adaptation repairs drift, and each panel has one of those failures. Read in isolation every experiment says "adopt"; read together, one pairing is harmful.
+
+---
+
+## W17 — promotion gate (deployed configuration)
+
+**Opened and closed 2026-07-25.** `reports/active/w17_promotion_gate.md`.
+
+δ is all-zero under M6, so every prior "δ suppressed" arm *was already* the deployed configuration — that caveat dissolves. c(τ) is the only real difference, and it is the right adversary: a single global scalar that can only widen, with no per-cell channel.
+
+**Both arms pass.** Weekend: **5.0% tighter** at τ=0.95 (370.6 → 351.9 bps), per-regime 3/3 → **4/4**, per-symbol 10/10, pooled coverage unmoved — and c(τ) falls **1.079 → 1.021**, i.e. the recommendation needs *less* global correction because the per-cell structure fixes what c(τ) was papering over. Overnight: per-regime 2/3 → **3/3** at τ=0.68 and 0.85, tighter at three of four anchors, and `earnings_night` at τ=0.85 goes Kupiec **p=0.003 → 0.253**.
+
+**Promotable, subject to:** (a) the adaptive state going on the wire — `reports/active/adaptive_state_wire_design.md`, blocking; (b) under-powered cells (earnings_night n=60, triple_witching n=130) that only the forward tape resolves. **Residual not addressed:** overnight per-symbol is 9/10 at τ=0.68/0.85/0.99 for *both* arms — pre-existing, not a regression, and worth a separate look.
+
+---
+
 ## Cleanup (when this doc is empty)
 
 - [ ] Every workstream above has a terminal decision recorded.
