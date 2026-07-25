@@ -134,6 +134,21 @@ Soothsayer-side future work after rows exist: pool-state reconstructor, path-awa
 
 ## 1. Recent decision log
 
+### 2026-07-21 — Public band archive + `soothsayer-verify` CLI (paper→product verifier track)
+
+**Trigger.** Paper→product push: design-partner outreach needs a "run your own verifier" artefact (product-stack §9 rows 1–2: coverage receipts are open; auditability is the value). Discovery during scoping: no served-band history existed anywhere — the forward-tape harness recomputed bands per fire and persisted only gitignored summaries. Scope doc: `reports/active/verifier_cli_scope.md`.
+
+**Shipped.**
+
+1. **Band archive** `data/band_archive/bands_v1.csv` (committed; exempt from the `data/` gitignore): one row per (weekend, symbol, τ), claims only — edges, point, receipt fields, full artefact SHA-256, `provenance` ∈ {`retro_frozen`, `published_pre_open`}. No truth column by design. Backfilled 480 rows (12 weekends × 10 symbols × 4 τ) from the 2026-05-04 freeze, labelled `retro_frozen`. Emitter `scripts/emit_band_archive.py` is idempotent (dedup on weekend/symbol/τ/sha) and runs as harness step [6/6], fails-open.
+2. **Shared frozen-serving module** `src/soothsayer/backtest/frozen_serving.py` — extracted verbatim from `run_forward_tape_evaluation.py` so the weekly report and the archive serve through one code path (report regeneration verified byte-identical modulo timestamp).
+3. **`crates/soothsayer-verify`** (Rust, workspace member): `coverage` (T1 — archive + independently-fetched Yahoo opens → Kupiec/Christoffersen/per-symbol, split renormalisation with disclosure, 429 backoff), `receipt` (T2 — live `PriceUpdate` decode via `soothsayer-consumer` + invariants), `artefact` (T2 — canonical-JSON self-hash matching `freeze_lwc_artefact.py`'s `ensure_ascii` semantics + frozen-parquet hash + archive linkage). Statistics re-implemented independently of `metrics.py` (self-confirmation guard), parity-pinned against scipy to ≤1e-9 incl. the real 12-weekend panel (`tests/parity.rs`, fixture via `scripts/gen_verify_parity_fixture.py`).
+4. **Hard-rule #1 scoped exception (decision).** The verifier fetches Yahoo directly — routing truth through scryer would make the audit circular. Exception is confined to the crate; analysis code may not call into it. Approved by Adam 2026-07-21.
+
+**Finding (truth semantics).** End-to-end run reproduces the 12-weekend report at τ ∈ {0.85, 0.95, 0.99} exactly; τ=0.68 differs by one violation (33→34/120): AAPL's 2026-07-06 open, captured 4.6 bps inside the band edge, has since been revised by Yahoo to just outside. Upstream open-print revision on band-edge-marginal rows is now a documented property of the T1 audit (O13-adjacent truth-semantics disclosure; no verdict changes).
+
+**Open.** T3 (band re-derivation from frozen scalars + public features) deferred; `published_pre_open` provenance starts when archive emission wires into a pre-open publisher path; `receipt` untested against a live devnet account (publish→read-back wiring is still TODO per STATUS).
+
 ### 2026-05-04 — M6 σ̂ promoted from K=26 trailing window to EWMA HL=8 (Phase 5)
 
 **Trigger.** Phase 2 §11 discussion-list item 2 flagged that LWC has split-date Christoffersen rejections at τ=0.95 at the 2021 + 2022 anchors (p = 0.0065 / 0.0016) — the per-symbol scale series was slowly-varying, so a calm streak under-estimated σ̂ going into vol shocks and violations clustered at regime boundaries. M6_REFACTOR.md Phase 5 specced an EWMA σ̂ prototype to test whether shortening the effective memory closes the rejection.

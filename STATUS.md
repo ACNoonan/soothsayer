@@ -41,6 +41,7 @@
 | **Devnet publish path** | `crates/soothsayer-publisher`, `programs/` | Router v0 deployed devnet 2026-04-29 at `AZE8HixpkLpqmuuZbCku5NbjWqoQLWhPRTHp8aMY9xNU`. Publish→read-back not yet wired end-to-end (`initialize` runner is a TODO; see `docs/devnet-quickstart.md`). |
 | **Forward-tape harness** | `scripts/run_forward_tape_harness.sh` | Live on launchd, fires weekly Tuesday. **N=11 forward weekends** (2026-05-01 → 2026-07-10): pooled Kupiec passes all four anchors, per-symbol 10/10 at τ=0.95. |
 | **AMM design-partner onboarding** | `docs/INTEGRATION.md` | Stubs scaffolded (integration guide + devnet quickstart + README section); content gated on the Paper 1 release. ROADMAP Phase 2. |
+| **Verifier + band archive (paper→product)** | `reports/active/verifier_cli_scope.md` | v0.1 shipped 2026-07-21: public band archive `data/band_archive/bands_v1.csv` (480 rows / 12 weekends, claims-only, append-only) + `crates/soothsayer-verify` (`coverage` / `receipt` / `artefact`; stats parity-pinned vs scipy ≤1e-9). Harness emits archive weekly (step [6/6]). Next (per scope doc §11.2): **pre-open commitment** (Friday half-width + Monday pre-open point, publicly timestamped), then coverage dashboard, then LOI outreach pack. |
 | **Repo public-share prep** | this file | ✅ Papers moved to `research/`; committed secrets removed; third-party papers + internal drafts untracked. |
 
 Backlog of candidate workstreams sits in `reports/active/validation_backlog.md`. Treat that as scratch — anything that *sticks* gets folded into `reports/methodology_history.md`.
@@ -52,7 +53,7 @@ Backlog of candidate workstreams sits in `reports/active/validation_backlog.md`.
 | Task | First file | Then |
 |---|---|---|
 | Understand current deployed methodology | `reports/methodology_history.md` §0 | latest dated entry under §1 |
-| Paper 1 revision | `research/coverage-inversion/{section}.md` | `reports/m6_validation.md` for the evidence pack |
+| Paper 1 revision | `research/coverage-inversion/README.md` **first** — then `research/coverage-inversion/rewrite/{section}.md` (the live tree; `archive-v1/` is superseded and ships nothing) | `reports/m6_validation.md` for the evidence pack |
 | Paper 3 (liquidation policy) | `research/liquidation-policy/plan.md` | `docs/protocol_semantics_kamino_xstocks.md` for the verified Kamino semantics |
 | Paper 4 (oracle-conditioned AMM) | `research/oracle-conditioned-amm/plan.md` | `research/oracle-conditioned-amm/scryer_pipeline_plan.md` |
 | M6 Phase 7 (Rust port) | `reports/active/m6_refactor.md` §7 | `crates/soothsayer-oracle/` (M5 path is the parity reference) |
@@ -72,7 +73,8 @@ Backlog of candidate workstreams sits in `reports/active/validation_backlog.md`.
 - The wire-format invariance guarantee (`PriceUpdate` Borsh layout) is the consumer contract. Any change to it is a breaking on-chain change and needs a migration plan.
 - σ̂ rule = **EWMA HL=8** as of 2026-05-04 (promoted from K=26 trailing window). Column name `sigma_hat_sym_pre_fri` is preserved across the swap, so consumers don't need to know which σ̂ rule is live.
 - Forward-tape harness on launchd validates the frozen freeze on each new closed weekend. If you change the freeze, update `scripts/freeze_lwc_artefact.py` and let the auto-discovery glob pick it up.
-- **Hard rule:** all upstream data fetching goes through scryer. See `CLAUDE.md` rule #1.
+- `data/band_archive/bands_v1.csv` is the **public, append-only** served-band record `soothsayer-verify` audits. Never edit or delete rows; a new freeze appends under its own sha. It is the one committed path under `data/`.
+- **Hard rule:** all upstream data fetching goes through scryer. See `CLAUDE.md` rule #1. Scoped exception (2026-07-21): `crates/soothsayer-verify` fetches Yahoo directly — independent truth is the point of a verifier. Analysis code may not call into it.
 
 ---
 
