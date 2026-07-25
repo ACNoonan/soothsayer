@@ -45,14 +45,13 @@ import pandas as pd
 from scipy.stats import norm
 
 from soothsayer.backtest import metrics as met
-from soothsayer.backtest.calibration import (
-    DEFAULT_TAUS,
-    SIGMA_HAT_K,
-    SIGMA_HAT_MIN,
-    add_sigma_hat_sym,
-    add_sigma_hat_sym_blend,
-    add_sigma_hat_sym_ewma,
-    compute_score_lwc,
+from soothsayer.backtest.calibration import DEFAULT_TAUS
+from soothsayer.backtest.frozen_serving import (
+    apply_frozen_sigma_rule,
+    frozen_schedules,
+    interp,
+    load_frozen,
+    serve_frozen,
 )
 from soothsayer.config import DATA_PROCESSED, REPORTS
 
@@ -67,137 +66,9 @@ PIT_DENSE_GRID = (
 )
 
 
-# ============================================================ frozen constants
-
-
-def _load_frozen(suffix: str | None) -> tuple[Path, dict]:
-    if suffix is not None:
-        path = DATA_PROCESSED / f"lwc_artefact_v1_frozen_{suffix}.json"
-        if not path.exists():
-            raise FileNotFoundError(f"Frozen artefact not found: {path}")
-    else:
-        candidates = sorted(DATA_PROCESSED.glob("lwc_artefact_v1_frozen_*.json"))
-        if not candidates:
-            raise FileNotFoundError("No frozen artefact in data/processed/.")
-        path = candidates[-1]
-    return path, json.loads(path.read_text())
-
-
-def _apply_frozen_sigma_rule(panel: pd.DataFrame, sidecar: dict) -> pd.DataFrame:
-    """Compute σ̂ on `panel` per the frozen artefact's σ̂ rule and surface the
-    value under the canonical `sigma_hat_sym_pre_fri` column the rest of the
-    serving formula reads.
-
-    Dispatches on `sidecar["sigma_hat"]["method"]` so the evaluator stays in
-    sync with whichever variant the canonical artefact was built under.
-    Mirrors the variant-bundle evaluator's σ̂ dispatch so step-4 and step-5
-    forward-tape reports agree byte-for-byte for the canonical variant.
-
-    Older frozen sidecars (pre-Phase-5) lack the `sigma_hat` block; in that
-    case we fall back to the K=26 trailing-window default, matching the
-    pre-promotion behaviour. New frozen sidecars (post 2026-05-04) always
-    include the block.
-    """
-    sigma = sidecar.get("sigma_hat", {}) or {}
-    method = sigma.get("method", "trailing_window")
-    min_obs = int(sigma.get("min_past_obs", SIGMA_HAT_MIN))
-    if method == "trailing_window":
-        K = int(sigma.get("K_weekends", SIGMA_HAT_K))
-        out = add_sigma_hat_sym(panel, K=K, min_obs=min_obs)
-        return out
-    if method == "ewma":
-        hl = int(sigma["half_life_weekends"])
-        out = add_sigma_hat_sym_ewma(panel, half_life=hl, min_obs=min_obs)
-        out["sigma_hat_sym_pre_fri"] = out[f"sigma_hat_sym_ewma_pre_fri_hl{hl}"]
-        return out
-    if method == "blend":
-        alpha = float(sigma["alpha"])
-        hl = int(sigma["half_life_weekends"])
-        K = int(sigma.get("K_weekends", SIGMA_HAT_K))
-        out = add_sigma_hat_sym_blend(panel, alpha=alpha, half_life=hl,
-                                      K=K, min_obs=min_obs)
-        a_tag = int(round(alpha * 100))
-        out["sigma_hat_sym_pre_fri"] = (
-            out[f"sigma_hat_sym_blend_pre_fri_a{a_tag}_hl{hl}"]
-        )
-        return out
-    raise ValueError(f"Unknown σ̂ method {method!r} in frozen sidecar.")
-
-
-def _frozen_schedules(sidecar: dict) -> tuple[dict, dict, dict]:
-    """Pull the three frozen schedules out of the JSON sidecar with the
-    {regime → {τ → b}} / {τ → c} / {τ → δ} shapes that
-    `serve_bands_lwc` expects."""
-    quantile_table = {
-        regime: {float(tau): float(b) for tau, b in row.items()}
-        for regime, row in sidecar["regime_quantile_table"].items()
-    }
-    c_bump_schedule = {
-        float(tau): float(c)
-        for tau, c in sidecar["c_bump_schedule"].items()
-    }
-    delta_shift_schedule = {
-        float(tau): float(d)
-        for tau, d in sidecar["delta_shift_schedule"].items()
-    }
-    return quantile_table, c_bump_schedule, delta_shift_schedule
-
-
-# ====================================================== σ̂ + serve from frozen
-
-
-def _interp(table: dict[float, float], x: float) -> float:
-    keys = sorted(table.keys())
-    if x <= keys[0]:
-        return float(table[keys[0]])
-    if x >= keys[-1]:
-        return float(table[keys[-1]])
-    for i in range(len(keys) - 1):
-        lo, hi = keys[i], keys[i + 1]
-        if lo <= x <= hi:
-            frac = (x - lo) / (hi - lo)
-            return float(table[lo] + frac * (table[hi] - table[lo]))
-    return float(table[keys[-1]])
-
-
-def _serve_frozen(
-    panel: pd.DataFrame,
-    qt: dict, cb: dict, delta: dict,
-    taus: tuple[float, ...] = DEFAULT_TAUS,
-) -> dict[float, pd.DataFrame]:
-    """Apply the frozen LWC serving formula. Identical to
-    `calibration.serve_bands_lwc` but reads schedules from the JSON
-    sidecar (not the module-level LWC_* runtime tables) so we are
-    immune to live-artefact updates between freeze and evaluation."""
-    point = panel["fri_close"].astype(float) * (
-        1.0 + panel["factor_ret"].astype(float)
-    )
-    fri_close = panel["fri_close"].astype(float).to_numpy()
-    sigma = panel["sigma_hat_sym_pre_fri"].astype(float).to_numpy()
-    cells = panel["regime_pub"].astype(str).to_numpy()
-    out: dict[float, pd.DataFrame] = {}
-    anchors = sorted(cb.keys())
-    for tau in taus:
-        d = float(delta.get(tau, 0.0))
-        served = min(tau + d, anchors[-1])
-        c = _interp(cb, served)
-        b_per_row = np.array([
-            _interp(qt[c_], served) if c_ in qt else np.nan
-            for c_ in cells
-        ], dtype=float)
-        # Rows whose regime is unknown to the frozen table (shouldn't
-        # happen given the panel's regime classifier matches the
-        # frozen one, but defensive): fall back to high_vol if known.
-        unk = ~np.isfinite(b_per_row)
-        if unk.any() and "high_vol" in qt:
-            b_per_row[unk] = _interp(qt["high_vol"], served)
-        q_eff = c * b_per_row
-        half = q_eff * sigma * fri_close
-        out[tau] = pd.DataFrame(
-            {"lower": point.values - half, "upper": point.values + half},
-            index=panel.index,
-        )
-    return out
+# Frozen-constant loading + the serving formula live in
+# `soothsayer.backtest.frozen_serving` (shared with the band-archive
+# emitter so the weekly report and the public archive cannot drift).
 
 
 # ============================================================== PIT + metrics
@@ -223,7 +94,7 @@ def _build_pits(
         if q_row is None:
             continue
         b_anchors = np.array(
-            [_interp(q_row, tau) * _interp(cb, tau) for tau in grid_taus],
+            [interp(q_row, tau) * interp(cb, tau) for tau in grid_taus],
             dtype=float,
         )
         s = sigma[i]
@@ -469,8 +340,8 @@ def main() -> None:
         print(f"Wrote {stub}", flush=True)
         return
 
-    frozen_path, sidecar = _load_frozen(args.frozen_suffix)
-    qt, cb, delta = _frozen_schedules(sidecar)
+    frozen_path, sidecar = load_frozen(args.frozen_suffix)
+    qt, cb, delta = frozen_schedules(sidecar)
     print(f"Frozen artefact: {frozen_path.name}", flush=True)
     print(f"  freeze_date={sidecar.get('_freeze_date')}  "
           f"sha256={sidecar.get('_artefact_sha256','')[:12]}…", flush=True)
@@ -482,7 +353,7 @@ def main() -> None:
     # The post-2026-05-04 canonical variant is EWMA HL=8; pre-Phase-5
     # artefacts default to the K=26 trailing window.
     full = tape.copy()
-    full = _apply_frozen_sigma_rule(full, sidecar)
+    full = apply_frozen_sigma_rule(full, sidecar)
     forward = full[full["is_forward"] & full["sigma_hat_sym_pre_fri"].notna()].copy()
     forward = forward.sort_values(["fri_ts", "symbol"]).reset_index(drop=True)
     n_forward_post_sigma = len(forward)
@@ -492,7 +363,7 @@ def main() -> None:
               flush=True)
         return
 
-    bounds = _serve_frozen(forward, qt, cb, delta)
+    bounds = serve_frozen(forward, qt, cb, delta)
     pooled = _pooled_metrics(forward, bounds, DEFAULT_TAUS)
     per_sym_k = _per_symbol_kupiec(forward, bounds, DEFAULT_TAUS)
     per_sym_b = _per_symbol_berkowitz(forward, qt, cb)

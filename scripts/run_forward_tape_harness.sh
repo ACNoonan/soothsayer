@@ -19,6 +19,9 @@
 #      out re-validation of the EWMA HL=8 selection. Additive, fails-
 #      open: a missing bundle or evaluator error does not affect the
 #      canonical step-4 report.
+#   6. Append the weekend's served bands to the public band archive
+#      (`data/band_archive/bands_v1.csv`) that `soothsayer-verify`
+#      audits against. Additive, fails-open, idempotent.
 #
 # All stdout / stderr is appended to `~/Library/Logs/soothsayer-forward-tape.log`.
 # The script does NOT git commit — Adam reviews the produced reports
@@ -85,7 +88,7 @@ export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
     fi
 
     echo
-    echo "[5/5] run_forward_tape_variant_comparison.py …"
+    echo "[5/6] run_forward_tape_variant_comparison.py …"
     # Additive — failure here does NOT abort the harness; the canonical
     # step-4 report is the deployment-load-bearing one. The variant
     # comparison is a transparency layer for the §13.6 selection-procedure
@@ -95,6 +98,21 @@ export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
     if [ "$rc" -ne 0 ]; then
         echo "WARN: run_forward_tape_variant_comparison.py exited $rc — "
         echo "      canonical step-4 report still landed; rerun by hand."
+    fi
+
+    echo
+    echo "[6/6] emit_band_archive.py …"
+    # Additive — appends the weekend's served bands to the public
+    # band archive (data/band_archive/bands_v1.csv) that
+    # `soothsayer-verify` audits against. Fails open like step 5:
+    # the canonical report is the load-bearing artefact; a missed
+    # archive append is recovered idempotently on the next fire or
+    # by hand.
+    uv run python scripts/emit_band_archive.py
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo "WARN: emit_band_archive.py exited $rc — rerun by hand; "
+        echo "      append is idempotent (deduped on weekend/symbol/tau/sha)."
     fi
 
     echo
