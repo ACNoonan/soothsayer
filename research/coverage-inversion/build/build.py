@@ -44,8 +44,13 @@ NAMED_PDF = "Coverage-Inversion - Calibration-Transparent Fair-Value Oracles for
 # Source-only arXiv submission tarball (paper.tex + arxiv.sty + paper.bbl + figures).
 ARXIV_TARBALL = "arxiv_submission.tar.gz"
 
-# Canonical section order. Files prefixed by 0X are the body; references.md
-# is rendered separately via the BibTeX path.
+# v1 section order. SUPERSEDED — the live paper is the v2 rewrite below.
+# These files were moved to archive-v1/ on 2026-07-24 because their names
+# collide with the v2 section names (both have 02_related_work.md), and an
+# edit intended for the submission landed in the v1 tree by mistake. Do not
+# edit archive-v1/ to change the paper; edit rewrite/.
+# references.md is shared by every build and stays at the paper root.
+V1_DIR_NAME = "archive-v1"
 SECTION_ORDER = [
     "00_abstract.md",
     "01_introduction.md",
@@ -85,6 +90,7 @@ APPENDIX_ORDER_V2 = [
     "13_appendix_D.md",
     "14_appendix_E.md",
     "15_appendix_F.md",
+    "16_appendix_G.md",
 ]
 
 # Map references.md "### [key] Author. Year. Title." entries → BibTeX @misc.
@@ -113,6 +119,12 @@ def parse_references_md(refs_md: Path) -> list[dict]:
             if year:
                 pre, post = header_rest.split(year, 1)
                 author = pre.rstrip(" .,")
+                # The "Author. Year." delimiter period is indistinguishable from
+                # a final author's initial ("Kim, T."), and rstrip eats both —
+                # which rendered as "T Kim" / "A Gammerman" in the bibliography.
+                # Restore it when the author list ends in a bare initial.
+                if re.search(r"(?:^|[\s.])[A-Z]$", author):
+                    author += "."
                 title = post.lstrip(" .,").rstrip(" .")
             else:
                 author = header_rest.rstrip(" .")
@@ -172,6 +184,32 @@ def normalise_authors(raw: str) -> str:
     return " and ".join(pairs)
 
 
+def protect_caps(title: str) -> str:
+    """Brace-protect tokens whose capitalisation the bibliography style flattens.
+
+    plainnat sentence-cases titles, which mangles acronyms and intercapped
+    names: "SoK of RWA Tokenization" rendered as "Sok of rwa tokenization",
+    "(EnbPI)" as "(enbpi)", and "ACon²" as "Acon²". A token is braced when it
+    carries an uppercase letter that is not its first alphabetic character
+    (SoK, RWA, DeFi, xStocks, Value-at-Risk, U.S.) or an uppercase immediately
+    after a digit (24X, USA500). Ordinary sentence-initial capitals are left
+    alone so the style's sentence-casing still applies everywhere else.
+
+    Tokens containing `$` are skipped — brace-wrapping would break inline math.
+    """
+    out = []
+    for tok in title.split(" "):
+        if not tok or tok.startswith("{") or "$" in tok:
+            out.append(tok)
+            continue
+        alpha_idx = [i for i, c in enumerate(tok) if c.isalpha()]
+        needs = any(tok[i].isupper() for i in alpha_idx[1:])
+        if re.search(r"\d[A-Z]", tok):
+            needs = True
+        out.append("{" + tok + "}" if needs else tok)
+    return " ".join(out)
+
+
 def write_bibtex(entries: list[dict], out_path: Path) -> None:
     """Render entries as @misc{key, ...} BibTeX records."""
     out = []
@@ -180,7 +218,7 @@ def write_bibtex(entries: list[dict], out_path: Path) -> None:
         if e["year"]:
             fields.append(f"  year = {{{e['year']}}}")
         if e["title"]:
-            fields.append(f"  title = {{{bibtex_escape(e['title'])}}}")
+            fields.append(f"  title = {{{protect_caps(bibtex_escape(e['title']))}}}")
         if e["venue"]:
             fields.append(f"  howpublished = {{{bibtex_escape(e['venue'])}}}")
         if e["url"]:
@@ -304,7 +342,7 @@ def concat_sections(defined_keys: set[str], aft: bool = False,
     for fname in SECTION_ORDER:
         if aft and fname == "12_appendix_reproducibility.md":
             continue
-        path = PAPER_DIR / fname
+        path = PAPER_DIR / V1_DIR_NAME / fname
         if aft and (PAPER_DIR / "aft" / fname).exists():
             path = PAPER_DIR / "aft" / fname
         if not path.exists():
