@@ -416,6 +416,74 @@ Three diagnostic findings:
 
 ---
 
+## W10 — Adaptive-conformal baselines (ACI / DtACI / conformal PID)
+
+**Opened 2026-07-24** from the related-work sweep (`reports/active/related_work_sweep_202607.md`).
+
+**Context.** §7's comparator set is GARCH-$t$, GARCH-Gaussian, unweighted Mondrian, and constant buffer — every one either parametric or an internal ablation. It contains **no adaptive-conformal baseline**. Schmitt's regime-weighted conformal calibration [`schmitt-rwc-2026`, arXiv:2602.03903, q-fin.RM] benchmarks against exactly ACI, DtACI, and conformal PID at the Basel 99% / 97.5% levels, which establishes that comparator set as the convention in this literature. A conformal-literate referee asks for it first.
+
+**What to run.** ACI [`gibbs-aci-2021`], DtACI [`gibbs-dtaci-2022`], and conformal PID [`angelopoulos-pid-2023`] on the existing 2023+ weekend holdout, same point estimator and same OOS slice as every other §7 comparator, reported on the standard grid (realised, half-width, $p_{uc}$, $p_{ind}$, per-symbol Kupiec pass-rate) with block-bootstrap CIs paired by `(symbol, fri_ts)`.
+
+**Why it is not obviously a threat.** These methods target *long-run marginal* coverage under drift on a single continuously-trading series. Our claim is per-symbol calibration across a heterogeneous 10-ticker panel over a closed-market gap; ACI has no per-symbol channel, so the expected result is that it pools acceptably and fails per-symbol in the same manner as the unweighted-Mondrian comparator (§7). That is a *result worth reporting*, not a risk — but it is currently an assertion we have not measured.
+
+**Gate.** Not a deployment gate. It is a Paper 1 §7 completeness gate: either run it and report it, or state explicitly in §9 that the online-conformal family is un-benchmarked and why.
+
+**✅ CLOSED 2026-07-24.** Ran. Results in `reports/active/w10_online_conformal_baselines.md`; runner `scripts/run_paper1_w10_online_conformal_baselines.py`; tables `reports/tables/w10_online_conformal_baselines.csv`.
+
+**Outcome, per-symbol axis.** At τ = 0.95, pooled on the un-standardised score: ACI 3/10, DtACI 3/10, PI 2/10 per-symbol Kupiec — reproducing the unweighted-Mondrian 2/10. Pooled on the **σ̂-standardised** score every engine passes 10/10; run **per-symbol** on the un-standardised score ACI and DtACI also reach 10/10. Pooled realised coverage spans 0.947–0.957 across the whole grid, so neither pooled coverage nor per-symbol calibration separates the architecture from an online learner.
+
+**Outcome, per-regime axis — this is the decisive one, and the first reading of this run got it backwards.** The initial write-up concluded "the load-bearing component is the σ̂, not the Mondrian partition" from a grid that had **only measured pooled and per-symbol coverage**. Adding per-regime coverage (W12 below, plus a re-run of this grid across both panels) inverts it. Weekend `high_vol`: deployed 0.955, every online arm 0.905–0.932. Overnight `earnings_night`: **deployed 0.983, every online arm 0.317–0.383** — twelve configurations, not one above 0.383 against a claimed 0.95. Per-regime Kupiec: deployed 3/3 on both panels; best online 2/3 weekend, 1/3 overnight.
+
+**Conclusion.** σ̂ and the partition are load-bearing on *different axes* — σ̂ for per-symbol, the partition for per-regime — and neither substitutes for the other. Online adaptation substitutes for neither: it converges a *global* miscoverage level from realised feedback and has no channel to widen for a scheduled event before observing it. The deployed architecture is the only configuration tested, on either panel, passing pooled + per-symbol + per-regime simultaneously. The apparent 8.7% sharpness win for per-symbol ACI is under-provisioning of the regimes that carry the risk, not sharpness under a calibration constraint. §7 and §9 rewritten accordingly; the auditability argument (O(1) vs O(t) verification) was **dropped** on user direction that ability-to-verify, not cost-to-verify, is the operative bar.
+
+---
+
+## W12 — does the regime partition earn its place *given* σ̂?
+
+**Opened and closed 2026-07-24.** Runner `scripts/run_paper1_w12_partition_given_sigma.py`; results `reports/active/w12_partition_given_sigma.md`; tables `reports/tables/w12_partition_given_sigma{,_by_regime}.csv`.
+
+**Context.** §7's comparators form a 2×2 on {σ̂, partition} and one cell had never been run: σ̂ *without* the partition. §7.1 tests stratification against a comparator that also lacks σ̂; §7.2 tests σ̂ against a comparator that has the partition. W10 made the gap urgent by showing pooled ACI on the σ̂ score reaching per-symbol 10/10 with no partition at all.
+
+**Design.** All four cells as frozen split-conformal through the sanctioned code path, differing only in `(forecaster, cell_col)`; δ(τ) suppressed uniformly so the M5 arms cannot carry a walk-forward correction the LWC arms lack. Run on the weekend panel **and** the overnight panel.
+
+**Result at τ = 0.95.** σ̂ · pooled (the missing cell) passes per-symbol **10/10** and fails per-regime **1/3 weekend / 0/3 overnight**: it under-covers `high_vol` at 0.926 and over-covers `normal` at 0.965, averaging to nominal by cancellation — the §7.2 compensation mechanism reappearing along the regime axis. Overnight it realises **0.333** on `earnings_night` against a claimed 0.95, versus 0.983 deployed; the partition widens that band to 2,508 bps from 342 bps.
+
+**Verdict: the partition stays, and §7's "three load-bearing components" framing survives** — but the reason is now measured rather than assumed. It is not calibration efficiency in aggregate; it is conditional coverage on identifiable, calendar-known regimes, which is also what makes the §6.8 earnings-widening product claim work.
+
+---
+
+## W11 — Proxy-reliance exponent $\rho$ sweep
+
+**Opened 2026-07-24** from the same sweep.
+
+**Context.** Zhong [`zhong-proxy-2026`, arXiv:2603.22569, q-fin.RM] parameterises the exponent on the volatility proxy in the nonconformity score, $u_s^{(\rho)} = (Y_s - \hat q_{\alpha,s})/v_s^{\rho}$, interpolating between an additive shift ($\rho = 0$) and a fully proxy-scaled correction ($\rho = 1$), and finds intermediate $\rho$ more robust when the proxy underreacts in stress.
+
+The deployed σ̂-standardised score sits at $\rho = 1$; the §7 constant-buffer comparator sits at $\rho \approx 0$. **Both endpoints of this axis are already ablated and the interior is not.** Grep confirms no exponent / scale-exponent discussion in `reports/methodology_history.md` or `reports/active/m6_refactor.md` — this was never considered and rejected, it was never considered.
+
+**What to run.** $\rho \in \{0, 0.25, 0.5, 0.75, 1\}$ on the existing weekend panel, refitting $q_r(\tau)$ per $\rho$ on the same training split, reported on the standard grid plus a `high_vol`-conditional slice (the regime where Zhong's stressed-state effect would appear). Endpoints are already computed, so the marginal cost is three interior cells.
+
+**Gate.** Not a deployment gate — $\rho = 1$ stays deployed unless an interior value dominates on both per-symbol Kupiec and width. It is a defensibility item: it converts "why $\rho = 1$?" from an unanswered referee question into either a defended choice or a finding.
+
+**✅ CLOSED 2026-07-25.** `reports/active/w11_rho_sweep.md`. **ρ = 1 vindicated.** Per-symbol Kupiec is strictly monotone increasing in ρ on both panels at every anchor (weekend 3→10 at τ=0.68, 2→10 at τ=0.95; overnight 0→10 at τ=0.95); there is no interior optimum. Lower ρ is narrower but under-covers — the same "tighter by under-provisioning" pattern as every other comparator in this programme. Zhong's stress claim does **not** transfer: `high_vol` coverage improves monotonically *with* ρ on both panels. Attributable to what σ̂ is for here — cross-sectional scale normalisation across ten heterogeneous symbols (W10/W12), not the temporal stress-responsiveness Zhong's generic proxy supplies. His setting has no cross-sectional axis, so neither result contradicts the other. Worth one sentence in §2.3/§7 alongside the Zhong citation.
+
+**Note.** If an interior $\rho$ wins under `high_vol` specifically, that interacts with the regime taxonomy rather than replacing it, and belongs in the methodology log before any artefact change.
+
+---
+
+## W15 — hybrid: frozen cells with an adaptive level inside each cell
+
+**Opened and closed 2026-07-25.** `reports/active/w15_hybrid_adaptive_cells.md`; runner `scripts/run_paper1_w15_hybrid_adaptive_cells.py`.
+
+**Construction.** Keep the Mondrian partition (W12: the only channel that can widen for a calendar-known event) and adapt only the level within each cell: `half = m_{r,t}·q_r(τ)·σ̂·fri_close`, `m_{r,t+1} = m_{r,t}·exp(γ(err_{r,t} − (1−τ)))`. γ=0 reproduces the deployed band. State is 3–4 scalars under a deterministic public-data update — publishable in the receipt and checkpointable, which is what keeps one-step verification.
+
+**Result — overnight adopt at γ≈0.05, weekend leave frozen.** Overnight per-regime 2/3 → 3/3 at τ=0.68/0.85, per-symbol 9→10, and slightly tighter pooled at three of four anchors. The `earnings_night` cell learns `m → 0.779` (effective ≈5.5× against a trained 7×), tightening 2453 → 2080 bps (−15%) with Kupiec p 0.171 → 0.529 and coverage holding at 0.967 — versus the 0.317–0.383 pure online conformal delivered on that cell. **This repairs exactly the drift W14 diagnosed and shrinkage could not touch.** Weekend is inert (multipliers 0.99–1.06, τ=0.95 marginally worse) — correctly so, since W14 showed the weekend cells are noisy rather than drifting.
+
+**Why it matters beyond the numbers.** W10 concluded the frozen architecture pays a sharpness penalty for verifiability. It does not have to: the hybrid recovers part of that penalty without surrendering conditional coverage or one-step verification.
+
+**Before promotion:** re-run with δ and c(τ) active; put `m_{r,t}` in the receipt and band archive (a served band stops being a pure function of the frozen artefact — the audit story must say so); γ is a plateau not an optimum; earnings_night n=60 remains under-powered; and W13 / W14 / W15 all touch the per-cell quantile and must be evaluated together before anything lands in the artefact.
+
+---
+
 ## Cleanup (when this doc is empty)
 
 - [ ] Every workstream above has a terminal decision recorded.
