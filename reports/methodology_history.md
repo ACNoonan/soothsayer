@@ -134,6 +134,23 @@ Soothsayer-side future work after rows exist: pool-state reconstructor, path-awa
 
 ## 1. Recent decision log
 
+### 2026-07-24 — Pre-open commitment scheme (timing closes the audit chain)
+
+**Trigger.** Scope-doc §11.1: derivation-verification is only a substitute for missing timestamps — once a band is publicly committed before its outcome, coverage of pre-committed intervals is a complete audit chain (the conformal guarantee needs no score-function fidelity). §11.2 sequencing pulled this ahead of the dashboard.
+
+**Design.** M6 factorises: half-width `q_eff·σ̂·fri_close` is Friday-close-determined; only the center moves with weekend futures. Two emissions (`scripts/emit_band_commitments.py`, launchd wrappers in `launchd/com.adamnoonan.soothsayer.band-{commit,preopen}.plist`):
+
+1. **Saturday ~19:30 ET** (CBOE VIX is T+1; scryer's cboe-indices run lands Friday's row Saturday 18:30): per-symbol σ̂ (frozen EWMA rule over a context panel anchored to the freeze cutoff, exactly like the forward-tape collector), publication regime, per-τ half-widths → `data/band_archive/commitments_v1.csv`. Honesty guard: refuses to write after Globex reopen (Sunday 17:45 ET cushion).
+2. **Monday 07:30 ET** (cme-intraday-1m runs ~02:00 ET): point = committed `fri_close × (1 + factor_ret)` using the factor instrument's Monday session-bar open via the same panel loaders as evaluation — semantics match by construction; band = point ± **committed half-width verbatim** (a commitment is binding; recomputation drift is an alarm, not an update) → `bands_v1.csv` with `provenance=published_pre_open`. Honesty guard: refuses to write after 09:25 ET.
+
+The shared dedup key (weekend, symbol, τ, artefact sha) makes pre-open and Tuesday-retro paths race-free: pre-open wins by arriving first; misses lapse to `retro_frozen`. Standing lapse: MSTR (BTC-USD factor bar lands after the 18:00 ET equities-daily run — scryer wishlist candidate: an early-Monday run). Timestamping: the wrapper commits+pushes `data/band_archive` only (explicit pathspec) when `SOOTHSAYER_ARCHIVE_PUSH=1` — the sanctioned exception to the "harness never commits" convention, since the public git history is the commitment clock. Launchd activation pending Adam.
+
+**Verifier.** `soothsayer-verify commitment` audits the chain (every pre-open band backed by + verbatim-equal to its commitment, symmetric about its point, lapses disclosed, implied factor returns printed; factor replay from public futures = deferred T3-lite leg). `coverage` now treats future-dated `mon_date` rows as pending (excluded, disclosed) instead of erroring, and reports provenance splits.
+
+**Validation.** Replay of weekend 2026-07-17: committed widths match the retro archive **bit-exactly (0.0)**; Monday-mode bands match retro lower/point/upper to ≤5e-07 (print precision). Negative test (perturbed width) fails the audit with exit 1.
+
+**Impact.** Once activated, every new weekend's width claim is publicly timestamped before weekend information exists and the center before the open — the "trust the emitter ran the frozen formula" link survives only for the 12 retro weekends, retireable later by a one-time T3 replay. Shared I/O consolidated in `src/soothsayer/band_archive.py`.
+
 ### 2026-07-21 — Public band archive + `soothsayer-verify` CLI (paper→product verifier track)
 
 **Trigger.** Paper→product push: design-partner outreach needs a "run your own verifier" artefact (product-stack §9 rows 1–2: coverage receipts are open; auditability is the value). Discovery during scoping: no served-band history existed anywhere — the forward-tape harness recomputed bands per fire and persisted only gitignored summaries. Scope doc: `reports/active/verifier_cli_scope.md`.

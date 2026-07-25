@@ -1,5 +1,7 @@
 # Handoff — pre-open commitment (next task on the verifier track)
 
+> **STATUS: IMPLEMENTED 2026-07-24** (same day, later session). Shipped: `scripts/emit_band_commitments.py` (friday/monday modes, honesty guards), `scripts/run_band_commitment.sh`, two launchd plists (`launchd/com.adamnoonan.soothsayer.band-{commit,preopen}.plist`), `data/band_archive/commitments_v1.csv` schema, `soothsayer-verify commitment` + pending-row tolerance in `coverage`. Validated against weekend 2026-07-17: committed widths match the retro archive **bit-exactly**; Monday-replay bands match to print precision. See the 2026-07-24 methodology entry. **Remaining:** launchd activation decision (auto-push on/off — Adam's call), T3-lite factor replay in the verifier, `--truth-csv`, capture-time truth record + `--explain-deltas`, scryer wishlist ask for an early-Monday equities-daily run (unblocks MSTR pre-open). The sections below are retained as the design record.
+
 **Written 2026-07-24.** For the next agent picking up the paper→product verifier track. Read chain: `STATUS.md` (verifier workstream row) → `reports/active/verifier_cli_scope.md` (**§11 is binding design law**) → `crates/soothsayer-verify/README.md` → `reports/methodology_history.md` 2026-07-21 entry.
 
 ## Why this task is next

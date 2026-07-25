@@ -1,11 +1,42 @@
 # Band archive — the public served-band record
 
-`bands_v1.csv` is the append-only public record of the bands Soothsayer's
-frozen artefact serves for each closed-market weekend: one row per
-(weekend, symbol, τ). It exists to be **audited**: the
-`soothsayer-verify` CLI (`crates/soothsayer-verify`) reads this file,
-fetches realised Monday opens independently from Yahoo, and recomputes
-the coverage statistics — no Soothsayer infrastructure in the loop.
+Two append-only files, one row per (weekend, symbol, τ) each:
+
+- `bands_v1.csv` — the full served band (lower/point/upper) + receipt.
+- `commitments_v1.csv` — the **Friday-close width commitment**: σ̂,
+  regime, and half-width, emitted before any weekend outcome
+  information exists (Globex reopens Sunday 18:00 ET; the emitter
+  refuses to write after that).
+
+They exist to be **audited**: the `soothsayer-verify` CLI
+(`crates/soothsayer-verify`) reads these files, fetches realised Monday
+opens independently from Yahoo, and recomputes coverage — no Soothsayer
+infrastructure in the loop. `soothsayer-verify commitment` additionally
+checks that every pre-open band reused its committed width verbatim.
+
+## The commitment scheme
+
+M6's band factorises: half-width `q_eff · σ̂ · fri_close` is fully
+determined at Friday close; only the band *center* moves with weekend
+futures. So the publication chain is:
+
+1. **Saturday ~19:30 ET** (after CBOE's T+1 VIX row lands): commit
+   per-symbol σ̂, regime, and per-τ half-widths → `commitments_v1.csv`.
+2. **Monday ~07:30 ET** (before the 09:30 open; emitter hard-refuses
+   after 09:25): point = committed fri_close × (1 + factor return from
+   the factor instrument's Monday session bar, the same `*_mon_open`
+   semantics the evaluation panel uses), band = point ± committed
+   half-width **verbatim** → `bands_v1.csv` with
+   `provenance=published_pre_open`.
+3. Each emission is git-committed and pushed — the public git history
+   is the commitment clock.
+
+A commitment is binding: the Monday publisher never recomputes widths.
+Symbols whose factor bar isn't in scryer pre-open (standing case: MSTR,
+whose BTC-USD factor bar appears after the 18:00 ET data run) are
+skipped and filled by the Tuesday retro path — the shared dedup key
+(weekend, symbol, τ, artefact sha) makes the two paths race-free, and
+`soothsayer-verify commitment` discloses every lapse.
 
 Unlike the rest of `data/`, this directory is committed.
 
@@ -45,12 +76,12 @@ Unlike the rest of `data/`, this directory is committed.
   existed, by serving an artefact frozen **before** the weekend
   (SHA-stamped; freeze 2026-05-04 predates every archived weekend).
   The calibration scalars could not have been tuned to the outcome,
-  but the row itself was not published pre-open. This covers the
-  backfilled forward tape.
-- `published_pre_open` — the row was emitted before the target open
-  existed. Not yet produced; lands when archive emission is wired into
-  the pre-open publisher path (ultimately anchored by an on-chain
-  `publish_ts`).
+  but the row itself was not published pre-open. Covers the backfilled
+  forward tape and any weekend the pre-open path missed.
+- `published_pre_open` — the row was emitted **before** the target
+  open existed (Monday pre-open publisher; widths from the Saturday
+  commitment). The git push timestamps it publicly; an on-chain
+  `publish_ts` is the eventual stronger anchor.
 
 **Point-construction disclosure:** `point` = Friday close × (1 + factor
 return), where the factor return uses weekend futures moves through the
