@@ -87,6 +87,45 @@ Consumer-facing receipt fields (from `PriceBand`):
 
 - `target_coverage_bps` — the `τ` the publisher targeted (integer bps).
 - `claimed_served_bps` — the band's actual coverage claim (`τ + δ(τ)`).
+
+> ### ⚠️ One-directional consumers: the lower bound is not a `τ` bound
+>
+> `claimed_served_bps` is the coverage of the **two-sided** band: the realised
+> price lands between `lower` and `upper` at that rate. A two-sided band at `τ`
+> places `(1 − τ)/2` in *each* tail, so **its lower edge alone is a `(1 + τ)/2`
+> bound.**
+>
+> | you request `τ` | band coverage | coverage of the **lower bound alone** |
+> |---|---|---|
+> | 0.68 | 0.68 | **0.84** |
+> | 0.85 | 0.85 | **0.925** |
+> | 0.95 | 0.95 | **0.975** |
+> | 0.99 | 0.99 | **0.995** |
+>
+> A lending protocol is exposed in one direction: collateral falling below the
+> debt it secures. If you value collateral at `lower` and drive an LTV ladder
+> off it — which is exactly what §5's worked example does — you are provisioning
+> to `(1 + τ)/2`, not `τ`. That is *safe*, but it over-collateralises, and the
+> cost is material: measured on the 2023+ holdout, roughly **34% of the
+> collateral buffer at `τ = 0.85`** and **15% at `τ = 0.95`** (weekend panel;
+> 41% and 24% overnight).
+>
+> Two ways to get the protection you actually intend:
+>
+> 1. **Request `2τ − 1`.** To obtain `τ` downside coverage from the two-sided
+>    path, ask for `2τ − 1` — e.g. request 0.70 to get ≈0.85 on the lower edge.
+>    Works against the deployed artefact today, no changes needed.
+> 2. **Use the one-sided profile.** `Oracle.downside_bound_lwc()` serves the
+>    downside quantile directly, so `claimed_coverage` means what it says and no
+>    upper edge is published. It is **not deployed** — it carries none of the
+>    held-out battery behind the two-sided path (no leave-one-symbol-out, no
+>    forward tape, no Rust parity), so it is not yet available on-chain. See
+>    Appendix G of the paper.
+>
+> This is a documentation gap in the current release, not a defect in the served
+> value: the band is calibrated to its stated two-sided claim. What was missing
+> was the consequence for a one-directional reader.
+
 - `buffer_applied_bps` — `δ(τ)` shift on the receipt (M6 deploys `δ = 0`; README "How it works").
 - `regime_code` — `normal` / `long_weekend` / `high_vol` (typed via `Regime`).
 - `forecaster_code` — which forecaster produced the band (see §7 caveats).

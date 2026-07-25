@@ -88,6 +88,10 @@ ARTEFACT_PATH = DATA_PROCESSED / "mondrian_artefact_v2.parquet"
 LENDING_SIDECAR_PATH = DATA_PROCESSED / "m6b2_lending_artefact_v1.json"
 LWC_ARTEFACT_PATH = DATA_PROCESSED / "lwc_artefact_v1.parquet"
 LWC_SIDECAR_PATH = DATA_PROCESSED / "lwc_artefact_v1.json"
+# One-sided (downside-only) lending profile — Appendix G. Reuses the LWC
+# artefact parquet for row lookup (identical point / σ̂ / regime columns) and
+# carries its own quantile table + c(τ) in this sidecar.
+LWC_ONESIDED_SIDECAR_PATH = DATA_PROCESSED / "lwc_onesided_artefact_v1.json"
 
 Profile = Literal["lending", "amm"]
 DEFAULT_PROFILE: Profile = "lending"
@@ -102,6 +106,13 @@ MONDRIAN_FORECASTER = "mondrian"
 # port this reservation into crates/soothsayer-oracle/src/types.rs and the
 # on-chain PriceUpdate decoder).
 LWC_FORECASTER = "lwc"
+
+# One-sided downside receipt label. Reserves FORECASTER_LWC_ONESIDED = 4 on
+# the wire. NOT deployed: the one-sided path carries none of the held-out
+# battery behind the two-sided artefact (Appendix G.5), and its band is a
+# lower bound only, so it is not a drop-in for a `PriceUpdate` consumer
+# expecting a symmetric (point, half_width).
+LWC_ONESIDED_FORECASTER = "lwc_onesided"
 
 
 # Per-(regime, τ) trained quantile from the pre-2023 calibration set
@@ -317,6 +328,60 @@ def lwc_regime_quantile_for(regime: str, tau: float) -> float:
     return _interp_schedule(tau, row)
 
 
+LWC_ONESIDED_REGIME_QUANTILE_TABLE: dict[str, dict[float, float]] = {}
+LWC_ONESIDED_C_BUMP_SCHEDULE: dict[float, float] = {}
+LWC_ONESIDED_METADATA: dict = {}
+
+
+def _load_lwc_onesided_constants(
+    path: Path = LWC_ONESIDED_SIDECAR_PATH,
+) -> None:
+    """Populate the one-sided LWC tables from the artefact JSON sidecar.
+
+    Missing file leaves the tables empty and `downside_bound_lwc()` raises —
+    the same fail-loud policy as the two-sided loader."""
+    global LWC_ONESIDED_REGIME_QUANTILE_TABLE, LWC_ONESIDED_C_BUMP_SCHEDULE
+    global LWC_ONESIDED_METADATA
+    if not Path(path).exists():
+        LWC_ONESIDED_REGIME_QUANTILE_TABLE = {}
+        LWC_ONESIDED_C_BUMP_SCHEDULE = {}
+        LWC_ONESIDED_METADATA = {}
+        return
+    blob = json.loads(Path(path).read_text())
+    LWC_ONESIDED_REGIME_QUANTILE_TABLE = {
+        regime: {float(t): float(v) for t, v in row.items()}
+        for regime, row in blob.get("regime_quantile_table", {}).items()
+    }
+    LWC_ONESIDED_C_BUMP_SCHEDULE = {
+        float(t): float(v) for t, v in blob.get("c_bump_schedule", {}).items()
+    }
+    LWC_ONESIDED_METADATA = {
+        k: v for k, v in blob.items() if k.startswith("_")
+    }
+
+
+def lwc_onesided_c_bump_for(tau: float) -> float:
+    return _interp_schedule(tau, LWC_ONESIDED_C_BUMP_SCHEDULE)
+
+
+def lwc_onesided_regime_quantile_for(regime: str, tau: float) -> float:
+    """Interpolate the per-regime one-sided downside quantile at τ. Unknown
+    regimes fall back to `high_vol` — the widest row, matching the two-sided
+    fallback policy."""
+    row = LWC_ONESIDED_REGIME_QUANTILE_TABLE.get(
+        regime, LWC_ONESIDED_REGIME_QUANTILE_TABLE.get("high_vol", {})
+    )
+    if not row:
+        raise RuntimeError(
+            "One-sided LWC quantile table empty — run "
+            "`python scripts/build_lwc_onesided_artefact.py` first."
+        )
+    return _interp_schedule(tau, row)
+
+
+_load_lwc_onesided_constants()
+
+
 def lending_delta_shift_for(tau: float) -> float:
     return _interp_schedule(tau, LENDING_DELTA_SHIFT_SCHEDULE)
 
@@ -388,6 +453,50 @@ class PricePoint:
             "forecaster_used": self.forecaster_used,
             "sharpness_bps": self.sharpness_bps,
             "half_width_bps": self.half_width_bps,
+            "profile": self.profile,
+            "diagnostics": self.diagnostics,
+        }
+
+
+@dataclass
+class DownsideBound:
+    """A one-sided oracle read: the downside bound only, plus its receipt.
+
+    Deliberately NOT a `PricePoint` with `upper = inf`. A collateral holder is
+    exposed in one direction, the fit makes no upper claim, and encoding one
+    as infinity invites a consumer to treat `half_width_bps` as meaningful
+    when there is no half-width. The fields a lending integrator needs are
+    `lower` (the bound) and `buffer_bps` (the haircut it implies).
+
+    `claimed_coverage` is what the bound asserts: the realised price lands at
+    or above `lower` with probability τ. Contrast the two-sided band, whose
+    lower edge asserts (1+τ)/2 — see Appendix G.
+    """
+
+    symbol: str
+    as_of: date
+    target_coverage: float
+    claimed_coverage: float
+    point: float
+    lower: float
+    regime: str
+    forecaster_used: str
+    buffer_bps: float
+    profile: str = DEFAULT_PROFILE
+    diagnostics: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "symbol": self.symbol,
+            "as_of": str(self.as_of),
+            "target_coverage": self.target_coverage,
+            "claimed_coverage": self.claimed_coverage,
+            "point": self.point,
+            "lower": self.lower,
+            "regime": self.regime,
+            "forecaster_used": self.forecaster_used,
+            "buffer_bps": self.buffer_bps,
+            "side": "downside_only",
             "profile": self.profile,
             "diagnostics": self.diagnostics,
         }
@@ -654,4 +763,95 @@ class Oracle:
             # distinguish M5/M6 read `forecaster_used`.
             profile=self._profile,
             diagnostics=diagnostics,
+        )
+
+    def downside_bound_lwc(
+        self,
+        symbol: str,
+        as_of: date | str,
+        target_coverage: float = DEFAULT_TARGET_COVERAGE,
+    ) -> DownsideBound:
+        """Serve a one-sided **downside** bound — the lending-track profile.
+
+        Reuses the LWC artefact for the per-Friday row (identical point, σ̂ and
+        regime columns) and the one-sided sidecar for the calibration
+        constants, so the two profiles are guaranteed to serve off the same
+        underlying state and are directly comparable.
+
+            q_eff = c_1s(τ) · q_r^1s(τ)                        (unitless)
+            lower = point − q_eff · σ̂_sym(t) · fri_close       (price units)
+
+        The claim is one-sided: the realised price lands at or above `lower`
+        with probability τ. No δ(τ) is applied — the one-sided path has no
+        walk-forward shift fitted, and reusing the two-sided δ would mis-state
+        the served claim, so `claimed_coverage` equals the (clipped) request.
+
+        **Not the deployed serving path.** See Appendix G.5 for what this
+        profile does not yet carry (no LOSO, no nested temporal holdout, no
+        forward tape, no simulation study, no Rust parity)."""
+        if self._lwc_artefact is None:
+            raise RuntimeError(
+                "LWC artefact not loaded — the one-sided profile reuses it for "
+                "row lookup. Pass lwc_artefact_path to Oracle.load() or run "
+                "`python scripts/build_lwc_artefact.py` first."
+            )
+        if not LWC_ONESIDED_REGIME_QUANTILE_TABLE:
+            raise RuntimeError(
+                f"One-sided sidecar {LWC_ONESIDED_SIDECAR_PATH} not loaded — "
+                "constants are empty. Run "
+                "`python scripts/build_lwc_onesided_artefact.py` first."
+            )
+        if isinstance(as_of, str):
+            as_of = pd.to_datetime(as_of).date()
+
+        rows = self._lwc_artefact[
+            (self._lwc_artefact["symbol"] == symbol)
+            & (self._lwc_artefact["fri_ts"] == as_of)
+        ]
+        if rows.empty:
+            raise ValueError(
+                f"No LWC artefact row for symbol={symbol} as_of={as_of}. "
+                "The σ̂ warm-up filter excludes the first ~8 weekends per "
+                "symbol."
+            )
+
+        row = rows.iloc[0]
+        regime = str(row["regime_pub"])
+        fri_close = float(row["fri_close"])
+        point = float(row["point"])
+        sigma_hat = float(row["sigma_hat_sym_pre_fri"])
+        if not (sigma_hat > 0 and pd.notna(sigma_hat)):
+            raise ValueError(
+                f"LWC artefact row has non-positive sigma_hat_sym_pre_fri "
+                f"({sigma_hat}) for symbol={symbol} as_of={as_of}."
+            )
+
+        tau = max(min(target_coverage, MAX_SERVED_TARGET), MIN_SERVED_TARGET)
+        c_bump = lwc_onesided_c_bump_for(tau)
+        q_regime = lwc_onesided_regime_quantile_for(regime, tau)
+        q_eff = c_bump * q_regime
+        buffer_px = q_eff * sigma_hat * fri_close
+        lower = point - buffer_px
+        buffer_bps = buffer_px / fri_close * 1e4 if fri_close else 0.0
+
+        return DownsideBound(
+            symbol=symbol,
+            as_of=as_of,
+            target_coverage=float(target_coverage),
+            claimed_coverage=float(tau),
+            point=point,
+            lower=lower,
+            regime=regime,
+            forecaster_used=LWC_ONESIDED_FORECASTER,
+            buffer_bps=buffer_bps,
+            profile=self._profile,
+            diagnostics={
+                "fri_close": fri_close,
+                "c_bump": c_bump,
+                "q_regime_lwc_onesided": q_regime,
+                "q_eff": q_eff,
+                "sigma_hat_sym_pre_fri": sigma_hat,
+                "side": "downside_only",
+                "two_sided_equivalent_coverage": (1.0 + tau) / 2.0,
+            },
         )

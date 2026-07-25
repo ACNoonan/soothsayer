@@ -401,6 +401,82 @@ def compute_score_lwc(
     return out
 
 
+def compute_score_lwc_onesided(
+    panel: pd.DataFrame,
+    scale_col: str = "sigma_hat_sym_pre_fri",
+) -> pd.Series:
+    """One-sided **downside** conformity score, σ̂-standardised.
+
+        score = (point − mon_open) / (fri_close · σ̂_sym_pre_fri)
+
+    Signed, and positive when the realised price lands *below* the point
+    estimate. Its upper τ-quantile is therefore the downside buffer directly,
+    with no symmetry assumption.
+
+    Why this exists (Appendix G): the two-sided score `compute_score_lwc`
+    takes an absolute value, so a band at τ places (1−τ)/2 in each tail and
+    its lower edge is a (1+τ)/2 one-sided bound. A lending consumer holding
+    tokenised equity as collateral is exposed in one direction only, so the
+    two-sided band silently over-provisions them — ~34% of the collateral
+    buffer at the τ = 0.85 deployment default. Fitting the downside quantile
+    directly removes that, and is better calibrated: on the overnight panel
+    imposing symmetry fails Kupiec at three of four anchors while the
+    one-sided fit passes at every anchor on both panels.
+
+    Same shape contract as `compute_score_lwc` — rows with NaN / non-positive
+    σ̂ return NaN — so the existing `dropna(subset=["score"])` filters and the
+    per-cell fit/serve machinery work unchanged."""
+    point = panel["fri_close"].astype(float) * (
+        1.0 + panel["factor_ret"].astype(float)
+    )
+    downside_rel = (
+        point - panel["mon_open"].astype(float)
+    ) / panel["fri_close"].astype(float)
+    sigma = panel[scale_col].astype(float)
+    out = downside_rel / sigma
+    out[~(sigma > 0)] = np.nan
+    return out
+
+
+def serve_downside_bound_lwc(
+    panel: pd.DataFrame,
+    quantile_table: dict[str, dict[float, float]],
+    c_bump_schedule: dict[float, float],
+    cell_col: str = "regime_pub",
+    scale_col: str = "sigma_hat_sym_pre_fri",
+    taus: tuple[float, ...] = DEFAULT_TAUS,
+) -> dict[float, pd.DataFrame]:
+    """One-sided serving formula. Returns `{τ: DataFrame(point, lower)}`.
+
+    For each τ:
+        q_eff = c(τ) · q_cell^1s(τ)                            (unitless)
+        lower = point − q_eff · σ̂_sym(t) · fri_close           (price units)
+
+    No upper edge is published; the consumer's exposure is one-directional
+    and an upper bound would be a claim the fit does not make. δ(τ) is not
+    applied — the one-sided path has no walk-forward shift schedule fitted,
+    and silently reusing the two-sided δ would mis-state the served claim."""
+    point = panel["fri_close"].astype(float) * (
+        1.0 + panel["factor_ret"].astype(float)
+    )
+    fri_close = panel["fri_close"].astype(float).to_numpy()
+    sigma = panel[scale_col].astype(float).to_numpy()
+    cells = panel[cell_col].astype(str).to_numpy()
+    out: dict[float, pd.DataFrame] = {}
+    for tau in taus:
+        c = float(c_bump_schedule.get(tau, 1.0))
+        q = np.array(
+            [quantile_table.get(cc, {}).get(tau, np.nan) for cc in cells],
+            dtype=float,
+        )
+        buffer_px = c * q * sigma * fri_close
+        out[tau] = pd.DataFrame(
+            {"point": point.to_numpy(), "lower": point.to_numpy() - buffer_px},
+            index=panel.index,
+        )
+    return out
+
+
 def compute_score_lwc_path(
     panel: pd.DataFrame,
     scale_col: str = "sigma_hat_sym_pre_fri",
@@ -599,6 +675,7 @@ FORECASTERS = ("m5", "lwc")
 def prep_panel_for_forecaster(
     panel: pd.DataFrame,
     forecaster: str,
+    sigma_exclude_mask_col: str | None = None,
 ) -> pd.DataFrame:
     """Materialise the columns the forecaster's fit/serve path needs.
 
@@ -624,7 +701,16 @@ def prep_panel_for_forecaster(
     By writing both forecasters' active score into the column literally
     named `score`, the §10 runners need only swap `prep_panel_for_forecaster`
     for `compute_score`; their existing `dropna(subset=["score"])` filters
-    keep working unchanged."""
+    keep working unchanged.
+
+    `sigma_exclude_mask_col` (default None = weekend deployment behaviour,
+    unchanged) is forwarded to `add_sigma_hat_sym_ewma`. **The overnight panel
+    requires `"earnings_next_week"` here.** `build_overnight_panel.py` builds
+    its persisted σ̂ with that mask, but this function unconditionally
+    *recomputes* σ̂ into the same column — so an overnight caller that omits
+    the mask silently replaces the de-contaminated scale with a contaminated
+    one, inflating σ̂ by ~32% on GOOGL and ~23% on NVDA and over-widening every
+    ordinary night for earnings-heavy names."""
     if forecaster not in FORECASTERS:
         raise ValueError(
             f"forecaster must be one of {FORECASTERS}, got {forecaster!r}"
@@ -637,7 +723,10 @@ def prep_panel_for_forecaster(
     # lwc_artefact_v1.json:_lwc_variant). Materialise it under the
     # canonical column name so downstream code (compute_score_lwc,
     # serve_bands_forecaster) can stay σ̂-rule-agnostic.
-    work = add_sigma_hat_sym_ewma(work, half_life=SIGMA_HAT_HL_WEEKENDS)
+    work = add_sigma_hat_sym_ewma(
+        work, half_life=SIGMA_HAT_HL_WEEKENDS,
+        exclude_mask_col=sigma_exclude_mask_col,
+    )
     work["sigma_hat_sym_pre_fri"] = work[
         f"sigma_hat_sym_ewma_pre_fri_hl{SIGMA_HAT_HL_WEEKENDS}"
     ]
