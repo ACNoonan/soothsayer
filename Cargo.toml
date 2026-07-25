@@ -8,6 +8,7 @@ members = [
     "crates/soothsayer-oracle",
     "crates/soothsayer-consumer",
     "crates/soothsayer-publisher",
+    "crates/soothsayer-verify",
     "crates/soothsayer-demo-kamino",
     "crates/soothsayer-router",
 ]
