@@ -18,8 +18,9 @@ cargo run --release -p soothsayer-verify -- coverage
 | Tier | Command | What it proves |
 |---|---|---|
 | T1 | `coverage` | The archived bands covered independently-fetched opens at the claimed rate (Kupiec, Christoffersen, per-symbol) |
+| T1½ | `commitment` | Every `published_pre_open` band reused its Friday-close committed half-width **verbatim** (widths fixed before any weekend information existed; the git push is the public clock) |
 | T2 | `receipt`, `artefact` | The on-chain `PriceUpdate` decodes and holds its invariants; the frozen artefact's canonical self-hash and parquet hash reproduce the stamps the archive rows name |
-| T3 | (not yet built) | Re-derive the bands themselves from the frozen scalars + public market data |
+| T3 | (not yet built) | Re-derive the bands/points themselves from the frozen scalars + public market data (the commitment scheme shrinks this to the factor-return leg) |
 
 Independence guarantees baked in:
 
@@ -43,6 +44,9 @@ Independence guarantees baked in:
 soothsayer-verify coverage
 soothsayer-verify coverage --archive data/band_archive/bands_v1.csv   # local checkout
 soothsayer-verify coverage --tau 0.95 --symbol SPY --since 2026-06-01 --json
+
+# Audit the pre-open publication chain (committed widths reused verbatim):
+soothsayer-verify commitment
 
 # Decode a live on-chain PriceUpdate and check its invariants:
 soothsayer-verify receipt --account <PUBKEY> --url devnet

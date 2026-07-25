@@ -105,7 +105,19 @@ fn run_inner(args: &Args) -> Result<i32, Box<dyn Error>> {
     let truth = Truth::fetch(&symbols, min_mon)?;
 
     // Resolve truth per row; collect misses and split disclosures.
+    // A missing bar whose target open hasn't happened yet is PENDING
+    // (published_pre_open rows exist before their outcome by design);
+    // a missing bar for a past open is a hard error.
+    let today = {
+        let days = (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs()
+            / 86_400) as i64;
+        let (y, m, d) = crate::truth::civil_from_days(days);
+        format!("{y:04}-{m:02}-{d:02}")
+    };
     let mut missing: BTreeSet<(String, String)> = BTreeSet::new();
+    let mut pending = 0usize;
     let mut split_notes: BTreeSet<String> = BTreeSet::new();
     let mut resolved: Vec<(&BandRow, f64)> = Vec::with_capacity(rows.len());
     for row in &rows {
@@ -119,6 +131,7 @@ fn run_inner(args: &Args) -> Result<i32, Box<dyn Error>> {
                 }
                 resolved.push((row, open.value));
             }
+            None if row.mon_date >= today => pending += 1,
             None => {
                 missing.insert((row.symbol.clone(), row.mon_date.clone()));
             }
@@ -133,6 +146,14 @@ fn run_inner(args: &Args) -> Result<i32, Box<dyn Error>> {
             missing.len()
         )
         .into());
+    }
+    if pending > 0 {
+        eprintln!(
+            "{pending} rows target an open on/after {today} — pending, excluded from coverage."
+        );
+    }
+    if resolved.is_empty() {
+        return Err("every selected row is pending — nothing to verify yet".into());
     }
 
     // Per-τ statistics; per-symbol independence needs grouped vectors.
@@ -189,10 +210,17 @@ fn run_inner(args: &Args) -> Result<i32, Box<dyn Error>> {
     }
 
     let retro = rows.iter().filter(|r| r.provenance == "retro_frozen").count();
+    let pre_open = rows
+        .iter()
+        .filter(|r| r.provenance == "published_pre_open")
+        .count();
     let any_rejected = reports.iter().any(TauReport::rejected);
 
     if args.json {
-        print_json(&reports, &per_symbol_detail, &rows, &artefacts, retro, &split_notes);
+        print_json(
+            &reports, &per_symbol_detail, &rows, &artefacts, retro, pre_open, pending,
+            &split_notes,
+        );
     } else {
         print_human(
             &reports,
@@ -201,6 +229,8 @@ fn run_inner(args: &Args) -> Result<i32, Box<dyn Error>> {
             &weekends,
             &artefacts,
             retro,
+            pre_open,
+            pending,
             rows.len(),
             &split_notes,
         );
@@ -224,6 +254,8 @@ fn print_human(
     weekends: &BTreeSet<&str>,
     artefacts: &BTreeSet<&str>,
     retro: usize,
+    pre_open: usize,
+    pending: usize,
     n_rows: usize,
     split_notes: &BTreeSet<String>,
 ) {
@@ -271,12 +303,26 @@ fn print_human(
         }
     }
     println!();
+    println!(
+        "Provenance: retro_frozen {retro}, published_pre_open {pre_open}{}",
+        if pending > 0 {
+            format!(" ({pending} pre-open rows pending their target open — excluded)")
+        } else {
+            String::new()
+        }
+    );
+    println!();
     println!("Caveats (read before citing):");
     if retro > 0 {
         println!(
             "  - {retro}/{n_rows} rows are provenance=retro_frozen: computed after the \
-             weekend outcome, from an artefact frozen BEFORE it (SHA above). \
-             No rows were published pre-open yet."
+             weekend outcome, from an artefact frozen BEFORE it (SHA above)."
+        );
+    }
+    if pre_open > 0 {
+        println!(
+            "  - published_pre_open rows were emitted before their target open; \
+             audit their width commitments with `soothsayer-verify commitment`."
         );
     }
     println!(
@@ -296,12 +342,15 @@ fn print_human(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn print_json(
     reports: &[TauReport],
     per_symbol: &[(String, usize, f64, f64)],
     rows: &[BandRow],
     artefacts: &BTreeSet<&str>,
     retro: usize,
+    pre_open: usize,
+    pending: usize,
     split_notes: &BTreeSet<String>,
 ) {
     let nan_null = |x: f64| {
@@ -315,6 +364,8 @@ fn print_json(
         "n_rows": rows.len(),
         "artefact_sha256": artefacts.iter().collect::<Vec<_>>(),
         "provenance_retro_frozen": retro,
+        "provenance_published_pre_open": pre_open,
+        "pending_rows_excluded": pending,
         "split_renormalisations": split_notes.iter().collect::<Vec<_>>(),
         "per_tau": reports.iter().map(|r| serde_json::json!({
             "tau": r.tau,

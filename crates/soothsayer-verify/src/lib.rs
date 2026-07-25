@@ -9,6 +9,7 @@
 
 pub mod archive;
 pub mod artefact;
+pub mod commitment;
 pub mod coverage;
 pub mod http;
 pub mod receipt;

@@ -1,11 +1,13 @@
 use clap::{Parser, Subcommand};
 
-use soothsayer_verify::{artefact, coverage, receipt};
+use soothsayer_verify::{artefact, commitment, coverage, receipt};
 
 /// Default to the public archive so a third party needs zero setup;
 /// pass --archive for a local checkout.
 const DEFAULT_ARCHIVE: &str =
     "https://raw.githubusercontent.com/ACNoonan/soothsayer/main/data/band_archive/bands_v1.csv";
+const DEFAULT_COMMITMENTS: &str =
+    "https://raw.githubusercontent.com/ACNoonan/soothsayer/main/data/band_archive/commitments_v1.csv";
 
 #[derive(Parser)]
 #[command(
@@ -40,6 +42,18 @@ enum Cmd {
         #[arg(long)]
         since: Option<String>,
         /// Emit machine-readable JSON instead of the human report.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Audit the pre-open publication chain: every published_pre_open
+    /// band must reuse its Friday-close committed width verbatim.
+    Commitment {
+        /// Commitments CSV: local path or http(s) URL.
+        #[arg(long, default_value = DEFAULT_COMMITMENTS)]
+        commitments: String,
+        /// Band archive: local path or http(s) URL.
+        #[arg(long, default_value = DEFAULT_ARCHIVE)]
+        archive: String,
         #[arg(long)]
         json: bool,
     },
@@ -86,6 +100,11 @@ fn main() {
             since,
             json,
         }),
+        Cmd::Commitment {
+            commitments,
+            archive,
+            json,
+        } => commitment::run(&commitments, &archive, json),
         Cmd::Receipt { account, url, json } => receipt::run(&account, &url, json),
         Cmd::Artefact {
             file,
