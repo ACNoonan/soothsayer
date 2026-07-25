@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.adamnoonan.soothsayer.band-preopen</string>
+
+    <!-- Monday pre-open publication: 07:30 ET primary (cme-intraday-1m
+         runs ~02:00 ET, so futures Monday bars are on disk), 09:05 ET
+         retry. The emitter hard-refuses writes after 09:25 ET. Fires
+         every weekday because a post-holiday open can be Tue-Fri; the
+         emitter exits "nothing due" unless commitments name today as
+         mon_date. Machine runs on America/New_York (local == ET). -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>5</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>5</integer></dict>
+    </array>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/adamnoonan/Documents/soothsayer/scripts/run_band_commitment.sh</string>
+        <string>monday</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SOOTHSAYER_ARCHIVE_PUSH</key>
+        <string>1</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/adamnoonan/Library/Logs/soothsayer-band-commitment.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/adamnoonan/Library/Logs/soothsayer-band-commitment.log</string>
+</dict>
+</plist>

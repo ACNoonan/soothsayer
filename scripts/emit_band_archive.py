@@ -37,6 +37,14 @@ from pathlib import Path
 
 import pandas as pd
 
+from soothsayer.band_archive import (
+    BANDS_COLUMNS as COLUMNS,
+    BANDS_PATH as ARCHIVE_PATH,
+    FORECASTER_CODE_LWC,
+    PROFILE_CODE_LENDING,
+    PROVENANCE_RETRO,
+    append_dedup,
+)
 from soothsayer.backtest.calibration import DEFAULT_TAUS
 from soothsayer.backtest.frozen_serving import (
     apply_frozen_sigma_rule,
@@ -47,22 +55,6 @@ from soothsayer.backtest.frozen_serving import (
 from soothsayer.config import DATA_PROCESSED
 
 FORWARD_TAPE_PATH = DATA_PROCESSED / "forward_tape_v1.parquet"
-ARCHIVE_PATH = Path(__file__).resolve().parents[1] / "data" / "band_archive" / "bands_v1.csv"
-
-# Receipt codes mirroring crates/soothsayer-consumer (FORECASTER_LWC,
-# PROFILE_LENDING). The frozen artefact is the M6 LWC lending-track
-# serving path; if a future freeze changes either, thread it from the
-# sidecar instead of widening these constants.
-FORECASTER_CODE_LWC = 3
-PROFILE_CODE_LENDING = 1
-
-COLUMNS = [
-    "weekend_date", "mon_date", "symbol", "tau",
-    "lower", "upper", "point", "half_width_bps", "regime_code",
-    "forecaster_code", "profile_code", "artefact_sha256",
-    "provenance", "computed_ts",
-]
-DEDUP_KEY = ["weekend_date", "symbol", "tau", "artefact_sha256"]
 
 
 def build_rows(frozen_suffix: str | None) -> pd.DataFrame:
@@ -105,7 +97,7 @@ def build_rows(frozen_suffix: str | None) -> pd.DataFrame:
             "forecaster_code": FORECASTER_CODE_LWC,
             "profile_code": PROFILE_CODE_LENDING,
             "artefact_sha256": sha,
-            "provenance": "retro_frozen",
+            "provenance": PROVENANCE_RETRO,
             "computed_ts": computed_ts,
         }))
     out = pd.concat(frames, ignore_index=True)[COLUMNS]
@@ -125,25 +117,9 @@ def main() -> None:
         print("No forward rows with σ̂ available — nothing to emit.")
         return
 
-    ARCHIVE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if ARCHIVE_PATH.exists():
-        existing = pd.read_csv(ARCHIVE_PATH, dtype={"weekend_date": str,
-                                                    "mon_date": str})
-        seen = set(map(tuple, existing[DEDUP_KEY].astype(str).to_numpy()))
-        mask = [tuple(map(str, k)) not in seen
-                for k in new[DEDUP_KEY].astype(str).to_numpy()]
-        appended = new[mask]
-        combined = pd.concat([existing, appended], ignore_index=True)
-    else:
-        appended, combined = new, new
-
-    combined = combined.sort_values(["weekend_date", "symbol", "tau"]).reset_index(drop=True)
-    tmp = ARCHIVE_PATH.with_suffix(".csv.tmp")
-    combined.to_csv(tmp, index=False, float_format="%.10g")
-    tmp.replace(ARCHIVE_PATH)
-    print(f"Appended {len(appended)} rows ({len(new) - len(appended)} already "
-          f"present); archive now {len(combined)} rows "
-          f"({combined['weekend_date'].nunique()} weekends) at {ARCHIVE_PATH}")
+    n_appended, n_total = append_dedup(ARCHIVE_PATH, new, COLUMNS)
+    print(f"Appended {n_appended} rows ({len(new) - n_appended} already "
+          f"present); archive now {n_total} rows at {ARCHIVE_PATH}")
 
 
 if __name__ == "__main__":

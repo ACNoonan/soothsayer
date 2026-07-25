@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.adamnoonan.soothsayer.band-commit</string>
+
+    <!-- Weekend commitment: Saturday 19:30 ET primary (after the ~18:30
+         cboe-indices run lands Friday's VIX close), Sunday 10:00 ET
+         retry (idempotent no-op if Saturday succeeded). Both precede
+         Globex reopen Sunday 18:00 ET; the emitter refuses late writes.
+         The machine runs on America/New_York so local time == ET. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Weekday</key><integer>6</integer>
+            <key>Hour</key><integer>19</integer>
+            <key>Minute</key><integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>0</integer>
+            <key>Hour</key><integer>10</integer>
+            <key>Minute</key><integer>0</integer>
+        </dict>
+    </array>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/adamnoonan/Documents/soothsayer/scripts/run_band_commitment.sh</string>
+        <string>friday</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SOOTHSAYER_ARCHIVE_PUSH</key>
+        <string>1</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/adamnoonan/Library/Logs/soothsayer-band-commitment.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/adamnoonan/Library/Logs/soothsayer-band-commitment.log</string>
+</dict>
+</plist>
