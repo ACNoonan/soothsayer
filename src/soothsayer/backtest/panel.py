@@ -301,6 +301,114 @@ def _earnings_flags(spec: PanelSpec) -> pd.DataFrame:
     )
 
 
+class EarningsConfirmationStale(RuntimeError):
+    """Raised when confirmed-session coverage has decayed inside the panel window."""
+
+
+def check_earnings_confirmation_health(
+    earnings: pd.DataFrame,
+    panel_end: date,
+    *,
+    window_days: int = 365,
+    min_confirmed_fraction: float = 0.5,
+    max_confirmation_lag_days: int = 120,
+    raise_on_fail: bool = False,
+) -> dict:
+    """Assert that confirmed earnings *sessions* are keeping up with the panel.
+
+    Why this predicate and not an obvious one. The 2026-07 defect
+    (`reports/active/earnings_flag_coverage_decay.md`) decayed for 14 months
+    without tripping anything, and two natural checks would have stayed
+    green throughout:
+
+      * "latest earnings_date is recent" — the Finnhub forward runner kept
+        *dates* current the entire time. Green while the panel went dark.
+      * "latest earnings_night flag is recent" — a dark night is not an
+        error, it is a `normal` row. Nothing to observe.
+
+    What actually decayed was **confirmation**: only the (now-dead) Yahoo
+    backfill ever produced `session_confirmed = True`, and
+    `_attach_earnings_flag` drops unconfirmed rows. So the check has to look
+    at the confirmed fraction and the confirmation lag, which are the two
+    quantities that moved.
+
+    Fails loud by design. This class of defect is dangerous precisely because
+    it is silent and points the conservative-looking way — a missing
+    earnings night simply serves a normal-night band, and pooled coverage
+    barely registers it because the cell is ~1% of the panel.
+
+    Returns a dict of the measured quantities; raises
+    `EarningsConfirmationStale` when `raise_on_fail` and any gate fails.
+    """
+    out = {
+        "panel_end": panel_end, "window_days": window_days,
+        "n_dates_in_window": 0, "n_confirmed_in_window": 0,
+        "confirmed_fraction": float("nan"),
+        "last_confirmed": None, "confirmation_lag_days": None,
+        "ok": True, "failures": [],
+    }
+    if earnings.empty or "earnings_date" not in earnings.columns:
+        out["ok"] = False
+        out["failures"].append("no earnings rows at all")
+        if raise_on_fail:
+            raise EarningsConfirmationStale("; ".join(out["failures"]))
+        return out
+
+    e = earnings.copy()
+    e["earnings_date"] = pd.to_datetime(e["earnings_date"]).dt.date
+    conf = (e["session_confirmed"].fillna(False).astype(bool)
+            if "session_confirmed" in e.columns
+            else pd.Series(False, index=e.index))
+
+    lo = panel_end - timedelta(days=window_days)
+    in_win = (e["earnings_date"] > lo) & (e["earnings_date"] <= panel_end)
+    n_win = int(in_win.sum())
+    n_conf = int((in_win & conf).sum())
+    out["n_dates_in_window"] = n_win
+    out["n_confirmed_in_window"] = n_conf
+    out["confirmed_fraction"] = (n_conf / n_win) if n_win else float("nan")
+
+    # Clamp to panel_end. A single forward-dated confirmed row would
+    # otherwise produce a negative lag and silently satisfy the gate — which
+    # is exactly the data pattern the 2026-07 defect presents (5 confirmed
+    # 2026 rows, all dated past the panel end, while the window itself is
+    # 17% confirmed).
+    confirmed_dates = e.loc[conf & (e["earnings_date"] <= panel_end),
+                            "earnings_date"]
+    if len(confirmed_dates):
+        last = max(confirmed_dates)
+        out["last_confirmed"] = last
+        out["confirmation_lag_days"] = (panel_end - last).days
+
+    if n_win == 0:
+        out["failures"].append(
+            f"no earnings dates at all in the trailing {window_days}d — the "
+            "date feed itself is dead, not just confirmation")
+    elif out["confirmed_fraction"] < min_confirmed_fraction:
+        out["failures"].append(
+            f"confirmed fraction {out['confirmed_fraction']:.2f} < "
+            f"{min_confirmed_fraction:.2f} over the trailing {window_days}d "
+            f"({n_conf}/{n_win}) — sessions are going unconfirmed, so "
+            "earnings_night rows are silently becoming normal rows")
+    if out["confirmation_lag_days"] is None:
+        out["failures"].append("no confirmed sessions on record at all")
+    elif out["confirmation_lag_days"] > max_confirmation_lag_days:
+        out["failures"].append(
+            f"last confirmed session is {out['confirmation_lag_days']}d "
+            f"before panel end (> {max_confirmation_lag_days}d) — "
+            f"last_confirmed={out['last_confirmed']}")
+
+    out["ok"] = not out["failures"]
+    if not out["ok"]:
+        msg = ("earnings confirmation health check FAILED: "
+               + "; ".join(out["failures"])
+               + " | see reports/active/earnings_flag_coverage_decay.md")
+        if raise_on_fail:
+            raise EarningsConfirmationStale(msg)
+        warnings.warn(msg, stacklevel=2)
+    return out
+
+
 def _attach_earnings_flag(
     panel: pd.DataFrame, earnings: pd.DataFrame, gap_mode: str = "weekend"
 ) -> pd.DataFrame:
