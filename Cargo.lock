@@ -2460,9 +2460,11 @@ name = "soothsayer-oracle"
 version = "0.0.0"
 dependencies = [
  "chrono",
+ "hex",
  "polars",
  "serde",
  "serde_json",
+ "sha2",
  "soothsayer-core",
  "thiserror",
 ]
