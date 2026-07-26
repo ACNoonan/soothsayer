@@ -199,8 +199,27 @@ def run_friday(args) -> int:
 
     vix_bar = _bar_at("^VIX", fri)
     if vix_bar is None:
-        raise SystemExit(f"No ^VIX bar for {fri} in scryer (cboe/yahoo) — "
-                         "regime rule needs it; aborting.")
+        # Don't say "cboe/yahoo" — the yahoo `^VIX` surface has been
+        # frozen at 2026-04-27 since the legacy import, deliberately
+        # (scryer's `equities-daily` manifest excludes index symbols;
+        # `cboe-indices` is the canonical VIX source). Naming a
+        # fallback that cannot help sent the 2026-07-25 investigation
+        # down the wrong path. Point at the real upstream + fix.
+        raise SystemExit(
+            f"No ^VIX bar for {fri} in scryer.\n"
+            f"  Source: cboe/indices/v1/index=VIX (canonical; the yahoo\n"
+            f"          ^VIX surface is frozen by design and is NOT a fallback).\n"
+            f"  Likely: the cboe-indices fire missed this session — CBOE\n"
+            f"          republishes VIX/SKEW later than the rest of the family,\n"
+            f"          and transient cdn.cboe.com DNS failures are known.\n"
+            f"  Fix:    re-pull upstream, then re-run this emitter:\n"
+            f"            scry cboe indices --indices VIX,SKEW \\\n"
+            f"                --source cboe:csv:manual-recover\n"
+            f"  Deadline: commitments cannot be honestly emitted after Globex\n"
+            f"          reopen (Sun 17:45 ET). Recover before then or the\n"
+            f"          weekend is a gap in the chain.\n"
+            f"  regime rule needs it; aborting."
+        )
     vix_close = float(vix_bar["close"])
 
     # Completed-weekend context panel, window anchored to the freeze
