@@ -22,6 +22,7 @@
 //! when given the same inputs and the same artefact. See paper 1 §4 / §7
 //! and `reports/methodology_history.md`.
 
+pub mod adaptive;
 pub mod config;
 pub mod error;
 pub mod oracle;

@@ -1,0 +1,482 @@
+{
+ "_generated_by": "scripts/gen_adaptive_parity_fixture.py",
+ "_ground_truth": "soothsayer.adaptive_state.Checkpoint",
+ "checkpoint": {
+  "schema": "soothsayer.adaptive_state.v1",
+  "profile": "overnight",
+  "artefact_sha256": "a16a27b0e675c9150fe8053cf962ee57c303cb9fe3137ab36173a864fb4d0d64",
+  "through_period": "2026-04-23",
+  "gamma": 0.05,
+  "m_floor": 0.25,
+  "m_ceil": 4.0,
+  "n_periods_replayed": 2404,
+  "m": {
+   "0.6800": {
+    "earnings_night": 0.8824969025845995,
+    "high_vol": 1.1416065308337695,
+    "normal": 0.9324234201796443
+   },
+   "0.8500": {
+    "earnings_night": 0.7046880897187104,
+    "high_vol": 1.0191290731424552,
+    "normal": 0.971967861195011
+   },
+   "0.9500": {
+    "earnings_night": 0.8394570207692018,
+    "high_vol": 1.0032592681556585,
+    "normal": 1.0072083959882028
+   },
+   "0.9900": {
+    "earnings_night": 0.9512294245007179,
+    "high_vol": 0.9819973524932853,
+    "normal": 0.9846781168000678
+   }
+  },
+  "checkpoint_sha256": "852a69320fbeb119283b588c3b37c508ac14eca0ab521add2ba99be28d01d037"
+ },
+ "canonical": "{\"artefact_sha256\":\"a16a27b0e675c9150fe8053cf962ee57c303cb9fe3137ab36173a864fb4d0d64\",\"gamma\":\"0.0500000000\",\"m\":{\"0.6800\":{\"earnings_night\":\"0.8824969026\",\"high_vol\":\"1.1416065308\",\"normal\":\"0.9324234202\"},\"0.8500\":{\"earnings_night\":\"0.7046880897\",\"high_vol\":\"1.0191290731\",\"normal\":\"0.9719678612\"},\"0.9500\":{\"earnings_night\":\"0.8394570208\",\"high_vol\":\"1.0032592682\",\"normal\":\"1.0072083960\"},\"0.9900\":{\"earnings_night\":\"0.9512294245\",\"high_vol\":\"0.9819973525\",\"normal\":\"0.9846781168\"}},\"m_ceil\":\"4.0000000000\",\"m_floor\":\"0.2500000000\",\"n_periods_replayed\":2404,\"profile\":\"overnight\",\"schema\":\"soothsayer.adaptive_state.v1\",\"through_period\":\"2026-04-23\"}",
+ "sha256": "852a69320fbeb119283b588c3b37c508ac14eca0ab521add2ba99be28d01d037",
+ "multipliers": [
+  {
+   "cell": "earnings_night",
+   "tau": 0.68,
+   "m": 0.8824969025845995
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.68,
+   "m": 1.1416065308337695
+  },
+  {
+   "cell": "normal",
+   "tau": 0.68,
+   "m": 0.9324234201796443
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.85,
+   "m": 0.7046880897187104
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.85,
+   "m": 1.0191290731424552
+  },
+  {
+   "cell": "normal",
+   "tau": 0.85,
+   "m": 0.971967861195011
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.95,
+   "m": 0.8394570207692018
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.95,
+   "m": 1.0032592681556585
+  },
+  {
+   "cell": "normal",
+   "tau": 0.95,
+   "m": 1.0072083959882028
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.99,
+   "m": 0.9512294245007179
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.99,
+   "m": 0.9819973524932853
+  },
+  {
+   "cell": "normal",
+   "tau": 0.99,
+   "m": 0.9846781168000678
+  },
+  {
+   "cell": "never_seen_cell",
+   "tau": 0.68,
+   "m": 1.0
+  }
+ ],
+ "bands": [
+  {
+   "cell": "earnings_night",
+   "tau": 0.68,
+   "m": 0.8824969025845995,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 1.764993805169199
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.68,
+   "m": 0.8824969025845995,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 158.0272247200786
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.68,
+   "m": 0.8824969025845995,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.057396430646882
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.68,
+   "m": 1.1416065308337695,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 2.283213061667539
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.68,
+   "m": 1.1416065308337695,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 204.42554672046927
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.68,
+   "m": 1.1416065308337695,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 7.835906624513883
+  },
+  {
+   "cell": "normal",
+   "tau": 0.68,
+   "m": 0.9324234201796443,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 1.8648468403592886
+  },
+  {
+   "cell": "normal",
+   "tau": 0.68,
+   "m": 0.9324234201796443,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 166.96748161205878
+  },
+  {
+   "cell": "normal",
+   "tau": 0.68,
+   "m": 0.9324234201796443,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.400088522357496
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.85,
+   "m": 0.7046880897187104,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 1.4093761794374209
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.85,
+   "m": 0.7046880897187104,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 126.1873019445144
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.85,
+   "m": 0.7046880897187104,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 4.836929293326653
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.85,
+   "m": 1.0191290731424552,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 2.0382581462849103
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.85,
+   "m": 1.0191290731424552,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 182.49371594231664
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.85,
+   "m": 1.0191290731424552,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.995230002441603
+  },
+  {
+   "cell": "normal",
+   "tau": 0.85,
+   "m": 0.971967861195011,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 1.9439357223900218
+  },
+  {
+   "cell": "normal",
+   "tau": 0.85,
+   "m": 0.971967861195011,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 174.04863764610636
+  },
+  {
+   "cell": "normal",
+   "tau": 0.85,
+   "m": 0.971967861195011,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.671518773451716
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.95,
+   "m": 0.8394570207692018,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 1.6789140415384036
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.95,
+   "m": 0.8394570207692018,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 150.3201460259237
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.95,
+   "m": 0.8394570207692018,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 5.761973720696849
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.95,
+   "m": 1.0032592681556585,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 2.006518536311317
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.95,
+   "m": 1.0032592681556585,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 179.6519368589369
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.95,
+   "m": 1.0032592681556585,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.886300781499811
+  },
+  {
+   "cell": "normal",
+   "tau": 0.95,
+   "m": 1.0072083959882028,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 2.0144167919764056
+  },
+  {
+   "cell": "normal",
+   "tau": 0.95,
+   "m": 1.0072083959882028,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 180.35910048706305
+  },
+  {
+   "cell": "normal",
+   "tau": 0.95,
+   "m": 1.0072083959882028,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.913407316114225
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.99,
+   "m": 0.9512294245007179,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 1.9024588490014358
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.99,
+   "m": 0.9512294245007179,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 170.33504093405668
+  },
+  {
+   "cell": "earnings_night",
+   "tau": 0.99,
+   "m": 0.9512294245007179,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.52917160821941
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.99,
+   "m": 0.9819973524932853,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 1.9639947049865707
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.99,
+   "m": 0.9819973524932853,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 175.84460165524752
+  },
+  {
+   "cell": "high_vol",
+   "tau": 0.99,
+   "m": 0.9819973524932853,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.740360493590837
+  },
+  {
+   "cell": "normal",
+   "tau": 0.99,
+   "m": 0.9846781168000678,
+   "q": 2.0,
+   "sigma_hat": 0.01,
+   "prev_close": 100.0,
+   "half_width": 1.9693562336001356
+  },
+  {
+   "cell": "normal",
+   "tau": 0.99,
+   "m": 0.9846781168000678,
+   "q": 15.834,
+   "sigma_hat": 0.0271,
+   "prev_close": 417.31,
+   "half_width": 176.32464157639484
+  },
+  {
+   "cell": "normal",
+   "tau": 0.99,
+   "m": 0.9846781168000678,
+   "q": 0.843,
+   "sigma_hat": 0.0043,
+   "prev_close": 1893.55,
+   "half_width": 6.758761070517227
+  }
+ ],
+ "edge_floats": [
+  {
+   "value": 0.0,
+   "formatted": "0.0000000000"
+  },
+  {
+   "value": 1.0,
+   "formatted": "1.0000000000"
+  },
+  {
+   "value": 0.05,
+   "formatted": "0.0500000000"
+  },
+  {
+   "value": 0.25,
+   "formatted": "0.2500000000"
+  },
+  {
+   "value": 4.0,
+   "formatted": "4.0000000000"
+  },
+  {
+   "value": 0.7047382915,
+   "formatted": "0.7047382915"
+  },
+  {
+   "value": 0.9999999999,
+   "formatted": "0.9999999999"
+  },
+  {
+   "value": 1.00000000005,
+   "formatted": "1.0000000001"
+  },
+  {
+   "value": 0.1234567890123,
+   "formatted": "0.1234567890"
+  },
+  {
+   "value": 2.675,
+   "formatted": "2.6750000000"
+  },
+  {
+   "value": 1.005,
+   "formatted": "1.0050000000"
+  },
+  {
+   "value": 0.5,
+   "formatted": "0.5000000000"
+  }
+ ]
+}
