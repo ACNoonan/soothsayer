@@ -1,12 +1,12 @@
 # v1b — Live forward-tape realised coverage (W5)
 
-_Last run: 2026-07-21 13:00 UTC_
+_Last run: 2026-08-04 13:00 UTC_
 
 Reviewer-immune coverage check on weekends with `fri_ts > 2026-04-24` — the last Friday in the frozen calibration panel. The deployed M5 (AMM-profile) band is applied exactly as the live oracle would serve it; realised coverage is computed against Yahoo Monday open. Sample is small at first and grows by ≈10 observations (universe size) per evaluable weekend.
 
 ## Inputs (re-derived from scryer)
 
-- Panel-build window: 2024-01-01 → 2026-07-21
+- Panel-build window: 2024-01-01 → 2026-08-04
 - Frozen-panel cutoff: 2026-04-24
 - M5 serving constants: `soothsayer.oracle` (`REGIME_QUANTILE_TABLE`, `C_BUMP_SCHEDULE`, `DELTA_SHIFT_SCHEDULE`).
 
@@ -18,17 +18,17 @@ Reviewer-immune coverage check on weekends with `fri_ts > 2026-04-24` — the la
 
 ## Forward sample
 
-- Forward weekends evaluable: 12 (2026-05-01, 2026-05-08, 2026-05-15, 2026-05-22, 2026-05-29, 2026-06-05, 2026-06-12, 2026-06-18, 2026-06-26, 2026-07-02, 2026-07-10, 2026-07-17)
-- Symbol-weekend rows per τ: 120
+- Forward weekends evaluable: 13 (2026-05-01, 2026-05-08, 2026-05-15, 2026-05-22, 2026-05-29, 2026-06-05, 2026-06-12, 2026-06-18, 2026-06-26, 2026-07-02, 2026-07-10, 2026-07-17, 2026-07-24)
+- Symbol-weekend rows per τ: 130
 
 ## Realised coverage by τ
 
 | τ (target) | served τ' | n | hits | realised | 95% Wilson CI | mean half-width (bps) |
 |---:|---:|---:|---:|---:|---|---:|
-| 0.68 | 0.73 | 120 | 89 | 0.742 | [0.657, 0.812] | 126.5 |
-| 0.85 | 0.87 | 120 | 107 | 0.892 | [0.823, 0.936] | 220.1 |
-| 0.95 | 0.95 | 120 | 112 | 0.933 | [0.874, 0.966] | 335.0 |
-| 0.99 | 0.99 | 120 | 118 | 0.983 | [0.941, 0.995] | 639.0 |
+| 0.68 | 0.73 | 130 | 97 | 0.746 | [0.665, 0.813] | 125.5 |
+| 0.85 | 0.87 | 130 | 117 | 0.900 | [0.836, 0.941] | 217.9 |
+| 0.95 | 0.95 | 130 | 122 | 0.938 | [0.883, 0.968] | 330.9 |
+| 0.99 | 0.99 | 130 | 128 | 0.985 | [0.946, 0.996] | 631.3 |
 
 _τ' = τ + δ(τ) is the served claim after the walk-forward δ-shift; consumer-facing target is τ. Realised coverage should sit at or above τ on average (the schedule is conservative by construction); with this small a sample the Wilson CI is wide and a single miss can drop the headline materially._
 
@@ -36,10 +36,10 @@ _τ' = τ + δ(τ) is the served claim after the walk-forward δ-shift; consumer
 
 | τ | normal | long_weekend | high_vol |
 |---:|---:|---:|---:|
-| 0.68 | 80 | 30 | 10 |
-| 0.85 | 80 | 30 | 10 |
-| 0.95 | 80 | 30 | 10 |
-| 0.99 | 80 | 30 | 10 |
+| 0.68 | 90 | 30 | 10 |
+| 0.85 | 90 | 30 | 10 |
+| 0.95 | 90 | 30 | 10 |
+| 0.99 | 90 | 30 | 10 |
 
 ## Per-(symbol, τ) detail
 
@@ -525,6 +525,46 @@ _τ' = τ + δ(τ) is the served claim after the walk-forward δ-shift; consumer
 | TSLA | 2026-07-17 | normal | 0.85 | 386.0880 | 381.3354 | 189.6 | ✓ |
 | TSLA | 2026-07-17 | normal | 0.95 | 386.0880 | 381.3354 | 280.3 | ✓ |
 | TSLA | 2026-07-17 | normal | 0.99 | 386.0880 | 381.3354 | 535.1 | ✓ |
+| AAPL | 2026-07-24 | normal | 0.68 | 334.9000 | 336.0173 | 113.7 | ✓ |
+| AAPL | 2026-07-24 | normal | 0.85 | 334.9000 | 336.0173 | 191.0 | ✓ |
+| AAPL | 2026-07-24 | normal | 0.95 | 334.9000 | 336.0173 | 282.4 | ✓ |
+| AAPL | 2026-07-24 | normal | 0.99 | 334.9000 | 336.0173 | 539.2 | ✓ |
+| GLD | 2026-07-24 | normal | 0.68 | 373.8900 | 375.7055 | 113.9 | ✓ |
+| GLD | 2026-07-24 | normal | 0.85 | 373.8900 | 375.7055 | 191.3 | ✓ |
+| GLD | 2026-07-24 | normal | 0.95 | 373.8900 | 375.7055 | 282.8 | ✓ |
+| GLD | 2026-07-24 | normal | 0.99 | 373.8900 | 375.7055 | 539.8 | ✓ |
+| GOOGL | 2026-07-24 | normal | 0.68 | 325.0400 | 322.6178 | 113.7 | ✓ |
+| GOOGL | 2026-07-24 | normal | 0.85 | 325.0400 | 322.6178 | 191.0 | ✓ |
+| GOOGL | 2026-07-24 | normal | 0.95 | 325.0400 | 322.6178 | 282.4 | ✓ |
+| GOOGL | 2026-07-24 | normal | 0.99 | 325.0400 | 322.6178 | 539.2 | ✓ |
+| HOOD | 2026-07-24 | normal | 0.68 | 97.0000 | 95.7642 | 113.7 | ✗ |
+| HOOD | 2026-07-24 | normal | 0.85 | 97.0000 | 95.7642 | 191.0 | ✓ |
+| HOOD | 2026-07-24 | normal | 0.95 | 97.0000 | 95.7642 | 282.4 | ✓ |
+| HOOD | 2026-07-24 | normal | 0.99 | 97.0000 | 95.7642 | 539.2 | ✓ |
+| MSTR | 2026-07-24 | normal | 0.68 | 94.5500 | 93.4704 | 114.9 | ✗ |
+| MSTR | 2026-07-24 | normal | 0.85 | 94.5500 | 93.4704 | 193.0 | ✓ |
+| MSTR | 2026-07-24 | normal | 0.95 | 94.5500 | 93.4704 | 285.4 | ✓ |
+| MSTR | 2026-07-24 | normal | 0.99 | 94.5500 | 93.4704 | 544.9 | ✓ |
+| NVDA | 2026-07-24 | normal | 0.68 | 208.1100 | 208.7017 | 113.7 | ✓ |
+| NVDA | 2026-07-24 | normal | 0.85 | 208.1100 | 208.7017 | 191.0 | ✓ |
+| NVDA | 2026-07-24 | normal | 0.95 | 208.1100 | 208.7017 | 282.4 | ✓ |
+| NVDA | 2026-07-24 | normal | 0.99 | 208.1100 | 208.7017 | 539.2 | ✓ |
+| QQQ | 2026-07-24 | normal | 0.68 | 691.7200 | 690.3884 | 113.7 | ✓ |
+| QQQ | 2026-07-24 | normal | 0.85 | 691.7200 | 690.3884 | 191.0 | ✓ |
+| QQQ | 2026-07-24 | normal | 0.95 | 691.7200 | 690.3884 | 282.4 | ✓ |
+| QQQ | 2026-07-24 | normal | 0.99 | 691.7200 | 690.3884 | 539.2 | ✓ |
+| SPY | 2026-07-24 | normal | 0.68 | 744.9100 | 745.5808 | 113.7 | ✓ |
+| SPY | 2026-07-24 | normal | 0.85 | 744.9100 | 745.5808 | 191.0 | ✓ |
+| SPY | 2026-07-24 | normal | 0.95 | 744.9100 | 745.5808 | 282.4 | ✓ |
+| SPY | 2026-07-24 | normal | 0.99 | 744.9100 | 745.5808 | 539.2 | ✓ |
+| TLT | 2026-07-24 | normal | 0.68 | 83.7300 | 83.4781 | 113.0 | ✓ |
+| TLT | 2026-07-24 | normal | 0.85 | 83.7300 | 83.4781 | 189.8 | ✓ |
+| TLT | 2026-07-24 | normal | 0.95 | 83.7300 | 83.4781 | 280.7 | ✓ |
+| TLT | 2026-07-24 | normal | 0.99 | 83.7300 | 83.4781 | 535.8 | ✓ |
+| TSLA | 2026-07-24 | normal | 0.68 | 313.2300 | 315.8474 | 113.7 | ✓ |
+| TSLA | 2026-07-24 | normal | 0.85 | 313.2300 | 315.8474 | 191.0 | ✓ |
+| TSLA | 2026-07-24 | normal | 0.95 | 313.2300 | 315.8474 | 282.4 | ✓ |
+| TSLA | 2026-07-24 | normal | 0.99 | 313.2300 | 315.8474 | 539.2 | ✓ |
 
 ## Re-run
 

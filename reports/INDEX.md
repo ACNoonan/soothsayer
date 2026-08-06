@@ -21,6 +21,7 @@ For the current deployed state, read [`STATUS.md`](../STATUS.md) (root). For the
 | [`m6_validation.md`](m6_validation.md) | Full M6 LWC robustness battery — per-symbol Kupiec, LOSO, GARCH baselines, Phase 7/8 evidence. Companion to Paper 1 §6 / §7 revision. |
 | [`m6_sigma_ewma.md`](m6_sigma_ewma.md) | Phase 5 evidence for the σ̂ K=26 → EWMA HL=8 promotion (current canonical σ̂ rule). |
 | [`m6_simulation_study.md`](m6_simulation_study.md) | 4-DGP Monte Carlo + Phase 6 sample-size sweep (newly-listed-symbol admission threshold). |
+| [`lending_commercial_backtest.md`](lending_commercial_backtest.md) | Internal commercial gut check for the one-sided downside product: borrowing capacity, held-out risk drift, frozen per-reserve haircut comparator, and ex-post matched-risk ceiling. |
 | [`active/`](active/) | In-flight working docs (M6 refactor plan, Phase 7/8 results, validation backlog). See [`active/INDEX.md`](active/INDEX.md). |
 
 ## Operational (recurring monitoring)
