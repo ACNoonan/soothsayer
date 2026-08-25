@@ -151,9 +151,18 @@ order and do not let the browser reorder them.
       - Concept DOI  `10.5281/zenodo.XXXXXXX`  ← resolves to newest forever
       - Version DOI  `10.5281/zenodo.YYYYYYY`  ← pins v1, will look stale
 
-- [ ] **1.22** Write the **concept** DOI here before moving on:
+- [ ] **1.22** Write the **concept** DOI here before moving on.
 
-          ZENODO CONCEPT DOI: 10.5281/zenodo. ______________
+      **DONE 2026-08-25:**
+
+          ZENODO CONCEPT DOI: 10.5281/zenodo.22094768
+          version DOI (v1):   10.5281/zenodo.22094769
+
+      Read off the record's API (`conceptdoi`), not the record page — the
+      page's Versions panel is easy to miss and the two numbers differ by one
+      digit:
+
+          curl -s https://zenodo.org/api/records/<ID> | python3 -m json.tool | grep -i conceptdoi
 
 - [ ] **1.23** Verify the files downloaded intact:
 
@@ -222,11 +231,9 @@ order and do not let the browser reorder them.
       of text. It is 1,827 of a hard 1,920 characters, and it is pure ASCII
       because arXiv rejects Unicode in this field.
 
-- [ ] **2.12 Comments** — paste, substituting the DOI from step 1.20:
+- [ ] **2.12 Comments** — paste verbatim (the DOI is already filled in):
 
-          67 pages, 13 figures. Reference implementation (Python, Rust, Anchor),
-          calibration artefacts, and the public band archive:
-          https://doi.org/10.5281/zenodo.XXXXXXX
+          67 pages, 13 figures. Reference implementation (Python, Rust, Anchor), calibration artefacts, and the public band archive: https://doi.org/10.5281/zenodo.22094768
 
 - [ ] **2.13 DOI field** — leave **blank**. It is for a published journal
       version. The Zenodo DOI belongs in Comments, which you just did.

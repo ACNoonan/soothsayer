@@ -157,11 +157,15 @@ record. Both carry the same text, so consistency matters. arXiv's default
 perpetual non-exclusive licence is *more* restrictive than what Zenodo already
 grants, which makes it the inconsistent choice.
 
-**Comments field:**
-> 67 pages, 13 figures. Reference implementation (Python, Rust, Anchor),
-> calibration artefacts, and the public band archive: https://doi.org/<ZENODO_CONCEPT_DOI>
+**Comments field** — Zenodo v1 published 2026-08-25, so this is final text,
+not a template. Paste it exactly:
 
-Fill the concept DOI in after Zenodo publishes — see §7 for the ordering.
+> 67 pages, 13 figures. Reference implementation (Python, Rust, Anchor), calibration artefacts, and the public band archive: https://doi.org/10.5281/zenodo.22094768
+
+That is the **concept** DOI (10.5281/zenodo.22094768), taken from the
+record's API `conceptdoi` field rather than inferred. The version DOI for v1 is
+10.5281/zenodo.22094769 — one digit apart, and the wrong one to
+publish, because it pins v1 while the concept DOI follows every future version.
 
 **DOI field: leave blank.** It is for a published journal version. The Zenodo
 DOI goes in Comments.
