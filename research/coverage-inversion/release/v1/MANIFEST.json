@@ -1,0 +1,43 @@
+{
+  "version": "v1",
+  "staged_at": "2026-08-25T10:25:48.138396+00:00",
+  "git": {
+    "commit": "9ac518f9f5f503905f9d08c807d955d9723f6de8",
+    "tree_dirty": true
+  },
+  "gates": {
+    "freshness": "pass",
+    "cleanroom": {
+      "pages": 67,
+      "latex_errors": 0,
+      "undefined": 0,
+      "overfull": 27
+    },
+    "abstract": {
+      "abstract_chars": 1827,
+      "abstract_paragraphs": 2
+    },
+    "figures_in_tarball": 13
+  },
+  "counts": {
+    "reference_implementation_files": 88,
+    "calibration_artefact_files": 5,
+    "band_archive_files": 4
+  },
+  "upload_order": [
+    "01_hero.png",
+    "02_Noonan_2026_coverage_inversion.pdf",
+    "03_paper_latex_source.tar.gz",
+    "04_reference_implementation.zip",
+    "05_calibration_artefacts.zip",
+    "06_public_band_archive.zip"
+  ],
+  "sha256": {
+    "01_hero.png": "b3f42b0f2b0770bcd9076f78d804082b4cb33497831a157065945c3267bc2ec4",
+    "02_Noonan_2026_coverage_inversion.pdf": "eab855d5527ead5cf04e662e84beeb839de073740100443553456421c43bbcb7",
+    "03_paper_latex_source.tar.gz": "054ded011ff33e17b45dff87e2a1f0a4cb355676bda511396f70aee751754780",
+    "04_reference_implementation.zip": "d7d66b45cbb718a689ece68dd60f8fa5c6fb2aa69850e255e6b9db4272757e56",
+    "05_calibration_artefacts.zip": "1dd361682e25ebd75044e72589cb31f4bf2db2de3efa7766b04c5819eeb51519",
+    "06_public_band_archive.zip": "0ebc9f47f4723596effb6d88d5ec56b02750b444595fe31051e54d7e60259bca"
+  }
+}

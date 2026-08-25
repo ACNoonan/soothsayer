@@ -1,0 +1,75 @@
+ZENODO v1 — upload instructions
+===============================
+Generated 2026-08-25. First release of this record. The arXiv counterpart is
+release/ARXIV-SUBMISSION-PLAYBOOK.md — read §7 of it for the ordering, which
+matters: Zenodo publishes FIRST so arXiv's Comments field can carry the DOI.
+
+WHY A ZENODO RECORD AT ALL
+  arXiv already mints a DataCite DOI for the paper, so a Zenodo copy of the PDF
+  alone would be redundant. The record exists for the half arXiv will not host:
+  the reference implementation, the calibration artefacts, and the append-only
+  band archive. The abstract claims a reader "can reconstruct the calibration
+  receipt from public data" — this record is what makes that checkable rather
+  than aspirational.
+
+HOW TO CUT IT
+      .venv/bin/python research/coverage-inversion/release/stage.py --version v1
+  Stages release/v1/upload/ only if four gates pass:
+      G1  the arXiv tarball is newer than every section source
+      G2  clean-room compile: 0 errors, 0 undefined, converged in 3 passes
+      G3  abstract within 1,920 chars, pure ASCII, paragraphs space-indented
+      G4  no figure referenced by paper.tex is missing from the tarball
+  A staged directory is evidence the gates ran, not just a place files landed.
+
+FILES TO UPLOAD, IN THIS ORDER
+  1. 01_hero.png                          first file = the record preview image
+  2. 02_Noonan_2026_coverage_inversion.pdf   67 pages
+  3. 03_paper_latex_source.tar.gz         the exact bytes arXiv compiles
+  4. 04_reference_implementation.zip      88 files — Python, Rust, Anchor
+  5. 05_calibration_artefacts.zip         5 files — the 20 deployment scalars
+  6. 06_public_band_archive.zip           4 files — append-only served bands
+
+  Order is not cosmetic: Zenodo takes the FIRST file as the record preview.
+  Verify every checksum against CHECKSUMS.txt after upload.
+
+FIELDS
+  Resource type      Publication → Preprint
+  Title              Coverage Inversion: Calibration-Transparent Fair-Value
+                     Oracles for Closed-Market Hours
+  Authors            Noonan, Adam  (add ORCID if you have one)
+  Description        ZENODO_v1_DESCRIPTION.txt, everything below its dashed line
+  Version            v1
+  Language           English
+  Keywords           conformal prediction; calibration; oracle; tokenized
+                     equities; real-world assets; Solana; risk management;
+                     coverage; split conformal; DeFi
+  License            Creative Commons Attribution 4.0 International (CC BY 4.0)
+  Related works      leave empty at first publish; add the arXiv identifier
+                     after announcement (see AFTER PUBLISHING)
+  Series information LEAVE EMPTY
+
+  LICENSE NOTE, and it is not a formality. CC BY 4.0 covers the record — the
+  paper, the figures, the text. The CODE inside 04_ is Apache-2.0 and ships its
+  own LICENSE file, which stays authoritative for that zip. Say so in the
+  description rather than letting a reader assume CC BY governs the software.
+
+TRAPS
+  - Publish is IRREVERSIBLE. A published record cannot be deleted, only
+    superseded by a new version. Check the description renders before pressing it.
+  - The CONCEPT DOI is the one to quote, not the version DOI. The concept DOI
+    resolves to the newest version forever; a version DOI pins v1 and will look
+    stale the moment you cut v2. arXiv's Comments field gets the CONCEPT DOI.
+  - Zenodo's description box is rich text and it WILL mangle pasted markdown.
+    Paste, then read it back. Headings and code spans are the usual casualties.
+  - Do not upload data/processed/*.parquet beyond what 05_ carries. The frozen
+    artefact parquet is in there deliberately (it is what soothsayer-verify
+    checks a receipt against); the panels are not, because they are derived and
+    large, and the code to rebuild them ships in 04_.
+
+AFTER PUBLISHING
+  1. Record the CONCEPT DOI. Paste it into the arXiv Comments field (playbook §5).
+  2. Diff the published description against ZENODO_v1_DESCRIPTION.txt.
+  3. After arXiv announces, edit the record: Related works → "is identical to" →
+     arXiv:XXXX.XXXXX. This does not require a new version.
+  4. Append both DOIs to reports/methodology_history.md under a dated entry, and
+     update STATUS.md's Paper 1 row from "gated on endorsement" to the DOIs.

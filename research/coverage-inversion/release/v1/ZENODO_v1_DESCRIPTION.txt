@@ -1,0 +1,82 @@
+ZENODO v1 — description field
+=============================
+Everything BELOW the dashed line goes in the Zenodo "Description" box.
+Paste it, then read it back: the box is rich text and mangles markdown.
+
+------------------------------------------------------------------------------
+
+Tokenized real-world assets trade continuously on public blockchains, but the
+venues that price their underlyings do not. For roughly two-thirds of wall-clock
+time, an on-chain protocol must value collateral against a market that is shut.
+
+This record accompanies "Coverage Inversion: Calibration-Transparent Fair-Value
+Oracles for Closed-Market Hours". The paper inverts the conventional
+point-plus-confidence oracle interface: the target coverage level tau becomes a
+published product input, and every served price band carries a calibration
+receipt that a third party can reconstruct from public data.
+
+WHAT IS HERE
+
+  The paper (67 pages) and the LaTeX source arXiv compiles.
+
+  A reference implementation in three languages — the Python serving path, its
+  Rust port (pinned to the Python by a 329-case parity harness), and the Anchor
+  programs for the on-chain publish path.
+
+  The calibration artefacts: the 20 deployment scalars that define the served
+  bands, including the SHA-256-stamped frozen artefact used for out-of-sample
+  validation.
+
+  The public band archive: an append-only record of bands actually served, with
+  Saturday width commitments published before Monday's open, so the claims can
+  be audited after the fact rather than taken on trust.
+
+EVIDENCE
+
+  Two closed-market panels over the same ten US-listed tickers, 2014-2026:
+  5,996 weekend windows (Friday close to Monday open) and 22,624 overnight
+  windows (close to next open).
+
+  The headline weekend result is held out by leave-one-symbol-out
+  cross-validation at tau = 0.95: realised coverage 0.9497 +/- 0.0128, every
+  fold passing Kupiec. On a 40-cell symbol-by-tau grid the architecture passes
+  40 of 40 Kupiec tests, against 31 of 40 for the strongest practitioner
+  baseline (GARCH-t).
+
+  The same architecture, with only its gap selector changed, carries from
+  weekends to overnight gaps — calibration transparency is a property of closed
+  market hours generally, not of weekends specifically.
+
+  Because an earnings release has a publicly known date and session, the band
+  widens deterministically ahead of it. No incumbent oracle exposes
+  calendar-conditioned coverage.
+
+WHAT WE REPORT AGAINST OURSELVES
+
+  Pooled dynamic-quantile tests reject. The bands are calibrated per anchor, not
+  across the full distribution, and the paper turns that limit into a measurable
+  reserve-guidance threshold rather than leaving it in a footnote.
+
+  The earnings-night band is measurably too wide, not merely conservative. Two
+  of its four anchors are outright Kupiec rejections in the over-coverage
+  direction and a third is borderline. Over-wide is the safe direction for a
+  lending consumer, but it is a cost that consumer pays, and we price it.
+
+  Section 6.5 carries a provenance note on that cell. An upstream feed stopped
+  confirming earnings session times in mid-2025 while continuing to serve dates,
+  so every date-based freshness check stayed green while the data went dark. We
+  found it, rebuilt the timing from SEC EDGAR filing-acceptance timestamps, and
+  recovered 19 nights. Doing so made our own result look worse, which is why the
+  note is in the paper rather than in a changelog.
+
+LICENSING
+
+  This record is CC BY 4.0. The source code in the reference-implementation
+  archive is Apache-2.0 and ships its own LICENSE file, which governs that
+  archive.
+
+VERIFYING WHAT YOU DOWNLOADED
+
+  CHECKSUMS.txt in the staged bundle carries a SHA-256 for every file. The
+  calibration artefact carries its own SHA-256 in its JSON sidecar, and
+  soothsayer-verify checks a served band against it without trusting this record.
