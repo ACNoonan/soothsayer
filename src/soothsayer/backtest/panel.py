@@ -26,7 +26,7 @@ from ..sources.scryer import (
     load_cboe_index_daily,
     load_cme_daily_from_intraday,
     load_yahoo_bars,
-    load_yahoo_earnings,
+    load_earnings_v3,
 )
 from ..universe import CORE_XSTOCKS
 
@@ -97,6 +97,17 @@ class PanelSpec:
     min_gap_days: int = 3
     vol_lookback: int = 20  # trading days for realized vol used in F0 CI
     gap_mode: str = "weekend"  # "weekend" (gap >= min_gap_days) | "overnight" (gap == 1 weeknight)
+    # Which feed supplies ^VIX. "cboe" prefers CBOE's official close and falls
+    # back to Yahoo; "yahoo" reads Yahoo only.
+    #
+    # This is a reproducibility switch, not a quality one. The CBOE blend
+    # landed 2026-05-04 (commit 6c479ca); `v1b_panel.parquet` was built
+    # 2026-04-27 and so trained the deployed artefact on **Yahoo** VIX. The
+    # two feeds disagree by up to 2.61 VIX points (12.8%) on some dates, so
+    # scoring that artefact against a CBOE-sourced panel would vary the
+    # feed and the time period at once. Pass "yahoo" to reproduce or extend
+    # a pre-2026-05-04 panel; "cboe" is right for anything newly fit.
+    vix_source: str = "cboe"
 
 
 def _universe() -> list[str]:
@@ -169,7 +180,9 @@ def _weekend_pairs_with_vol(daily: pd.DataFrame, spec: PanelSpec) -> pd.DataFram
     return pd.DataFrame(out)
 
 
-def _load_one_symbol(sym: str, start: date, end: date) -> pd.DataFrame:
+def _load_one_symbol(
+    sym: str, start: date, end: date, vix_source: str = "cboe"
+) -> pd.DataFrame:
     """Per-symbol loader with source dispatch. Returns a frame with at
     least ``symbol, ts, open, close`` columns (``ts`` as datetime.date).
 
@@ -183,7 +196,7 @@ def _load_one_symbol(sym: str, start: date, end: date) -> pd.DataFrame:
         (its convention is what the frozen artefact was trained on).
       * Everything else → yahoo only.
     """
-    if sym in CBOE_INDEX_SYMBOLS:
+    if sym in CBOE_INDEX_SYMBOLS and vix_source == "cboe":
         cboe_idx = CBOE_INDEX_SYMBOLS[sym]
         cboe = load_cboe_index_daily(cboe_idx, start, end)
         if not cboe.empty:
@@ -224,12 +237,14 @@ def _load_one_symbol(sym: str, start: date, end: date) -> pd.DataFrame:
     return df[["symbol", "ts", "open", "close"]].copy()
 
 
-def _load_daily_window(symbols: list[str], start: date, end: date) -> pd.DataFrame:
+def _load_daily_window(
+    symbols: list[str], start: date, end: date, vix_source: str = "cboe"
+) -> pd.DataFrame:
     """Load one daily-bar window for a list of symbols, dispatching each
     symbol to the appropriate scryer source (yahoo, CBOE, CME)."""
     frames: list[pd.DataFrame] = []
     for sym in symbols:
-        df = _load_one_symbol(sym, start, end)
+        df = _load_one_symbol(sym, start, end, vix_source=vix_source)
         if not df.empty:
             frames.append(df)
     if not frames:
@@ -276,15 +291,21 @@ def _earnings_flags(spec: PanelSpec) -> pd.DataFrame:
     """For each (symbol, weekend), emit earnings_next_week boolean: True if the
     ticker has an earnings release scheduled in the upcoming Mon–Fri window.
 
-    Reads scryer ``yahoo/earnings/v1`` parquet. The historical depth is still
-    bounded by the imported earnings calendar, so earlier years naturally land
-    as False rather than "known no earnings".
+    Reads scryer ``yahoo/earnings/v3`` through :func:`load_earnings_v3`, which
+    returns one resolved row per event. v2 is not read here: its
+    ``(symbol, earnings_date)`` identity turns every Finnhub date revision
+    into a second row, and over 2026-04-24..2026-08-17 that is 17 rows for
+    6 true events — each surplus row an earnings night this function would
+    otherwise flag. See ``reports/active/earnings_flag_coverage_decay.md``.
+
+    Historical depth is still bounded by the imported earnings calendar, so
+    earlier years naturally land as False rather than "known no earnings".
     """
     symbols = [x.underlying for x in CORE_XSTOCKS]
     rows: list[pd.DataFrame] = []
     for sym in symbols:
         try:
-            df = load_yahoo_earnings(sym, spec.start, spec.end + timedelta(days=4))
+            df = load_earnings_v3(sym, spec.start, spec.end + timedelta(days=4))
         except Exception as exc:
             warnings.warn(f"earnings loader failed for {sym}: {exc}")
             continue
@@ -296,6 +317,8 @@ def _earnings_flags(spec: PanelSpec) -> pd.DataFrame:
             rows.append(df[keep].copy())
     if not rows:
         return pd.DataFrame(columns=["symbol", "earnings_date", "session", "session_confirmed"])
+    # load_earnings_v3 already resolves to one row per event; the dedup is a
+    # belt-and-braces guard against a symbol appearing under two labels.
     return pd.concat(rows, ignore_index=True).drop_duplicates(
         subset=["symbol", "earnings_date"]
     )
@@ -485,12 +508,12 @@ def build(spec: PanelSpec) -> pd.DataFrame:
       fut_ret                           -- alias for es_ret (legacy F2 path)
     """
     equities = _universe()
-    eq_daily = _load_daily_window(equities, spec.start, spec.end)
-    fut_daily = _load_daily_window(list(FUTURES), spec.start, spec.end)
-    vix_daily = _load_daily_window([VIX], spec.start, spec.end)
-    gvz_daily = _load_daily_window([GVZ], spec.start, spec.end)
-    move_daily = _load_daily_window([MOVE], spec.start, spec.end)
-    btc_daily = _load_daily_window([BTC], spec.start, spec.end)
+    eq_daily = _load_daily_window(equities, spec.start, spec.end, vix_source=spec.vix_source)
+    fut_daily = _load_daily_window(list(FUTURES), spec.start, spec.end, vix_source=spec.vix_source)
+    vix_daily = _load_daily_window([VIX], spec.start, spec.end, vix_source=spec.vix_source)
+    gvz_daily = _load_daily_window([GVZ], spec.start, spec.end, vix_source=spec.vix_source)
+    move_daily = _load_daily_window([MOVE], spec.start, spec.end, vix_source=spec.vix_source)
+    btc_daily = _load_daily_window([BTC], spec.start, spec.end, vix_source=spec.vix_source)
 
     panel = _weekend_pairs_with_vol(eq_daily, spec)
 

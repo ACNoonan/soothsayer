@@ -262,6 +262,105 @@ def load_yahoo_earnings(symbol: str, start: DateLike, end: DateLike) -> pd.DataF
     return df.loc[mask].reset_index(drop=True)
 
 
+# Session-source precedence for ``earnings.v3`` read-time resolution.
+# Mirrors ``scryer_schema::earnings::v3::Provenance`` ordering: an 8-K
+# acceptance timestamp beats Yahoo's backfill, which beats Finnhub's
+# estimate. Finnhub's ``hour`` is a guess and never confirms.
+_V3_SESSION_PRECEDENCE = {"finnhub": 0, "yahoo_backfill": 1, "edgar_8k": 2}
+
+# A revision can move an earnings date across a year boundary, and the
+# store partitions on that date. Read one year either side so a
+# December event revised into January still resolves against all its
+# claims.
+_V3_YEAR_PAD = 1
+
+
+def load_earnings_v3(symbol: str, start: DateLike, end: DateLike) -> pd.DataFrame:
+    """Resolved earnings events for one symbol, with dates in ``[start, end]``.
+
+    Schema: ``earnings.v3``. Returns **one row per event**, not one row per
+    source claim. Columns: ``symbol``, ``fiscal_period``, ``earnings_date``,
+    ``session``, ``session_source``, ``session_confirmed``, ``filing_ts``,
+    ``accession_number``.
+
+    This is the sanctioned reader. Do not group the raw v3 partitions
+    yourself: v3 stores every source's claim as its own row on purpose, so
+    an unresolved read shows several rows per event and double-counts
+    earnings nights. Divergent hand-rolled resolution across two consumers
+    is how the 2026-07 session outage stayed invisible for 14 months.
+
+    Resolution mirrors ``scryer_schema::earnings::v3::resolve``:
+
+    * ``session`` — ``edgar_8k`` > ``yahoo_backfill`` > ``finnhub``, ties
+      broken on later ``_fetched_at``.
+    * ``earnings_date`` — an EDGAR-confirmed date wins outright; failing
+      that, the latest ``_fetched_at`` wins, so a revision supersedes the
+      date it replaces.
+
+    ``session_confirmed`` is derived from ``session_source`` and is the
+    flag to gate on. A ``False`` here means no source has *confirmed*
+    timing, which is exactly the condition that went undetected in 2025 —
+    dates stayed current while confirmation decayed.
+    """
+    start_d = _to_date(start)
+    end_d = _to_date(end)
+    paths = _yearly_partition_paths(
+        "yahoo",
+        "earnings",
+        date(start_d.year - _V3_YEAR_PAD, 1, 1),
+        date(end_d.year + _V3_YEAR_PAD, 12, 31),
+        key=("symbol", symbol),
+        schema_version="v3",
+    )
+    out_columns = [
+        "symbol", "fiscal_period", "earnings_date", "session",
+        "session_source", "session_confirmed", "filing_ts", "accession_number",
+    ]
+    df = _read_concat(paths, empty_columns=out_columns + ["_fetched_at"])
+    if df.empty:
+        return pd.DataFrame(columns=out_columns)
+
+    df = df.copy()
+    df["earnings_date"] = pd.to_datetime(df["earnings_date"]).dt.date
+    df["_is_edgar"] = df["session_source"].eq("edgar_8k")
+    df["_prec"] = df["session_source"].map(_V3_SESSION_PRECEDENCE)
+
+    events = []
+    for (sym, period), grp in df.groupby(["symbol", "fiscal_period"], sort=True):
+        date_row = grp.sort_values(
+            ["_is_edgar", "_fetched_at", "earnings_date"], kind="stable"
+        ).iloc[-1]
+        timed = grp[grp["session_source"].notna()]
+        if timed.empty:
+            events.append({
+                "symbol": sym, "fiscal_period": period,
+                "earnings_date": date_row["earnings_date"],
+                "session": "unknown", "session_source": None,
+                "session_confirmed": False, "filing_ts": None,
+                "accession_number": None,
+            })
+            continue
+        win = timed.sort_values(["_prec", "_fetched_at"], kind="stable").iloc[-1]
+        events.append({
+            "symbol": sym, "fiscal_period": period,
+            "earnings_date": date_row["earnings_date"],
+            "session": win["session"],
+            "session_source": win["session_source"],
+            "session_confirmed": bool(win["session_confirmed"]),
+            "filing_ts": win["filing_ts"],
+            "accession_number": win["accession_number"],
+        })
+
+    out = pd.DataFrame(events, columns=out_columns)
+    if out.empty:
+        return out
+    # Filter on the RESOLVED date, after the padded read.
+    mask = (out["earnings_date"] >= start_d) & (out["earnings_date"] <= end_d)
+    return out.loc[mask].sort_values(
+        ["earnings_date", "symbol"]
+    ).reset_index(drop=True)
+
+
 def load_yahoo_corp_actions(symbol: str, start: DateLike, end: DateLike) -> pd.DataFrame:
     """Corporate-action rows (dividends + splits) for one symbol in ``[start, end]``.
 
