@@ -181,8 +181,13 @@ def main() -> None:
     n_figs = gate_figures()
 
     print("\nAssembling:")
-    # 1. hero / preview image — Zenodo shows the FIRST file as the record preview
-    hero_src = REPO / "landing" / "og-image.png"
+    # 1. hero / preview image — Zenodo shows the FIRST file as the record preview.
+    #    Deliberately a paper figure, not landing/og-image.png: that one is
+    #    product marketing, carries a vercel.app URL that will rot, and tells a
+    #    reader nothing. H2 is the whole contribution in one picture — consumer
+    #    picks tau, oracle serves a band plus a calibration receipt, third party
+    #    re-derives it from public data.
+    hero_src = PAPER / "figures" / "fig_h2_anatomy_of_a_read.png"
     shutil.copy2(hero_src, dest / "01_hero.png")
     print(f"  01_hero.png")
 

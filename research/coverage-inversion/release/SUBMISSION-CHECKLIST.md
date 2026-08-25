@@ -1,0 +1,257 @@
+# Submission checklist — Paper 1
+
+**Follow this top to bottom in one sitting.** The two reference documents
+(`ARXIV-SUBMISSION-PLAYBOOK.md`, `v1/ZENODO_v1_INSTRUCTIONS.txt`) explain *why*;
+this one is the *sequence*. Boxes are in dependency order — Zenodo must publish
+before arXiv, because arXiv's Comments field carries the Zenodo DOI.
+
+Budget: about 40 minutes for Zenodo, 30 for arXiv. Submit **Mon–Thu before
+14:00 ET** or the arXiv half waits for the next cycle.
+
+---
+
+## PART 0 — Pre-flight (terminal, 5 min)
+
+- [ ] **0.1** Re-stage and let the gates run. If any gate fails, stop — a failed
+      gate means the bundle and the paper disagree.
+
+          cd ~/Documents/soothsayer
+          .venv/bin/python research/coverage-inversion/release/stage.py --version v1
+
+      Expect four `OK` lines and `✓ staged 6 files`.
+
+- [ ] **0.2** Open the staged folder in Finder; you will drag from it twice.
+
+          open research/coverage-inversion/release/v1/upload
+
+- [ ] **0.3** Confirm the tarball you will give arXiv is the one the gates
+      checked.
+
+          shasum -a 256 research/coverage-inversion/build/arxiv_submission.tar.gz
+          shasum -a 256 research/coverage-inversion/release/v1/upload/03_paper_latex_source.tar.gz
+
+      The two hashes must match. They are the same bytes by construction; this
+      catches a rebuild that happened between staging and submitting.
+
+---
+
+## PART 1 — Zenodo (publish FIRST)
+
+### 1A. Create the record
+
+- [ ] **1.1** Go to https://zenodo.org and log in. GitHub SSO is fine.
+- [ ] **1.2** Top right: **New upload** (Zenodo sometimes labels this
+      "New submission" — same thing).
+- [ ] **1.3** Leave the community field empty. Do not submit to a community on
+      the first publish; a community review can hold the record and you need the
+      DOI today.
+
+### 1B. Files — order matters
+
+Zenodo takes the **first file** as the record preview image. Upload in this
+order and do not let the browser reorder them.
+
+- [ ] **1.4** Drag all six files in at once, then check the list reads:
+
+      1. `01_hero.png`                              65 KB
+      2. `02_Noonan_2026_coverage_inversion.pdf`   1.0 MB — 67 pages
+      3. `03_paper_latex_source.tar.gz`            452 KB
+      4. `04_reference_implementation.zip`         258 KB — 88 files
+      5. `05_calibration_artefacts.zip`            150 KB — 5 files
+      6. `06_public_band_archive.zip`               94 KB — 4 files
+
+      Do **not** upload `CHECKSUMS.txt` or `MANIFEST.json`. They are your
+      staging evidence, not part of the record.
+
+- [ ] **1.5** If the preview thumbnail shows anything other than the
+      "anatomy of a read" schematic, the order is wrong. Fix it before saving.
+
+### 1C. Metadata
+
+- [ ] **1.6 Resource type** → `Publication` → `Preprint`.
+
+- [ ] **1.7 Title** — paste exactly:
+
+      Coverage Inversion: Calibration-Transparent Fair-Value Oracles for Closed-Market Hours
+
+- [ ] **1.8 Authors** — `Noonan, Adam`. Add your ORCID if you have one; it is
+      the only field here that pays off later, because it links this record to
+      the stats.ML paper automatically.
+
+- [ ] **1.9 Description** — open `v1/ZENODO_v1_DESCRIPTION.txt`, copy
+      **everything below the dashed line**, paste.
+
+      Then **read it back in the box.** It is a rich-text field and it mangles
+      pasted plain text: the usual casualties are the indented block under
+      "WHAT IS HERE" and the double line breaks between sections. Fix the
+      paragraph breaks by hand if they collapsed.
+
+- [ ] **1.10 Version** — `v1`
+
+- [ ] **1.11 Language** — `English`
+
+- [ ] **1.12 Keywords** — add one at a time, pressing Enter after each:
+
+      conformal prediction · calibration · oracle · tokenized equities ·
+      real-world assets · Solana · risk management · coverage ·
+      split conformal · DeFi
+
+- [ ] **1.13 License** — `Creative Commons Attribution 4.0 International`
+      (CC BY 4.0). This must match what you pick on arXiv.
+
+- [ ] **1.14 Related works** — leave empty. The arXiv ID does not exist yet;
+      you add it in step 3.2 without cutting a new version.
+
+- [ ] **1.15 Series information** — leave empty.
+
+### 1D. Publish
+
+- [ ] **1.16** Press **Save** first, not Publish. Read the draft page.
+- [ ] **1.17** Check the description rendered. Check the preview image.
+- [ ] **1.18** **Publish.**
+
+      This is irreversible. A published Zenodo record cannot be deleted, only
+      superseded by a new version.
+
+### 1E. Capture the DOI — the step everything downstream needs
+
+- [ ] **1.19** The record page now shows **two** DOIs. You want the one labelled
+      **"Cite all versions"** / concept DOI, not the version DOI.
+
+      - Concept DOI  `10.5281/zenodo.XXXXXXX`  ← resolves to newest forever
+      - Version DOI  `10.5281/zenodo.YYYYYYY`  ← pins v1, will look stale
+
+- [ ] **1.20** Write the **concept** DOI here before moving on:
+
+          ZENODO CONCEPT DOI: 10.5281/zenodo. ______________
+
+- [ ] **1.21** Verify the files downloaded intact:
+
+          cd ~/Downloads   # after downloading a couple from the record
+          shasum -a 256 -c ~/Documents/soothsayer/research/coverage-inversion/release/v1/upload/CHECKSUMS.txt
+
+---
+
+## PART 2 — arXiv
+
+### 2A. Start, and hit the endorsement gate early
+
+- [ ] **2.1** Go to https://arxiv.org and log in.
+- [ ] **2.2** **Start New Submission.**
+- [ ] **2.3** Accept the submission agreement.
+
+- [ ] **2.4 License** → **CC BY 4.0**, matching Zenodo.
+
+      Irrevocable once submitted. arXiv's default perpetual non-exclusive
+      licence is *more* restrictive than what you have already granted on
+      Zenodo for the same text, so the default is the inconsistent choice.
+
+- [ ] **2.5 Primary category** → `stats.AP` (Statistics — Applications).
+
+      **This is the endorsement gate.** arXiv answers one of two ways:
+
+      - *"You are endorsed"* → continue to 2.6.
+      - *An endorsement request with a six-character code* → stats.AP did not
+        inherit from your stats.ML submission. **Stop; the draft persists.**
+        Read `ARXIV-SUBMISSION-PLAYBOOK.md` §6. Nothing is lost and the Zenodo
+        record is already live and citable.
+
+- [ ] **2.6 Cross-lists** → add **`q-fin.RM`** and **`cs.CE`**. Two, not more.
+
+      A long cross-list request reads as category-spamming and slows
+      moderation. If the form refuses a cross-list, drop it and continue —
+      cross-lists are moderator-decided, cannot block announcement, and can be
+      requested later from the abstract page.
+
+### 2B. Files
+
+- [ ] **2.7** Upload **`research/coverage-inversion/build/arxiv_submission.tar.gz`**.
+
+      Source only. Do **not** upload the PDF — arXiv rejects PDF-only
+      submissions from source-capable authors and you would forfeit the HTML
+      rendering. Do **not** upload anything from the Zenodo bundle.
+
+- [ ] **2.8** Let arXiv compile. **Read its compile log**, not just the green
+      tick. Its TeX Live is not yours.
+
+- [ ] **2.9** Open arXiv's own PDF preview and check three things:
+      - page count is **67**
+      - all 13 figures rendered (spot-check H2, H4, S2)
+      - the bibliography is present — 65 entries
+
+### 2C. Metadata
+
+- [ ] **2.10 Title** — same string as 1.7.
+
+- [ ] **2.11 Abstract** — paste the contents of
+      `research/coverage-inversion/arxiv_form_abstract.txt` **verbatim**.
+
+      **Do not retype it and do not tidy it.** Paragraph 2 begins with a single
+      leading space on purpose: arXiv strips newlines unless the next line
+      starts with whitespace, and without it your abstract arrives as one wall
+      of text. It is 1,827 of a hard 1,920 characters, and it is pure ASCII
+      because arXiv rejects Unicode in this field.
+
+- [ ] **2.12 Comments** — paste, substituting the DOI from step 1.20:
+
+          67 pages, 13 figures. Reference implementation (Python, Rust, Anchor),
+          calibration artefacts, and the public band archive:
+          https://doi.org/10.5281/zenodo.XXXXXXX
+
+- [ ] **2.13 DOI field** — leave **blank**. It is for a published journal
+      version. The Zenodo DOI belongs in Comments, which you just did.
+
+- [ ] **2.14 MSC/ACM class** — optional. `62P05` if you want one.
+
+### 2D. Submit
+
+- [ ] **2.15** Preview the whole submission.
+- [ ] **2.16** **Submit.**
+- [ ] **2.17** Record the submission identifier:
+
+          ARXIV SUBMIT ID: ______________
+
+      Announcement is 20:00 ET the next cycle; nothing announces Friday or
+      Saturday. Moderation adds 1–4 days and longer is normal for a first
+      submission in a new primary category. Treat the announced date as
+      unknown, not next-day.
+
+---
+
+## PART 3 — After arXiv announces
+
+- [ ] **3.1** Note the arXiv ID: `arXiv:XXXX.XXXXX`.
+
+- [ ] **3.2** Edit the Zenodo record (no new version needed):
+      **Related works** → relation `is identical to` → `arXiv:XXXX.XXXXX`.
+
+- [ ] **3.3** Append a dated entry to `reports/methodology_history.md` carrying
+      both DOIs and the arXiv ID.
+
+- [ ] **3.4** Update `STATUS.md`: the Paper 1 row still says the gate is the
+      q-fin.RM endorsement. Replace that with the DOIs.
+
+- [ ] **3.5** Delete or archive `arxiv-endorsement/`. It is dead work now.
+
+- [ ] **3.6** Check whether moderators reclassified you. If the paper landed in
+      `q-fin.RM` primary, that is a better outcome than you asked for — accept
+      it and update the history entry to say so.
+
+---
+
+## If something goes wrong
+
+**A gate fails at 0.1** — the bundle disagrees with the paper. Rebuild:
+`.venv/bin/python build/build.py --v2 --arxiv`, then re-stage.
+
+**arXiv's compile fails** — read its log, not yours. The clean-room check in
+the playbook §2 reproduces arXiv's exact compile locally; re-run it and diff
+the logs.
+
+**Page count is not 67** — arXiv's TeX Live differs from yours. Not fatal.
+Update the Comments field to the number arXiv produced rather than shipping a
+count that contradicts the PDF.
+
+**You published Zenodo with a mistake** — you cannot delete it. Fix metadata
+in place (metadata is editable), or cut v2 for a file change. The concept DOI
+keeps pointing at the newest version, so a v2 is cheap and honest.
