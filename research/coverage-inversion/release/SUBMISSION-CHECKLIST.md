@@ -68,17 +68,47 @@ order and do not let the browser reorder them.
 
 ### 1C. Metadata
 
-- [ ] **1.6 Resource type** → `Publication` → `Preprint`.
+- [ ] **1.6 DOI** → Zenodo asks whether you already have one. You do not.
+      Click **"Get a DOI now"** to reserve one.
 
-- [ ] **1.7 Title** — paste exactly:
+      The "I already have a DOI" path is for content assigned an identifier
+      elsewhere. arXiv mints its own DOI later, but that identifies the arXiv
+      record, not this one — they are two records that point at each other, not
+      one record with two names.
+
+      A *reserved* DOI is not registered until you press Publish, and what the
+      reserve shows you is the **version** DOI. Take the concept DOI from the
+      published record page at step 1.19; do not paste the reserved one into
+      arXiv.
+
+- [ ] **1.7 Resource type** → `Publication` → `Preprint`.
+
+      **Not `Software`.** If the form is showing you *Repository URL* and
+      *Programming languages*, you have Software selected — those are
+      software-type fields. The primary object here is the 67-page paper; the
+      code is an attached artifact. Choosing Software demotes the paper to an
+      attachment on a software record, which reads wrong beside the arXiv
+      version and is worse for citation.
+
+      If those fields remain as optional extras after switching, fill them —
+      they are accurate and cost nothing:
+
+      - Repository URL: `https://github.com/ACNoonan/soothsayer`  (public)
+      - Programming languages: `Python`, `Rust`  (the Anchor programs are Rust)
+
+- [ ] **1.8 Publication date** → today's date, the day you publish. Zenodo
+      defaults to it. Do **not** backdate it to the paper's data cutoff — the
+      field means "when did this become public", not "when did the data end".
+
+- [ ] **1.9 Title** — paste exactly:
 
       Coverage Inversion: Calibration-Transparent Fair-Value Oracles for Closed-Market Hours
 
-- [ ] **1.8 Authors** — `Noonan, Adam`. Add your ORCID if you have one; it is
+- [ ] **1.10 Authors** — `Noonan, Adam`. Add your ORCID if you have one; it is
       the only field here that pays off later, because it links this record to
       the stats.ML paper automatically.
 
-- [ ] **1.9 Description** — open `v1/ZENODO_v1_DESCRIPTION.txt`, copy
+- [ ] **1.11 Description** — open `v1/ZENODO_v1_DESCRIPTION.txt`, copy
       **everything below the dashed line**, paste.
 
       Then **read it back in the box.** It is a rich-text field and it mangles
@@ -86,46 +116,46 @@ order and do not let the browser reorder them.
       "WHAT IS HERE" and the double line breaks between sections. Fix the
       paragraph breaks by hand if they collapsed.
 
-- [ ] **1.10 Version** — `v1`
+- [ ] **1.12 Version** — `v1`
 
-- [ ] **1.11 Language** — `English`
+- [ ] **1.13 Language** — `English`
 
-- [ ] **1.12 Keywords** — add one at a time, pressing Enter after each:
+- [ ] **1.14 Keywords** — add one at a time, pressing Enter after each:
 
       conformal prediction · calibration · oracle · tokenized equities ·
       real-world assets · Solana · risk management · coverage ·
       split conformal · DeFi
 
-- [ ] **1.13 License** — `Creative Commons Attribution 4.0 International`
+- [ ] **1.15 License** — `Creative Commons Attribution 4.0 International`
       (CC BY 4.0). This must match what you pick on arXiv.
 
-- [ ] **1.14 Related works** — leave empty. The arXiv ID does not exist yet;
+- [ ] **1.16 Related works** — leave empty. The arXiv ID does not exist yet;
       you add it in step 3.2 without cutting a new version.
 
-- [ ] **1.15 Series information** — leave empty.
+- [ ] **1.17 Series information** — leave empty.
 
 ### 1D. Publish
 
-- [ ] **1.16** Press **Save** first, not Publish. Read the draft page.
-- [ ] **1.17** Check the description rendered. Check the preview image.
-- [ ] **1.18** **Publish.**
+- [ ] **1.18** Press **Save** first, not Publish. Read the draft page.
+- [ ] **1.19** Check the description rendered. Check the preview image.
+- [ ] **1.20** **Publish.**
 
       This is irreversible. A published Zenodo record cannot be deleted, only
       superseded by a new version.
 
 ### 1E. Capture the DOI — the step everything downstream needs
 
-- [ ] **1.19** The record page now shows **two** DOIs. You want the one labelled
+- [ ] **1.21** The record page now shows **two** DOIs. You want the one labelled
       **"Cite all versions"** / concept DOI, not the version DOI.
 
       - Concept DOI  `10.5281/zenodo.XXXXXXX`  ← resolves to newest forever
       - Version DOI  `10.5281/zenodo.YYYYYYY`  ← pins v1, will look stale
 
-- [ ] **1.20** Write the **concept** DOI here before moving on:
+- [ ] **1.22** Write the **concept** DOI here before moving on:
 
           ZENODO CONCEPT DOI: 10.5281/zenodo. ______________
 
-- [ ] **1.21** Verify the files downloaded intact:
+- [ ] **1.23** Verify the files downloaded intact:
 
           cd ~/Downloads   # after downloading a couple from the record
           shasum -a 256 -c ~/Documents/soothsayer/research/coverage-inversion/release/v1/upload/CHECKSUMS.txt
