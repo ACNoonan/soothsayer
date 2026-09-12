@@ -8,9 +8,12 @@
 > submission in a new primary category sits longer than the usual 1–4 days, and nothing Adam does
 > moves it.
 >
-> **The submit ID at 2.17 was never written down**, and no file in this repo records the submission
-> date either. Both are recoverable from the arXiv submission page or the confirmation email; fill
-> them in when you have them.
+> **Submit ID: `submit/7522396`** (recorded 2026-09-12, from the arXiv submission page). The
+> **submission date is not recorded anywhere and the submission page does not show it.** The
+> bound: on or after **2026-08-25**, because Zenodo published that day and this checklist puts
+> Zenodo first so arXiv's Comments field can carry the DOI. 2026-08-25 was a Tuesday, inside the
+> checklist's own Mon–Thu window. So the hold has run **at least 18 days** as of 2026-09-12. If
+> you want the exact date, the arXiv confirmation email has it.
 >
 > **Part 3 is the live list** — every box there waits on the announcement. Item 3.4 (STATUS.md) is
 > partly done already: the Paper 1 row and a new "Paper 1 release state" section carry the Zenodo
@@ -265,9 +268,12 @@ order and do not let the browser reorder them.
 
 - [ ] **2.15** Preview the whole submission.
 - [ ] **2.16** **Submit.**
-- [ ] **2.17** Record the submission identifier:
+- [x] **2.17** Record the submission identifier:
 
-          ARXIV SUBMIT ID: ______________
+          ARXIV SUBMIT ID: submit/7522396
+
+      Submission date not recorded; the submission page does not show it. On or
+      after 2026-08-25 (Zenodo's publish date, which this checklist puts first).
 
       Announcement is 20:00 ET the next cycle; nothing announces Friday or
       Saturday. Moderation adds 1–4 days and longer is normal for a first

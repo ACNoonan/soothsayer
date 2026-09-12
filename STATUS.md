@@ -14,8 +14,11 @@ record: *Coverage Inversion: Calibration-Transparent Fair-Value Oracles for Clos
 Six files: the 67-page PDF, the hero, the LaTeX source, the reference implementation, the
 calibration artefacts, and the public band archive. CC BY 4.0.
 
-**Submitted to arXiv and still on hold** (q-fin.RM primary requested). No identifier is assigned
-until arXiv announces, so there is nothing to record yet and **nothing Adam does moves it**. A
+**Submitted to arXiv and still on hold** (q-fin.RM primary requested), submit ID
+**`submit/7522396`**. The public arXiv identifier is not assigned until arXiv announces, and
+**nothing Adam does moves the hold**. The submission date is not recorded anywhere and the
+submission page does not show it; it is on or after 2026-08-25, so the hold has run at least 18
+days as of 2026-09-12. A
 first submission in a new primary category sits longer than the usual 1–4 days. `PART 3` of
 `research/coverage-inversion/release/SUBMISSION-CHECKLIST.md` lists what to do the day it
 announces, in order.
