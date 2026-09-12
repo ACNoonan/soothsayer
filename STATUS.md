@@ -1,19 +1,49 @@
 # STATUS — soothsayer
 
-**As of 2026-07-26.** Single-page operational state for any agent (or human) picking up work in this repo. Read this first. Then read whichever pointer below matches your task. Anything in `reports/methodology_history.md` past §0 is *history* — useful when investigating *why*, not *what*.
+**As of 2026-09-12** (Paper 1 release state only; every operational section below still reads 2026-07-26). Single-page operational state for any agent (or human) picking up work in this repo. Read this first. Then read whichever pointer below matches your task. Anything in `reports/methodology_history.md` past §0 is *history* — useful when investigating *why*, not *what*.
 
 > **Maintenance rule.** Update this file when any of {deployed methodology, served τ range, active workstream, headline metrics, deployment artefact path, wire format} changes. Changes that don't move any of those don't belong here. Long rationale belongs in `reports/methodology_history.md`; this file links to that, not the other way around.
 
 ---
 
-## Picking back up (2026-07-26)
+## Paper 1 release state (2026-09-12)
 
-Two things are unblocked and worth doing first; everything else waits on operator runs.
+**Published on Zenodo, 2026-08-25.** Concept DOI **10.5281/zenodo.22094768** (cite this one; it
+always resolves to the newest version), v1 version DOI 10.5281/zenodo.22094769. Title on the
+record: *Coverage Inversion: Calibration-Transparent Fair-Value Oracles for Closed-Market Hours*.
+Six files: the 67-page PDF, the hero, the LaTeX source, the reference implementation, the
+calibration artefacts, and the public band archive. CC BY 4.0.
 
-1. **Email Marc Schmitt for the q-fin.RM endorsement.** He is the binding constraint on the whole Paper 1 track, moved rank 91 → 20 once the ranker saw his revised title, and we now cite him in §2.3. The ask is specific and true: his regime-path conditioning is a candidate replacement for the §4.3 exchangeability assumption we currently defend only with a permutation test. Hook (accurate, checked) in `arxiv-endorsement/outreach_hooks.json` under `marc schmitt`; prefer `marc.schmitt@cs.ox.ac.uk` over the scraped hotmail address.
-2. **Disclose the earnings-cell truncation in the paper.** §6.8 reports `earnings_night` at n=60 without noting the cell is truncated by a 14-month upstream outage. The direction is safe — recovering the ~19 nights strengthens the partition claim — but publishing a silently-truncated regime undisclosed is the one thing this paper's framing cannot afford.
+**Submitted to arXiv and still on hold** (q-fin.RM primary requested). No identifier is assigned
+until arXiv announces, so there is nothing to record yet and **nothing Adam does moves it**. A
+first submission in a new primary category sits longer than the usual 1–4 days. `PART 3` of
+`research/coverage-inversion/release/SUBMISSION-CHECKLIST.md` lists what to do the day it
+announces, in order.
 
-Blocked chain, in order, needs your operator runs: **EDGAR fetch → `earnings.v3` migration → panel rebuild → regenerate the overnight arms of W12/W15/W16/W17 once.** Do not regenerate before the rebuild; 19 nights against n=60 moves the earnings arm materially and you would pay for the run twice.
+**Do not touch the exceedance paper's arXiv record while this hold is open** (2026-09-12
+decision). Exceedance is the published result this paper builds on
+(arXiv:2608.21262, concept DOI 10.5281/zenodo.21595640). Filing a cross-list request on the parent
+invites a moderator to review scope and venue fit on both at once, and the only thing on offer is
+a stat.ME cross-list nobody finds papers through. It costs nothing to wait.
+
+### Two things this file used to list as next actions, both now closed
+
+1. ~~Email Marc Schmitt for the q-fin.RM endorsement.~~ **Dead work.** The endorsement is no longer
+   the gate; the paper is submitted. `arxiv-endorsement/` is due for deletion or archiving
+   (checklist item 3.5), which has not been done.
+2. ~~Disclose the earnings-cell truncation.~~ **Done, and the whole repair chain with it.** §6.5 of
+   `research/coverage-inversion/rewrite/06_contract_holds.md` carries a "Provenance of this cell"
+   paragraph: the Yahoo endpoint that served dates while it stopped confirming sessions, the
+   rebuild from SEC EDGAR item-2.02 acceptance timestamps, 19 of 22 affected nights recovered, and
+   the cell moving n=60 → 79. The disclosure cost the weaker claim rather than rescuing it —
+   recovering the nights promoted τ=0.68 from insignificant to a Kupiec rejection, and the paper
+   says so. The panel reads `earnings.v3`, and the figures and cells were regenerated
+   (`0b6ece5`, `401cbaa`); a pre-registration card is at
+   `reports/active/prereg_earnings_repair_20260825.md`.
+
+**Not verified in this pass:** whether the overnight arms of W12/W15/W16/W17 were regenerated after
+the panel rebuild. The paper's own cells were. The W-arm regeneration was a separate item on the
+old blocked chain and I did not check it.
 
 ---
 
@@ -45,7 +75,7 @@ Blocked chain, in order, needs your operator runs: **EDGAR fetch → `earnings.v
 
 | Workstream | Driving doc | Status |
 |---|---|---|
-| **Paper 1 (coverage-inversion) → arXiv** | `research/coverage-inversion/README.md` then `rewrite/` | **67-page PDF**, 0 LaTeX errors, 0 unresolved citations (`build/build.py --v2 --pdf`). 2026-07-24/25: +13 citations from the related-work sweep; a falsifiable §2 claim corrected (ACon², USENIX Sec'23, joins conformal to an on-chain wire); §7 rewritten on measured evidence; **Appendix G** (one-sided lending instantiation); §3 states the two verification contracts; §5.2/§9 draw the weekend-vs-overnight sectional distinction. **Gate is the q-fin.RM endorsement**, not the draft. |
+| **Paper 1 (coverage-inversion) → arXiv** | `research/coverage-inversion/README.md` then `rewrite/` | **67-page PDF**, 0 LaTeX errors, 0 unresolved citations (`build/build.py --v2 --pdf`). 2026-07-24/25: +13 citations from the related-work sweep; a falsifiable §2 claim corrected (ACon², USENIX Sec'23, joins conformal to an on-chain wire); §7 rewritten on measured evidence; **Appendix G** (one-sided lending instantiation); §3 states the two verification contracts; §5.2/§9 draw the weekend-vs-overnight sectional distinction. **Published on Zenodo 2026-08-25** — concept DOI 10.5281/zenodo.22094768, v1 10.5281/zenodo.22094769. **On arXiv hold**, q-fin.RM primary requested, no identifier yet. See "Paper 1 release state" at the top. |
 | **Rust parity** | `crates/soothsayer-oracle/tests/` | ✅ M5/M6 **now a committed regression harness** (`oracle_parity.rs`, 329 cases) — the old 180/180 was a one-off with nothing catching drift. Also pins Rust's *hardcoded* `config.rs` tables against the Python sidecar, which go silently stale on any artefact rebuild. ✅ Adaptive path ported + pinned byte-for-byte (`adaptive_parity.rs`). On-chain M6 enablement (`forecaster_code = 3`) still gated on the next publisher release. |
 | **⛔ BLOCKED: earnings data repair** | `reports/active/earnings_flag_coverage_decay.md` | **Live defect.** Overnight panel has **zero `earnings_night` rows after 2025-05-28** — an earnings night served today gets a ~3% band where the calibrated band is ~25% (measured miscoverage without the cell: 0.333 vs a claimed 0.95). Yahoo's earnings upstream is **dead**, not stale (`earnings-backfill` is a no-op that reports success). Fix chain: **EDGAR fetch → `earnings.v3` migration → panel rebuild → regenerate overnight arms ONCE**. Schema drafted in scryer (`docs/schemas.md`, commit 9647379); migration not implemented. Needs operator runs. |
 | **Characterised, NOT deployed** | `reports/active/w17_promotion_gate.md` | Six things cleared their gates this week and none is promoted. W17 recommends **weekend `W13+W14`, overnight `W15`** (they interfere — W15 undoes W14's τ=0.95 fix on weekends). Plus the one-sided lending profile (Appendix G) and the checkpointed-adaptive state. Promotion of W15 additionally needs the archive emitter wired into the weekly harness. See "What is NOT current state". |

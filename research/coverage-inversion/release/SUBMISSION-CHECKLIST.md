@@ -1,5 +1,26 @@
 # Submission checklist — Paper 1
 
+> ## State, 2026-09-12
+>
+> **Parts 0–2 are done.** Zenodo published 2026-08-25: concept DOI
+> **10.5281/zenodo.22094768**, v1 version DOI 10.5281/zenodo.22094769, six files, CC BY 4.0.
+> arXiv received the submission and it is **still on hold**, q-fin.RM primary requested. A first
+> submission in a new primary category sits longer than the usual 1–4 days, and nothing Adam does
+> moves it.
+>
+> **The submit ID at 2.17 was never written down**, and no file in this repo records the submission
+> date either. Both are recoverable from the arXiv submission page or the confirmation email; fill
+> them in when you have them.
+>
+> **Part 3 is the live list** — every box there waits on the announcement. Item 3.4 (STATUS.md) is
+> partly done already: the Paper 1 row and a new "Paper 1 release state" section carry the Zenodo
+> DOIs and the hold, and want only the arXiv ID added.
+>
+> **Standing decision while the hold is open:** do not file a cross-list request on the exceedance
+> paper's arXiv record (arXiv:2608.21262). It is the published parent result this paper builds on,
+> and a request there invites a moderator to review both papers' scope at once for the sake of a
+> stat.ME cross-list that gains nothing.
+
 **Follow this top to bottom in one sitting.** The two reference documents
 (`ARXIV-SUBMISSION-PLAYBOOK.md`, `v1/ZENODO_v1_INSTRUCTIONS.txt`) explain *why*;
 this one is the *sequence*. Boxes are in dependency order — Zenodo must publish
