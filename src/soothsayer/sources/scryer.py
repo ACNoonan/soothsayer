@@ -607,3 +607,37 @@ def load_dex_xstock_swaps(
         "dex_xstock", "swaps", start, end, key=("symbol", xsymbol),
     )
     return _read_concat(paths, empty_columns=_DEX_XSTOCK_SWAPS_COLUMNS)
+
+
+def load_chainlink_feed_rounds(
+    start: DateLike, end: DateLike, feed_proxy: Optional[str] = None
+) -> pd.DataFrame:
+    """Chainlink Data Feeds rounds with ``updated_at`` in ``[start, end]`` (UTC days).
+
+    Schema: ``oracle.chainlink_feeds.round.v2`` (scryer methodology
+    "Chainlink Data Feeds Round Walk — 2026-10-19"). One row per on-chain
+    round; ``price`` is ``answer_raw / 10**decimals``, ``updated_at`` is
+    unix seconds. Partitioned monthly under ``feed=<lowercase proxy>``;
+    pass ``feed_proxy`` to read one feed. Today the dataset covers the
+    Robinhood Chain stock-token feeds plus USDG/USD.
+    """
+    root = SCRYER_DATASET_ROOT / "oracle.chainlink_feeds" / "round" / "v2"
+    feed_glob = f"feed={feed_proxy.lower()}" if feed_proxy else "feed=*"
+    start_d, end_d = _to_date(start), _to_date(end)
+    months = {(y, m) for y in range(start_d.year, end_d.year + 1) for m in range(1, 13)
+              if (y, m) >= (start_d.year, start_d.month) and (y, m) <= (end_d.year, end_d.month)}
+    paths = [p for (y, m) in sorted(months)
+             for p in sorted(root.glob(f"{feed_glob}/year={y}/month={m:02d}.parquet"))]
+    df = _read_concat(
+        paths,
+        empty_columns=[
+            "chain", "chain_id", "feed_proxy", "feed_description", "decimals",
+            "phase_id", "aggregator_round_id", "round_id", "answer_raw", "price",
+            "started_at", "updated_at", "answered_in_round", "_schema_version",
+            "_fetched_at", "_source", "_dedup_key",
+        ],
+    )
+    if df.empty:
+        return df
+    day = pd.to_datetime(df["updated_at"], unit="s", utc=True).dt.date
+    return df.loc[(day >= start_d) & (day <= end_d)].reset_index(drop=True)
