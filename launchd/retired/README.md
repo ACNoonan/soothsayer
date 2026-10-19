@@ -23,6 +23,15 @@ was booted out of launchd, and every plist was removed from
 The first three were byte-identical to the copies in
 `~/Library/LaunchAgents/`, so nothing was lost when those were removed.
 
+## Re-armed 2026-10-19
+
+`forward-tape` (moved Tuesday → Wednesday 09:30 local) and `band-commit`
+are back at `launchd/` top level and loaded. `band-preopen` stays retired:
+Monday pre-open publishing needs a pre-open futures bar, which only the
+Databento CME poll supplied, and that stays off. Scryer feeds them through
+two re-armed runner jobs (`equities-daily`, now including ES/NQ/GC/ZN and
+^VIX, and `cboe-indices`).
+
 ## Two soothsayer jobs whose plists live in the scryer repo
 
 Both ran soothsayer scripts but were catalogued on the scryer side,
