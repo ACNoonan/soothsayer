@@ -134,6 +134,16 @@ Soothsayer-side future work after rows exist: pool-state reconstructor, path-awa
 
 ## 1. Recent decision log
 
+### 2026-10-19 — Forward tape restarted on Yahoo futures; weekends 08-14 onward re-sourced
+
+**Trigger.** Both pipelines were wound down 2026-08-17, so the forward tape stopped at 15 weekends. Restarted to rebuild a track record for buyer outreach.
+
+**What changed.** Scryer's Databento `cme-intraday-1m` poll stays off. ES/NQ/GC/ZN and ^VIX now come from the free Yahoo daily pull (`equities-daily` manifest), which `panel.py` already prefers on overlap. Weekends from 2026-08-14 onward therefore use Yahoo factor bars, the frozen artefact's training convention. Weekends 2026-05-01 → 2026-08-07 keep the CME-resampled bars they were scored on. Scryer's Yahoo fetcher now drops still-forming bars (`drop_unsettled_bars`), so the forward-tape harness moved Tuesday → Wednesday. Monday pre-open publication (`band-preopen`) stays retired, because it needs the pre-open CME bar.
+
+**Comparability check (could have failed).** On the two weekends where both sources exist (07-31, 08-07), the Friday-close → Monday-open factor return differs CME vs Yahoo by: ES +23.1 / −9.3 bps, NQ +57.9 / −8.6, GC −6.9 / −10.8, ZN −8.7 / −8.6. Against a 214 bps half-width at τ=0.85, that is small but not zero. A difference near the half-width would have made the two halves of the tape incomparable.
+
+**Result.** 25 forward weekends × 10 symbols, frozen artefact sha 7b86d17a…: realised 0.680 / 0.868 / 0.968 / 0.996 at τ = 0.68 / 0.85 / 0.95 / 0.99, and Kupiec passes at all four (p = 1.00 / 0.42 / 0.16 / 0.28). n = 250 rows, but the 10 symbols share each weekend's shock, so the effective sample is nearer 25 weekends and the p-values are optimistic. All 25 weekends are `retro_frozen`; none was pre-committed. `reports/m6_forward_tape_25weekends.md`.
+
 ### 2026-07-24 — Pre-open commitment scheme (timing closes the audit chain)
 
 **Trigger.** Scope-doc §11.1: derivation-verification is only a substitute for missing timestamps — once a band is publicly committed before its outcome, coverage of pre-committed intervals is a complete audit chain (the conformal guarantee needs no score-function fidelity). §11.2 sequencing pulled this ahead of the dashboard.
