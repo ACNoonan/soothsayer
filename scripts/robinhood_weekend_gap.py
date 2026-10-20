@@ -86,12 +86,15 @@ def band_join(df: pd.DataFrame, start: date, end: date) -> pd.DataFrame:
         y = y.assign(d=pd.to_datetime(y.ts).dt.date).set_index("d")
         for _, b in bands[bands.symbol == sym].iterrows():
             fri, mon = date.fromisoformat(b.weekend_date), date.fromisoformat(b.mon_date)
-            if fri not in y.index or mon not in y.index or not (start <= fri <= end):
+            if fri not in y.index or not (start <= fri <= end):
                 continue
-            c, o = y.loc[fri, "close"], y.loc[mon, "open"]
+            # Monday's bar may not have settled yet; the restart check doesn't need it.
+            c = y.loc[fri, "close"]
+            o = y.loc[mon, "open"] if mon in y.index else float("nan")
             rows.append({"weekend": b.weekend_date, "ticker": sym, "fri_close": c, "mon_open": o,
                          "wkd_ret": o / c - 1, "band_lo": b.lower, "band_hi": b.upper,
-                         "in_band": b.lower <= o <= b.upper, "provenance": b.provenance})
+                         "in_band": (b.lower <= o <= b.upper) if o == o else None,
+                         "provenance": b.provenance})
     cols = ["weekend", "ticker", "fri_close", "mon_open", "wkd_ret", "band_lo", "band_hi", "in_band", "provenance"]
     return df.merge(pd.DataFrame(rows, columns=cols), on=["weekend", "ticker"], how="left")
 
@@ -136,7 +139,7 @@ def main() -> None:
     for _, r in df.reindex(df.resume_ret.abs().sort_values(ascending=False).index).head(12).iterrows():
         lines.append(f"| {r.weekend} | {r.ticker} | {r.frozen_utc} | {r.resume_utc} | {r.gap_h:.1f} | "
                      f"{r.frozen_price:.2f} | {r.resume_price:.2f} | {r.resume_ret*100:+.2f}% |")
-    b = df.dropna(subset=["mon_open"])
+    b = df.dropna(subset=["mon_open"]).astype({"in_band": bool}, errors="ignore")
     if not b.empty:
         lines += [
             "",
@@ -152,6 +155,42 @@ def main() -> None:
         for _, r in b.reindex(b.wkd_ret.abs().sort_values(ascending=False).index).head(10).iterrows():
             lines.append(f"| {r.weekend} | {r.ticker} | {r.fri_close:.2f} | {r.mon_open:.2f} | "
                          f"{r.wkd_ret*100:+.2f}% | {r.band_lo:.2f}–{r.band_hi:.2f} | {'yes' if r.in_band else 'NO'} |")
+    r = df.dropna(subset=["band_lo"]).copy()
+    if not r.empty:
+        # The feed's frozen price must be Yahoo's Friday close in the same units, or the band
+        # (built on Yahoo prices) can't be compared with the feed's restart price. A share
+        # multiplier would show as a gap of tens of percent; a frozen round printed after hours
+        # legitimately drifts about 1%, so the tolerance is 5%.
+        r["frozen_vs_close"] = r.frozen_price / r.fri_close - 1
+        r["restart_in_band"] = (r.band_lo <= r.resume_price) & (r.resume_price <= r.band_hi)
+        r["restart_pos"] = (r.resume_price - (r.band_lo + r.band_hi) / 2) / ((r.band_hi - r.band_lo) / 2)
+        r["open_pos"] = (r.mon_open - (r.band_lo + r.band_hi) / 2) / ((r.band_hi - r.band_lo) / 2)
+        ok = r.frozen_vs_close.abs() < 0.05
+        g = r[ok]
+        both = g.dropna(subset=["mon_open"])
+        lines += [
+            "",
+            "## Sunday 8pm ET restart vs Soothsayer's 95% band",
+            "",
+            f"Unit check: the feed's frozen price sits within 5% of Yahoo's Friday close on "
+            f"{int(ok.sum())}/{len(r)} symbol-weekends (median gap "
+            f"{r.frozen_vs_close.abs().median()*1e4:.1f} bps, max {r.frozen_vs_close.abs().max()*1e4:.0f} bps, "
+            f"the largest from rounds printed after hours). Rows that fail it are dropped below.",
+            "",
+            f"The restart price (first feed round at or after Mon 00:00 UTC) was inside the 95% band on "
+            f"{int(g.restart_in_band.sum())}/{len(g)} symbol-weekends ({g.restart_in_band.mean():.1%}). "
+            f"Position in the band, as a fraction of its half-width (0 = centre, ±1 = edge): "
+            f"restart median |pos| {g.restart_pos.abs().median():.2f}, max {g.restart_pos.abs().max():.2f}; "
+            f"on the {len(both)} rows with a settled Monday bar, Monday open median |pos| "
+            f"{both.open_pos.abs().median():.2f} vs restart {both.restart_pos.abs().median():.2f}.",
+            "",
+            "| weekend | ticker | Fri close | frozen | restart | Mon open | band 95% | restart pos | open pos | restart in band |",
+            "|---|---|---|---|---|---|---|---|---|---|",
+        ]
+        for _, x in g.reindex(g.restart_pos.abs().sort_values(ascending=False).index).iterrows():
+            lines.append(f"| {x.weekend} | {x.ticker} | {x.fri_close:.2f} | {x.frozen_price:.2f} | "
+                         f"{x.resume_price:.2f} | {x.mon_open:.2f} | {x.band_lo:.2f}–{x.band_hi:.2f} | "
+                         f"{x.restart_pos:+.2f} | {x.open_pos:+.2f} | {'yes' if x.restart_in_band else 'NO'} |")
     out.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 
